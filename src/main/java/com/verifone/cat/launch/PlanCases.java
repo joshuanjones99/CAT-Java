@@ -17,7 +17,8 @@ import java.util.List;
  * them.
  *
  * <p>Suites ({@code --suite}) are not collected here yet, so a run with suites and no plan has no cases, and the step
- * fails saying so. The collect pulls into {@code <repoRoot>/tests/suites/pulled}, as the Python CAT does.
+ * fails saying so. The collect pulls into {@code <repoRoot>/tests/suites/pulled}, as the Python CAT does. The catalogue,
+ * the checkout and the petroapps folder all come from the run's {@link LaunchPaths}, so a test points them at fixtures.
  */
 final class PlanCases {
 
@@ -30,22 +31,23 @@ final class PlanCases {
     private PlanCases() {
     }
 
-    /** The case source for the run's plans, with {@code repoRoot} as this checkout. */
-    static CaseSource forRun(Path repoRoot) {
+    /** The case source for the run's plans, read from {@code paths}: its catalogue, checkout and petroapps folder. */
+    static CaseSource forRun(LaunchPaths paths) {
         return config -> {
             if (config.testPlans().isEmpty()) {
                 return List.of();
             }
             try {
-                return collect(config.testPlans(), repoRoot).cases(config);
+                return collect(config.testPlans(), paths).cases(config);
             } catch (RuntimeException e) {
                 throw new IOException("the plan's cases could not be collected: " + e.getMessage(), e);
             }
         };
     }
 
-    private static CaseSource collect(List<String> plans, Path repoRoot) {
-        PlanCatalogue catalogue = PlanCatalogue.offline(repoRoot);
+    private static CaseSource collect(List<String> plans, LaunchPaths paths) {
+        Path repoRoot = paths.repoRoot();
+        PlanCatalogue catalogue = paths.catalogue();
         List<String> keys = new ArrayList<>();
         for (String plan : plans) {
             for (PlanCase c : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_FIRST).rows()) {
@@ -56,7 +58,7 @@ final class PlanCases {
         }
         CollectOptions options = new CollectOptions(REVISION, DIST, repoRoot.resolve(Collect.PULLED_DIR), repoRoot,
                 false);
-        CollectResult collected = Collect.collect(keys, Path.of(Collect.defaultPetroappsRoot()), options);
+        CollectResult collected = Collect.collect(keys, paths.petroappsRoot(), options);
         return CaseSource.collected(collected, repoRoot);
     }
 }

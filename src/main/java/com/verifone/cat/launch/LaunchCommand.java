@@ -1,7 +1,6 @@
 package com.verifone.cat.launch;
 
 import java.io.PrintStream;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,9 +12,10 @@ import java.util.List;
  * [--simulator <name>]... [--fake-pos] [--fake-pinpad]}: one run, headless, through the seven steps.
  *
  * <p>The Python counterpart is {@code tools/rig/run_plan.py} over {@code launch_run}. It prints each
- * step's end and the run folder, and exits 0 only when every step completed. In this port no run can
- * complete: System Checks ends unavailable after its two checks, which stops the run, and the rest are
- * skipped with the reason. That is the honest state until the steps are ported.
+ * step's end and the run folder, and exits 0 only when every step completed. A fake-POS plan run passes
+ * System Checks and reaches step 5; a rig run stops at System Checks as unavailable until the rig-only
+ * lines (the Commander's base, the printer and VATS lines) are ported, and the rest of the steps are
+ * skipped with the reason.
  *
  * <p>Exit codes: 0 the run completed, 1 a step failed or was unavailable, 2 a usage error. Nothing here
  * contacts a device: the rig file is read, and the run lock is a file in the lease folder.
@@ -54,8 +54,7 @@ public final class LaunchCommand {
 
         RunLauncher launcher = new RunLauncher(paths);
         // Step 5 runs the plan's collected cases through the production handler set, on the fake POS or the rig.
-        launcher.wireTests(new StandardRegistry(), PlanCases.forRun(Path.of("").toAbsolutePath()),
-                new BrowserConnector());
+        launcher.wireTests(new StandardRegistry(), PlanCases.forRun(paths), new BrowserConnector());
         LaunchResult result = launcher.launch(config);
         if (config.fakePos()) {
             out.println(FAKE_POS_BANNER);

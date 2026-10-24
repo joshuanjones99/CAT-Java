@@ -2,41 +2,54 @@ package com.verifone.cat.launch;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
+import com.verifone.cat.collect.Freshness;
 import com.verifone.cat.connections.ConnectionProbe;
 import com.verifone.cat.connections.Endpoints;
 import com.verifone.cat.connections.Readiness;
 import com.verifone.cat.connections.RigReadiness;
+import com.verifone.cat.plans.PlanCase;
+import com.verifone.cat.plans.PlanCatalogue;
+import com.verifone.cat.plans.PlanRequirements;
+import com.verifone.cat.plans.Snapshot;
+import com.verifone.cat.preflight.Result;
 import com.verifone.cat.rig.LoadedRig;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigBusyException;
 import com.verifone.cat.rig.RigLease;
 import com.verifone.cat.rig.RigLoader;
+import com.verifone.cat.setup.SetupAudit;
+import com.verifone.cat.setup.SetupEnv;
+import com.verifone.cat.setup.SetupItem;
+import com.verifone.cat.setup.SetupItems;
+import com.verifone.cat.sims.Registry;
+import com.verifone.cat.sims.SimContext;
+import com.verifone.cat.sims.SimEntry;
 
 /**
- * Step 1, System Checks: the rig file, the run lock that keeps one run per rig, and the rig's network
- * lines. The Python CAT's {@code cat.launch.steps.system_checks}.
+ * Step 1, System Checks, as the Python CAT's {@code cat.launch.steps.system_checks}: the workstation audit, the rig
+ * file, the run lock, petroapps' freshness, the rig's network lines, the plans' requirements, the tests to run, and
+ * the simulator staging. Each line is a PASS, FAIL or WARN row in the step's log.
  *
- * <p>Checked here, in order:
- * <ul>
- *   <li>the rig file loads ({@code RigLoader}); a file that will not load fails the step;</li>
- *   <li>the run lock ({@code cat.launch.run_lock}, {@code RigLease} on {@code <rig>.run.lock}) is free;
- *       a run that finds it held stops here and names the holder. It does not wait for it;</li>
- *   <li>the rig network lines ({@code connections.RigReadiness}): the controller's rig adapter holds
- *       {@code controller.host}, and the Commander answers on CGILink. A required line that fails
- *       stops the run, with the fix named. A fake-POS run has no rig hardware in play, so it skips
- *       these lines, as the Python CAT does.</li>
- * </ul>
- * Unavailable, so the step ends failed and no run gets past step 1 on a partial check: the workstation
- * audit ({@code cat.setup.SetupAudit}), petroapps' freshness ({@code cat.collect}), the simulator
- * staging check ({@code cat.sims.config.verify}), and, on a rig run, the receipt-printer lines (a
- * serial listing) and the VATS lines for {@code pinpad: vats} when the rig has them. A fake-POS run
- * takes no run lock, as the Python one does.
+ * <p>Fails the step, as the Python does, when a required audit item is not PASS, the rig will not load, the rig is
+ * busy, petroapps cannot be shown current, a required rig network line is not ok, a plan requirement is not met, or
+ * a plan has no case. The simulator staging lines are advisory (WARN), as the Python's are.
  *
- * <p>UNVERIFIED AGAINST HARDWARE: the network lines reach the rig's addresses, which only a rig run
- * does. The tests use a rig whose Commander name does not resolve, and the controller's loopback.
+ * <p>Not ported, so a run that needs them ends this step as unavailable rather than passing them: on a rig run, the
+ * Commander's base and the Java 17 set and simulators for it, the receipt-printer and VATS lines, and the pump-state
+ * port guard when the Petro Simulator Suite is in the run. Not ported on any run: the Commercial Fleet license check
+ * (the cases' licence tags), and the on-disk check of the tests (step 5 pulls them; the tests line says so).
+ * {@code --fake-pos} skips what the Python skips: the rig, the rig's hardware lines, the run lock and the Commander's
+ * base. A requirement that needs a base is a WARN on a fake-POS run, not a pass.
+ *
+ * <p>UNVERIFIED AGAINST HARDWARE: the network lines reach the rig's addresses, which only a rig run does. The tests
+ * use a rig whose Commander name does not resolve, and the controller's loopback.
  */
 final class SystemChecksStep implements LaunchStep {
 
@@ -46,6 +59,12 @@ final class SystemChecksStep implements LaunchStep {
     /** The budget for each rig network probe: the Python CAT's {@code check_rig} default. */
     static final Duration READINESS_TIMEOUT = Duration.ofSeconds(3);
 
+    /** The rig device the requirements name for the receipt printer: its own readiness line checks it. */
+    private static final String PRINTER = "printer";
+
+    /** The Petro Simulator Suite's registry name, which the pump-state port guard is for. */
+    private static final String PETRO_SIMULATOR = "Petro Simulator Suite";
+
     @Override
     public String name() {
         return LaunchStepNames.SYSTEM_CHECKS;
@@ -53,73 +72,138 @@ final class SystemChecksStep implements LaunchStep {
 
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
-        String rigName = ctx.config().rig();
-        boolean fakePos = ctx.config().fakePos();
+        LaunchConfig config = ctx.config();
+        LaunchPaths paths = ctx.paths();
+        boolean fakePos = config.fakePos();
+        List<String> failures = new ArrayList<>();
+        List<String> missing = new ArrayList<>();
+
+        auditItems(paths.setupEnv(), step, failures);
+
         Rig rig = null;
+        boolean rigOk = true;
+        String rigName = config.rig();
         if (rigName.isEmpty()) {
-            step.check(true, "rig file", "no rig named (a fake-POS run)", true);
+            if (fakePos) {
+                step.skip("rig", "--fake-pos drives the fake POS, no rig needed");
+            } else {
+                step.check(false, "rig", "no rig selected and --fake-pos is off", true);
+                rigOk = false;
+            }
         } else {
-            LoadedRig loaded;
             try {
-                loaded = RigLoader.loadResolved(rigName, ctx.paths().rigsDir());
+                LoadedRig loaded = RigLoader.loadResolved(rigName, paths.rigsDir());
+                ctx.rig(loaded);
+                rig = loaded.rig();
+                step.check(true, "rig file", loaded.source().toString(), true);
             } catch (RuntimeException e) {
                 step.check(false, "rig file " + rigName, e.getMessage(), true);
-                return step.fail("the rig file did not load");
-            }
-            ctx.rig(loaded);
-            rig = loaded.rig();
-            step.check(true, "rig file", loaded.source().toString(), true);
-            if (!fakePos && !takeRunLock(ctx, step, rig.name())) {
-                return false;
-            }
-            if (fakePos) {
-                step.skip("rig hardware", "--fake-pos drives the fake POS, no rig hardware in play");
-            } else if (!rigHardwareReady(step, rig)) {
-                return false;
+                rigOk = false;
             }
         }
-        return step.unavailable("src/cat/launch/steps/system_checks.py", missing(rig, fakePos));
-    }
 
-    /** The parts of step 1 this port does not have yet, named for the run that stops at them. */
-    static String missing(Rig rig, boolean fakePos) {
-        StringBuilder out = new StringBuilder("the workstation audit (cat.setup.SetupAudit), petroapps' "
-                + "freshness (cat.collect) and the simulator staging check (cat.sims.config.verify)");
-        if (rig != null && !fakePos) {
-            boolean printer = rig.registers().stream().anyMatch(r -> r.printerPort() != null && !r.printerPort().isEmpty());
-            if (printer) {
-                out.append(", the receipt-printer lines of rig hardware readiness (a serial listing)");
-            }
-            if (rig.pinpad() == Rig.Pinpad.VATS) {
-                out.append(", the VATS lines for pinpad: vats (the terminal, the SDK and BTT)");
-            }
-        }
-        return out.toString();
-    }
+        // One CAT run per rig, before anything below touches it.
+        String busy = rigOk ? takeRunLock(ctx, step, rig, fakePos) : "";
 
-    private static boolean takeRunLock(RunContext ctx, StepEmitter step, String rig) {
-        RigLease lease = new RigLease(rig + ".run", ctx.paths().leaseDir(),
-                "cat run " + ctx.runId() + " (pid " + ProcessHandle.current().pid() + ")");
-        try {
-            lease.acquire(RUN_LOCK_WAIT);
-        } catch (RigBusyException e) {
-            step.check(false, "run lock",
-                    "rig '" + rig + "' is in use by another CAT run: " + lease.describeHolder(), true);
-            return step.fail("the rig is in use by another CAT run");
-        } catch (RuntimeException e) {
-            step.check(false, "run lock", e.getMessage(), true);
-            return step.fail("the run lock could not be taken");
+        checkPetroapps(paths, step, failures);
+
+        List<String> hardwareFailures = new ArrayList<>();
+        if (rig != null && !fakePos && busy.isEmpty()) {
+            hardwareFailures.addAll(rigHardwareReady(step, rig));
+            missing.addAll(rigOnlyGaps(rig));
+            missing.add("the Commander's base (cat.sims.java.commander_base), which the Java 17 set and the "
+                    + "plans' Required Base depend on");
         }
-        ctx.runLock(lease);
-        step.check(true, "run lock", "rig " + rig, true);
+
+        Set<String> used = new LinkedHashSet<>(config.simulators());
+        boolean nothingToRun = false;
+        if (!config.testPlans().isEmpty()) {
+            checkRequirements(ctx, step, rig, failures, used, fakePos);
+            nothingToRun = !checkTestsToRun(ctx, step, failures);
+        }
+        if (rig != null && !fakePos && used.contains(PETRO_SIMULATOR)) {
+            missing.add("the pump-state port check (cat.launch.port_guard) for " + PETRO_SIMULATOR);
+        }
+
+        checkStaging(paths, rig, step);
+
+        if (!rigOk || !busy.isEmpty() || !hardwareFailures.isEmpty() || !failures.isEmpty() || nothingToRun) {
+            return step.fail(precedence(rigName, rigOk, busy, hardwareFailures, failures, config));
+        }
+        if (!missing.isEmpty()) {
+            return step.unavailable("src/cat/launch/steps/system_checks.py", String.join("; ", missing));
+        }
         return true;
     }
 
     /**
-     * The rig network lines as checklist rows. A required line that is not ok fails the step, and the
-     * failure names every such line. Returns whether the run may go on past them.
+     * The workstation audit: every item in {@link SetupItems#standard()} detected once, one row each. A required item
+     * that is not PASS is a failure; an optional one is a WARN row. Detects only; nothing is repaired here.
      */
-    private static boolean rigHardwareReady(StepEmitter step, Rig rig) {
+    private static void auditItems(SetupEnv env, StepEmitter step, List<String> failures) {
+        SetupAudit audit = new SetupAudit(SetupItems.standard(), env);
+        Map<String, Result> results = audit.run();
+        for (SetupItem item : audit.items()) {
+            Result result = results.get(item.name());
+            boolean ok = result.ok();
+            step.check(ok, item.title(), result.detail(), item.required());
+            if (!ok && item.required()) {
+                failures.add(item.title() + " — " + result.detail());
+            }
+        }
+    }
+
+    /**
+     * Takes the rig's run lock. Returns the holder's line when another run has it, else {@code ""}. Not taken on a
+     * fake-POS run or with no rig, as the Python's {@code acquire_run_lock}.
+     */
+    private static String takeRunLock(RunContext ctx, StepEmitter step, Rig rig, boolean fakePos) {
+        if (fakePos || rig == null) {
+            return "";
+        }
+        String name = rig.name();
+        RigLease lease = new RigLease(name + ".run", ctx.paths().leaseDir(),
+                "cat run " + ctx.runId() + " (pid " + ProcessHandle.current().pid() + ")");
+        try {
+            lease.acquire(RUN_LOCK_WAIT);
+        } catch (RigBusyException e) {
+            String busy = "rig '" + name + "' is in use by another CAT run: " + lease.describeHolder();
+            step.check(false, "rig free", busy, true);
+            return busy;
+        } catch (RuntimeException e) {
+            String busy = "the run lock could not be taken: " + e.getMessage();
+            step.check(false, "rig free", busy, true);
+            return busy;
+        }
+        ctx.runLock(lease);
+        step.check(true, "rig free", "no other CAT run holds it", true);
+        return "";
+    }
+
+    /**
+     * Petroapps must be current with {@code origin/master}: its working tree supplies the TLog rules and the
+     * configurations the tests import. Behind is brought current (checkout, then fast-forward), as the Python does.
+     * No checkout at all is no line here, as the Python's {@code freshness} returns none.
+     */
+    private static void checkPetroapps(LaunchPaths paths, StepEmitter step, List<String> failures) {
+        try {
+            Optional<Freshness> fresh = Freshness.check(paths.petroappsRoot(), PlanCases.REVISION, null, true);
+            if (fresh.isPresent()) {
+                step.check(fresh.get().ok(), "petroapps current", fresh.get().detail(), true);
+                if (!fresh.get().ok()) {
+                    failures.add("petroapps current — " + fresh.get().detail());
+                }
+            }
+        } catch (RuntimeException e) {
+            step.check(false, "petroapps current", e.getMessage(), true);
+            failures.add("petroapps current — " + e.getMessage());
+        }
+    }
+
+    /**
+     * The rig network lines as checklist rows. Returns the required lines that are not ok, each as {@code label — detail}.
+     */
+    private static List<String> rigHardwareReady(StepEmitter step, Rig rig) {
         ExecutorService pool = ConnectionProbe.newProbePool();
         List<Readiness> lines;
         try {
@@ -134,10 +218,143 @@ final class SystemChecksStep implements LaunchStep {
                 failures.add(line.label() + " — " + line.detail());
             }
         }
-        if (!failures.isEmpty()) {
-            step.fail("rig hardware not ready: " + String.join("; ", failures));
+        return failures;
+    }
+
+    /** The rig-only lines this port does not check yet: the receipt printer's and the VATS pinpad's. */
+    private static List<String> rigOnlyGaps(Rig rig) {
+        List<String> gaps = new ArrayList<>();
+        boolean printer = rig.registers().stream().anyMatch(r -> r.printerPort() != null && !r.printerPort().isEmpty());
+        if (printer) {
+            gaps.add("the receipt-printer lines of rig hardware readiness (a serial listing)");
+        }
+        if (rig.pinpad() == Rig.Pinpad.VATS) {
+            gaps.add("the VATS lines for pinpad: vats (the terminal, the SDK and BTT)");
+        }
+        return gaps;
+    }
+
+    /**
+     * The plans' requirements, one row per requirement, as the Python's {@code check_requirements}: a requirement not
+     * met is a failure, and a plan with no row is a WARN. The simulators a plan names join {@code used}, for the port
+     * guard.
+     */
+    private static void checkRequirements(RunContext ctx, StepEmitter step, Rig rig, List<String> failures,
+            Set<String> used, boolean fakePos) {
+        Snapshot<PlanRequirements> snapshot = ctx.paths().catalogue().requirements(PlanCatalogue.Mode.CACHE_FIRST);
+        if (snapshot.rows().isEmpty()) {
+            String reason = snapshot.reason();
+            step.warn("plan requirements", reason == null || reason.isEmpty()
+                    ? "no requirements were read from Supported CAT Test Plans" : reason);
+            return;
+        }
+        for (String plan : ctx.config().testPlans()) {
+            PlanRequirements row = snapshot.rows().stream().filter(r -> r.key().equals(plan)).findFirst().orElse(null);
+            if (row == null) {
+                step.warn("plan requirements", plan + " has no row on Supported CAT Test Plans; none checked");
+                continue;
+            }
+            if (fakePos && row.baseRule().isPresent()) {
+                step.warn(row.key() + " needs " + row.base(), "--fake-pos reads no Commander base, so it is not checked");
+            }
+            if (row.commanderConnect()) {
+                String label = "Commander Connect onboarding";
+                String detail = plan + " needs it, and CAT-Java has no Commander Connect switch yet, so it cannot be "
+                        + "onboarded from here";
+                step.check(false, label, detail, true);
+                failures.add(label + " — " + detail);
+            }
+            used.addAll(row.simulators());
+            for (String simulator : row.simulators()) {
+                if (Registry.byName(simulator).isEmpty()) {
+                    String detail = "not one CAT knows (sims/Registry)";
+                    step.check(false, "simulator " + simulator, detail, true);
+                    failures.add("simulator " + simulator + " — " + detail);
+                }
+            }
+            checkDevices(step, row, rig, failures);
+        }
+    }
+
+    /** The plan's devices: each named device must be in the rig file. The printer's own line checks it. */
+    private static void checkDevices(StepEmitter step, PlanRequirements row, Rig rig, List<String> failures) {
+        if (rig == null) {
+            return;
+        }
+        Map<String, Rig.Device> devices = rig.devices() == null ? Map.of() : rig.devices();
+        for (String device : row.devices()) {
+            if (device.equalsIgnoreCase(PRINTER)) {
+                continue;
+            }
+            boolean present = devices.keySet().stream().anyMatch(k -> k.equalsIgnoreCase(device));
+            if (present) {
+                step.check(true, "device " + device, "in the rig file; step 2 probes it", true);
+            } else {
+                String detail = "this PC's rig file has no device of that name";
+                step.check(false, "device " + device, detail, true);
+                failures.add("device " + device + " — " + detail);
+            }
+        }
+    }
+
+    /**
+     * The plans have tests to run: each plan lists at least one case in the catalogue. The Python also checks the
+     * tests are on disk or pulled; here they are pulled in step 5, so this line says what it checked and no more.
+     * Returns false when the plans have no case at all.
+     */
+    private static boolean checkTestsToRun(RunContext ctx, StepEmitter step, List<String> failures) {
+        if (!ctx.config().suites().isEmpty()) {
+            return true;
+        }
+        int cases = 0;
+        try {
+            for (String plan : ctx.config().testPlans()) {
+                List<PlanCase> rows = ctx.paths().catalogue().cases(plan, PlanCatalogue.Mode.CACHE_FIRST).rows();
+                cases += rows.size();
+            }
+        } catch (RuntimeException e) {
+            step.check(false, "tests to run", e.getMessage(), true);
+            failures.add("tests to run — " + e.getMessage());
+            return true;
+        }
+        String plans = String.join(", ", ctx.config().testPlans());
+        if (cases == 0) {
+            step.check(false, "tests to run", "no case of " + plans + " is in the catalogue", true);
             return false;
         }
+        step.check(true, "tests to run", cases + " case(s) of " + plans
+                + " listed; step 5 pulls their tests from petroapps (the on-disk check is not ported)", true);
         return true;
+    }
+
+    /**
+     * The simulator staging lines, advisory, as the Python's {@code verify}: the tools folder, the Java 17 set, and each
+     * registry row's folder and placeholders. Never ends the step; step 3 names the simulator that cannot start.
+     */
+    private static void checkStaging(LaunchPaths paths, Rig rig, StepEmitter step) {
+        String host = rig == null ? "" : rig.controller().host();
+        SimContext sims = SimContext.of(SetupItems.toolsRoot(paths.setupEnv()), host);
+        List<SimEntry> rows = Registry.all();
+        for (SimulatorStaging.Check check : SimulatorStaging.verify(sims, rows)) {
+            step.check(check.ok(), check.name(), check.detail(), false);
+        }
+    }
+
+    /** The message the failed step reports: the first failure in the Python's order. */
+    private static String precedence(String rigName, boolean rigOk, String busy, List<String> hardware,
+            List<String> failures, LaunchConfig config) {
+        if (!rigOk) {
+            return "rig " + rigName + " did not load";
+        }
+        if (!busy.isEmpty()) {
+            return busy;
+        }
+        if (!hardware.isEmpty()) {
+            return "rig hardware not ready: " + String.join("; ", hardware);
+        }
+        if (!failures.isEmpty()) {
+            return failures.size() + " required check(s) failed: " + String.join("; ", failures);
+        }
+        return "nothing to run: no case of " + String.join(", ", config.testPlans()) + " has a test";
     }
 }

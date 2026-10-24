@@ -136,7 +136,7 @@ class RunLauncherTest {
 
         StepResult systemChecks = result.steps().get(0);
         assertEquals(StepResult.FAILED, systemChecks.state());
-        assertEquals("the rig file did not load", systemChecks.detail());
+        assertEquals("rig no-such-rig did not load", systemChecks.detail());
         assertEquals("not reached: System Checks failed", result.steps().get(1).detail());
         assertEquals(StepResult.FAILED, result.steps().get(6).state());
         assertTrue(result.steps().get(6).detail().startsWith("unavailable in CAT-Java: needs "));
@@ -151,7 +151,8 @@ class RunLauncherTest {
             LaunchResult result = new RunLauncher(paths).launch(LaunchConfig.forRig(LaunchFixtures.RIG));
 
             assertEquals(StepResult.FAILED, result.steps().get(0).state());
-            assertEquals("the rig is in use by another CAT run", result.steps().get(0).detail());
+            assertTrue(result.steps().get(0).detail().startsWith("rig 'bench' is in use by another CAT run: "),
+                    result.steps().get(0).detail());
             String log = Files.readString(result.runFolder().resolve("run.log"));
             assertTrue(log.contains("in use by another CAT run"), log);
         } finally {
@@ -177,7 +178,9 @@ class RunLauncherTest {
 
         LaunchResult result = new RunLauncher(paths).launch(config);
 
-        assertTrue(result.steps().get(0).detail().startsWith("unavailable in CAT-Java: needs "));
+        // Every System Checks line a fake-POS run owns passes: the audit, the petroapps checkout (none here), the
+        // staging lines (advisory) and the plan-less checks. No rig, so no lock is taken and none is left held.
+        assertEquals(StepResult.COMPLETE, result.steps().get(0).state(), result.steps().get(0).detail());
         RigLease free = new RigLease(LaunchFixtures.RIG + ".run", paths.leaseDir(), "probe");
         free.acquire(Duration.ofMillis(200));
         free.release();
