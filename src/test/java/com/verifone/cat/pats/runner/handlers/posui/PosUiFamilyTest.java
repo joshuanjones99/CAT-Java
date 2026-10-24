@@ -191,7 +191,7 @@ class PosUiFamilyTest {
             run.begin();
             run.perform(run.kase().actions().get(0));
             assertEquals(List.of(ITEM), pressed(page));
-            assertTrue(PosUiCaseState.of(run).touched());
+            assertTrue(PosUiCaseState.touched(run));
         }
     }
 

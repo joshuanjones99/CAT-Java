@@ -2,6 +2,8 @@ package com.verifone.cat.pats.runner.handlers.posui;
 
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.ScratchKey;
+import com.verifone.cat.pats.runner.handlers.devices.DevicesFamily;
+import com.verifone.cat.pats.runner.handlers.sale.TouchPacer;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +32,6 @@ public final class PosUiCaseState {
     }
 
     private long startedNanos = Long.MIN_VALUE;
-    private boolean touched;
-    private OptionalLong keyedAt = OptionalLong.empty();
     private OptionalLong tenderedAt = OptionalLong.empty();
     private TenderMark tenderMark;
     private int salesClosed;
@@ -56,27 +56,34 @@ public final class PosUiCaseState {
         startedNanos = nanos;
     }
 
-    /** Whether the case has touched the POS yet. */
-    public boolean touched() {
-        return touched;
+    /**
+     * Whether the case has touched the POS yet: the flag the sale family's {@link TouchPacer} sets too, so it is one
+     * flag in the case's scratch, not one per family.
+     */
+    public static boolean touched(CaseRun run) {
+        return run.scratch(TouchPacer.TOUCHED).orElse(false);
     }
 
-    void touch() {
-        touched = true;
+    /** Marks the case as having touched the POS (the shared {@link TouchPacer#TOUCHED} flag). */
+    static void touch(CaseRun run) {
+        run.setScratch(TouchPacer.TOUCHED, Boolean.TRUE);
     }
 
-    /** When the case last keyed the pinpad, if it has. The pinpad's family records it through {@link #markKeyed}. */
-    public OptionalLong keyedAt() {
-        return keyedAt;
+    /**
+     * When the case last keyed the pinpad, if it has. The devices family records it under {@link DevicesFamily#KEYED_AT}
+     * ({@code GET_ANY_KEY}, {@code GET_DECIMAL}), and the next touch waits out PATS's pause after it.
+     */
+    public static OptionalLong keyedAt(CaseRun run) {
+        return run.scratch(DevicesFamily.KEYED_AT).map(OptionalLong::of).orElse(OptionalLong.empty());
     }
 
     /** Records that the case keyed the pinpad at {@code nanos}, so the next touch waits out PATS's pause after it. */
-    public void markKeyed(long nanos) {
-        keyedAt = OptionalLong.of(nanos);
+    public static void markKeyed(CaseRun run, long nanos) {
+        run.setScratch(DevicesFamily.KEYED_AT, nanos);
     }
 
-    void clearKeyed() {
-        keyedAt = OptionalLong.empty();
+    static void clearKeyed(CaseRun run) {
+        run.clearScratch(DevicesFamily.KEYED_AT);
     }
 
     OptionalLong tenderedAt() {

@@ -88,15 +88,15 @@ final class Touch {
         if (locator.name().equals(Locators.EXPRESS_PANEL_VIEW_BUTTON_ID_N.name())) {
             messages.awaitExpressLabel(run, action);
         }
-        if (!state.touched() && run.afterFailure()) {
+        if (!PosUiCaseState.touched(run) && run.afterFailure()) {
             sleeps.awaitReady(run, ui.timings().afterFailureReady(), "after the last case's recovery");
         } else {
             boundaryPause(run, ui.ctx());
         }
-        if (state.keyedAt().isPresent()) {
+        if (PosUiCaseState.keyedAt(run).isPresent()) {
             // PATS's 2 s before a touch, after a key on the pinpad: the screen moves when the terminal answers.
-            ui.bounded(ui.left(state.keyedAt().getAsLong(), ui.timings().touchSettle()));
-            state.clearKeyed();
+            ui.bounded(ui.left(PosUiCaseState.keyedAt(run).getAsLong(), ui.timings().touchSettle()));
+            PosUiCaseState.clearKeyed(run);
         }
         if (state.tenderedAt().isPresent()) {
             ui.bounded(ui.left(state.tenderedAt().getAsLong(), ui.timings().touchSettle()));
@@ -109,7 +109,7 @@ final class Touch {
         List<String> labels = ui.expressLabels();
         ui.driver().press(locator, PosUi.seconds(PosUi.budget(run, ui.timings().uiWait())));
         long pressed = ui.pace().nanoTime();
-        markPressed(state);
+        markPressed(run);
         if (QUICK_TENDER.matcher(label).matches()) {
             // The POS is still finishing the sale it paid, and drops a press made meanwhile.
             state.tendered(pressed, printMark, state.salesClosed());
@@ -137,18 +137,17 @@ final class Touch {
      * seconds after the last case's last one. Public so the scan family makes the same pause.
      */
     public static void boundaryPause(CaseRun run, PosUiContext ctx) {
-        PosUiCaseState state = PosUiCaseState.of(run);
         PosUi ui = new PosUi(ctx);
         Optional<Long> last = ctx.session().lastTouch().isPresent()
                 ? Optional.of(ctx.session().lastTouch().getAsLong()) : Optional.empty();
-        if (!state.touched() && last.isPresent()) {
+        if (!PosUiCaseState.touched(run) && last.isPresent()) {
             ui.bounded(ui.left(last.get(), ctx.timings().touchSettle()));
         }
     }
 
-    private void markPressed(PosUiCaseState state) {
+    private void markPressed(CaseRun run) {
         long now = ui.pace().nanoTime();
-        state.touch();
+        PosUiCaseState.touch(run);
         ui.ctx().session().touched(now);
     }
 
@@ -210,7 +209,7 @@ final class Touch {
             ui.bounded(gap);
             String before = ui.driver().screenText();
             ui.driver().press(locator, PosUi.seconds(PosUi.budget(run, ui.timings().uiWait())));
-            markPressed(PosUiCaseState.of(run));
+            markPressed(run);
             answered = ui.settle(before, false, cap);
         }
         LOG.info("{}: {} went through after {} retr{}, {}s after the EPS first answered busy", run.kase().key(),

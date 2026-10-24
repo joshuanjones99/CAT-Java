@@ -104,11 +104,9 @@ public final class DevicesFamily {
             throw new PatsStepError(String.format(Locale.ROOT, PINPAD_EXACT_UNPORTED,
                     context.pinpad().getClass().getSimpleName()));
         }
-        double carried = run.budget(0.0);
-        if (carried > 0) {
-            if (!sleepUnlessAwaited(run, context, key, carried)) {
-                run.addCarry(carried);
-            }
+        double carried = run.carry();
+        if (carried > 0 && sleepUnlessAwaited(run, context, key, carried)) {
+            run.budget(0.0); // slept: the carry is spent here, so the prompt's budget does not repeat it
         }
         context.pinpad().atPrompt(key, ActionFields.budget(run, context.timing().pinpadWait()));
     }

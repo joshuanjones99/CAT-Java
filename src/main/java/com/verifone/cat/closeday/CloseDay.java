@@ -331,7 +331,7 @@ public final class CloseDay {
      * {@code onlyIfDeadlocked}, nothing is restarted unless the dump names the deadlock (a slow close, not a
      * stuck one). True when coresvcs was restarted.
      */
-    boolean recoverStuckClose(boolean onlyIfDeadlocked) {
+    public boolean recoverStuckClose(boolean onlyIfDeadlocked) {
         try (Transport ssh = commander.ssh()) {
             String before = ssh.run(CORESVCS_PID, CommanderAccess.SSH_TIMEOUT).stdout().strip();
             Duration dumpTimeout = timing.jstackMinimum().compareTo(CommanderAccess.SSH_TIMEOUT) > 0

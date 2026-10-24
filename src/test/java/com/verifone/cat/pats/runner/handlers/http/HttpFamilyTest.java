@@ -60,6 +60,6 @@ class HttpFamilyTest {
 
     @Test
     void theScenarioContextKeyHoldsAMap() {
-        assertEquals(Map.class, ScenarioContext.KEY.type());
+        assertEquals(Map.class, com.verifone.cat.pats.runner.ScratchKey.SCENARIO_CONTEXT.type());
     }
 }

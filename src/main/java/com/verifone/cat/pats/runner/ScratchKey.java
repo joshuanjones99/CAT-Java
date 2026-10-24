@@ -23,6 +23,14 @@ public final class ScratchKey<T> {
     /** The key of the transaction-number map a {@code STORE_TRANS_MAP} writes and a refund reads. */
     public static final ScratchKey<String> TRANS_MAP_KEY = of("trans-map-key", String.class);
 
+    /**
+     * The case's scenario context: what {@code captureFields} captured and the {@code {name}} tokens the HTTP and
+     * configuration steps fill from. Every family reads this one map.
+     */
+    @SuppressWarnings("unchecked")
+    public static final ScratchKey<Map<String, String>> SCENARIO_CONTEXT =
+            new ScratchKey<>("scenario-context", (Class<Map<String, String>>) (Class<?>) Map.class);
+
     /** The transaction-number map itself: the stored key to the (first, second) values it held. */
     @SuppressWarnings("unchecked")
     public static final ScratchKey<Map<String, AbstractMap.SimpleImmutableEntry<String, String>>> TRANS_MAP =

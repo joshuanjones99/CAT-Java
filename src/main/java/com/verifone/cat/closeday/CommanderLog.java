@@ -16,7 +16,7 @@ import com.verifone.cat.provision.transport.Transport;
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The two outcome lines and the log path are the lab
  * Commander's, as HANDOFF.md 1.60 and 1.166 read them.
  */
-final class CommanderLog implements AutoCloseable {
+public final class CommanderLog implements AutoCloseable {
 
     /** The Commander's system log. */
     static final String MESSAGES = "/var/log/messages";
@@ -39,7 +39,7 @@ final class CommanderLog implements AutoCloseable {
     private final Transport transport;
     private int mark;
 
-    CommanderLog(Transport transport) {
+    public CommanderLog(Transport transport) {
         this.transport = transport;
     }
 
@@ -49,7 +49,7 @@ final class CommanderLog implements AutoCloseable {
     }
 
     /** Notes the log's current length: only lines after it belong to this close. */
-    void mark() {
+    public void mark() {
         mark = Integer.parseInt(run("wc -l < " + MESSAGES).strip());
     }
 
@@ -80,7 +80,7 @@ final class CommanderLog implements AutoCloseable {
     }
 
     /** The log past the mark, or the whole log when it rotated since the mark. */
-    String linesSinceMark() {
+    public String linesSinceMark() {
         return run("f=" + MESSAGES + "; if [ $(wc -l < $f) -lt " + mark + " ]; then cat $f; "
                 + "else tail -n +" + (mark + 1) + " $f; fi");
     }

@@ -3,6 +3,7 @@ package com.verifone.cat.pats.runner.handlers.posui;
 import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.FixtureName;
+import com.verifone.cat.pats.runner.handlers.inits.InitsState;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +68,9 @@ final class Sleeps {
             return;
         }
         boolean forecourt = FORECOURT_SETTLE.contains(before) && !nextWaitsOnForecourt(run, index);
+        if (!keep && besideAnInit(run, action, before, after, seconds)) {
+            return;
+        }
         if (pinpad && !keep && !controlFunction) {
             if (PINPAD_KEYED.contains(after)) {
                 ui.bounded(duration);
@@ -111,6 +115,34 @@ final class Sleeps {
         }
         LOG.info("{}: {} {}s: the POS read Ready after {}ms", run.kase().key(), why, seconds.toSeconds(),
                 Duration.ofNanos(ui.pace().nanoTime() - started).toMillis());
+    }
+
+    /**
+     * {@code _beside_an_init}: a SLEEP after a {@code CONTROL_FUNCTION} whose init Petro logs a signal for ends on that
+     * signal, and a SLEEP before one ends on the init's own signal. False, so the SLEEP is slept or carried as any
+     * other, when no init state is wired, or the init is not one whose signal Petro logs.
+     */
+    private boolean besideAnInit(CaseRun run, RunnableAction action, String before, String after, double seconds) {
+        InitsState inits = ui.ctx().inits();
+        if (inits == null) {
+            return false;
+        }
+        if (before.equals("CONTROL_FUNCTION")) {
+            if (inits.pending().isEmpty()) {
+                return false; // its init is not watched: PATS's SLEEP
+            }
+            inits.afterInit(run.kase().key(), seconds);
+            return true;
+        }
+        if (!after.equals("CONTROL_FUNCTION")) {
+            return false;
+        }
+        RunnableAction following = nextAction(run.kase().actions(), action.index());
+        if (following == null || !InitsState.knows(following.get("INIT_TYPE")) || !inits.watching()) {
+            return false;
+        }
+        inits.beforeInit(run.kase().key(), seconds);
+        return true;
     }
 
     /**
