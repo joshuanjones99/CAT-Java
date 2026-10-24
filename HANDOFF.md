@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 1,799 tests, 0 failures, end of wave 8, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 2,424 tests, 0 failures, end of wave 10, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -68,6 +68,9 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `cat/web/pages/config.py` | `runconfig`, `web` | ported: plans, run scope, Needs, saved choices. Downloads, Commander Connect, Execution, branch, Refresh: placeholders |
 | `cat/report/events.py`, `run_log.py`, `run.ended` | `report.events` | ported (file transport only) |
 | `cat/web/pages/run.py`, `simulators.py` | `runservice`, `web` | ported: Run Overview/Log (start, pause, stop, new run, counters, log tail) and Launch Simulators (ticks, Start, red Stop, logs). Main passes `--rig` since wave 5 |
+| `cat/setup/`, `pages/setup.py` | `setup`, `web` | ported: 13 detect-only checks with fix hints (Python-only checks replaced by JDK/target/Chromium ones); no repairs |
+| `pages/settings.py`, theme prefs | `web` | ported: Appearance (`~/.cat/java/web-settings.json`, cookie), places list. Tools stays empty: the Python's Manual page has no tools |
+| `petrotest/authoring/`, `cat/authoring/` | `authoring` | ported: step library (parity-tested), checks, sessions, read-only Jira ingest. draft.py (Claude), replay, recorded, publish writer, CLI: todo |
 | `cat/web/` layout, pages shell | `web` | shell ported: sections, Run tabs, placeholders, POS page. Not built: every page body, Settings appearance, the CAT monogram |
 | `petrotest/preflight/` | `preflight` | ported: framework, runner, POS checks via pos-shim screen(). pumps_idle, eps_reachable, config_loaded, build_matches and every repair await forecourt/SSH/Commander/POS-control clients |
 | `petrotest/recovery/` | `recovery` | ported: CAPTURE (no files yet), PREFLIGHT, SOFT and VOID (pos-shim halves; CDP halves todo). RESET, REPROVISION raise DeviceUnavailable |
@@ -81,7 +84,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `petrotest/pos/plugin.py` | — | pytest glue; becomes the runner's |
 | `petrotest/pats/case.py`, `elements.py`, `scenario.py` | `pats` | ported (filesystem; git-blob CaseStore todo) |
 | `petrotest/pats/feature.py` | `pats.feature` | ported; all 38 Charity .feature files read to the same 337 actions as the Python (golden from the Python) |
-| `petrotest/pats/runner/` core, registry, fields | `pats.runner` | framework ported; type unification + hooks in wave 9; handler families (pos_ui, sale, http, configuration, validation, inits, devices, cloud_settle): todo |
+| `petrotest/pats/runner/` core, registry, fields | `pats.runner` | framework + hooks + one unified Action/Fields/Elements (Fields equal the Python's 71 entries); `PatsCaseLoader` (.xml/.scenario/.feature). Handler families ported, each behind its own `*Family.register(registry, ctx)`: pos_ui (13 actions), sale (20), devices (18), http (SEND_HTTP_REQUEST, VALIDATE_PAYLOAD), cloud_settle, configuration (8), inits (CONTROL_FUNCTION + reply pause), validation (5). **Not yet wired together**: shared state, seams (CaseFiles, CommanderReads, CloudSite, DCR, fuel pumps, SaleRmi) and step 5 are wave 11. bdd.py actions (PREPAY_FUEL_*), widget_keys.json table, C-Site client: todo |
 | `petrotest/validate/` (receipt/TLog snapshots) | `validate` | ported: receipt (normalisers, snapshots, rule) and TLog/packets. Report hooks (record_receipt etc.) belong to the test runner, not ported |
 | `petrotest/build/` | `build` | ported: local discovery, Artifactory listing, verified download. Credentials from ARTIFACTORY_USER/PASSWORD only (DPAPI store todo). build_contents, viper merge, installed.py: todo |
 | `petrotest/upgrade/` (PSI install) | `upgrade` | new_install ported; classic.py AU path and psi_init (needs Commander + POS driver): todo |
@@ -104,8 +107,9 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
    `GET /pos/screen?client=nosuch`, which seeds an empty holder named `nosuch` in the
    shim. Harmless (the register's client list is unchanged); it clears on shim restart.
 
-4. Fixed in wave 3: CAT-Java now keeps its own `~/.cat/java/` files (never the Python
-   CAT's), the whitespace regex, and unmigrated-case exclusion in Results.
+4. Fixed: CAT-Java writes only under `~/.cat/java/` (results index, saved config, web
+   settings, and since wave 10 the plan cache, which reads the Python's `~/.cat` cache
+   read-only as a fallback).
 5. Preflight's `—` still shows as `�` when run from Git Bash (Java picks cp1252, which can
    encode it). Fold to ASCII in CLI output.
 6. **`cat-java preflight` without `--no-repair` drives the live POS**: the pos_idle
@@ -157,3 +161,6 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
   (reconciled), coverage, small fixes + Java lint gates (1,468 tests).
 - **2026-10-24** Wave 8 merged: PATS parsing, feature reader (parity 337/337), runner core,
   collect, close-day, Commander bring-up + step 4 (Opus) (1,799 tests).
+- **2026-10-24** Waves 9-10 merged: PATS unification + hooks, Setup, Settings, authoring,
+  plan-cache fix, and all PATS handler families (2,424 tests). Next: wire the families
+  into one handler set, step 5 (Tests Run), then a whole plan against the fake POS.
