@@ -20,6 +20,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import com.verifone.cat.commander.links.CommanderLinks;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
@@ -31,9 +32,9 @@ import com.verifone.cat.provision.transport.Transport;
  * <p>A FEP whose client trusts only the JVM's {@code cacerts} cannot reach a simulator with a self-signed
  * certificate until that certificate is in the {@code cacerts} of the Java PMC runs on. This reads the
  * certificate the simulator serves and imports it under one alias, only when the Commander does not hold
- * that same certificate there already. PMC reads {@code cacerts} when its JVM starts, so an import wants a
- * PMC restart; that restart ({@code petrotest.commander_links.restart_pmc}) is not ported, so
- * {@link #trustCli} reports it unavailable rather than claiming the certificate is in use.
+ * that same certificate there already. PMC reads {@code cacerts} when its JVM starts, so an import is followed
+ * by a PMC restart ({@link CommanderLinks#restartPmc}, the restart the payment links use) unless the caller says
+ * otherwise.
  *
  * <p>Read on the lab Commander, 2026-10-20: PMC's trust store is the JDK's own
  * {@code /usr/java/j2se/lib/security/cacerts}, with its keytool beside it. {@code changeit} is the JDK's
@@ -48,10 +49,6 @@ public final class CommanderTrust {
 
     /** The JDK's default {@code cacerts} password (every JDK ships it), not a secret of this rig. */
     public static final String STOREPASS = "changeit";
-
-    /** What the PMC restart after an import needs. */
-    public static final String RESTART_UNAVAILABLE =
-            "unavailable in CAT-Java: restarting PMC needs petrotest.commander_links.restart_pmc";
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
     private static final Pattern SHELL_SAFE = Pattern.compile("[\\w@%+=:,./-]+");
@@ -181,9 +178,9 @@ public final class CommanderTrust {
 
     /**
      * {@code commander-trust --endpoint host:port --alias <alias>}: the certificate the endpoint serves into
-     * the Commander's {@code cacerts}. When it changed and {@code restartPmc} is asked, the restart is
-     * unavailable here, so the result is {@code false} with that reason: the certificate is imported but PMC
-     * has not read it.
+     * the Commander's {@code cacerts}. When it changed and {@code restartPmc} is asked, PMC is restarted through
+     * {@link CommanderLinks#restartPmc} so its JVM reads the new store; the result is {@code false} only when
+     * that restart fails (the certificate is then imported but not read).
      */
     public static boolean trustCli(CommanderAccess access, String endpoint, String alias, boolean restartPmc, Say say) {
         int colon = endpoint.lastIndexOf(':');
@@ -208,18 +205,27 @@ public final class CommanderTrust {
             return false;
         }
         try {
+            return importAndRestart(transport, pem, alias, restartPmc, say);
+        } finally {
+            transport.close();
+        }
+    }
+
+    /**
+     * The import, then the PMC restart when it changed the store and {@code restartPmc} is asked. Restart failure
+     * is {@code false}; the import itself is not undone.
+     */
+    static boolean importAndRestart(Transport transport, String pem, String alias, boolean restartPmc, Say say) {
+        try {
             boolean changed = trustCertificate(transport, pem, alias, say);
             if (changed && restartPmc) {
-                say.err("commander-trust: " + alias + " imported, but PMC was not restarted to read it: "
-                        + RESTART_UNAVAILABLE);
-                return false;
+                say.out("commander-trust: restarting PMC so its JVM reads the new cacerts");
+                CommanderLinks.restartPmc(transport, CommanderLinks.RESTART_TIMEOUT);
             }
             return true;
         } catch (DeviceError | IllegalStateException e) {
             say.err("commander-trust: " + e.getMessage());
             return false;
-        } finally {
-            transport.close();
         }
     }
 }

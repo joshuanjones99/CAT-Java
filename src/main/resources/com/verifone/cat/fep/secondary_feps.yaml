@@ -1,0 +1,225 @@
+# The secondary FEPs the Config tab offers under "Secondary FEP:" (docs/secondary-feps.md).
+#
+# THIS TABLE IS THE FEATURE, as cat/sims/registry.yaml is for simulators: a FEP, or a
+# simulator for one, is a change to a row here, never a new code path. Every field is
+# read by petrotest/secondary_fep.py.
+#
+# The rows are the buypass distribution's FEPTable
+# (petroapps viper/data/custom/buypass/data/tables/FEPTable.xml) minus its primary
+# (buypass, the Config tab's "Distribution (FEP)") and its five loyalty FEPs (PCATS01-04,
+# paywareloyalty), in the Commander Config Client's menu order. Read 2026-10-07.
+#
+# Fields:
+#   name        the FEPTable's <FEPName>: `fep=<name>` in vfepcfg/ufepcfg, and the key
+#               `vfepdetails` reports it under. Case matters to the Commander.
+#   label       the Config Client's menu label.
+#   kind        what it is for, in a word or two.
+#   enabled_by  fepcfg  - `ufepcfg`'s <enabled> turns it on and off (FEPMgr picks the
+#                         change up from the FEP table; no EPS restart in the code).
+#               license - Commercial Fleet: only the Commander Connect CFL license
+#                         (description CFD, "DIRECT") enables it. `ufepcfg` sets its host
+#                         and never <enabled> (CommercialFEPConfigUpdateHandler), so CAT
+#                         can point it at a simulator but cannot switch it on or off.
+#   import      files under petroapps' AutomationTests/configurations, sent as PATS's
+#               IMPORT_CONFIGURATION sends a folder: sorted by name, the name being the
+#               command. The FEP's own `fepcfg&fep=<name>.xml` is always sent with
+#               <enabled>true</enabled> and must be applied or the step fails; the rest is
+#               skipped on a fault, as PATS skips it. Empty: petroapps has no fepcfg for
+#               this FEP, so CAT reads the Commander's own (`vfepcfg`), edits it and posts it
+#               back (`ufepcfg`).
+#   local_only  true for a FEP with no external host at all (FullServiceAttendant).
+#   simulator   the cat/sims/registry.yaml row that answers as this FEP's host, or "" when
+#               none exists. Step 3 starts it whether or not it is ticked on the
+#               Simulators picker.
+#   points_at   with a simulator: the host the FEP is pointed at, `{controller_host}` being
+#               the rig's controller. A URL for a REST FEP (its <domainName> is the whole
+#               endpoint, with no trailing slash: paths are appended to it as they are);
+#               `host:port` for a socket FEP. Empty: the address PATS's file, or the
+#               Commander, already has is left alone.
+#   listens_on  with a simulator: `<file>:<key>` under the tools root naming the address
+#               the simulator binds and certifies. It must equal the rig's controller host
+#               (an IP, for an https:// points_at), or step 4 fails before writing.
+#   fepsim_instance
+#               with a simulator: the FEPSIM v2 instance (Petro Simulator Suite's
+#               config/fepsim/instances.examples/<id>.json) that answers as this FEP's host.
+#               Step 3 writes it auto-started, waits for its port, and fails a run whose
+#               suite has no FEPSIM v2 (cat.sims.fepsim). Its capture file is how the
+#               Tests step counts the requests the FEP received.
+#   cloud       a license FEP only: {provider, payload}. Commander Connect owns these FEPs'
+#               host, and PATS's own plans point them with a C-Site PUT to
+#               pcms/v1/config/{service_id}/commercialfleetproviders/<provider> (131151
+#               Comdata, 131158 WEX-OTR, 139237 mudflap), naming the real hosts. Step 4 sends
+#               the same call with `payload`, {controller_host} filled in, before pointing the
+#               Commander itself. Merchant IDs are PATS's payloads' own.
+#   trust_tls   with a simulator: `host:port` ({controller_host} filled in) whose TLS
+#               certificate the Commander's Java must trust, for a FEP whose client checks
+#               only `cacerts`. Step 4 imports it (`petrotest commander-trust`, alias
+#               cat-<name>) and restarts PMC when it changed. Cullinan takes it once HTTPSIM
+#               serves its WSDL: `trust_tls: "{controller_host}:443"` (rig owner's go-ahead,
+#               2026-10-20).
+#   note        why the row is the way it is; shown under the Config tab's list.
+#
+# No address appears here: the no-ip-literals gate scans this file. The hosts PATS's own
+# files name are in docs/secondary-feps.md.
+
+- name: Comdata
+  label: Comdata
+  kind: commercial fleet
+  enabled_by: license
+  import: []
+  # FEPSIM v2 (PETROCORE-142214, build 461 on): `{` body `}` over TCP, one connection per
+  # message; 24 HTTPSIM mappings (fep_comdata_mappings.json). Any card approves; a card
+  # ending 9900-9907 or a completion total of 5.00-5.05 picks another outcome (decline,
+  # prompts, daily limit, timeout). Viper routes BINs 560017, 556736, 55673500-98 to it.
+  simulator: Petro Simulator Suite
+  fepsim_instance: Comdata-5003
+  points_at: "{controller_host}:5003"
+  cloud:
+    provider: comdata
+    payload:
+      providerName: Comdata
+      merchantId: NY527
+      connectionSettings: {host: "{controller_host}", port: "5003", tls: false}
+  note: >-
+    Answered by Petro Simulator Suite's FEPSIM (v2 only), on port 5003. Enabled only by a
+    Commercial Fleet license routed DIRECT (CFD) from Commander Connect.
+
+- name: Cullinan
+  label: Cullinan
+  kind: voucher service
+  enabled_by: fepcfg
+  import: []
+  simulator: ""
+  note: >-
+    SOAP over HTTPS. No simulator exists, and its web address is empty by default, so
+    nothing answers it once enabled.
+
+- name: FullServiceAttendant
+  label: FullServiceAttendant
+  kind: attendant card
+  enabled_by: fepcfg
+  # FSA_Config also carries fuelcfg.xml (requireAttendantCard=1) and possecurity.xml:
+  # feature settings a plan's own cases import, left out so choosing the FEP does not
+  # change how every fuel sale behaves.
+  import:
+    - FSA_Config/fepcfg&fep=FullServiceAttendant.xml
+    - FSA_Config/fepcardcfg&fep=FullServiceAttendant.xml
+  local_only: true
+  simulator: ""
+  note: A local FEP with no external host, so it needs no simulator.
+
+- name: incomm
+  label: InComm
+  kind: gift / prepaid
+  enabled_by: fepcfg
+  # epsprepaidcfg.xml is the Commander's prepaid network switch (networkName incomm,
+  # prepaidEnabled 1). IncommConfig's PLUs.xml and poscfg.xml are the plan's departments
+  # and items, left to the plan's own cases.
+  import:
+    - IncommConfig/fepcfg&fep=incomm.xml
+    - IncommConfig/fepcardcfg&fep=incomm.xml
+    - IncommConfig/epsprepaidcfg.xml
+  simulator: ""
+  note: >-
+    No simulator exists. PATS's config points it at an external InComm test host, which
+    CAT leaves as it is.
+
+- name: mudflap
+  label: Mudflap
+  kind: commercial fleet
+  enabled_by: license
+  import: []
+  # Petro Simulator Suite's HTTPSIM (WireMock) carries mudflap_pos_mappings.json: every
+  # path Viper's MudflapMgr calls (authorizations, transactions, the two voids, and the
+  # 60 s heartbeat POST /pos/api/v1/ping; saf.hostcheck.url's /health is never called).
+  # It binds only HttpSim_config.properties' ipAddress, on 80 and 443, and makes a
+  # self-signed certificate naming only that IP at every start; Viper trusts a one-cert
+  # chain but checks the name, so the URL must be that IP (docs/secondary-feps.md §3a).
+  simulator: Petro Simulator Suite
+  points_at: "https://{controller_host}"
+  listens_on: Petro_Simulator_Suite/config/HttpSim_config.properties:ipAddress
+  # PETROCORE-139237's payload shape. The token only has to make Viper send a Bearer
+  # header, which every useful stub matches; avoid merchant 786523 (a mapped error).
+  cloud:
+    provider: mudflap
+    payload:
+      providerName: mudflap
+      merchantId: "12345"
+      bearerToken: cat-httpsim
+      url: "https://{controller_host}"
+  note: >-
+    Answered by Petro Simulator Suite's HTTPSIM, which approves fleet code 712345 only.
+    Enabled only by a Commercial Fleet license routed DIRECT (CFD); CAT points it at the
+    controller.
+
+- name: paywarefleet
+  label: Payware Fleet
+  kind: fleet
+  enabled_by: fepcfg
+  import:
+    - Paywarefleet/fepcfg&fep=paywarefleet.xml
+  simulator: ""
+  note: >-
+    No simulator exists here. PATS's config points it at another lab machine, which CAT
+    leaves as it is.
+
+- name: PropFleet
+  label: Proprietary Fleet
+  kind: fleet (Mannatec)
+  enabled_by: fepcfg
+  import:
+    - propfleet/fepcfg&fep=PropFleet.xml
+    - propfleet/fepcardcfg&fep=PropFleet.xml
+  simulator: ""
+  note: >-
+    No simulator exists. PATS's config points it at this controller on port 4448, where
+    nothing answers. ArbitraryHostSim's Mtec rule still speaks UMF (tried 2026-10-07).
+
+- name: WEX-OTR
+  label: WEX-OTR
+  kind: commercial fleet
+  enabled_by: license
+  import: []
+  # FEPSIM v2: STX + 4-digit length + pipe-delimited body + ETX CR, one connection per
+  # message, SEQN echoed; 21 HTTPSIM mappings (fep_wex-otr_mappings.json). Any card
+  # approves (pre-auth IC, then AC/VC); cards ending 9900-9907 and completion totals
+  # 5.00-5.05 are reserved outcomes. Viper routes 708305, 707152, 589355, 556748, 501486,
+  # 700006, 600296, ... to it (WEX-OTR_CardTable.xml). Plain TCP, so PrimaryIPSSLEnabled
+  # stays false: PATS's real-host payload asks for TLS.
+  simulator: Petro Simulator Suite
+  fepsim_instance: WEX-OTR-8030
+  points_at: "{controller_host}:8030"
+  cloud:
+    provider: WEX-OTR
+    payload:
+      providerName: WEX-OTR
+      merchantId: "513272"
+      connectionSettings: {host: "{controller_host}", port: 8030, tls: false}
+  note: >-
+    Answered by Petro Simulator Suite's FEPSIM (v2 only), on port 8030. Enabled only by a
+    Commercial Fleet license routed DIRECT (CFD) from Commander Connect.
+
+# quikq and multiservice entered the buypass FEP table on 2026-10-16 (petroapps
+# 8361932dc3f, PETROCORE-137357). Both are Commercial Fleet FEPs (CommercialFleets.java:
+# QUIKQ "23", MULTISERVICE "24"), enabled only by the DIRECT license, like WEX-OTR. No
+# simulator, PATS configuration, case or test card exists for either
+# (docs/secondary-fep-simulators.md).
+- name: quikq
+  label: QuikQ
+  kind: commercial fleet
+  enabled_by: license
+  import: []
+  simulator: ""
+  note: >-
+    No simulator exists. Raw TCP (TLS by default), one XML document per line; FEPSIM's
+    END_OF_LINE framing would fit. Enabled only by the DIRECT Commercial Fleet license.
+
+- name: multiservice
+  label: Multi Service Fleet
+  kind: commercial fleet
+  enabled_by: license
+  import: []
+  simulator: ""
+  note: >-
+    No simulator exists. HTTPS POST of XML with BASIC auth: HTTPSIM mappings, as Mudflap
+    has, would fit. Enabled only by the DIRECT Commercial Fleet license.
