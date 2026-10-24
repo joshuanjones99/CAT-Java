@@ -1,0 +1,774 @@
+{
+  "groups": [
+    "POS screen",
+    "Register keys (legacy RMI)",
+    "Pinpad",
+    "Forecourt",
+    "Store and Commander",
+    "Checks",
+    "Screen controls (UI level)",
+    "PATS actions (migrated)"
+  ],
+  "steps": [
+    {
+      "text": "the receipt matches its baseline",
+      "group": "Checks",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "Then the receipt matches its baseline",
+      "doc": "The printed receipt equals the case's reviewed receipt, after the declared normalisers.",
+      "fixtures": [
+        "pos",
+        "snapshot"
+      ],
+      "params": []
+    },
+    {
+      "text": "the transaction log matches its baseline",
+      "group": "Checks",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "And the transaction log matches its baseline",
+      "doc": "The sale's TLog from the Commander equals the case's reviewed TLog.",
+      "fixtures": [
+        "pos",
+        "snapshot"
+      ],
+      "params": []
+    },
+    {
+      "text": "pump {pump:Number} dispenses {amount:Money}",
+      "group": "Forecourt",
+      "kind": "action",
+      "level": "domain",
+      "example": "When pump 1 dispenses 24.15",
+      "doc": "Lifts the nozzle and fills to this amount on hose 1 (`PetroPumps.fill_amount`).",
+      "fixtures": [
+        "fuel_pumps"
+      ],
+      "params": [
+        "pump",
+        "amount"
+      ]
+    },
+    {
+      "text": "pump {pump:Number} dispenses {amount:Money} of its prepay",
+      "group": "Forecourt",
+      "kind": "action",
+      "level": "domain",
+      "example": "When pump 1 dispenses 5.00 of its prepay",
+      "doc": "Fills a prepaid pump to this amount (`PetroPumps.fill_amount(..., prepay=True)`).",
+      "fixtures": [
+        "fuel_pumps"
+      ],
+      "params": [
+        "pump",
+        "amount"
+      ]
+    },
+    {
+      "text": "the customer hangs up pump {pump:Number}",
+      "group": "Forecourt",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the customer hangs up pump 1",
+      "doc": "Puts the nozzle back (`PetroPumps.handle_down`).",
+      "fixtures": [
+        "fuel_pumps"
+      ],
+      "params": [
+        "pump"
+      ]
+    },
+    {
+      "text": "the customer hangs up prepaid pump {pump:Number}",
+      "group": "Forecourt",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the customer hangs up prepaid pump 1",
+      "doc": "Puts a prepaid pump's nozzle back (`PetroPumps.handle_down(..., prepay=True)`).",
+      "fixtures": [
+        "fuel_pumps"
+      ],
+      "params": [
+        "pump"
+      ]
+    },
+    {
+      "text": "the DCR shows \"{prompt}\"",
+      "group": "Forecourt",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "Given the DCR shows \"WELCOME\"",
+      "doc": "Waits, bounded, until DCR 1's display shows this text (`PetroDcr.wait_for_prompt`).",
+      "fixtures": [
+        "dcr"
+      ],
+      "params": [
+        "prompt"
+      ]
+    },
+    {
+      "text": "the customer presses {key:DcrKey} on the DCR",
+      "group": "Forecourt",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the customer presses L3 on the DCR",
+      "doc": "Presses a soft key beside DCR 1's display, L1-L4 or R1-R4 (`PetroDcr.press`).",
+      "fixtures": [
+        "dcr"
+      ],
+      "params": [
+        "key"
+      ]
+    },
+    {
+      "patsActions": true
+    },
+    {
+      "text": "the pinpad shows \"{prompt}\"",
+      "group": "Pinpad",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "Then the pinpad shows \"donate\"",
+      "doc": "Waits, bounded, until the pinpad's screen contains this text (`at_prompt`).",
+      "fixtures": [
+        "pinpad"
+      ],
+      "params": [
+        "prompt"
+      ]
+    },
+    {
+      "text": "the customer presses \"{key}\" on the pinpad",
+      "group": "Pinpad",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the customer presses \"$0.51\" on the pinpad",
+      "doc": "Presses the pinpad button with this label (`key`).",
+      "fixtures": [
+        "pinpad"
+      ],
+      "params": [
+        "key"
+      ]
+    },
+    {
+      "text": "the customer inserts card \"{card}\"",
+      "group": "Pinpad",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the customer inserts card \"EMV AMMEX CREDIT\"",
+      "doc": "Inserts or swipes the test card with this label (`insert_card`).",
+      "fixtures": [
+        "pinpad"
+      ],
+      "params": [
+        "card"
+      ]
+    },
+    {
+      "text": "the pinpad's \"{prompt}\" prompt clears by itself within {limit:Duration}",
+      "group": "Pinpad",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "Then the pinpad's \"donate\" prompt clears by itself within 90s",
+      "doc": "Nobody answers: the prompt must time out and leave the screen within the limit.",
+      "fixtures": [
+        "pinpad"
+      ],
+      "params": [
+        "prompt",
+        "limit"
+      ]
+    },
+    {
+      "text": "the register is idle",
+      "group": "POS screen",
+      "kind": "context",
+      "level": "domain",
+      "example": "Given the register is idle",
+      "doc": "The POS shows its idle screen (CSR Func reads idle). Waits for it, bounded.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "a sale is in progress",
+      "group": "POS screen",
+      "kind": "context",
+      "level": "domain",
+      "example": "Given a sale is in progress",
+      "doc": "The POS shows a transaction open. Waits for it, bounded.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "the cashier signs on",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier signs on",
+      "doc": "Signs on as the rig file's cashier, opening the till (`Pos.sign_on`).",
+      "fixtures": [
+        "pos",
+        "rig"
+      ],
+      "params": []
+    },
+    {
+      "text": "the cashier signs on and opens the till with a {amount:Money} float",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier signs on and opens the till with a 100.00 float",
+      "doc": "Signs on from the sign-on screen and keys the opening float, checking every prompt.",
+      "fixtures": [
+        "pos",
+        "rig"
+      ],
+      "params": [
+        "amount"
+      ]
+    },
+    {
+      "text": "the cashier signs off",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier signs off",
+      "doc": "Logs the cashier out from the express panel (`Pos.sign_off`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "the cashier rings up PLU {plu:Number}",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier rings up PLU 9999",
+      "doc": "Keys a PLU on the on-screen keypad and presses OK, as PATS's ADD_ITEM does by touch.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "plu"
+      ]
+    },
+    {
+      "text": "the cashier totals the sale",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier totals the sale",
+      "doc": "Presses Total on the item panel.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "the customer pays {amount:Money} in cash",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the customer pays 11.00 in cash",
+      "doc": "Payment, Cash, then the amount on the numeric keypad and OK (`ItemPanel.pay_cash`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "amount"
+      ]
+    },
+    {
+      "text": "the customer pays by credit",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the customer pays by credit",
+      "doc": "Payment, then Credit: the pinpad takes over (`ItemPanel.pay_credit`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "the customer pays {amount:Money} by \"{mop}\"",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the customer pays 10.00 by \"CHECK\"",
+      "doc": "Pays an amount with an Other-MOP entry chosen by its label (`Pos.pay_other_mop`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "amount",
+        "mop"
+      ]
+    },
+    {
+      "text": "the customer pays by \"{mop}\"",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the customer pays by \"MOBILE\"",
+      "doc": "Pays the balance with an Other-MOP entry chosen by its label (`Pos.pay_other_mop`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "mop"
+      ]
+    },
+    {
+      "text": "the POS shows error \"{title}\": \"{message}\"",
+      "group": "POS screen",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "Then the POS shows error \"E1163\": \"NO CHANGE ALLOWED\"",
+      "doc": "An error overlay with this title and first line is on screen (`Overlay.expect`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "title",
+        "message"
+      ]
+    },
+    {
+      "text": "the error message closes",
+      "group": "POS screen",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "And the error message closes",
+      "doc": "The error overlay has gone (`Overlay.expect_closed`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "the POS asks \"{prompt}\"",
+      "group": "POS screen",
+      "kind": "outcome",
+      "level": "domain",
+      "example": "Then the POS asks \"PLEASE SCAN QR CODE\"",
+      "doc": "An input overlay shows this prompt (`InputOverlay.expect_prompt`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "prompt"
+      ]
+    },
+    {
+      "text": "the cashier voids the ticket",
+      "group": "POS screen",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier voids the ticket",
+      "doc": "Voids the whole sale from the express panel (`Pos.void_ticket`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": []
+    },
+    {
+      "text": "the cashier keys PLU {plu:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier keys PLU 32232211",
+      "doc": "PATS's ADD_ITEM by key: the PLU and ENTER (`LegacyRmi.add_item`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "plu"
+      ]
+    },
+    {
+      "text": "the cashier keys {quantity:Number} of PLU {plu:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier keys 2 of PLU 7002",
+      "doc": "ADD_ITEM with a quantity: QTY and the count, then the PLU (`LegacyRmi.add_item`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "quantity",
+        "plu"
+      ]
+    },
+    {
+      "text": "the cashier keys PLU {plu:Number} with modifier {modifier:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier keys PLU 9112 with modifier 1",
+      "doc": "ADD_ITEM with a modifier (`LegacyRmi.add_item`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "plu",
+        "modifier"
+      ]
+    },
+    {
+      "text": "the cashier keys {quantity:Number} at {amount:Money} on department key {key:Hex} for department {department:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier keys 1 at 10.77 on department key 0x0c for department 1567",
+      "doc": "A department sale on another department's number (`LegacyRmi.add_dept_item`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "quantity",
+        "amount",
+        "key",
+        "department"
+      ]
+    },
+    {
+      "text": "the cashier keys TOTAL",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier keys TOTAL",
+      "doc": "The TOTAL key.",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": []
+    },
+    {
+      "text": "the cashier keys {amount:Money} on the {mop:MopKey} key",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier keys 11.00 on the CASH key",
+      "doc": "Tenders an amount with a MOP key: CASH, CREDIT, OTHER MOP or a 0xNN code.",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "amount",
+        "mop"
+      ]
+    },
+    {
+      "text": "the cashier keys the {mop:MopKey} key",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier keys the CREDIT key",
+      "doc": "Presses a MOP key with no amount: CREDIT, or CASH to tender the balance.",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "mop"
+      ]
+    },
+    {
+      "text": "the cashier keys the OTHER MOP key and picks entry {position:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier keys the OTHER MOP key and picks entry 24",
+      "doc": "OTHER MOP, then an entry of its list by number (`LegacyRmi.other_mop`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "position"
+      ]
+    },
+    {
+      "text": "the cashier presses ENTER",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier presses ENTER",
+      "doc": "A bare ENTER (`LegacyRmi.press_enter`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": []
+    },
+    {
+      "text": "the cashier enters \"{data}\"",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the cashier enters \"123456\"",
+      "doc": "ENTER carrying the value: an amount, a list entry, a scanned token (`press_enter`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "data"
+      ]
+    },
+    {
+      "text": "the cashier claims the fuel sale on pump {pump:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier claims the fuel sale on pump 1",
+      "doc": "Waits for the pump to be idle, then FUEL and the pump: PATS's FUEL, STACKED.",
+      "fixtures": [
+        "legacy_rmi",
+        "fuel_pumps"
+      ],
+      "params": [
+        "pump"
+      ]
+    },
+    {
+      "text": "the cashier keys a {amount:Money} prepay on pump {pump:Number} with the {mop:MopKey} key",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier keys a 5.00 prepay on pump 1 with the CREDIT key",
+      "doc": "PREPAY and the pump, then the amount on a MOP key (`LegacyRmi.prepay`, by amount).",
+      "fixtures": [
+        "legacy_rmi",
+        "fuel_pumps"
+      ],
+      "params": [
+        "amount",
+        "pump",
+        "mop"
+      ]
+    },
+    {
+      "text": "the cashier keys a prepay quantity of {quantity:Money} on pump {pump:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier keys a prepay quantity of 5.00 on pump 4",
+      "doc": "PREPAY and the pump, then QTY and the quantity (`LegacyRmi.prepay`, by grade).",
+      "fixtures": [
+        "legacy_rmi",
+        "fuel_pumps"
+      ],
+      "params": [
+        "quantity",
+        "pump"
+      ]
+    },
+    {
+      "text": "the cashier presets {amount:Money} on pump {pump:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier presets 14.50 on pump 5",
+      "doc": "OTHER FUEL, its preset option, the pump and the amount, each with ENTER.",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "amount",
+        "pump"
+      ]
+    },
+    {
+      "text": "the cashier prints flash report {report:Number} from functions menu {functions:Number} of main menu {main:Number}",
+      "group": "Register keys (legacy RMI)",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the cashier prints flash report 4 from functions menu 20 of main menu 1",
+      "doc": "Walks the menus by number and prints a flash report (`print_flash_report`).",
+      "fixtures": [
+        "legacy_rmi"
+      ],
+      "params": [
+        "report",
+        "functions",
+        "main"
+      ]
+    },
+    {
+      "text": "the cashier taps item {item:Number}",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier taps item 145397",
+      "doc": "Taps one item-panel button by its id (`ItemPanel.select`): the button, not a product.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "item"
+      ]
+    },
+    {
+      "text": "the cashier rings up {quantity:Number} of item {item:Number}",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier rings up 2 of item 145390",
+      "doc": "Quantity, the count, then an item-panel button by its id (`select_with_quantity`).",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "quantity",
+        "item"
+      ]
+    },
+    {
+      "text": "the cashier keys \"{digits}\" on the {pad:Pad} keypad",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier keys \"1100\" on the numeric keypad",
+      "doc": "Keys digits then OK on the numeric, calculator or on-screen keypad.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "digits",
+        "pad"
+      ]
+    },
+    {
+      "text": "the cashier keys \"{digits}\" on the {pad:Pad} keypad without OK",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier keys \"12\" on the numeric keypad without OK",
+      "doc": "Keys digits and leaves the entry open: no OK.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "digits",
+        "pad"
+      ]
+    },
+    {
+      "text": "the cashier presses {key:PadKey} on the {pad:Pad} keypad",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier presses CANCEL on the on-screen keypad",
+      "doc": "OK, CANCEL or CLEAR on one of the keypads.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "key",
+        "pad"
+      ]
+    },
+    {
+      "text": "the cashier taps express button {slot:Number}",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier taps express button 7",
+      "doc": "One slot of the express panel, by number.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "slot"
+      ]
+    },
+    {
+      "text": "the cashier taps row {row:Number} of the list",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier taps row 13631488 of the list",
+      "doc": "One row of the review overlay's list, by id.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "row"
+      ]
+    },
+    {
+      "text": "the cashier taps control \"{control}\"",
+      "group": "Screen controls (UI level)",
+      "kind": "action",
+      "level": "ui",
+      "example": "When the cashier taps control \"EXPRESS_PANEL_VIEW_KEYPAD_ICON\"",
+      "doc": "Any catalogued control by its `locators` name, with slot values in brackets.",
+      "fixtures": [
+        "pos"
+      ],
+      "params": [
+        "control"
+      ]
+    },
+    {
+      "text": "the store imports the \"{folder}\" configuration",
+      "group": "Store and Commander",
+      "kind": "context",
+      "level": "domain",
+      "example": "Given the store imports the \"charity\" configuration",
+      "doc": "Imports a folder of petroapps' `AutomationTests/configurations` into the Commander.",
+      "fixtures": [
+        "commander_config",
+        "configurations"
+      ],
+      "params": [
+        "folder"
+      ]
+    },
+    {
+      "text": "the Commander initialises fuel",
+      "group": "Store and Commander",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the Commander initialises fuel",
+      "doc": "Sends the fuel initialisation control function (`cfuelinit`).",
+      "fixtures": [
+        "commander_config"
+      ],
+      "params": []
+    },
+    {
+      "text": "the Commander initialises the DCRs",
+      "group": "Store and Commander",
+      "kind": "action",
+      "level": "domain",
+      "example": "And the Commander initialises the DCRs",
+      "doc": "Sends the DCR initialisation control function (`cdcrinit`).",
+      "fixtures": [
+        "commander_config"
+      ],
+      "params": []
+    },
+    {
+      "text": "the Commander runs control function \"{function}\"",
+      "group": "Store and Commander",
+      "kind": "action",
+      "level": "domain",
+      "example": "When the Commander runs control function \"cfuelinit\"",
+      "doc": "Sends any CGILink control function by its command name (`control_function`).",
+      "fixtures": [
+        "commander_config"
+      ],
+      "params": [
+        "function"
+      ]
+    }
+  ]
+}
