@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.rig.LoadedRig;
@@ -35,6 +36,18 @@ public final class PreflightCommand {
             "usage: cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]";
 
     private static final Duration VERIFY_BUDGET = PreflightRunner.VERIFY_BUDGET;
+
+    private final BiFunction<Rig, Map<String, String>, RigContextFactory.Sources> sources;
+
+    /** The production command: the Commander and forecourt sources are {@link RigContextFactory.Sources#live}. */
+    public PreflightCommand() {
+        this(RigContextFactory.Sources::live);
+    }
+
+    /** A command whose Commander and forecourt sources are {@code sources}' (a test's loopback fakes). */
+    PreflightCommand(BiFunction<Rig, Map<String, String>, RigContextFactory.Sources> sources) {
+        this.sources = sources;
+    }
 
     public int run(String[] argv) {
         return run(argv, System.getenv(), CliOutput.stdout(), CliOutput.stderr());
@@ -72,7 +85,7 @@ public final class PreflightCommand {
             return EXIT_USAGE;
         }
 
-        RigContext context = RigContextFactory.build(rig, register, options.shimPort, env);
+        RigContext context = RigContextFactory.build(rig, register, options.shimPort, env, sources.apply(rig, env));
         PreflightReport report = PreflightRunner.run(context, DefaultChecks.defaults().checks(),
                 new PreflightRunner.RunOptions(options.repair, VERIFY_BUDGET, false));
         out.println(CliOutput.fit(report.render()));

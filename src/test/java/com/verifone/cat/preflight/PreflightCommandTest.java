@@ -17,7 +17,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.verifone.cat.devices.DeviceUnavailable;
+import com.verifone.cat.devices.eps.CommanderLinkEpsProbe;
+import com.verifone.cat.devices.eps.CommanderLinks;
+import com.verifone.cat.devices.suspended.CommanderSuspends;
 import com.verifone.cat.posshim.FakeShim;
+import com.verifone.cat.provision.transport.CommandResult;
+import com.verifone.cat.provision.transport.InMemoryTransport;
+import com.verifone.cat.rig.Rig;
+import com.verifone.cat.rig.RigLoader;
 
 /**
  * The preflight command driven end to end: a real rig file, the real loader, the real shim client,
@@ -71,8 +79,28 @@ class PreflightCommandTest {
         return file;
     }
 
+    /** The netstat a Commander holding its Buypass link prints, for the rig file above. */
+    static final String LIVE_LINK = "tcp6 0 0 10.0.0.11:52370 10.0.0.160:41107 ESTABLISHED";
+
+    /** Offline Commander sources: the netstat and the Day summary come from memory, so no Commander is contacted. */
+    private String netstat = LIVE_LINK;
+    private int unsettled = 0;
+    private final java.util.List<InMemoryTransport> transports = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    private RigContextFactory.Sources offline(Rig rig, Map<String, String> env) {
+        return new RigContextFactory.Sources(
+                CommanderLinkEpsProbe.fromRig(rig, () -> {
+                    InMemoryTransport t = new InMemoryTransport(rig.commander().host())
+                            .command(CommanderLinks.NETSTAT, new CommandResult(0, netstat, ""));
+                    transports.add(t);
+                    return t;
+                }),
+                () -> new Surfaces.UnsettledSuspends(unsettled, unsettled == 0 ? "0.00" : "18.25"),
+                null);
+    }
+
     private int run(String... args) {
-        PreflightCommand command = new PreflightCommand();
+        PreflightCommand command = new PreflightCommand(this::offline);
         PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
         PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8);
         String[] full = new String[args.length + 2];
@@ -120,6 +148,67 @@ class PreflightCommandTest {
 
         assertEquals(PreflightCommand.EXIT_FAILED, code, stdout());
         assertFalse(stdout().contains("repair="), stdout());
+    }
+
+    @Test
+    void theCommanderRowsReadTheirSourcesReadOnly() throws IOException {
+        shim.on("GET", "/pos/screen", 200, Fixtures.resource("screen-idle.json"));
+        int code = run("--rig", rigFile(true).toString(), "--no-repair");
+
+        assertEquals(PreflightCommand.EXIT_OK, code, stdout() + stderr());
+        assertTrue(lineOf("eps_reachable").contains("pass"), stdout());
+        assertTrue(lineOf("no_parked_transaction").contains("pass"), stdout());
+        // pumps: [1, 2, 3] and no forecourt: nothing to read them from, so ERROR, not FAIL.
+        assertTrue(lineOf("pumps_idle").contains("error"), stdout());
+        assertFalse(transports.isEmpty());
+        for (InMemoryTransport t : transports) {
+            assertEquals(java.util.List.of(CommanderLinks.NETSTAT), t.ran(), "verify ran netstat and nothing else");
+            assertTrue(t.closed());
+        }
+    }
+
+    @Test
+    void aMissingPaymentLinkAndAParkedTicketMakeTheRigUntestable() throws IOException {
+        shim.on("GET", "/pos/screen", 200, Fixtures.resource("screen-idle.json"));
+        netstat = "tcp6 81 0 10.0.0.11:40258 10.0.0.160:41107 CLOSE_WAIT";
+        unsettled = 1;
+        int code = run("--rig", rigFile(true).toString(), "--no-repair");
+
+        assertEquals(PreflightCommand.EXIT_FAILED, code, stdout());
+        assertTrue(lineOf("eps_reachable").contains("fail"), stdout());
+        assertTrue(stdout().contains("buypass fep -> 10.0.0.160:41107"), stdout());
+        assertTrue(lineOf("no_parked_transaction").contains("fail"), stdout());
+    }
+
+    @Test
+    void theLiveSourcesAreTheCommandersAndBuildingThemContactsNothing() throws IOException {
+        Rig rig = RigLoader.loadFile(rigFile(true)).rig();
+        RigContextFactory.Sources live = RigContextFactory.Sources.live(rig, Map.of());
+
+        assertTrue(live.eps() instanceof CommanderLinkEpsProbe, String.valueOf(live.eps()));
+        assertTrue(live.parkedTickets() instanceof CommanderSuspends, String.valueOf(live.parkedTickets()));
+        assertEquals(null, live.pumpStatus(), "no forecourt: declared, so no pump source");
+        // No SSH key variable on this rig: the probe cannot look, and says why, without opening anything.
+        DeviceUnavailable e = org.junit.jupiter.api.Assertions.assertThrows(DeviceUnavailable.class,
+                () -> live.eps().reachable(java.time.Duration.ofSeconds(1)));
+        assertTrue(e.getMessage().contains("no SSH key"), e.getMessage());
+    }
+
+    @Test
+    void aPetroForecourtRigGetsAPumpSourceThatSaysWhyItCannotReadYet() throws IOException {
+        Path file = rigFile(true);
+        Files.writeString(file, Files.readString(file) + "forecourt: petro\n", StandardCharsets.UTF_8);
+        Rig rig = RigLoader.loadFile(file).rig();
+        RigContextFactory.Sources live = RigContextFactory.Sources.live(rig, Map.of());
+
+        DeviceUnavailable e = org.junit.jupiter.api.Assertions.assertThrows(DeviceUnavailable.class,
+                () -> live.pumpStatus().pumps(java.util.List.of(1)));
+        assertTrue(e.getMessage().contains("PetroPumpStatus"), e.getMessage());
+    }
+
+    private String lineOf(String check) {
+        return stdout().lines().filter(l -> l.strip().startsWith(check + " ")).findFirst().orElse("(no line for " + check + ")")
+                .toLowerCase(java.util.Locale.ROOT);
     }
 
     @Test
