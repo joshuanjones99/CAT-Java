@@ -37,3 +37,37 @@
     }
   });
 })();
+
+// Appearance (docs/web-ui.md, Settings): the Settings page keeps the choice in the web settings
+// file and in the cat_appearance cookie; this applies the cookie as data-theme on <html>, so
+// cat.css follows it on every page. "auto" removes the attribute and the system's choice applies.
+(function () {
+  "use strict";
+
+  function applyTheme(value) {
+    if (value === "light" || value === "dark") {
+      document.documentElement.setAttribute("data-theme", value);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  }
+
+  function readAppearance() {
+    try {
+      var match = document.cookie.match(/(?:^|; )cat_appearance=([^;]*)/);
+      return match ? decodeURIComponent(match[1]) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  applyTheme(readAppearance());
+
+  // The radio applies at once; the form's post saves it and sets the cookie for the next page.
+  document.addEventListener("change", function (event) {
+    var target = event.target;
+    if (target && target.name === "appearance") {
+      applyTheme(target.value);
+    }
+  });
+})();
