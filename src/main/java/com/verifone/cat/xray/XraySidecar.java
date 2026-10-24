@@ -43,7 +43,8 @@ import com.verifone.cat.xray.Summary.Verdict;
  * stream that stops without either ends after {@code idleAfterRunOver} seconds once
  * {@code run.ended} exists, or after {@code idleLimit} seconds of silence in any case.
  *
- * <p>Not wired into {@code Main}: CAT-Java does not launch runs yet, so nothing spawns this today.
+ * <p>Reached as {@code cat-java xray ...} ({@link #run(String[])}). Nothing spawns it yet: the launcher
+ * does not start it.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */
@@ -158,20 +159,29 @@ public final class XraySidecar {
         }
     }
 
-    /** The command-line entry point: prints the usage on a bad argument, exits 0 otherwise. */
+    /** The standalone entry point: {@link #run(String[])}, then exit with its code. */
     public static void main(String[] args) {
+        System.exit(run(args));
+    }
+
+    /**
+     * The command line, as {@code cat-java xray ...} and {@link #main} use it: parses {@code args}
+     * (printing the usage on a bad one) and follows the run.
+     *
+     * @return 2 for a usage error, otherwise 0 whatever Xray did
+     */
+    public static int run(String[] args) {
         Options options;
         try {
             options = parse(args, System.getenv());
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            System.err.println("usage: XraySidecar --run <run-id> [--results-root <dir>] [--once] "
+            System.err.println("usage: cat-java xray --run <run-id> [--results-root <dir>] [--once] "
                     + "[--dry-run] [--build <b>] [--dist <d>] [--branch <b>] [--upgrade <m>] "
                     + "[--flush-interval <seconds>]");
-            System.exit(2);
-            return;
+            return 2;
         }
-        System.exit(run(options));
+        return run(options);
     }
 
     /**

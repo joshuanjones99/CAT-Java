@@ -9,15 +9,23 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.posshim.FakeShim;
 import com.verifone.cat.posshim.PosShimClient;
+import com.verifone.cat.runconfig.ConfigFixture;
+import com.verifone.cat.runconfig.ConfigForm;
+import com.verifone.cat.sims.FakeProcessOps;
+import com.verifone.cat.sims.SimContext;
+import com.verifone.cat.sims.SimEntry;
+import com.verifone.cat.sims.Supervisor;
 
 import io.javalin.Javalin;
 
@@ -29,6 +37,9 @@ class WebAppPagesTest {
 
     private static final String DASH = "—";
 
+    @TempDir
+    Path tmp;
+
     private FakeShim shim;
     private Javalin app;
     private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
@@ -38,7 +49,40 @@ class WebAppPagesTest {
         // The shell pages never call the shim; FakeShim only stands in for the POS routes.
         shim = new FakeShim();
         PosShimClient client = new PosShimClient(shim.host(), shim.port(), null, Duration.ofSeconds(2));
-        app = WebApp.start(client, "CAT-Java: test / topaz101", 0);
+        app = WebApp.create(client, "CAT-Java: test / topaz101", sims()).start(WebApp.BIND_HOST, 0);
+    }
+
+    /**
+     * The Launch Simulators service over fake processes and one row with no ready port, so a page
+     * render probes nothing: no test connects to a real simulator's port.
+     */
+    private SimulatorsService sims() {
+        SimEntry row = SimEntry.exeRow("Inert").exe("missing-simulator.exe").match("cat-web-pages-token").build();
+        return new SimulatorsService(new Supervisor(new FakeProcessOps()), SimContext.of(tmp, ""),
+                List.of(row), Runnable::run);
+    }
+
+    /**
+     * The rig the UI was started with reaches Start: a named rig gets past the "No rig is named" refusal to
+     * the plan check. No plan is ticked, so Start is refused there and nothing is launched.
+     */
+    @Test
+    void startSeesTheRigTheUiWasStartedWith() throws Exception {
+        PosShimClient client = new PosShimClient(shim.host(), shim.port(), null, Duration.ofSeconds(2));
+        ConfigForm form = ConfigFixture.form(tmp);
+        Javalin unnamed = WebApp.create(client, "CAT-Java: test", "", form).start(WebApp.BIND_HOST, 0);
+        Javalin named = WebApp.create(client, "CAT-Java: test", "lab", form).start(WebApp.BIND_HOST, 0);
+        try {
+            String without = postStart(unnamed).body();
+            assertTrue(without.contains("No rig is named"), without);
+
+            String with = postStart(named).body();
+            assertFalse(with.contains("No rig is named"), with);
+            assertTrue(with.contains("Nothing to run yet"), with);
+        } finally {
+            unnamed.stop();
+            named.stop();
+        }
     }
 
     @AfterEach
@@ -210,6 +254,16 @@ class WebAppPagesTest {
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
         return http.send(HttpRequest.newBuilder(uri(path)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    /** A Start from the Run page, as htmx sends it. */
+    private HttpResponse<String> postStart(Javalin server) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(
+                        URI.create("http://" + WebApp.BIND_HOST + ":" + server.port() + "/run/start"))
+                .header("HX-Request", "true")
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {
