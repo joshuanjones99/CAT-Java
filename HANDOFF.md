@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 761 tests at end of wave 3, 2026-10-24 (SupervisorTest teardown flaky; fix in progress, see §6) |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 761 tests, 0 failures, end of wave 3, 2026-10-24 |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -96,8 +96,8 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 6. **`cat-java preflight` without `--no-repair` drives the live POS**: the pos_idle
    repair sends cancel then void through pos-shim, as the Python does. Not yet run
    against the lab with repair on; do it only with the rig owner's go-ahead.
-7. SupervisorTest teardown is flaky on Windows (a fake simulator outlives the test, so
-   @TempDir cannot be deleted). Being fixed on `wave3/sims`.
+7. Fixed: SupervisorTest teardown (a fake simulator outlived the test, so
+   @TempDir could not be deleted). 4/4 isolated runs and the full build pass.
 8. The sims agent found Windows PowerShell 5.1 drops the quotes of a WQL filter passed
    with `-Command` from Java's ProcessBuilder, so the port uses `-EncodedCommand`.
    The Python CAT's `_powershell` uses `-Command`; it is probably fine there (Python
