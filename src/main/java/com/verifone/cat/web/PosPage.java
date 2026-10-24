@@ -15,45 +15,34 @@ import com.verifone.cat.posshim.ShimReplies.Screen;
 import com.verifone.cat.posshim.ShimReplies.SupportedKeys;
 
 /**
- * The POS page and its fragments, rendered on the server.
+ * The POS proof of concept: the shim's health, the POS screen, and key buttons, rendered on
+ * the server. Not in the Python CAT's web-ui.md; kept as a page of the shell.
  *
- * <p>The page is a shell; htmx fills each card from a {@code /fragments/...} route and
- * refreshes it on a timer. A fragment that fails renders as an error card rather than
- * an HTTP error, because htmx does not swap a 4xx/5xx reply into the page.
+ * <p>The body is a shell; htmx fills each card from a {@code /fragments/...} route and
+ * refreshes it on a timer. A fragment that fails renders as an error card rather than an
+ * HTTP error, because htmx does not swap a 4xx/5xx reply into the page.
+ *
+ * <p>UNVERIFIED AGAINST HARDWARE from this client's key path; the reads were checked live
+ * on 2026-10-24 (HANDOFF.md).
  */
-final class Pages {
+final class PosPage {
 
-    private Pages() {}
+    private PosPage() {}
 
-    static String page(String title, String shimUri) {
-        return """
-                <!doctype html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1">
-                  <title>CAT-Java POS</title>
-                  <link rel="stylesheet" href="/static/cat.css">
-                  <script src="/static/htmx.min.js"></script>
-                </head>
-                <body>
-                  <header>
-                    <h1>%s</h1>
-                    <p class="muted">Proof of concept. Reads the POS through pos-shim at <code>%s</code>.</p>
-                  </header>
-                  <main>
-                    <section class="card" hx-get="/fragments/health" hx-trigger="load, every 5s">Loading health…</section>
-                    <section class="card wide" hx-get="/fragments/screen" hx-trigger="load, every 2s">Loading screen…</section>
-                    <section class="card wide">
-                      <h2>Press a key</h2>
-                      <p class="warn">These buttons drive the live POS.</p>
-                      <div hx-get="/fragments/keys" hx-trigger="load">Loading keys…</div>
-                      <div id="key-result"></div>
-                    </section>
-                  </main>
-                </body>
-                </html>
-                """.formatted(esc(title), esc(shimUri));
+    /** The page body. {@code subtitle} names the rig and register; {@code shimUri} the shim. */
+    static String body(String subtitle, String shimUri) {
+        return "<p class=\"muted\">" + esc(subtitle) + ". Proof of concept: reads the POS through pos-shim at <code>"
+                + esc(shimUri) + "</code>.</p>"
+                + "<div class=\"cards\">"
+                + "<section class=\"card\" hx-get=\"/fragments/health\" hx-trigger=\"load, every 5s\">Loading health…</section>"
+                + "<section class=\"card wide\" hx-get=\"/fragments/screen\" hx-trigger=\"load, every 2s\">Loading screen…</section>"
+                + "<section class=\"card wide\">"
+                + "<h2>Press a key</h2>"
+                + "<p class=\"warn\">These buttons drive the live POS.</p>"
+                + "<div hx-get=\"/fragments/keys\" hx-trigger=\"load\">Loading keys…</div>"
+                + "<div id=\"key-result\"></div>"
+                + "</section>"
+                + "</div>";
     }
 
     static String health(Health h) {
