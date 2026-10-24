@@ -27,6 +27,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.commander.CommanderFixtures.CommanderSsh;
 import com.verifone.cat.commander.CommanderFixtures.FakeClient;
+import com.verifone.cat.commander.snapshot.Restore;
+import com.verifone.cat.commander.snapshot.SnapshotRestore;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.commander.FakeCommander;
 import com.verifone.cat.devices.commander.PdkShim;
@@ -70,8 +72,19 @@ class CommanderInitTest {
                 .withFccRestart(Duration.ZERO, Duration.ZERO, Duration.ofSeconds(15), Duration.ofMillis(10));
     }
 
+    /** The base folders the snapshot seam was asked to restore before, in order. */
+    private final List<Path> restores = new ArrayList<>();
+
+    /** Never the real restore: it would read C:\CICD\Snapshots. The snapshot's own tests drive the real one. */
+    private SnapshotRestore snapshots = (folder, line) -> {
+        restores.add(folder);
+        line.accept("no Commander snapshot (test seam)");
+        return null;
+    };
+
     private CommanderInit.Builder init(CommanderClient client, CommanderSsh ssh) {
         return CommanderInit.builder(CommanderFixtures.access(rig, ssh, registers))
+                .snapshots((folder, line) -> snapshots.restore(folder, line))
                 .clients(() -> client)
                 .pauser(CommanderFixtures.recording(calls))
                 .tunables(fast())
@@ -175,12 +188,43 @@ class CommanderInitTest {
         }
     }
 
-    // -- the snapshot restore, not ported ------------------------------------------------------------
+    // -- the snapshot restore, before the base import ------------------------------------------------
 
     @Test
-    void aSnapshotRestoreAskedForSaysItIsUnavailable() {
+    void theSnapshotIsRestoredBeforeTheBaseImport() {
+        snapshots = (folder, line) -> {
+            restores.add(folder);
+            calls.add("restore");
+            return null;
+        };
         assertTrue(run(new FakeClient(calls), new CommanderSsh("")));
-        assertTrue(say.errText().contains("WARNING Commander snapshot not restored: " + CommanderInit.SNAPSHOT_UNAVAILABLE));
+        assertEquals(List.of(base), restores);
+        assertTrue(calls.indexOf("restore") < calls.indexOf("import:base"), calls.toString());
+        assertFalse(say.errText().contains("WARNING"), say.errText());
+    }
+
+    @Test
+    void aRestoreThatLeavesAnAreaDifferentWarnsAndTheInitGoesOn() {
+        Restore.RestoreReport left = new Restore.RestoreReport() {
+            @Override
+            public boolean ok() {
+                return false;
+            }
+        };
+        snapshots = (folder, line) -> left;
+        assertTrue(run(new FakeClient(calls), new CommanderSsh("")));
+        assertTrue(say.errText().contains("WARNING " + left.summary()), say.errText());
+        assertEquals("commander init complete", say.outLines().get(say.outLines().size() - 1));
+    }
+
+    @Test
+    void anUnreadableSnapshotIsOneLineAndTheInitGoesOn() {
+        snapshots = (folder, line) -> {
+            throw new IllegalArgumentException("invalid snapshot manifest");
+        };
+        assertTrue(run(new FakeClient(calls), new CommanderSsh("")));
+        assertTrue(say.errText().contains(
+                "Commander snapshot not restored: IllegalArgumentException: invalid snapshot manifest"), say.errText());
     }
 
     @Test
