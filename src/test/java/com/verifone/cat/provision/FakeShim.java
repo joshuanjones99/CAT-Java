@@ -81,15 +81,22 @@ final class FakeShim implements AutoCloseable {
         return health(restartedBuild, List.of(CLIENT), List.of(), true, List.of());
     }
 
+    /** The shim's own warning, worded as pos-shim's Routes.java words it, when a POS is drivable but silent. */
+    static final String SILENT_WARNING = "POS [" + CLIENT + "] accepts keys but has pushed no status. "
+            + "Usually means the shim was restarted while the POS kept running: the agent's static remoteToken "
+            + "stub still points at the old shim JVM and is never replaced. Restart the POS to restore the status "
+            + "surface.";
+
     private static String health(String build, List<String> drivable, List<String> readOnly, boolean state,
             List<String> silent) {
+        String warning = silent.isEmpty() ? "" : ", \"warning\": \"" + SILENT_WARNING + "\"";
         return "{\"ok\": true, \"build\": " + (build == null ? "null" : "\"" + build + "\"")
                 + ", \"uptime_s\": 3, \"clients\": [\"" + CLIENT + "\"]"
                 + ", \"drivable_clients\": " + strings(drivable)
                 + ", \"read_only_clients\": " + strings(readOnly)
                 + ", \"state_present\": " + state
                 + ", \"last_change_age_s\": {\"" + CLIENT + "\": 1}"
-                + ", \"drivable_but_silent\": " + strings(silent) + "}";
+                + ", \"drivable_but_silent\": " + strings(silent) + warning + "}";
     }
 
     private static String strings(List<String> items) {
