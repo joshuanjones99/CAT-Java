@@ -27,7 +27,7 @@ import io.javalin.Javalin;
  */
 class WebAppPagesTest {
 
-    private static final String DASH = "—";
+    private static final String DASH = "â€”";
 
     private FakeShim shim;
     private Javalin app;
@@ -114,7 +114,6 @@ class WebAppPagesTest {
 
     @Test
     void unbuiltPagesNameThePythonModuleTheyWillBePortedFrom() throws Exception {
-        assertPlaceholder("/results", "cat/web/pages/results.py");
         assertPlaceholder("/authoring", "cat/web/pages/authoring.py");
         assertPlaceholder("/upgrade", "cat/web/pages/upgrade.py");
         assertPlaceholder("/simulators", "cat/web/pages/simulators.py");

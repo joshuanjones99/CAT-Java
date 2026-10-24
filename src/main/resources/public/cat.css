@@ -293,3 +293,31 @@ button:hover { background: var(--accent); color: var(--accent-text); }
 code { font-family: ui-monospace, Consolas, monospace; }
 
 :focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+/* Results */
+.results-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 12px 0; }
+.results-controls .tabs { margin: 0; }
+.results-controls input[type="search"] { min-width: 260px; flex: 1 1 260px; max-width: 420px; padding: 6px 10px; font: inherit; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg-btn { padding: 4px 10px; }
+.seg-btn.active { background: var(--accent); color: var(--accent-text); }
+.results-table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 14px; }
+.results-table th, .results-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.results-table th { color: var(--muted); font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.badge { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: 13px; }
+.badge.ok { color: var(--ok); }
+.badge.error { color: var(--error); }
+.badge.warn { color: var(--warn); }
+.badge.muted { color: var(--muted); }
+.spark { margin: 8px 0 16px; max-width: 640px; }
+.spark svg { width: 100%; height: auto; }
+.spark .axis { stroke: var(--border); stroke-width: 1; }
+.spark .tick { fill: var(--muted); font-size: 11px; }
+.spark .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 70vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+@media (max-width: 640px) {
+  .results-table { display: block; overflow-x: auto; }
+  .results-controls input[type="search"] { max-width: none; }
+}
