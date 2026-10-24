@@ -388,3 +388,29 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
 .cat-places dd { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
 .cat-places code { color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) { .cat-places { grid-template-columns: 1fr; } .cat-places dt { margin-top: 6px; } }
+
+/* Authoring (AuthoringPage): the toolbars, the cases table and the editor. */
+.authoring .authoring-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.authoring .authoring-toolbar label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+.authoring input[type="text"], .authoring input:not([type]), .authoring input[type="search"] { min-width: 14rem; padding: 4px 6px; font: inherit; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+.authoring .placeholder-note { color: var(--muted); font-size: 12px; }
+.authoring .authoring-status { margin: 0 0 6px; font-size: 13px; }
+.authoring .authoring-message { margin: 0 0 10px; white-space: pre-wrap; }
+.authoring .bad { color: var(--error); }
+.authoring .authoring-workspace { display: grid; grid-template-columns: minmax(18rem, 1fr) minmax(0, 1.4fr); gap: 16px; align-items: start; }
+.authoring .authoring-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.authoring .authoring-table th, .authoring .authoring-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.authoring .authoring-table tr.selected { background: var(--surface); font-weight: 600; }
+.authoring .authoring-table .num { text-align: right; width: 2.5rem; }
+.authoring .cat-case-link { background: transparent; border: none; padding: 0; color: var(--accent); cursor: pointer; text-align: left; font: inherit; }
+.authoring .authoring-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.authoring .authoring-tabs .tab { background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0; }
+.authoring .authoring-tabs .tab.on { border-bottom-color: var(--accent); font-weight: 600; }
+.authoring .authoring-text { width: 100%; min-height: 22rem; font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; box-sizing: border-box; }
+.authoring .authoring-check { font-family: ui-monospace, Consolas, monospace; font-size: 13px; margin-top: 8px; }
+.authoring .authoring-steps { list-style: none; margin: 8px 0 0; padding: 0; max-height: 26rem; overflow: auto; }
+.authoring .authoring-steps li { border-bottom: 1px solid var(--border); }
+.authoring .authoring-steps .step { display: block; width: 100%; text-align: left; background: transparent; border: none; border-radius: 0; padding: 6px 4px; }
+.authoring .authoring-steps .step span { display: block; }
+.authoring .authoring-pre { white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--surface); color: var(--text); padding: 8px; border: 1px solid var(--border); border-radius: 6px; max-height: 24rem; overflow: auto; }
+@media (max-width: 800px) { .authoring .authoring-workspace { grid-template-columns: 1fr; } }
