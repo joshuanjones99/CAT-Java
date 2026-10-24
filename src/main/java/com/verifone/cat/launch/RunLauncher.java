@@ -14,6 +14,10 @@ import com.verifone.cat.report.events.CatEvent;
 import com.verifone.cat.report.events.Outcome;
 import com.verifone.cat.report.events.RunEnded;
 import com.verifone.cat.rig.RigLease;
+import com.verifone.cat.sims.PowerShellProcessOps;
+import com.verifone.cat.sims.ProcessOps;
+import com.verifone.cat.sims.SimProcess;
+import com.verifone.cat.sims.Supervisor;
 
 /**
  * Drives one run through the seven steps: the Python CAT's {@code cat.launch.run.launch_run} and its
@@ -46,20 +50,30 @@ public final class RunLauncher {
 
     private final LaunchPaths paths;
     private final Clock clock;
+    private final ProcessOps processOps;
     private final PauseGate pause = new PauseGate();
     private final AtomicBoolean launched = new AtomicBoolean();
     private volatile boolean stopRequested;
     private volatile RunContext active;
 
-    /** A launcher on the system UTC clock. */
+    /** A launcher on the system UTC clock, driving the simulators through PowerShell. */
     public RunLauncher(LaunchPaths paths) {
         this(paths, Clock.systemUTC());
     }
 
     /** A launcher on {@code clock}, so a test can fix the run's times. */
     public RunLauncher(LaunchPaths paths, Clock clock) {
+        this(paths, clock, new PowerShellProcessOps());
+    }
+
+    /**
+     * A launcher on {@code clock} whose simulator supervisor asks {@code processOps} about processes.
+     * A test passes a fake, so no real process is listed or started.
+     */
+    RunLauncher(LaunchPaths paths, Clock clock, ProcessOps processOps) {
         this.paths = paths;
         this.clock = clock;
+        this.processOps = processOps;
     }
 
     /** Pauses the run before its next step (or, if it is not started yet, pauses it from the start). */
@@ -107,6 +121,7 @@ public final class RunLauncher {
             throw new UncheckedIOException("cannot open the run folder " + folder + ": " + e.getMessage(), e);
         }
         RunContext ctx = new RunContext(config, paths, runId, folder, events, pause, clock);
+        ctx.supervisor(new Supervisor(processOps));
         active = ctx;
         pause.bind(folder.resolve(PauseGate.PAUSE_FILE));
         if (stopRequested) {
@@ -127,6 +142,8 @@ public final class RunLauncher {
             cancelled = true;
             ctx.emit(runFinished(ctx, Outcome.SKIPPED, true));
         } finally {
+            ctx.stopWatching();
+            stopSimulators(ctx);
             releaseRig(ctx);
             events.close();
             RunEnded.mark(folder, clock.instant());
@@ -163,6 +180,25 @@ public final class RunLauncher {
             StepRunner.skip(ctx, name, PARTIAL_REFUSED);
         }
         return LaunchStepNames.SYSTEM_CHECKS;
+    }
+
+    /**
+     * Stops the simulator processes this run spawned, and no others (D9). Cleanup, which does this in
+     * the Python CAT, is not ported, so the launcher does it whatever step ended the run.
+     */
+    static void stopSimulators(RunContext ctx) {
+        List<SimProcess> procs = ctx.simulators();
+        if (procs.isEmpty()) {
+            return;
+        }
+        try {
+            List<String> stopped = ctx.supervisor().stop(procs, Supervisor.STOP_WAIT);
+            ctx.emit(new CatEvent.LogLine("INFO", "cat.sims",
+                    "stopped the simulators CAT started: " + String.join(", ", stopped), ""));
+        } catch (RuntimeException e) {
+            ctx.emit(new CatEvent.LogLine("ERROR", "cat.sims",
+                    "stopping the simulators CAT started failed: " + e, ""));
+        }
     }
 
     /** Frees what the steps took: the run lock, last. The rig is this run's until then. */

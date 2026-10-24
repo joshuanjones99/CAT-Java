@@ -20,7 +20,8 @@ import java.util.List;
  * <p>Not ported, and so not checked here: the VATS lines for {@code pinpad: vats}, and the
  * receipt-printer lines (each register's {@code printer_port} must be listed by Windows and must
  * open). A serial listing and a COM open are Windows-specific and belong with the printer
- * slice. TODO: add both when the rig model and the printer port are ported.
+ * slice, and the VATS checks belong with the VATS slice. The rig model is ported, so the step that
+ * runs these lines (System Checks) names each missing group as unavailable.
  *
  * <p>{@link #commanderAnswers} never repairs anything. A Commander with a dead RMI tier is named
  * and left for a person to fix; a run that silently rebuilt the Commander would not be evidence
@@ -94,7 +95,7 @@ public final class RigReadiness {
             Duration answerTimeout = timeout.compareTo(COMMANDER_ANSWER_FLOOR) > 0 ? timeout : COMMANDER_ANSWER_FLOOR;
             lines.add(commanderAnswers(endpoints.commanderHost(), commanderPort, answerTimeout));
         }
-        // TODO: the VATS lines (pinpad: vats) and the printer-port lines, see the class Javadoc.
+        // Not ported: the VATS lines (pinpad: vats) and the printer-port lines, see the class Javadoc.
         return lines;
     }
 

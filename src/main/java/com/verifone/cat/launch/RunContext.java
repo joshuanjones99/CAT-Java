@@ -7,10 +7,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.verifone.cat.report.events.CatEvent;
 import com.verifone.cat.rig.LoadedRig;
 import com.verifone.cat.rig.RigLease;
+import com.verifone.cat.sims.PowerShellProcessOps;
+import com.verifone.cat.sims.SimProcess;
+import com.verifone.cat.sims.Supervisor;
 
 /**
  * What the seven steps of one run share: the config, the paths, the run's event sink, the pause
@@ -32,6 +36,10 @@ public final class RunContext {
     private final Instant startedAt;
     private final Map<String, StepResult> results = new ConcurrentHashMap<>();
     private volatile boolean cancelled;
+
+    private final List<SimProcess> simulators = new CopyOnWriteArrayList<>();
+    private volatile Supervisor supervisor;
+    private volatile Runnable stopWatching;
 
     private LoadedRig rig;
     private RigLease runLock;
@@ -104,6 +112,46 @@ public final class RunContext {
 
     void runLock(RigLease lease) {
         runLock = lease;
+    }
+
+    /** The supervisor step 3 drives. Set by the launcher; a PowerShell-backed one if nothing set it. */
+    public Supervisor supervisor() {
+        Supervisor current = supervisor;
+        if (current == null) {
+            current = new Supervisor(new PowerShellProcessOps());
+            supervisor = current;
+        }
+        return current;
+    }
+
+    void supervisor(Supervisor value) {
+        supervisor = value;
+    }
+
+    /** The simulator processes this run spawned (not adopted ones), which the run stops at its end. */
+    public List<SimProcess> simulators() {
+        return List.copyOf(simulators);
+    }
+
+    /** Records a process step 3 spawned, so the run stops it at its end. Adopted rows are not recorded. */
+    void addSimulator(SimProcess process) {
+        if (process.spawned() && !simulators.contains(process)) {
+            simulators.add(process);
+        }
+    }
+
+    /** Registers the stop for the connection watch step 2 started. Called once, by step 2. */
+    void watching(Runnable stop) {
+        stopWatching = stop;
+    }
+
+    /** Ends the connection watch, if one is running. The launcher calls it when the run ends. */
+    void stopWatching() {
+        Runnable stop = stopWatching;
+        stopWatching = null;
+        if (stop != null) {
+            stop.run();
+        }
     }
 
     /** Writes one event to {@code events.ndjson} and the run log. */

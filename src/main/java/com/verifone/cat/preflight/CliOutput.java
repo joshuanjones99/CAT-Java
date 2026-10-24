@@ -8,10 +8,10 @@ import java.util.List;
 /**
  * The CLI's console output, safe on a Windows console.
  *
- * <p>Java 17 encodes {@code System.out} with the console's code page (for example IBM437), which
- * has no em dash, so {@code —} printed as {@code �}. This helper picks the charset the console
- * decodes with and replaces any character that charset cannot encode: an em or en dash becomes
- * {@code -}, anything else {@code ?}. The output is ASCII where it has to be and unchanged where it can be.
+ * <p>Java 17 encodes {@code System.out} with the console's code page (for example IBM437, or cp1252
+ * in a Git Bash window), and the dash that code page can encode shows as {@code �} in a UTF-8 terminal.
+ * So an em or en dash is always written as a plain hyphen, whatever the charset: the output is ASCII
+ * for dashes, and any other character the charset cannot encode becomes {@code ?}.
  */
 public final class CliOutput {
 
@@ -41,17 +41,21 @@ public final class CliOutput {
         return new PrintStream(System.err, true, consoleCharset());
     }
 
-    /** {@code text} with every character {@code charset} cannot encode replaced by ASCII. */
+    /**
+     * {@code text} as the console shows it: an em or en dash is always a hyphen, and any other character
+     * {@code charset} cannot encode is {@code ?}. Dashes are folded whatever the charset, because a
+     * charset that can encode them still shows them as a replacement mark in some terminals.
+     */
     public static String fit(String text, Charset charset) {
         CharsetEncoder encoder = charset.newEncoder();
         StringBuilder out = new StringBuilder(text.length());
         text.codePoints().forEach(codePoint -> {
-            String one = new String(Character.toChars(codePoint));
-            if (encoder.canEncode(one)) {
-                out.append(one);
-            } else {
-                out.append(codePoint == '—' || codePoint == '–' ? "-" : "?");
+            if (codePoint == '—' || codePoint == '–') {
+                out.append('-');
+                return;
             }
+            String one = new String(Character.toChars(codePoint));
+            out.append(encoder.canEncode(one) ? one : "?");
         });
         return out.toString();
     }

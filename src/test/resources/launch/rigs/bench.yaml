@@ -1,14 +1,17 @@
+# Test rig. Its addresses are never a real device: the Commander and register names are RFC 2606
+# ".invalid" (they do not resolve, so every probe is DOWN at once), and the controller is loopback
+# (always held by this PC, so the Host PC row is UP). No test may point a run at a real address.
 name: bench
 commander:
-  host: 10.0.0.11
+  host: commander.invalid
   ssh_user: root
   eps_port: 41107
 registers:
   - id: topaz101
-    host: 10.0.0.101
+    host: register.invalid
     cdp_port: 9222
 controller:
-  host: 10.0.0.160
+  host: 127.0.0.1
 pinpad: viperpay
 pos_shim: true
 build:

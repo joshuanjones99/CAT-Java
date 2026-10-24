@@ -1,21 +1,114 @@
 package com.verifone.cat.launch;
 
-/**
- * Step 6, Generate Report. Unavailable: the HTML summary ({@code cat.report.html}, which
- * {@code petrotest/report/html.py} backs) is not ported. The JUnit XML writer and the artifact index
- * are ported ({@code report.JunitXmlWriter}, {@code report.ArtifactIndex}), and so is the event file
- * they read, but a report without its summary is not the report step, so the step does not run.
- */
-final class GenerateReportStep extends UnportedStep {
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-    GenerateReportStep() {
-        super("src/cat/launch/steps/report.py",
-                "the HTML summary writer (cat.report.html, not ported); JUnit XML and the artifact index "
-                        + "are ported");
-    }
+import com.verifone.cat.report.ArtifactIndex;
+import com.verifone.cat.report.JunitXmlWriter;
+import com.verifone.cat.report.ReportPaths;
+import com.verifone.cat.report.html.HtmlReport;
+
+/**
+ * Step 6, Generate Report: JUnit XML, the HTML summary and the artifact index, built from the run's
+ * {@code events.ndjson}. The Python CAT's {@code cat.launch.steps.report}.
+ *
+ * <p>The writers read the whole file that the launcher wrote as the run went, so the file is complete
+ * here: every line is flushed as it is written ({@code report.NdjsonWriter}). The artifact index is
+ * written last, so it lists the two reports too. The writers run on one worker thread, bounded by
+ * {@link #WRITE_TIMEOUT}; a timeout is a failed step, and what they had written is partial.
+ *
+ * <p>Not carried, because the steps that feed them are not ported: the event tee's dropped-event count
+ * (CAT-Java has no socket tee), the Xray status lines, and the JaCoCo coverage report that runs first
+ * when coverage is on. A run with any of them asked for does not get them here.
+ *
+ * <p>UNVERIFIED AGAINST HARDWARE: the report is built from fake-backed run events only. The Python
+ * CAT's summary and JUnit output were checked against a real run's events (HANDOFF.md §4).
+ */
+final class GenerateReportStep implements LaunchStep {
+
+    /** Bound on the three writers, as the Python CAT's {@code REPORT_WRITE_TIMEOUT}. */
+    static final Duration WRITE_TIMEOUT = Duration.ofSeconds(120);
+
+    /** The three files this step must have written, in the order it checks them. */
+    static final List<String> OUTPUTS = List.of(
+            JunitXmlWriter.JUNIT_FILE, HtmlReport.SUMMARY_FILE, ArtifactIndex.INDEX_FILE);
 
     @Override
     public String name() {
         return LaunchStepNames.REPORT;
+    }
+
+    @Override
+    public boolean run(RunContext ctx, StepEmitter step) {
+        Path folder = ctx.runFolder();
+        Path events = folder.resolve(ReportPaths.EVENTS_FILE);
+        if (!Files.isRegularFile(events)) {
+            step.skipStep("no events.ndjson to read at " + folder);
+            step.warn("reports", events + " does not exist, so there is nothing to build them from. "
+                    + "The launcher writes every event to that path; an absent file means it never opened.");
+            return true;
+        }
+
+        ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "cat-report-writer");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            Future<Void> written = worker.submit(writeAll(events, folder));
+            try {
+                written.get(WRITE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                written.cancel(true);
+                step.check(false, "reports", "the writers did not finish within "
+                        + WRITE_TIMEOUT.toSeconds() + "s reading " + events + "; whatever they had written is partial",
+                        true);
+                return step.fail("report writers did not finish within " + WRITE_TIMEOUT.toSeconds() + "s");
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause() == null ? e : e.getCause();
+                step.check(false, "reports", "the writers failed: " + cause, true);
+                return step.fail("report writers failed: " + cause.getClass().getSimpleName());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                written.cancel(true);
+                return step.fail("interrupted while the reports were written");
+            }
+        } finally {
+            worker.shutdownNow();
+        }
+
+        // Stat each file rather than trusting that the writers returned: a PASS on the strength of
+        // no exception is not evidence that the file is there.
+        boolean allWritten = true;
+        for (String name : OUTPUTS) {
+            Path written = folder.resolve(name);
+            boolean present = Files.isRegularFile(written);
+            step.check(present, name, written.toString(), true);
+            allWritten &= present;
+        }
+        if (!allWritten) {
+            return step.fail("a report file is missing from " + folder);
+        }
+        step.setDetail(folder.toString());
+        return true;
+    }
+
+    /** The three writers, in order: the index last, so it catalogues the reports above. */
+    private static Callable<Void> writeAll(Path events, Path folder) {
+        return () -> {
+            JunitXmlWriter.fromEvents(events).write(folder);
+            HtmlReport.fromEvents(events).write(folder);
+            ArtifactIndex.write(folder);
+            return null;
+        };
     }
 }

@@ -22,7 +22,16 @@ class CliOutputTest {
     }
 
     @Test
-    void textTheCharsetCanEncodeIsUnchanged() {
+    void anEmDashIsAHyphenEvenWhereTheCharsetCanEncodeIt() {
+        // A UTF-8 console (Git Bash) can encode the dash, and still must not show it: the output is
+        // folded to ASCII for dashes whatever the charset, so no terminal draws a replacement mark.
+        assertTrue(StandardCharsets.UTF_8.newEncoder().canEncode("—"));
+        assertEquals("rig lab - PASS - ok", CliOutput.fit("rig lab — PASS – ok", StandardCharsets.UTF_8));
+        assertEquals("rig lab - PASS - ok", CliOutput.fit("rig lab — PASS – ok", Charset.forName("windows-1252")));
+    }
+
+    @Test
+    void textTheCharsetCanEncodeIsOtherwiseUnchanged() {
         assertEquals("PETROCORE-36847 é ok", CliOutput.fit("PETROCORE-36847 é ok", StandardCharsets.UTF_8));
         assertEquals("plain ascii", CliOutput.fit("plain ascii", StandardCharsets.US_ASCII));
     }

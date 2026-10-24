@@ -26,7 +26,8 @@ import com.verifone.cat.runconfig.RunScope;
  *
  * <p>Every step that touches a device or a simulator is unavailable here, so the runs end where the
  * Python CAT's would stop on a failed System Checks. The framework is what is under test.
- * UNVERIFIED AGAINST HARDWARE; nothing here starts a process or contacts a host.
+ * The bench rig's names are {@code .invalid} and its controller is loopback, so a run here probes no
+ * device. UNVERIFIED AGAINST HARDWARE; nothing here starts a process.
  */
 class RunLauncherTest {
 
@@ -39,16 +40,23 @@ class RunLauncherTest {
                 .launch(LaunchConfig.forRig(LaunchFixtures.RIG));
 
         assertEquals(LaunchStepNames.ALL, result.steps().stream().map(StepResult::name).toList());
+        // The bench rig's Commander does not resolve, so its network line fails System Checks, which
+        // stops the run before the unported audit is reached.
         StepResult systemChecks = result.steps().get(0);
         assertEquals(StepResult.FAILED, systemChecks.state());
-        assertTrue(systemChecks.detail().startsWith("unavailable in CAT-Java: needs "), systemChecks.detail());
+        assertTrue(systemChecks.detail().startsWith("rig hardware not ready: commander not reachable"),
+                systemChecks.detail());
         for (StepResult later : result.steps().subList(1, 5)) {
             assertEquals(StepResult.SKIPPED, later.state(), later.name());
             assertEquals("not reached: System Checks failed", later.detail(), later.name());
         }
-        // Steps 6 and 7 run whatever happened, as the Python CAT's do. Both are unavailable here.
-        assertEquals(StepResult.FAILED, result.steps().get(5).state());
+        // Steps 6 and 7 run whatever happened, as the Python CAT's do. Report writes from the run's
+        // events; Cleanup is unavailable here.
+        assertEquals(StepResult.COMPLETE, result.steps().get(5).state());
         assertEquals(StepResult.FAILED, result.steps().get(6).state());
+        for (String report : List.of("junit.xml", "summary.html", "index.json")) {
+            assertTrue(Files.isRegularFile(result.runFolder().resolve(report)), report);
+        }
         assertFalse(result.complete());
         assertFalse(result.cancelled());
     }
@@ -156,9 +164,9 @@ class RunLauncherTest {
         LaunchPaths paths = LaunchFixtures.paths(dir);
         new RunLauncher(paths).launch(LaunchConfig.forRig(LaunchFixtures.RIG));
 
-        // A second run on the same rig reaches the unavailable check, so the first run let the lock go.
+        // A second run on the same rig reaches the rig readiness check, so the first run let the lock go.
         LaunchResult second = new RunLauncher(paths).launch(LaunchConfig.forRig(LaunchFixtures.RIG));
-        assertTrue(second.steps().get(0).detail().startsWith("unavailable in CAT-Java: needs "),
+        assertTrue(second.steps().get(0).detail().startsWith("rig hardware not ready: "),
                 second.steps().get(0).detail());
     }
 

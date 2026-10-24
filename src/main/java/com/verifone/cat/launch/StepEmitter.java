@@ -82,6 +82,21 @@ public final class StepEmitter {
         ctx.emit(new CatEvent.StepCheck(step, label, outcome, text, elapsed));
     }
 
+    /** Sets the one-line detail the step's bracket reports, as the Python CAT's {@code step.detail}. */
+    public void setDetail(String text) {
+        detail = text == null ? "" : text;
+    }
+
+    /**
+     * The step has nothing to do in this run: {@code skipped}, with its reason. The run goes on.
+     * Pair it with {@link #skip} for the checklist row, as the Python CAT does.
+     */
+    public boolean skipStep(String reason) {
+        state = StepResult.SKIPPED;
+        detail = reason;
+        return true;
+    }
+
     /** The step failed. Always returns {@code false}: the run does not go on past a failed step. */
     public boolean fail(String reason) {
         state = StepResult.FAILED;
