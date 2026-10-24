@@ -19,15 +19,15 @@ import java.util.function.Supplier;
  * kill a thread, so a hung probe keeps its thread until it returns; the daemon flag means it
  * cannot keep the JVM alive. The wait is a bounded {@code Future.get}, never a sleep loop.
  */
-final class Bounded {
+public final class Bounded {
 
     private Bounded() {}
 
     /** One supplier's fate: a value, a failure it threw, or a budget it ran out of. */
-    record Completed<T>(T value, RuntimeException failure, boolean timedOut) {
+    public record Completed<T>(T value, RuntimeException failure, boolean timedOut) {
 
         /** True only when the supplier returned a value; a failure or a timeout is not finished. */
-        boolean finished() {
+        public boolean finished() {
             return value != null;
         }
     }
@@ -36,7 +36,7 @@ final class Bounded {
      * Runs every supplier in parallel and waits at most {@code budget} for all of them together.
      * The result is in input order.
      */
-    static <T> List<Completed<T>> runAll(List<Supplier<T>> work, Duration budget) {
+    public static <T> List<Completed<T>> runAll(List<Supplier<T>> work, Duration budget) {
         ExecutorService pool = Executors.newFixedThreadPool(Math.max(1, work.size()), Bounded::daemon);
         try {
             List<Future<T>> futures = new ArrayList<>(work.size());
@@ -68,7 +68,7 @@ final class Bounded {
     }
 
     /** One supplier, bounded. Returns its value, or throws what it threw or {@link TimeoutExpired}. */
-    static <T> T call(Supplier<T> work, Duration budget, String what) {
+    public static <T> T call(Supplier<T> work, Duration budget, String what) {
         Completed<T> done = runAll(List.of(work), budget).get(0);
         if (done.timedOut()) {
             throw new TimeoutExpired(what + " did not finish within " + budget.toSeconds() + "s");
@@ -93,8 +93,8 @@ final class Bounded {
     }
 
     /** A bounded call ran past its budget. */
-    static final class TimeoutExpired extends RuntimeException {
-        TimeoutExpired(String message) {
+    public static final class TimeoutExpired extends RuntimeException {
+        public TimeoutExpired(String message) {
             super(message);
         }
     }

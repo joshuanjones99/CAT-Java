@@ -11,8 +11,9 @@ import com.verifone.cat.rig.Rig;
  * Builds the {@link RigContext} a preflight pass runs against from a loaded rig. The Python
  * counterpart is {@code petrotest.devices.build_rig_context}.
  *
- * <p>The POS status is the register's pos-shim ({@link ShimPosStatus}). The POS control surface,
- * the EPS, the config surfaces and the forecourt have no Java client yet, so they are
+ * <p>The POS status and the POS control are the register's pos-shim ({@link ShimPosStatus},
+ * {@link ShimPosControl}). The control surface's cancel ladder and void are the same two actions
+ * recovery's rungs 1 and 2 drive. The EPS, the config surfaces and the forecourt have no Java client yet, so they are
  * {@link Surfaces#unavailable} or null, and the checks that need them report ERROR rather than a
  * guess. Each gap names its Python module in {@link DefaultChecks}.
  *
@@ -23,8 +24,6 @@ public final class RigContextFactory {
     /** The shim's per-request timeout; the same figure the web UI's shim client uses. */
     static final Duration SHIM_TIMEOUT = Duration.ofSeconds(5);
 
-    private static final String POS_CONTROL_REASON =
-            "the POS repair surface is not ported to Java yet (the Python CAT's cancel ladder, printer reopen and sign-on)";
     private static final String EPS_REASON = "the EPS probe is not ported yet (Python: petrotest/devices/eps.py, over SSH)";
     private static final String CONFIG_REASON =
             "the config surfaces are not ported yet (Python: petrotest/devices/config_shim.py, Commander CGILink)";
@@ -49,7 +48,7 @@ public final class RigContextFactory {
         RigContext context = new RigContext(
                 rig.name(),
                 new ShimPosStatus(shim),
-                Surfaces.unavailable(Surfaces.PosControl.class, "POS control", POS_CONTROL_REASON),
+                new ShimPosControl(shim),
                 Surfaces.unavailable(Surfaces.EpsProbe.class, "EPS probe", EPS_REASON),
                 Surfaces.unavailable(Surfaces.ConfigStatus.class, "config status", CONFIG_REASON),
                 Surfaces.unavailable(Surfaces.ConfigControl.class, "config control", CONFIG_REASON),

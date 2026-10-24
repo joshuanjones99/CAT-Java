@@ -14,9 +14,9 @@ import com.verifone.cat.preflight.Surfaces.UnsettledSuspends;
  * {@code petrotest/preflight/checks/pos.py}.
  *
  * <p>Every probe goes through {@link Surfaces.PosStatus} and {@link Surfaces.PosControl}. In this
- * port those are backed by {@link ShimPosStatus} (the pos-shim's pushed screen) and by no control
- * surface yet, so {@code pos_idle} is the one row that reads a real value, and the repairs raise
- * {@link com.verifone.cat.devices.DeviceUnavailable} (ERROR) until the control path is ported.
+ * port those are backed by {@link ShimPosStatus} (the pos-shim's pushed screen) and {@link ShimPosControl}
+ * (the shim's cancel ladder and void, which are also recovery's rungs 1 and 2). Routes with no source
+ * on the shim raise {@link com.verifone.cat.devices.DeviceUnavailable} (ERROR), never a guessed result.
  *
  * <p>Python's DOM readers ({@code RigContext.screen_idle}, {@code signed_on}, {@code printer_ports})
  * and the Commander's suspended-ticket summary ({@code RigContext.parked_tickets}) are not ported;
