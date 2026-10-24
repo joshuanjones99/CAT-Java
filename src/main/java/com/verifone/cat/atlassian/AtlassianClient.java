@@ -113,26 +113,14 @@ public final class AtlassianClient {
      *     a non-JSON body, or GraphQL {@code errors}
      */
     public JsonNode xrayGraphql(String query, Map<String, Object> variables) {
-        Xray credentials = xray.get();
         String base = xrayApi.toString();
-
-        Map<String, Object> authBody = new LinkedHashMap<>();
-        authBody.put("client_id", credentials.clientId());
-        authBody.put("client_secret", credentials.clientSecret());
-        HttpResponse<String> auth = send(post(base + "/authenticate", authBody, null), "Xray authenticate");
-        if (!isSuccess(auth)) {
-            throw new AtlassianUnavailable("Xray authenticate -> HTTP " + auth.statusCode());
-        }
-        JsonNode token = parseOrNull(auth.body());
-        if (token == null || !token.isTextual()) {
-            throw new AtlassianUnavailable("Xray authenticate -> non-JSON token");
-        }
+        String bearer = xrayAuthenticate();
 
         Map<String, Object> graphBody = new LinkedHashMap<>();
         graphBody.put("query", query);
         graphBody.put("variables", variables == null ? Map.of() : variables);
         HttpResponse<String> response = send(
-                post(base + "/graphql", graphBody, "Bearer " + token.asText()), "Xray graphql");
+                post(base + "/graphql", graphBody, "Bearer " + bearer), "Xray graphql");
         if (!isSuccess(response)) {
             throw new AtlassianUnavailable("Xray graphql -> HTTP " + response.statusCode() + ": "
                     + excerpt(response.body()));
@@ -147,6 +135,99 @@ public final class AtlassianClient {
         }
         JsonNode data = body.get("data");
         return truthy(data) ? data : JSON.createObjectNode();
+    }
+
+    /**
+     * One reply, read but not judged: the status and body as the site sent them. A caller that
+     * retries, or reports by status, uses this rather than the exception-raising calls above.
+     *
+     * @param status     the HTTP status
+     * @param body       the body text, possibly empty
+     * @param retryAfter the {@code Retry-After} header, or {@code null} when none was sent
+     */
+    public record RawReply(int status, String body, String retryAfter) {
+
+        /** Whether the status is 2xx. */
+        public boolean isSuccess() {
+            return status >= 200 && status < 300;
+        }
+    }
+
+    /**
+     * Signs in to Xray with the Xray client pair and returns the bearer token.
+     *
+     * @throws AtlassianUnavailable on missing credentials, a transport error, a non-2xx status,
+     *     or a reply that is not a token; the message never carries the secret
+     */
+    public String xrayAuthenticate() {
+        Xray credentials = xray.get();
+        Map<String, Object> authBody = new LinkedHashMap<>();
+        authBody.put("client_id", credentials.clientId());
+        authBody.put("client_secret", credentials.clientSecret());
+        HttpResponse<String> auth = send(post(xrayApi + "/authenticate", authBody, null), "Xray authenticate");
+        if (!isSuccess(auth)) {
+            throw new AtlassianUnavailable("Xray authenticate -> HTTP " + auth.statusCode());
+        }
+        JsonNode token = parseOrNull(auth.body());
+        if (token == null || !token.isTextual() || token.asText().isEmpty()) {
+            throw new AtlassianUnavailable("Xray authenticate -> non-JSON token");
+        }
+        return token.asText();
+    }
+
+    /**
+     * One Xray REST call under the API base ({@code path} is relative to it), sent with the
+     * bearer token the caller holds. The reply is returned unjudged; only a transport error throws.
+     *
+     * @param method the HTTP method, e.g. {@code POST}
+     * @param body   the JSON body, or {@code null} for none
+     */
+    public RawReply xrayRequest(String method, String path, String bearer, Object body) {
+        HttpRequest request = restRequest(xrayApi + "/" + trimLeadingSlashes(path), method, body,
+                "Bearer " + bearer);
+        return raw(request, method + " " + path);
+    }
+
+    /**
+     * One Jira REST call under the site ({@code path} is relative to it), with Basic auth from the
+     * Jira credentials. The reply is returned unjudged; only a transport error throws.
+     *
+     * @param method the HTTP method, e.g. {@code PUT}
+     * @param body   the JSON body, or {@code null} for none
+     */
+    public RawReply jiraRequest(String method, String path, Object body) {
+        Jira credentials = jira.get();
+        HttpRequest request = restRequest(site + "/" + trimLeadingSlashes(path), method, body,
+                basic(credentials));
+        return raw(request, method + " " + path);
+    }
+
+    private HttpRequest restRequest(String url, String method, Object body, String authorization) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+                .timeout(timeout)
+                .header("Accept", "application/json")
+                .header("Authorization", authorization);
+        if (body == null) {
+            builder.method(method, HttpRequest.BodyPublishers.noBody());
+        } else {
+            builder.header("Content-Type", "application/json");
+            try {
+                builder.method(method, HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)));
+            } catch (JsonProcessingException e) {
+                throw new AtlassianUnavailable("could not encode the request body", e);
+            }
+        }
+        return builder.build();
+    }
+
+    private RawReply raw(HttpRequest request, String call) {
+        HttpResponse<String> response = send(request, call);
+        return new RawReply(response.statusCode(), response.body(),
+                response.headers().firstValue("Retry-After").orElse(null));
+    }
+
+    private static String trimLeadingSlashes(String path) {
+        return path.replaceFirst("^/+", "");
     }
 
     private HttpRequest post(String url, Map<String, Object> body, String authorization) {
