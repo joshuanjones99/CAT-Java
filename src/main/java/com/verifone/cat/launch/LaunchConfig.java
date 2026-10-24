@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.runconfig.RunScope;
 
 /**
@@ -13,8 +14,8 @@ import com.verifone.cat.runconfig.RunScope;
  *
  * <p>Carried here: the rig, the suites and plans, the upgrade mode, the fake-POS switches, the
  * simulator selection, the Run tab's {@link RunScope}, the Xray switch and the {@code pytest} argv. Not
- * carried yet, because the steps that read them are not ported: the Downloads section, Commander
- * Connect, the Secondary FEPs, JaCoCo, the probe targets beyond the Xray row, the BUYPASS host, the
+ * carried yet, because the steps that read them are not ported: the Downloads section, the
+ * Secondary FEPs, JaCoCo, the probe targets beyond the Xray row, the BUYPASS host, the
  * Commander config snapshot, and the Configuration execution mode. A later slice adds each one with
  * its step.
  *
@@ -35,6 +36,15 @@ import com.verifone.cat.runconfig.RunScope;
  *                     starts the reporting sidecar. Never under {@code fakePos}, whatever this says
  * @param coverage    the Config tab's JaCoCo switch, off by default. Read by the coverage package, whose
  *                     wiring into the launch steps is not done yet. Never under {@code fakePos}
+ * @param commanderConnect the Config tab's Commander Connect "Onboard" switch (the Python's {@code cc_onboard}),
+ *                     off by default. TODO: the Python's step 4 ({@code cat.launch.steps.commander}, after the
+ *                     Commander inits and before the secondary FEPs, only on a real rig) runs
+ *                     {@code petrotest commander-connect}, i.e. {@code apply_commander_connect}; the Java
+ *                     counterpart is {@link com.verifone.cat.commander.connect.ConnectService#apply}, to be called
+ *                     from {@link CommanderConfigurationStep} at the same point. Nothing reads this switch yet
+ * @param commanderConnectSettings the lab, email, service id and password the switch onboards with (the Python's
+ *                     {@code cc_lab}, {@code cc_email}, {@code cc_service_id}, {@code cc_password}); never null.
+ *                     Its {@code toString} hides the password
  */
 public record LaunchConfig(
         String rig,
@@ -47,10 +57,16 @@ public record LaunchConfig(
         List<String> simulators,
         RunScope scope,
         boolean xrayReport,
-        boolean coverage) {
+        boolean coverage,
+        boolean commanderConnect,
+        CommanderConnect commanderConnectSettings) {
+
+    /** The Config tab's Commander Connect defaults: lab Prod, everything else empty. */
+    public static final CommanderConnect NO_COMMANDER_CONNECT = new CommanderConnect("Prod", "", "", "");
 
     public LaunchConfig {
         rig = rig == null ? "" : rig.strip();
+        commanderConnectSettings = commanderConnectSettings == null ? NO_COMMANDER_CONNECT : commanderConnectSettings;
         suites = List.copyOf(suites == null ? List.of() : suites);
         testPlans = List.copyOf(testPlans == null ? List.of() : testPlans);
         upgradeMode = upgradeMode == null ? UpgradeMode.SKIP : upgradeMode;
@@ -59,6 +75,23 @@ public record LaunchConfig(
         if (rig.isEmpty() && !fakePos) {
             throw new IllegalArgumentException("a run needs a rig, or fakePos");
         }
+    }
+
+    /** A run with Commander Connect off, as every caller before that switch was carried. */
+    public LaunchConfig(
+            String rig,
+            List<String> suites,
+            List<String> testPlans,
+            UpgradeMode upgradeMode,
+            boolean fakePos,
+            boolean fakePinpad,
+            boolean snapshotUpdate,
+            List<String> simulators,
+            RunScope scope,
+            boolean xrayReport,
+            boolean coverage) {
+        this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope,
+                xrayReport, coverage, false, NO_COMMANDER_CONNECT);
     }
 
     /** A run with the JaCoCo switch off, as every caller before that switch was carried. */
@@ -164,6 +197,8 @@ public record LaunchConfig(
         private RunScope scope = RunScope.whole();
         private boolean xrayReport;
         private boolean coverage;
+        private boolean commanderConnect;
+        private CommanderConnect commanderConnectSettings = NO_COMMANDER_CONNECT;
 
         public Builder(String rig) {
             this.rig = rig;
@@ -219,9 +254,22 @@ public record LaunchConfig(
             return this;
         }
 
+        /** The Onboard switch. */
+        public Builder commanderConnect(boolean on) {
+            commanderConnect = on;
+            return this;
+        }
+
+        /** The values the Onboard switch onboards with. */
+        public Builder commanderConnect(CommanderConnect settings) {
+            commanderConnectSettings = settings;
+            return this;
+        }
+
         public LaunchConfig build() {
             return new LaunchConfig(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad,
-                    snapshotUpdate, simulators, scope, xrayReport, coverage);
+                    snapshotUpdate, simulators, scope, xrayReport, coverage, commanderConnect,
+                    commanderConnectSettings);
         }
     }
 }
