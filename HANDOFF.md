@@ -18,7 +18,7 @@ reaches parity on a rig; nothing here replaces it yet.
 | Java 17 | `C:\CICD\Tools\Java17\jdk-17.0.5+8` (Temurin 17.0.5, Java v1.2 in Artifactory). `build.cmd`/`run.cmd` use it; the Maven enforcer refuses any other major version. |
 | POS over pos-shim HTTP | No RMI on the controller. pos-shim (built and provisioned by the Python CAT) stays on the register. |
 | Web UI | Javalin 6 + htmx 2, server-rendered fragments, localhost only. Layout follows the Python CAT's `docs/web-ui.md`. |
-| Build | Maven via the wrapper. Dependencies today: Javalin, Jackson (JSON + YAML), slf4j-simple, JUnit 5. New dependencies are the orchestrator's call, not an agent's. |
+| Build | Maven via the wrapper. Dependencies: Javalin, Jackson (JSON + YAML), slf4j-simple, Playwright for Java 1.49.0 (CDP to the POS), JSch (mwiede fork 0.2.20, SSH/SFTP), JUnit 5. A thin `target/cat-java.jar` plus `target/lib/` (Playwright's driver bundle is ~200 MB, so no fat jar). New dependencies are the orchestrator's call, not an agent's. |
 | Rig files | Not committed here. Read from `$PETROTEST_RIGS_DIR`, else `C:\gitrepos\CAT\rigs`. |
 | Nothing proprietary | No Verifone jars, petroapps sources or real credentials in this repo. |
 
@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 761 tests, 0 failures, end of wave 3, 2026-10-24 |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 914 tests, 0 failures, end of wave 4, 2026-10-24 |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -65,6 +65,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `cat/results/`, `cat/web/pages/results.py` | `results`, `web` | ported: store, index, stats, run list, run detail, last 500 log lines. Validations tab, async index: todo |
 | `cat/web/pages/config.py` | `runconfig`, `web` | ported: plans, run scope, Needs, saved choices. Downloads, Commander Connect, Execution, branch, Refresh: placeholders |
 | `cat/report/events.py`, `run_log.py`, `run.ended` | `report.events` | ported (file transport only) |
+| `cat/web/pages/run.py`, `simulators.py` | `runservice`, `web` | ported: Run Overview/Log (start, pause, stop, new run, counters, log tail) and Launch Simulators (ticks, Start, red Stop, logs). Start run is refused until Main passes the rig (wave 5) |
 | `cat/web/` layout, pages shell | `web` | shell ported: sections, Run tabs, placeholders, POS page. Not built: every page body, Settings appearance, the CAT monogram |
 | `petrotest/preflight/` | `preflight` | ported: framework, runner, POS checks via pos-shim screen(). pumps_idle, eps_reachable, config_loaded, build_matches and every repair await forecourt/SSH/Commander/POS-control clients |
 | `petrotest/recovery/` | `recovery` | ported: CAPTURE (no files yet), PREFLIGHT, SOFT and VOID (pos-shim halves; CDP halves todo). RESET, REPROVISION raise DeviceUnavailable |
@@ -72,11 +73,12 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `petrotest/pos/` (Playwright page objects; locators generated) | `pos` | todo — needs Playwright for Java |
 | `petrotest/pats/` (PATS -TestCase.xml runner) | `pats` | todo |
 | `petrotest/validate/` (receipt/TLog snapshots) | `validate` | ported: receipt (normalisers, snapshots, rule) and TLog/packets. Report hooks (record_receipt etc.) belong to the test runner, not ported |
-| `petrotest/build/`, `upgrade/` (Artifactory, PSI install) | `build`, `upgrade` | todo |
-| `cat/launch/` (the seven steps) | `launch` | framework ported (sequence, events, run.log, pause/stop, run lock, run.ended, `LaunchCommand`). Every step needing an unported client reports unavailable, so no run can complete yet. Step 6 can now use `report.html` |
+| `petrotest/build/` | `build` | ported: local discovery, Artifactory listing, verified download. Credentials from ARTIFACTORY_USER/PASSWORD only (DPAPI store todo). build_contents, viper merge, installed.py: todo |
+| `petrotest/upgrade/` (PSI install) | `upgrade` | todo — needs SSH |
+| `cat/launch/` (the seven steps) | `launch` | steps 2, 3, 6 wired (Connections, Start Simulators, Generate Report); 1 partial; 4, 5, 7 unavailable. Framework ported (sequence, events, run.log, pause/stop, run lock, run.ended, `LaunchCommand`). Every step needing an unported client reports unavailable, so no run can complete yet. Step 6 can now use `report.html` |
 | `cat/sims/` (simulator supervisor, Access Bridge) | `sims` | registry (7 rows) + supervisor ported; `stop()` kills only its own handles; `stopRunning()` (the red Stop) matches by port/exact token, taskkill by PID. Click rows report NEEDS_ATTENTION (Access Bridge needs JNA). Never run against the real simulators yet |
 | `cat/atlassian.py` + plans page parsers | `atlassian` | ported (read-only; credentials from `%USERPROFILE%\jira_api_token.properties` as the Python; redirects refused so Basic auth never follows one) |
-| `cat/xray/` | `xray` | todo |
+| `cat/xray/` | `xray` | ported: reporter, client, summary, ADF, follower, sidecar CLI (`XraySidecar.main`). Not spawned by the launcher yet; attach.py waits on coverage. Never sent live |
 | `petrotest/authoring/`, `.feature` step library | `authoring` | todo — Cucumber-JVM |
 | `petrotest/coverage/` (JaCoCo) | `coverage` | todo |
 
@@ -103,6 +105,10 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
    The Python CAT's `_powershell` uses `-Command`; it is probably fine there (Python
    escapes the quotes) but is unchecked.
 
+9. **Parity deviation to decide:** Start Simulators fails the step when a simulator
+   needs attention; the Python lets it through as a warning.
+10. `GET /simulators` probes localhost ports 41107 and 9001 (connect only) even in tests.
+
 ## 7. Log
 
 - **2026-10-24** PoC: pos-shim client + web page on Java 17, read path checked live.
@@ -117,3 +123,5 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 - **2026-10-24** Wave 3 merged: fixes, TLog/packets, summary.html, recovery + POS
   control, launch framework, sims (761 tests). Parity checks against the Python on real
   data: summary.html and canonical TLog match.
+- **2026-10-24** Wave 4 merged: build, Run Overview/Log, Launch Simulators, launch wiring,
+  Xray (914 tests). Playwright and JSch added; packaging switched to thin jar + lib.
