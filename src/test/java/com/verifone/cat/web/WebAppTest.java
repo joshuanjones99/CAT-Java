@@ -49,7 +49,7 @@ class WebAppTest {
 
     @Test
     void pageLoadsHtmxAndTheCards() throws Exception {
-        String page = get("/").body();
+        String page = get("/pos").body();
 
         assertTrue(page.contains("/static/htmx.min.js"));
         assertTrue(page.contains("hx-get=\"/fragments/screen\""));
