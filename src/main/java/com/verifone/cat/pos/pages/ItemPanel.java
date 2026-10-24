@@ -14,9 +14,8 @@ import com.verifone.cat.pos.driver.PosDriver;
  * authoring guide publishes for the cadence base config are named in {@link MOP}; the rest stay
  * raw ids through {@link #select(int)}.
  *
- * <p>NOT YET PORTED: {@code select_with_quantity} and {@code pay_cash} need the Python's
- * {@code Keypad} and {@code InputOverlay}, which are the other POS slice's and are not in this
- * tree. They belong here once those classes exist.
+ * <p>{@link #selectWithQuantity} and {@link #payCash} use {@link Keypad} and {@link InputOverlay}
+ * from the part A slice.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The MOP ids are the Python's, verified there on
  * Reg101 for the base config only.
@@ -72,6 +71,37 @@ public class ItemPanel extends BasePage {
 
     public void select(MOP mop, Duration timeout) {
         select(mop.id(), timeout);
+    }
+
+    /**
+     * Ring up {@code itemId} at {@code quantity}: Quantity, wait for the input overlay, type the digits and
+     * OK, then the item once. {@code select()} twice is not equivalent: that rings two line items.
+     * Port of Python {@code select_with_quantity} (PETROCORE-130577, PETROCORE-36904).
+     */
+    public void selectWithQuantity(int itemId, int quantity, Duration timeout) {
+        quantityButton().tap(timeout);
+        new InputOverlay(driver()).label1().expectVisible(timeout);
+        new Keypad(driver()).enter(String.valueOf(quantity), timeout);
+        select(itemId, timeout);
+    }
+
+    public void selectWithQuantity(MOP mop, int quantity, Duration timeout) {
+        selectWithQuantity(mop.id(), quantity, timeout);
+    }
+
+    /**
+     * Tender {@code amount} in cash: PAYMENT_GATEWAY, CASH, then the amount keyed on {@code keypad}. The
+     * amount is not optional: CASH with nothing keyed waits on an "Enter Amount" overlay (HANDOFF.md 1.34).
+     * Port of Python {@code pay_cash}.
+     */
+    public void payCash(String amount, KeypadNamespace keypad, Duration timeout) {
+        select(MOP.PAYMENT_GATEWAY, timeout);
+        select(MOP.CASH, timeout);
+        new Keypad(driver(), keypad).enter(amount, timeout);
+    }
+
+    public void payCash(String amount, Duration timeout) {
+        payCash(amount, KeypadNamespace.VFI, timeout);
     }
 
     /** The documented two-press credit sequence, as one call. */

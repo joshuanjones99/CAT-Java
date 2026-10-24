@@ -60,7 +60,13 @@ final class PagesBrowser implements AutoCloseable {
 
     /** A driver on {@code page}, with overlay clearing off: these pages are plain markup. */
     static PosDriver driverOn(Page page) {
-        return PosDriver.builder(page).timeouts(TIMEOUTS).registerId("local").settleOverlays(false).build();
+        return driverOn(page, null);
+    }
+
+    /** As {@link #driverOn(Page)}, with a build version for build-variant locators (the fuel tile). */
+    static PosDriver driverOn(Page page, String buildVersion) {
+        return PosDriver.builder(page).timeouts(TIMEOUTS).registerId("local").settleOverlays(false)
+                .buildVersion(buildVersion).build();
     }
 
     @Override

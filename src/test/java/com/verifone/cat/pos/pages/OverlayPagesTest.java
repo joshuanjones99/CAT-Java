@@ -185,9 +185,9 @@ class OverlayPagesTest {
         return "<html><body>"
                 + "<div id=\"" + header + "\">Main Menu</div>"
                 + "<div id=\"" + header + "\">EPS Network Functions</div>"
-                + "<button id=\"" + cross + "\" onclick=\"var hs=document.querySelectorAll('[id=&quot;"
-                + header + "&quot;]'); var last=hs[hs.length-1]; if (last && hs.length > 1)"
-                + " last.style.display='none';\">x</button>"
+                + "<button id=\"" + cross + "\" onclick=\"var hs=Array.from(document.querySelectorAll('*'))"
+                + ".filter(function(e){ return e.id === '" + header + "'; }); var last=hs[hs.length-1];"
+                + " if (last && hs.length > 1) last.style.display='none';\">x</button>"
                 + "</body></html>";
     }
 }

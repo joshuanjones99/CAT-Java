@@ -91,7 +91,7 @@ public class ReviewOverlay extends BasePage {
      * here; the catalogue has no entry for a POS-generated row.
      */
     private static Locator rowById(String elementId) {
-        return Locator.of(elementId, Locator.Kind.ID, "ReviewOverlayView_Item", "review_overlay_view",
+        return Locator.of(elementId, Locator.Kind.ID, "review overlay row", "review_overlay_view",
                 0, false, false, null, null, List.of(), null);
     }
 }

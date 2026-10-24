@@ -122,8 +122,8 @@ public class Pos {
 
     private final ExpressPanel expressPanel;
     private final FuelPage fuelPanel;
-    private final FuelPage fuelDetail;
-    private final FuelPage gradeTab;
+    private final FuelDetailOverlay fuelDetail;
+    private final FuelGradeTab gradeTab;
     private final ItemPanel itemPanel;
     private final Overlay overlay;
     private final ReviewOverlay reviewOverlay;
@@ -164,8 +164,8 @@ public class Pos {
         this.transactionNumbers = transactionNumbers;
         this.expressPanel = new ExpressPanel(driver);
         this.fuelPanel = new FuelPage(driver);
-        this.fuelDetail = new FuelPage(driver);
-        this.gradeTab = new FuelPage(driver);
+        this.fuelDetail = fuelPanel.detail();
+        this.gradeTab = fuelPanel.gradeTab();
         this.itemPanel = new ItemPanel(driver);
         this.overlay = new Overlay(driver);
         this.reviewOverlay = new ReviewOverlay(driver);
@@ -195,11 +195,11 @@ public class Pos {
         return fuelPanel;
     }
 
-    public FuelPage fuelDetail() {
+    FuelDetailOverlay fuelDetail() {
         return fuelDetail;
     }
 
-    public FuelPage gradeTab() {
+    FuelGradeTab gradeTab() {
         return gradeTab;
     }
 
@@ -285,8 +285,8 @@ public class Pos {
         // would otherwise take the password as the ID, and nothing would notice until the next step.
         String prompt = loginPrompt(timeout);
         if (asksForPassword(prompt) && !promptId(prompt).equals(cashierId)) {
-            throw new DriverError("sign-on: the keypad took " + prompt.strip()
-                    + " for the ID, not " + cashierId);
+            throw new DriverError("sign-on: the keypad took '" + prompt.strip()
+                    + "' for the ID, not '" + cashierId + "'");
         }
         keypad.enter(password, timeout);
 
@@ -636,7 +636,7 @@ public class Pos {
      * one, or with no prepay shown, Clear Reserve. Idle register only. UNVERIFIED AGAINST HARDWARE.
      */
     public String clearReserve(int pump, IntFunction<String> release) {
-        String held = isIdle() ? fuelPanel.reserved(pump) : null;
+        String held = isIdle() ? reserved(pump) : null;
         if (held == null || held.isEmpty()) {
             return "";
         }
@@ -647,7 +647,7 @@ public class Pos {
                 return "pump " + pump + ": " + held + " reserved; its detail view did not open";
             }
             boolean prepaid = driver.screenText().toLowerCase(Locale.ROOT).contains("prepaid");
-            if (prepaid && release != null && fuelDetail.pressLabelled("Approve / Restart")) {
+            if (prepaid && release != null && fuelDetail.pressLabelled("Approve / Restart", null)) {
                 String refused = answerMessage();
                 if (!refused.isEmpty()) {
                     // Reg101, 2026-10-13: "Error approving Pump 2". Clear it instead.
@@ -667,7 +667,7 @@ public class Pos {
                     return "pump " + pump + ": " + held + " reserved; " + done
                             + "its detail view did not reopen";
                 }
-                if (!fuelDetail.pressLabelled("Clear Reserve")) {
+                if (!fuelDetail.pressLabelled("Clear Reserve", null)) {
                     return "pump " + pump + ": " + held + " reserved; " + done + "no Clear Reserve button";
                 }
                 String refused = answerMessage();
@@ -686,12 +686,17 @@ public class Pos {
             }
         }
         try {
-            PollUntil.until(() -> fuelPanel.reserved(pump) == null, RESERVE_WAIT, POLL,
+            PollUntil.until(() -> reserved(pump) == null, RESERVE_WAIT, POLL,
                     "pump " + pump + "'s reserve to clear");
         } catch (DriverTimeout stillShown) {
             return "pump " + pump + ": " + held + " reserved; " + done + ", but the tile still shows it";
         }
         return "pump " + pump + ": " + held + " reserved; " + done;
+    }
+
+    /** The pump's reserve text, or null when it holds none. */
+    private String reserved(int pump) {
+        return fuelPanel.reserved(pump).orElse(null);
     }
 
     private boolean detailOpen() {
