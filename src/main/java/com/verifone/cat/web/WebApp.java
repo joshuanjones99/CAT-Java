@@ -34,7 +34,13 @@ public final class WebApp {
 
     public static Javalin create(PosShimClient shim, String title) {
         return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()));
+                RunService.standard("", System.getenv()), SimulatorsService.standard());
+    }
+
+    /** As {@link #create(PosShimClient, String)}, with the Launch Simulators page's service injected (tests use fake processes). */
+    static Javalin create(PosShimClient shim, String title, SimulatorsService sims) {
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
+                RunService.standard("", System.getenv()), sims);
     }
 
     /**
@@ -43,13 +49,13 @@ public final class WebApp {
      */
     public static Javalin create(PosShimClient shim, String title, Path resultsRoot) {
         return create(shim, title, new ResultsLibrary(resultsRoot, resultsRoot.resolve(RunIndex.INDEX_FILE)),
-                ConfigForm.standard(), RunService.standard("", System.getenv()));
+                ConfigForm.standard(), RunService.standard("", System.getenv()), SimulatorsService.standard());
     }
 
     /** As {@link #create(PosShimClient, String)}, with the Config tab's form injected (tests use a temp file). */
     public static Javalin create(PosShimClient shim, String title, ConfigForm configForm) {
         return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm,
-                RunService.standard("", System.getenv()));
+                RunService.standard("", System.getenv()), SimulatorsService.standard());
     }
 
     /**
@@ -57,11 +63,12 @@ public final class WebApp {
      * pass a fake engine, so no run reaches a rig.
      */
     public static Javalin create(PosShimClient shim, String title, ConfigForm configForm, RunService run) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm, run);
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm, run,
+                SimulatorsService.standard());
     }
 
     private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
-            RunService run) {
+            RunService run, SimulatorsService sims) {
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             config.staticFiles.add(files -> {
@@ -77,8 +84,7 @@ public final class WebApp {
         ResultsPage.routes(app, results);
         app.get("/authoring", ctx -> ctx.html(Layout.page(Section.AUTHORING, "Authoring", AuthoringPage.body())));
         app.get("/upgrade", ctx -> ctx.html(Layout.page(Section.UPGRADE, "Install Upgrade", UpgradePage.body())));
-        app.get("/simulators", ctx -> ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators",
-                SimulatorsPage.body())));
+        SimulatorsRoutes.register(app, sims);
         app.get("/setup", ctx -> ctx.html(Layout.page(Section.SETUP, "Setup", SetupPage.body())));
         app.get("/settings", ctx -> ctx.html(Layout.page(Section.SETTINGS, "Settings", SettingsPage.body())));
         app.get("/tools", ctx -> ctx.html(Layout.page(Section.TOOLS, "Tools", ToolsPage.body())));
