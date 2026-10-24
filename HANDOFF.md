@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 1,468 tests, 0 failures, end of wave 7, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 1,799 tests, 0 failures, end of wave 8, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -79,15 +79,20 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `petrotest/pos/fake.py` | `pos.fake` | ported (loopback, IDs from Locators, pinpad double wired) |
 | `petrotest/pos/pages/*` (page objects) | `pos.pages` | ported: Pos, overlays, keypad, menus, fuel, item/express panels, device monitoring, pairing, sign-on. Tested on setContent markup and the fake POS, not a register. ProductMenu, SCOMenu untested |
 | `petrotest/pos/plugin.py` | — | pytest glue; becomes the runner's |
-| `petrotest/pats/` (PATS -TestCase.xml runner) | `pats` | todo |
+| `petrotest/pats/case.py`, `elements.py`, `scenario.py` | `pats` | ported (filesystem; git-blob CaseStore todo) |
+| `petrotest/pats/feature.py` | `pats.feature` | ported; all 38 Charity .feature files read to the same 337 actions as the Python (golden from the Python) |
+| `petrotest/pats/runner/` core, registry, fields | `pats.runner` | framework ported; type unification + hooks in wave 9; handler families (pos_ui, sale, http, configuration, validation, inits, devices, cloud_settle): todo |
 | `petrotest/validate/` (receipt/TLog snapshots) | `validate` | ported: receipt (normalisers, snapshots, rule) and TLog/packets. Report hooks (record_receipt etc.) belong to the test runner, not ported |
 | `petrotest/build/` | `build` | ported: local discovery, Artifactory listing, verified download. Credentials from ARTIFACTORY_USER/PASSWORD only (DPAPI store todo). build_contents, viper merge, installed.py: todo |
 | `petrotest/upgrade/` (PSI install) | `upgrade` | new_install ported; classic.py AU path and psi_init (needs Commander + POS driver): todo |
-| `cat/launch/` (the seven steps) | `launch` | steps 2, 3, 6 wired (Connections, Start Simulators, Generate Report); 1 partial; 4, 5, 7 unavailable. Framework ported (sequence, events, run.log, pause/stop, run lock, run.ended, `LaunchCommand`). Every step needing an unported client reports unavailable, so no run can complete yet. Step 6 can now use `report.html` |
+| `cat/launch/` (the seven steps) | `launch` | step 4 runs provision, commander-prep, commander-init on a rig then stops unavailable at Secondary FEPs/EMV/register app; step 7 does the day close; steps 2, 3, 6 wired (Connections, Start Simulators, Generate Report); 1 partial; 4, 5, 7 unavailable. Framework ported (sequence, events, run.log, pause/stop, run lock, run.ended, `LaunchCommand`). Every step needing an unported client reports unavailable, so no run can complete yet. Step 6 can now use `report.html` |
 | `cat/sims/` (simulator supervisor, Access Bridge) | `sims` | registry (7 rows) + supervisor ported; `stop()` kills only its own handles; `stopRunning()` (the red Stop) matches by port/exact token, taskkill by PID. Click rows report NEEDS_ATTENTION (Access Bridge needs JNA). Never run against the real simulators yet |
 | `cat/atlassian.py` + plans page parsers | `atlassian` | ported (read-only; credentials from `%USERPROFILE%\jira_api_token.properties` as the Python; redirects refused so Basic auth never follows one) |
 | `cat/xray/` | `xray` | ported: reporter, client, summary, ADF, follower, sidecar CLI (`XraySidecar.main`). Not spawned by the launcher yet; attach.py waits on coverage. Never sent live |
 | `petrotest/authoring/`, `.feature` step library | `authoring` | todo — Cucumber-JVM |
+| `petrotest/devices/commander.py`, `commander_init.py` (+ recover_dcr_link), `commander_prep.py`, `commander_trust.py`, `payment_ready.py` | `commander` | ported on Opus 5.5; base config read live from petroapps. PetroPumps release, commander_links (PMC restart): todo |
+| `petrotest/close_day.py` | `closeday` | ported (close, forced-AEOD undo, deadlock recovery, `CloseDayCommand`). **Register pass (nag clear, void, settle, prepays) not ported: a close with a nag up can still be cancelled** |
+| `petrotest/collect.py`, `gitutil.py` | `collect` | ported (git as a child process, ff-only, never forced; tested on throwaway repos). gitauth, publish: todo |
 | `petrotest/coverage/` (JaCoCo) | `coverage` | ported: components, tool finding, prepare/collect over Transport, report/zip; `LaunchConfig.coverage`. Launch-step wiring, overlay class extraction, summary.py: todo |
 
 ## 6. Open items
@@ -150,3 +155,5 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
   on runs) and wave 7 in part (Commander client on Opus, simulator warning): 1,327 tests.
 - **2026-10-24** Wave 7 merged: Commander (Opus), simulator warning, page objects A+B
   (reconciled), coverage, small fixes + Java lint gates (1,468 tests).
+- **2026-10-24** Wave 8 merged: PATS parsing, feature reader (parity 337/337), runner core,
+  collect, close-day, Commander bring-up + step 4 (Opus) (1,799 tests).
