@@ -1,0 +1,18 @@
+# Test rig for the PSI path. Its addresses are RFC 5737 documentation addresses, which no device answers
+# on, and the breadcrumb names follow their last octets (11 is the Commander). No test points a run at a
+# real address.
+name: psi
+commander:
+  host: 192.0.2.11
+  ssh_user: root
+  eps_port: 41107
+registers:
+  - id: topaz101
+    host: 192.0.2.101
+    cdp_port: 9222
+controller:
+  host: 127.0.0.1
+pinpad: viperpay
+pos_shim: true
+build:
+  expected_version: "057.02"
