@@ -141,6 +141,18 @@ public final class PosShimClient {
     }
 
     /**
+     * Presses {@code key} carrying a data payload: PATS's {@code pendingToken(key, data)}, the same
+     * {@code LexToken} source as {@link #pressEnterWithData}, with the key's name or raw {@code 0xNN} code.
+     * The payload is sent as written; the shim refuses an empty one.
+     *
+     * <p>Python: {@code PosShimClient.press_with_data}. UNVERIFIED AGAINST HARDWARE (Java port).
+     */
+    public PendingKeyResult pressWithData(String key, String data) {
+        return request("POST", "/pos/keys/pending", Map.of("key", key, "data", data), keyTimeout(1),
+                PendingKeyResult.class);
+    }
+
+    /**
      * Presents a barcode scan: the decoded value and its symbology type travel as data, and the
      * shim builds the scan event from them. {@code label} defaults to the scan data, as the
      * corpus's scanner files repeat it.
