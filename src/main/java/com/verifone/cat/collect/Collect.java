@@ -349,7 +349,8 @@ public final class Collect {
      * The plan's cached case list, else the shipped seed, else empty: the same files, in the same order of preference,
      * that the plan catalogue reads cache-only.
      *
-     * @param cacheDir the folder of cached case lists (the Python CAT's {@code ~/.cat})
+     * @param cacheDir the folder of cached case lists (this build's {@code ~/.cat/java}; the
+     *     plan catalogue reads the Python CAT's {@code ~/.cat} after it, read-only)
      * @param seedDir  the folder of shipped seeds
      */
     public static Optional<Path> defaultCaseFile(String plan, Path cacheDir, Path seedDir) {

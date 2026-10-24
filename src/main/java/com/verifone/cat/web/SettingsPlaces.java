@@ -39,8 +39,8 @@ final class SettingsPlaces {
                 new Place("Web settings", WebSettings.defaultPath(env, userHome).toString(),
                         WebSettings.ENV_OVERRIDE),
                 new Place("Rig files", RigLoader.rigsDir(env).toString(), RigLoader.RIGS_DIR_ENV),
-                // The plan catalogue cache is the Python CAT's ~/.cat, which PlanCatalogue.offline also uses.
-                new Place("Plan catalogue cache", Path.of(userHome, ".cat").toString(), ""));
+                // The plan catalogue cache: writes go to ~/.cat/java; the Python CAT's ~/.cat is read-only fallback.
+                new Place("Plan catalogue cache", Path.of(userHome, ".cat", "java").toString(), ""));
     }
 
     /** {@code $PETROAPPS_ROOT} when set and not blank, else the documented default. */
