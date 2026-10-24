@@ -61,6 +61,13 @@ public record RunServices(
         /** Returns the services with whatever surfaces this connector can supply. */
         RunServices connect(RunServices base);
 
+        /**
+         * Releases what {@link #connect} opened (a browser session, its driver). The Tests Run step calls it once when
+         * the step ends, whether or not the cases ran. Nothing to release by default.
+         */
+        default void close() {
+        }
+
         /** Connects nothing: the run has only what the step itself built (fake-POS URL, pinpad). */
         Connector NONE = base -> base;
     }

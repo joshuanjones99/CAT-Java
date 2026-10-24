@@ -19,14 +19,18 @@ import com.verifone.cat.pats.PatsCaseLoader;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.FixtureName;
+import com.verifone.cat.pats.runner.FixtureRequirements;
 import com.verifone.cat.pats.runner.FixtureSource;
 import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.RunState;
 import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.RunnableCase;
 import com.verifone.cat.pats.runner.ValidationsFailed;
+import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
+import com.verifone.cat.pats.runner.handlers.posui.PinpadView;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.pos.fake.FakePosBanner;
+import com.verifone.cat.pos.fake.FakePosPinpad;
 import com.verifone.cat.pos.pinpad.PinpadDouble;
 import com.verifone.cat.recovery.Capturer;
 import com.verifone.cat.recovery.RecoveryLadder;
@@ -109,19 +113,21 @@ final class TestsRunStep implements LaunchStep {
         }
         FakePos fake = null;
         try {
-            if (ctx.config().fakePos()) {
-                fake = FakePos.open(FakePos.Hooks.NONE);
-                banner(ctx, FakePosBanner.TITLE, FakePosBanner.LINES);
-            }
+            // The pinpad double first: the fake POS's MOP screens raise their prompts on it (FakePosPinpad.wire).
             PinpadDouble pinpad = null;
             if (PinpadDouble.fakePinpadSelected(ctx.config().fakePinpad(), ctx.config().fakePos())) {
                 pinpad = new PinpadDouble();
                 banner(ctx, PinpadDouble.BANNER_TITLE, List.of(PinpadDouble.BANNER_WARNING));
             }
+            if (ctx.config().fakePos()) {
+                fake = FakePos.open(pinpad == null ? FakePos.Hooks.NONE : FakePosPinpad.wire(pinpad));
+                banner(ctx, FakePosBanner.TITLE, FakePosBanner.LINES);
+            }
             return runCases(ctx, step, fake, pinpad);
         } catch (IOException e) {
             return step.fail("the step could not start: " + e.getMessage());
         } finally {
+            connector.close();
             if (fake != null) {
                 fake.close();
             }
@@ -242,7 +248,11 @@ final class TestsRunStep implements LaunchStep {
             return Attempt.error("could not read the case: " + e.getMessage(), e);
         }
         record.setTitle(kase.title());
-        CaseRun run = new CaseRun(kase, record, registry, fixtures, declared, state)
+        // The fixtures the case's test declares are the ones its actions need (the Python generates the test with
+        // them); a fixture the run cannot provide then fails the action that asks for it, by name.
+        Set<FixtureName> caseDeclared = EnumSet.noneOf(FixtureName.class);
+        caseDeclared.addAll(FixtureRequirements.fixturesFor(kase));
+        CaseRun run = new CaseRun(kase, record, registry, fixtures, caseDeclared, state)
                 .withBaselineDir(entry.file().getParent())
                 .withUpdate(ctx.config().snapshotUpdate());
         List<RunnableAction> actions = kase.actions();
@@ -330,7 +340,13 @@ final class TestsRunStep implements LaunchStep {
     static FixtureSource fixtureSource(RunServices services) {
         return name -> switch (name) {
             case POS -> present(services.pos(), "pos", "no POS driver is connected to this run");
-            case PINPAD -> present(services.pinpad(), "pinpad", "no pinpad is connected to this run");
+            // The POS UI's SLEEP and dialogs read the pinpad as a PinpadView: its settle is the pinpad's own, and the
+            // device's keys and prompts are reached through the devices family's PinpadDevice, not this fixture.
+            case PINPAD -> {
+                present(services.pinpad(), "pinpad", "no pinpad is connected to this run");
+                yield new PinpadView() {
+                };
+            }
             case COMMANDER_CONFIG -> present(services.commander(), "commander_config",
                     "no Commander PDK shim is connected to this run");
             case LEGACY_RMI -> throw new DeviceUnavailable("legacy_rmi",
@@ -338,8 +354,7 @@ final class TestsRunStep implements LaunchStep {
             case DCR -> throw new DeviceUnavailable("dcr", "the DCR session listener is not ported to this run");
             case FUEL_PUMPS -> throw new DeviceUnavailable("fuel_pumps",
                     "the fuel-pump listener is not connected to this run");
-            case CONFIGURATIONS -> throw new DeviceUnavailable("configurations",
-                    "the petroapps configuration files are not read by this run yet");
+            case CONFIGURATIONS -> PetroappsFiles.fromEnvironment(System.getenv()).configurations();
         };
     }
 
