@@ -256,6 +256,21 @@ public final class PinpadDouble implements PinpadDevice {
         }, waitForPrompt, timeout);
     }
 
+    /**
+     * Digit-for-digit entry. The display shows the text as given; {@link PinpadDisplay#lastEntry()}
+     * holds its numeric value, so a leading zero is kept in the display line and not in that field.
+     */
+    @Override
+    public String decimalText(String text, String waitForPrompt, Duration timeout) {
+        if (text == null || !ENTRY_TEXT.matcher(text).matches()) {
+            throw new IllegalArgumentException("not an entry: " + text);
+        }
+        return act(() -> {
+            lastEntry = new BigDecimal(text);
+            setDisplay(List.of("LOOPBACK/ENTRY " + text), "LOOPBACK/ENTRY");
+        }, waitForPrompt, timeout);
+    }
+
     // -- internals --------------------------------------------------------------
 
     private void cardAction(String action, String label) {

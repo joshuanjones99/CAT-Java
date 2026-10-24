@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 2,424 tests, 0 failures, end of wave 10, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 2,843 tests, 0 failures, end of wave 13, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -71,6 +71,14 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `cat/setup/`, `pages/setup.py` | `setup`, `web` | ported: 13 detect-only checks with fix hints (Python-only checks replaced by JDK/target/Chromium ones); no repairs |
 | `pages/settings.py`, theme prefs | `web` | ported: Appearance (`~/.cat/java/web-settings.json`, cookie), places list. Tools stays empty: the Python's Manual page has no tools |
 | `petrotest/authoring/`, `cat/authoring/` | `authoring` | ported: step library (parity-tested), checks, sessions, read-only Jira ingest. draft.py (Claude), replay, recorded, publish writer, CLI: todo |
+| `pages/authoring.py` | `web` | ported: cases, Jira ingest, live checks, step library, approve, publish dry run. Draft with Claude, capture/replay: not built |
+| `pages/upgrade.py`, `downloads_ui.py`, `web/downloads.py` | `web` | ported: Artifactory pickers, download with progress, Install Upgrade (PSI, hx-confirm, refused during a run). Viper merge, AU, VHQ, psi-init, simulator build fetch: not built |
+| `petrotest/commander_snapshot.py` + `devices/suiteinfo.py` | `commander.snapshot` | ported on Opus (Haiku was stopped by the safeguard): capture, restore, restoreForRig in CommanderInit, coverage, `CommanderSnapshotCommand`; difflib ported step for step; all 44 Python tests; goldens recorded from the Python match |
+| `devices/petro_forecourt.py` | `devices.forecourt` | ported; FuelPumps/DcrDevice adapters, PetroPumpStatus for pumps_idle. Not yet wired into runs |
+| `devices/legacy_rmi.py` | `devices.legacyrmi` | ported; SaleRmi adapter (17/17 methods). Not yet wired |
+| `devices/viperpay.py` | `devices.viperpay` | ported as a PinpadDevice. Not yet wired |
+| `devices/topaz_printer.py` | `devices.printer` | ported over jSerialComm (receiptKey matches the Python's). java_serial.py unneeded (Java reads it natively). Port hand-off at launch: todo |
+| `devices/eps.py`, `suspended.py`, `buypass_host.py`, `fepsim_legacy.py` | `devices.*` | in progress on Opus (Haiku was stopped by the safeguard) |
 | `cat/web/` layout, pages shell | `web` | shell ported: sections, Run tabs, placeholders, POS page. Not built: every page body, Settings appearance, the CAT monogram |
 | `petrotest/preflight/` | `preflight` | ported: framework, runner, POS checks via pos-shim screen(). pumps_idle, eps_reachable, config_loaded, build_matches and every repair await forecourt/SSH/Commander/POS-control clients |
 | `petrotest/recovery/` | `recovery` | ported: CAPTURE (no files yet), PREFLIGHT, SOFT and VOID (pos-shim halves; CDP halves todo). RESET, REPROVISION raise DeviceUnavailable |
@@ -136,6 +144,16 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
     Python CAT's Chromium 1228). Since then PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 is set for
     tests and run.cmd; browser tests skip when Chromium is absent.
 
+13. **Rig-owner decision 2026-10-24:** any slice Haiku 5.5's cyber safeguard blocks is
+    rerun on Opus 5.5 without asking (so far: Commander client, Commander init, snapshots,
+    EPS/FEP).
+14. Fake-POS Charity run through step 5 (wave 11): all 38 cases fail at the first seam
+    with no Java device behind it (Commander, DCR, pos-shim, register RMI) — the same
+    first failing step as the Python's own --fake-pos run where that run gets that far
+    (61432, 135242/3/7). `cat-java launch --fake-pos` stops at System Checks (step 1).
+15. Java C-Site client refuses `isDisableCsiteSSLVerification=true`, which the Python
+    honours. Decide if a lab needs it.
+
 ## 7. Log
 
 - **2026-10-24** PoC: pos-shim client + web page on Java 17, read path checked live.
@@ -164,3 +182,6 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 - **2026-10-24** Waves 9-10 merged: PATS unification + hooks, Setup, Settings, authoring,
   plan-cache fix, and all PATS handler families (2,424 tests). Next: wire the families
   into one handler set, step 5 (Tests Run), then a whole plan against the fake POS.
+- **2026-10-24** Waves 11-13 merged: step 5, StandardHandlers (71/71 actions), BDD,
+  widget keys, C-Site, Authoring and Upgrade pages, snapshots (Opus), forecourt, legacy
+  RMI, ViperPay, serial printer (2,843 tests).
