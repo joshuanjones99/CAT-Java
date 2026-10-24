@@ -19,6 +19,10 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -33,8 +37,46 @@ class SupervisorTest {
 
     private static final Duration BUDGET = Duration.ofSeconds(30);
 
+    /**
+     * How long teardown waits for a fake simulator to exit. A child whose working directory is the
+     * {@code @TempDir} keeps that folder from being deleted, so every child must be gone before
+     * JUnit cleans up.
+     */
+    private static final Duration REAP_WAIT = Duration.ofSeconds(15);
+
     @TempDir
     Path tools;
+
+    /**
+     * Destroys, and waits for, every fake simulator this JVM still has running, and their
+     * descendants. Only children of the test JVM whose image is the test JDK's {@code java} are
+     * touched: each one was started by a test here. A child still alive after the bound fails the
+     * test rather than being left to race the folder cleanup.
+     */
+    @AfterEach
+    void reapFakeSimulators() throws InterruptedException {
+        Optional<Path> java = SimTestSupport.testJava();
+        if (java.isEmpty()) {
+            return;
+        }
+        String image = java.get().toString();
+        List<ProcessHandle> leftovers = ProcessHandle.current().descendants()
+                .filter(ProcessHandle::isAlive)
+                .filter(handle -> handle.info().command().map(image::equalsIgnoreCase).orElse(false))
+                .toList();
+        for (ProcessHandle handle : leftovers) {
+            handle.destroyForcibly();
+        }
+        for (ProcessHandle handle : leftovers) {
+            try {
+                handle.onExit().get(REAP_WAIT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                throw new AssertionError("fake simulator pid " + handle.pid() + " did not exit", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+    }
 
     /** Records what the supervisor reports. */
     private static final class Recorder implements Events {
@@ -394,6 +436,12 @@ class SupervisorTest {
             Thread.currentThread().interrupt();
         } finally {
             child.destroyForcibly();
+            try {
+                // Destroy is asynchronous: wait, bounded, so the folder is free before cleanup.
+                child.waitFor(REAP_WAIT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }
