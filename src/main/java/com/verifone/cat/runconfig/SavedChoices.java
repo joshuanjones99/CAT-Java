@@ -11,8 +11,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
- * The Config tab's saved choices: {@code ~/.cat/last-config.json}, the file the Python CAT's
- * TUI and {@code catt web} read and write under the same keys.
+ * The Config tab's saved choices: {@code ~/.cat/java/last-config.json}.
+ *
+ * <p>The Python CAT keeps its own {@code ~/.cat/last-config.json} under the same keys. CAT-Java
+ * does not share that file: until the two formats are proven identical, a write from one
+ * could corrupt the other, so the Java port has its own file under {@code ~/.cat/java/}.
  *
  * <p>Read and written as a JSON object, keys in the order they were saved. The location is a
  * parameter everywhere: tests pass a {@code @TempDir}, and only {@link #defaultPath()} reaches
@@ -39,11 +42,14 @@ public final class SavedChoices {
 
     private SavedChoices() {}
 
-    /** {@code $CAT_SAVED_CONFIG}, else {@code ~/.cat/last-config.json}. */
+    /** The file's name under {@code ~/.cat/java/}. Not the Python CAT's {@code last-config.json}. */
+    public static final String FILE_NAME = "last-config.json";
+
+    /** {@code $CAT_SAVED_CONFIG}, else {@code ~/.cat/java/last-config.json}. */
     public static Path defaultPath(Map<String, String> env, String userHome) {
         String override = env.get(ENV_OVERRIDE);
         return override == null || override.isBlank()
-                ? Path.of(userHome, ".cat", "last-config.json")
+                ? Path.of(userHome, ".cat", "java", FILE_NAME)
                 : Path.of(override);
     }
 

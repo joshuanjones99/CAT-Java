@@ -64,11 +64,16 @@ public final class ConfigForm {
 
     /** The form the CAT-Java web UI uses: the offline catalogue and the TUI's saved file, loaded. */
     public static ConfigForm standard() {
-        String fromEnv = System.getenv(ENV_REPO_ROOT);
-        Path root = fromEnv == null || fromEnv.isBlank() ? DEFAULT_REPO_ROOT : Path.of(fromEnv);
+        Path root = repoRoot(System.getenv());
         ConfigForm form = new ConfigForm(PlanCatalogue.offline(root), SavedChoices.defaultPath(), root);
         form.load();
         return form;
+    }
+
+    /** {@code $CAT_REPO_ROOT}, else the Python checkout: where the plans' node paths resolve. */
+    public static Path repoRoot(Map<String, String> env) {
+        String fromEnv = env.get(ENV_REPO_ROOT);
+        return fromEnv == null || fromEnv.isBlank() ? DEFAULT_REPO_ROOT : Path.of(fromEnv);
     }
 
     /**

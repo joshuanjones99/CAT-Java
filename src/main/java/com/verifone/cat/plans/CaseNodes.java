@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  * <p>The Python version memoises {@code is_unmigrated} on the file's stat; this one reads the
  * file on each call. Nothing in Java calls this on a hot path yet, so the cost is not measured.
  */
-final class CaseNodes {
+public final class CaseNodes {
 
     /** The marker a migration placeholder carries: the file exists for the reasoning only. */
     static final String UNMIGRATED_MARKER = "pytest.mark.unmigrated";
@@ -111,7 +111,7 @@ final class CaseNodes {
     }
 
     /** True when {@code file} is a migration placeholder rather than a ported test. Never throws. */
-    static boolean isUnmigrated(Path file) {
+    public static boolean isUnmigrated(Path file) {
         String name = file.getFileName().toString();
         String marker = name.endsWith(".feature") ? UNMIGRATED_TAG : UNMIGRATED_MARKER;
         try {

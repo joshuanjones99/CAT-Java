@@ -22,9 +22,13 @@ import com.verifone.cat.report.ReportPaths;
  * A stat-keyed summary index over every past run: the Python CAT's {@code cat.results.index}.
  *
  * <p>Replaying about a thousand runs on every open is not an option, so each run's
- * {@link RunSummary} is cached in {@code ~/.cat/results-index.json} (or {@code CAT_RESULTS_INDEX})
+ * {@link RunSummary} is cached in {@code ~/.cat/java/results-index.json} (or {@code CAT_RESULTS_INDEX})
  * keyed on {@code (run folder name, file size, mtime)}. An unchanged run is never re-read;
- * a changed, new or vanished one is. The file is the Python's shape, so either CAT reads it.
+ * a changed, new or vanished one is.
+ *
+ * <p>The Python CAT keeps its own {@code ~/.cat/results-index.json}. CAT-Java does not share it:
+ * until the two formats are proven identical, a write from one could corrupt the other. The
+ * shape is the Python's, so the file could be swapped in later once that is proven.
  *
  * <p>The index is a derived convenience. An unreadable index, missing, truncated or of
  * another version, is a cache miss, never a failure; a run that cannot be read is reported
@@ -59,11 +63,11 @@ public final class RunIndex {
 
     private RunIndex() {}
 
-    /** {@code $CAT_RESULTS_INDEX}, else {@code ~/.cat/results-index.json}. */
+    /** {@code $CAT_RESULTS_INDEX}, else {@code ~/.cat/java/results-index.json}. Never the Python's file. */
     public static Path indexPath(Map<String, String> env) {
         String configured = env.getOrDefault(INDEX_ENV, "").strip();
         return configured.isEmpty()
-                ? Path.of(System.getProperty("user.home"), ".cat", "results-index.json")
+                ? Path.of(System.getProperty("user.home"), ".cat", "java", INDEX_FILE)
                 : Path.of(configured);
     }
 

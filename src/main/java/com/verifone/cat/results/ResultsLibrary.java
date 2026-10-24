@@ -7,7 +7,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import com.verifone.cat.plans.CaseNodes;
 import com.verifone.cat.report.ReportPaths;
+import com.verifone.cat.runconfig.ConfigForm;
 
 /**
  * The past runs under one results root, with their index: what the Results page reads.
@@ -28,8 +30,8 @@ public final class ResultsLibrary {
      * @param root        the results root
      * @param indexFile   the index file
      * @param placeholder true for a node id whose file is an unmigrated placeholder; the
-     *                    default says none is. (The Python CAT reads the repository; that
-     *                    check is not ported yet.)
+     *                    two-argument constructor says none is. {@link #fromEnvironment} reads
+     *                    the checkout, via {@link #placeholderIn}.
      */
     public ResultsLibrary(Path root, Path indexFile, Predicate<String> placeholder) {
         this.root = root;
@@ -42,9 +44,27 @@ public final class ResultsLibrary {
         this(root, indexFile, nodeid -> false);
     }
 
-    /** The library for {@code env}: {@code CAT_RESULTS_DIR} and {@code CAT_RESULTS_INDEX}, else the defaults. */
+    /**
+     * The library for {@code env}: {@code CAT_RESULTS_DIR} and {@code CAT_RESULTS_INDEX}, else the
+     * defaults. Its placeholder check reads the checkout named by {@code CAT_REPO_ROOT}, as the
+     * Python CAT's {@code cat.panels.results._is_placeholder} does.
+     */
     public static ResultsLibrary fromEnvironment(Map<String, String> env) {
-        return new ResultsLibrary(ReportPaths.resultsRoot(env), RunIndex.indexPath(env));
+        return new ResultsLibrary(ReportPaths.resultsRoot(env), RunIndex.indexPath(env),
+                placeholderIn(ConfigForm.repoRoot(env)));
+    }
+
+    /**
+     * True for a node id (a path, optionally {@code ::test}) whose file under {@code repoRoot} is an
+     * unmigrated placeholder. Such a test is left out of every rate. Never throws.
+     */
+    public static Predicate<String> placeholderIn(Path repoRoot) {
+        return nodeid -> {
+            if (nodeid == null || nodeid.isBlank()) {
+                return false;
+            }
+            return CaseNodes.isUnmigrated(repoRoot.resolve(nodeid.split("::", 2)[0]));
+        };
     }
 
     public Path root() {
