@@ -94,8 +94,20 @@ public final class WebApp {
         return create(shim, title, results, configForm, run, sims, WebSettings.defaultPath());
     }
 
+    /** As {@link #create(PosShimClient, String)}, with the Authoring page's service injected (tests use a temp folder). */
+    static Javalin createWithAuthoring(PosShimClient shim, String title, AuthoringService authoring) {
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
+                RunService.standard("", System.getenv()), SimulatorsService.standard(), WebSettings.defaultPath(),
+                authoring);
+    }
+
     private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
             RunService run, SimulatorsService sims, Path settingsFile) {
+        return create(shim, title, results, configForm, run, sims, settingsFile, AuthoringService.standard());
+    }
+
+    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
+            RunService run, SimulatorsService sims, Path settingsFile, AuthoringService authoring) {
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             config.staticFiles.add(files -> {
@@ -109,7 +121,7 @@ public final class WebApp {
         RunRoutes.register(app, configForm, run);
         RunConfigRoutes.register(app, configForm);
         ResultsPage.routes(app, results);
-        app.get("/authoring", ctx -> ctx.html(Layout.page(Section.AUTHORING, "Authoring", AuthoringPage.body())));
+        AuthoringRoutes.register(app, authoring);
         app.get("/upgrade", ctx -> ctx.html(Layout.page(Section.UPGRADE, "Install Upgrade", UpgradePage.body())));
         SimulatorsRoutes.register(app, sims);
         SetupRoutes.register(app, SetupService.standard());
