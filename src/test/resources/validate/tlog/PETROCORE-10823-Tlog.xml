@@ -1,0 +1,118 @@
+<trans recalled="false" type="network sale">
+  <trHeader>
+    <termMsgSN term="901" type="FINANCIAL">901407</termMsgSN>
+    <trTickNum>
+      <posNum>901</posNum>
+      <trSeq>9010317</trSeq>
+    </trTickNum>
+    <trUniqueSN>866</trUniqueSN>
+    <period level="0" name="HOUR" seq="13" />
+    <period level="1" name="OFFICECOPY" seq="10" />
+    <period level="2" name="DAILY" seq="10" />
+    <date>2021-03-01T13:21:50-05:00</date>
+    <duration>52</duration>
+    <till>1</till>
+    <cashier drawer="1" empNum="" period="0" posNum="901" sysid="0" />
+    <storeNumber>10016</storeNumber>
+    <physicalRegisterID>901</physicalRegisterID>
+    <uniqueID>1637805640000-660032030-0000006208</uniqueID>
+  </trHeader>
+  <trValue>
+    <trTotNoTax>20.00</trTotNoTax>
+    <trTotWTax>20.00</trTotWTax>
+    <trTotTax>0.00</trTotTax>
+    <trTax />
+    <trCurrTot locale="USD">20.00</trCurrTot>
+    <trSTotalizer>20.00</trSTotalizer>
+    <trGTotalizer>20.00</trGTotalizer>
+  </trValue>
+  <trLoyalty>
+    <trLoyaltyProgram programID="BP LOYALTY">
+      <trloSubTotal>20.00</trloSubTotal>
+      <trloAutoDisc>0.00</trloAutoDisc>
+      <trloCustDisc>0.00</trloCustDisc>
+      <trloAccount>556782FFFFFF0005</trloAccount>
+      <trloEntryMeth>Swipe</trloEntryMeth>
+      <trloAuthReply></trloAuthReply>
+    </trLoyaltyProgram>
+  </trLoyalty>
+  <trLines>
+    <trLine type="plu">
+      <trlTaxes />
+      <trlFlags>
+        <trlSpDisc />
+        <trlPLU />
+        <trlUpdPluCust />
+        <trlUpdDepCust />
+        <trlCatCust />
+        <trlFuelSale />
+      </trlFlags>
+      <trlDept number="275" type="norm">CAR WASH</trlDept>
+      <trlCat number="25">CARWASH</trlCat>
+      <trlNetwCode>102</trlNetwCode>
+      <trlQty>1</trlQty>
+      <trlSign>1.00</trlSign>
+      <trlSellUnit>1.000</trlSellUnit>
+      <trlUnitPrice>10.00</trlUnitPrice>
+      <trlLineTot>10.00</trlLineTot>
+      <trlDesc>CARWASH</trlDesc>
+      <trlUPC>00000000012348</trlUPC>
+      <trlModifier>000</trlModifier>
+      <trlUPCEntry type="manual" />
+      <trlCw>
+        <trlCwLineIx>1</trlCwLineIx>
+        <trlCwCode>18832</trlCwCode>
+      </trlCw>
+    </trLine>
+    <trLine type="postFuel">
+      <trlTaxes />
+      <trlFlags>
+        <trlUpdDepCust />
+        <trlCatCust />
+        <trlFuelSale />
+      </trlFlags>
+      <trlDept number="35" type="fuel">REGULAR UNL</trlDept>
+      <trlCat number="1">FUEL</trlCat>
+      <trlNetwCode>1</trlNetwCode>
+      <trlQty>4.548</trlQty>
+      <trlSign>1.00</trlSign>
+      <trlUnitPrice>2.199</trlUnitPrice>
+      <trlLineTot>10.00</trlLineTot>
+      <trlFuel type="norm">
+        <trlFuelSeq>318</trlFuelSeq>
+        <fuelPosition>1</fuelPosition>
+        <trlFuelDepst>0.00</trlFuelDepst>
+        <fuelProd NAXMLFuelGradeID="1" sysid="4">UNLD</fuelProd>
+        <fuelSvcMode sysid="1">SELF</fuelSvcMode>
+        <fuelMOP sysid="2">CREDIT</fuelMOP>
+        <fuelVolume uom="G">4.548</fuelVolume>
+        <basePrice>2.499</basePrice>
+      </trlFuel>
+      <trlDesc>UNLD CR #01</trlDesc>
+      <trloPPGDisc programID="BP LOYALTY">
+        <PPGVol>4.548</PPGVol>
+        <PPGTotDisc>1.36</PPGTotDisc>
+        <PPGOrgPrice>2.499</PPGOrgPrice>
+        <PPGGalDisc>0.300</PPGGalDisc>
+      </trloPPGDisc>
+    </trLine>
+  </trLines>
+  <trPaylines>
+    <trPayline locale="DOLLAR" sysid="1" type="sale">
+      <trpPaycode cat="1" mop="3" nacstendercode="generic" nacstendersubcode="generic">CREDIT</trpPaycode>
+      <trpAmt>20.00</trpAmt>
+      <trpCardInfo isAboveSite="false">
+        <trpcAccount>556782FFFFFF0005</trpcAccount>
+        <trpcCCName sysid="0">BP BRND MKTR</trpcCCName>
+        <trpcHostID>buypass</trpcHostID>
+        <trpcAuthCode>123628</trpcAuthCode>
+        <trpcAuthSrc />
+        <trpcTicket>123628</trpcTicket>
+        <trpcEntryMeth>Swipe</trpcEntryMeth>
+        <trpcBatchNr>10</trpcBatchNr>
+        <trpcSeqNr>15724</trpcSeqNr>
+        <trpcAuthDateTime>2021-03-01T13:21:50-05:00</trpcAuthDateTime>
+      </trpCardInfo>
+    </trPayline>
+  </trPaylines>
+</trans>
