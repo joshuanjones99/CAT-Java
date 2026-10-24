@@ -1,0 +1,7 @@
+Scenario: PETROCORE-1 fleet
+When VALIDATE_DYNAMIC_PROMPTS on register "topaz101"
+| promptWebElement | promptText | promptElementLocatorType | touchActionLocatorType | touchActionWebElements |
+| @LABEL@ | Enter Unit number | ID | ID | @ONE@, @OK@ |
+Then WAIT_DCR_PROMPT for display text "WELCOME" on dcr position "DCR1" with exactMatch "No"
+And FUNCTION_KEY select function key "l4" at dcr position "DCR1"
+And KEY_PRESS key "712345" on dcr with deviceid "DCR1"

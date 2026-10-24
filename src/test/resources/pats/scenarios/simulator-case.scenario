@@ -1,0 +1,15 @@
+    Scenario: PETROCORE-109927 (SCO) Validate prompt for tip on debit transaction
+When RESET_PACKETS for device "BUYPASS"
+When UPDATE_CONFIGURATION for device "BUYPASS" with config file "PartialAuth.txt"
+Then WAIT_FOR_PROMPT for display text "DO YOU WANT, CASHBACK " on viperpay "topaz101" with exactMatch "No"
+Then INSERT_OR_SLIDE_CARD with card label "MSR DEBIT" on viperpay "topaz101"
+When GET_ANY_KEY key press "10.00% - $3.40" on viperpay "topaz101"
+When GET_ANY_DECIMAL input data "0042" on viperpay "topaz101"
+When IMPORT_CONFIGURATION folder "Upsell-Naxml"
+Then CONTROL_FUNCTION init type "crefreshcfg"
+And REPORT_PRINT on register with deviceid "topaz101"
+And VALIDATE_REPORT with reference file "PETROCORE-115560-Report.xml" and rule file "REPORT-RULE.txt" on deviceid "topaz101"
+|reptnum|2|
+|cmd|vrubyrept|
+|reporttype||
+|period|2|

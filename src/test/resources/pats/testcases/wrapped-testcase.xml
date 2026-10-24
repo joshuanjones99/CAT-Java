@@ -1,0 +1,3 @@
+<testcase>
+<testcase name="DEPT-TRANS"><action name="TOTAL"/><action name="SLEEP"><field name="SLEEP" value="2000"/></action></testcase>
+</testcase>

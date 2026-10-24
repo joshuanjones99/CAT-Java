@@ -1,0 +1,13 @@
+Scenario: PETROCORE-120859 Indoor postpay EMV CT Sale with Visa - Online PIN
+Given WIDGET_VALIDATION for web element "csr-button" with validation key "CSR_FCT" of type "ID" on register with deviceid "topaz101"
+And FUEL_AMOUNT for amount 10.00 at pump 2 using hose 1 prepay false
+Then HANDLE_DOWN on pump 2 prepay TRUE
+##Then WAIT_FOR_PROMPT for display text "INSERT TAP OR SWIPE CARD" on terminal "topaz101" with exactMatch "NO"
+When ADD_PLU_NUMERIC_KEYPAD with the following PLUs on register with deviceid "topaz101"
+  | 9112  |
+  | 9113  |
+When INSERT_OR_SLIDE_CARD with card label "EMV_CT_Visa" and card image file " VISA_CI_2013-v1_2.xml" on terminal "topaz101"
+Then GET_DECIMAL input data "0042" on terminal "topaz101"
+Then REFUND_STAN_TRAN_KEY with transKey "SALE1" on register with deviceid "topaz101"
+And SLEEP for 5000 millisecondsScenario: PETROCORE-120859 Indoor postpay EMV CT Sale with Visa - Online PIN
+Then VALIDATE_RECEIPT with reference file "PETROCORE-120859-Receipt.txt" and rule file "RECEIPT-RULE.txt" on deviceid "topaz101"
