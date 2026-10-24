@@ -344,3 +344,11 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
 .pre { white-space: pre-wrap; }
 .cat-mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 @media (max-width: 640px) { .config-row { grid-template-columns: 1fr; } }
+
+/* Launch Simulators (web/SimulatorsPage.java) */
+.sim-table { width: 100%; border-collapse: collapse; }
+.sim-table th, .sim-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.sim-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.sim-log-pre { max-height: 28rem; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--surface); color: var(--text); padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
+.danger { color: var(--error); border-color: var(--error); }
+.ghost { background: transparent; }

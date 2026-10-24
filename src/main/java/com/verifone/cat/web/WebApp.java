@@ -32,7 +32,13 @@ public final class WebApp {
     private WebApp() {}
 
     public static Javalin create(PosShimClient shim, String title) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard());
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
+                SimulatorsService.standard());
+    }
+
+    /** As {@link #create(PosShimClient, String)}, with the Launch Simulators page's service injected (tests use fake processes). */
+    static Javalin create(PosShimClient shim, String title, SimulatorsService sims) {
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(), sims);
     }
 
     /**
@@ -41,15 +47,17 @@ public final class WebApp {
      */
     public static Javalin create(PosShimClient shim, String title, Path resultsRoot) {
         return create(shim, title, new ResultsLibrary(resultsRoot, resultsRoot.resolve(RunIndex.INDEX_FILE)),
-                ConfigForm.standard());
+                ConfigForm.standard(), SimulatorsService.standard());
     }
 
     /** As {@link #create(PosShimClient, String)}, with the Config tab's form injected (tests use a temp file). */
     public static Javalin create(PosShimClient shim, String title, ConfigForm configForm) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm);
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm,
+                SimulatorsService.standard());
     }
 
-    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm) {
+    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
+                                  SimulatorsService sims) {
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             config.staticFiles.add(files -> {
@@ -66,8 +74,7 @@ public final class WebApp {
         ResultsPage.routes(app, results);
         app.get("/authoring", ctx -> ctx.html(Layout.page(Section.AUTHORING, "Authoring", AuthoringPage.body())));
         app.get("/upgrade", ctx -> ctx.html(Layout.page(Section.UPGRADE, "Install Upgrade", UpgradePage.body())));
-        app.get("/simulators", ctx -> ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators",
-                SimulatorsPage.body())));
+        SimulatorsRoutes.register(app, sims);
         app.get("/setup", ctx -> ctx.html(Layout.page(Section.SETUP, "Setup", SetupPage.body())));
         app.get("/settings", ctx -> ctx.html(Layout.page(Section.SETTINGS, "Settings", SettingsPage.body())));
         app.get("/tools", ctx -> ctx.html(Layout.page(Section.TOOLS, "Tools", ToolsPage.body())));

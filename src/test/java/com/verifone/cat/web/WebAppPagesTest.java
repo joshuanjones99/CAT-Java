@@ -116,7 +116,6 @@ class WebAppPagesTest {
     void unbuiltPagesNameThePythonModuleTheyWillBePortedFrom() throws Exception {
         assertPlaceholder("/authoring", "cat/web/pages/authoring.py");
         assertPlaceholder("/upgrade", "cat/web/pages/upgrade.py");
-        assertPlaceholder("/simulators", "cat/web/pages/simulators.py");
         assertPlaceholder("/setup", "cat/web/pages/setup.py");
         assertPlaceholder("/settings", "cat/web/pages/settings.py");
     }
