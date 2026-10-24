@@ -61,6 +61,33 @@ final class RunRoutes {
                 ctx.html(overview(form, run));
             }
         });
+        app.post("/run/schedule", ctx -> {
+            if (fromPage(ctx)) {
+                run.schedule(formValue(ctx, "at"), RunStart.from(form, run.rig()));
+                ctx.html(overview(form, run));
+            }
+        });
+        app.post("/run/schedule/clear", ctx -> {
+            if (fromPage(ctx)) {
+                run.clearSchedule();
+                ctx.html(overview(form, run));
+            }
+        });
+        app.post("/run/schedule/cancel", ctx -> {
+            if (fromPage(ctx)) {
+                Integer id = parseId(formValue(ctx, "id"));
+                if (id != null) {
+                    run.cancelScheduled(id);
+                }
+                ctx.html(overview(form, run));
+            }
+        });
+        app.post("/run/continuous", ctx -> {
+            if (fromPage(ctx)) {
+                run.toggleContinuous(RunStart.from(form, run.rig()));
+                ctx.html(overview(form, run));
+            }
+        });
         app.get("/run/log", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunLogPage.body(run))));
         app.get("/fragments/run/log", ctx -> ctx.html(RunLogPage.panel(run)));
     }
@@ -68,7 +95,21 @@ final class RunRoutes {
     /** The Overview panel as the Config tab reads it now, and the current run. */
     static String overview(ConfigForm form, RunService run) {
         RunStart.Plan plan = RunStart.from(form, run.rig());
-        return RunOverviewPage.panel(run.view(), form.view(), plan);
+        return RunOverviewPage.panel(run.view(), form.view(), plan, run.scheduleView());
+    }
+
+    private static String formValue(Context ctx, String name) {
+        String value = ctx.formParam(name);
+        return value == null ? "" : value;
+    }
+
+    /** A pending run's id from the form, or {@code null} when it is not a number. */
+    private static Integer parseId(String text) {
+        try {
+            return Integer.valueOf(text.strip());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static boolean fromPage(Context ctx) {

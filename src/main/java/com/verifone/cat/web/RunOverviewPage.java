@@ -7,20 +7,23 @@ import java.util.Locale;
 
 import com.verifone.cat.runconfig.ConfigView;
 import com.verifone.cat.runservice.RunProgress;
+import com.verifone.cat.runservice.RunSchedule;
 import com.verifone.cat.runservice.RunService;
 import com.verifone.cat.runservice.RunStart;
 
 /**
- * The Run tab's Overview panel: before a run, the read-back of the Config tab with Start run and
- * Preflight; during and after it, the counters, progress, the current step, Pause/Continue, Stop
- * and New run (docs/web-ui.md, "Run → Overview").
+ * The Run tab's Overview panel: before a run, the read-back of the Config tab with Start run,
+ * Preflight, and the schedule (Schedule run, Clear schedule, Continuous run); during and after it,
+ * the counters, progress, the current step, Pause/Continue, Stop and New run (docs/web-ui.md,
+ * "Run → Overview").
  *
  * <p>The panel is one {@code <section id="run-panel">}. Every action answers with the whole panel,
- * so the page is one server reading. While a run is going the panel polls itself with htmx; once
- * it has ended the poll stops, so an idle page makes no requests.
+ * so the page is one server reading. While a run is going, or a schedule or continuous run is
+ * waiting, the panel polls itself with htmx; once neither holds, the poll stops, so an idle page
+ * makes no requests.
  *
- * <p>Not built yet, and drawn as disabled placeholders: Schedule run, Continuous run, the cases,
- * Simulators, Connections and Validations.
+ * <p>Not built yet, and drawn as disabled placeholders: the cases, Simulators, Connections and
+ * Validations.
  */
 final class RunOverviewPage {
 
@@ -29,6 +32,10 @@ final class RunOverviewPage {
 
     /** How often a running panel refreshes itself. */
     static final String POLL = "every 2s";
+
+    /** The times the schedule takes, as the Python CAT's {@code SCHEDULE_HINT}. */
+    static final String SCHEDULE_HINT = "Times: 23:00 · 23:00:30 · 2026-09-06 23:00 · +30m (relative). "
+            + "Several at once, comma- or space-separated.";
 
     private static final String TARGET = "hx-target=\"#" + PANEL_ID + "\" hx-swap=\"outerHTML\"";
 
@@ -40,15 +47,18 @@ final class RunOverviewPage {
      * @param view the service's read of the current run (not started, busy or ended)
      * @param config the Config tab's read-back, drawn before a run starts
      * @param plan the Config tab's choices as Start run would launch them
+     * @param schedule the schedule and the continuous run
      */
-    static String panel(RunService.View view, ConfigView config, RunStart.Plan plan) {
+    static String panel(RunService.View view, ConfigView config, RunStart.Plan plan,
+            RunSchedule.View schedule) {
         StringBuilder out = new StringBuilder();
         if (view.started()) {
-            started(out, view);
+            started(out, view, schedule);
         } else {
-            preRun(out, config, plan, view);
+            preRun(out, config, plan, view, schedule);
         }
-        return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\"" + (view.busy() ? polling() : "") + ">"
+        boolean poll = view.busy() || schedule.active();
+        return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\"" + (poll ? polling() : "") + ">"
                 + out + "</section>";
     }
 
@@ -58,7 +68,8 @@ final class RunOverviewPage {
 
     // ------------------------------------------------------------------ before a run
 
-    private static void preRun(StringBuilder out, ConfigView config, RunStart.Plan plan, RunService.View view) {
+    private static void preRun(StringBuilder out, ConfigView config, RunStart.Plan plan, RunService.View view,
+            RunSchedule.View schedule) {
         notices(out, view);
         out.append("<div class=\"card run-card\"><h2>Pre-Run</h2>");
         out.append("<ul class=\"run-summary\">");
@@ -84,13 +95,55 @@ final class RunOverviewPage {
                     .append(esc(view.preflight())).append("</pre>");
         }
         out.append("</div>");
-        placeholders(out, "Schedule run and Continuous run",
-                "the schedule and Continuous run are not ported to CAT-Java yet (Python: cat/web/service.py)");
+        scheduleCard(out, schedule, true);
+    }
+
+    /**
+     * The schedule block. Before a run it has the entry form, Clear schedule and Continuous run; during
+     * one it only shows what is waiting, with Finish continuous and Cancel per run.
+     */
+    private static void scheduleCard(StringBuilder out, RunSchedule.View schedule, boolean preRun) {
+        if (!preRun && !schedule.active()) {
+            return;
+        }
+        out.append("<div class=\"card run-card run-schedule\"><h2>Schedule</h2>");
+        if (preRun) {
+            out.append("<form hx-post=\"/run/schedule\" ").append(TARGET).append(">")
+                    .append("<label>Start at <input type=\"text\" name=\"at\" autocomplete=\"off\" ")
+                    .append("placeholder=\"23:00, +2h\"></label> ")
+                    .append("<button type=\"submit\">Schedule run</button></form>");
+            out.append("<div class=\"run-actions\">")
+                    .append("<button type=\"button\" hx-post=\"/run/schedule/clear\" ").append(TARGET)
+                    .append(">Clear schedule</button>")
+                    .append("<button type=\"button\" hx-post=\"/run/continuous\" ").append(TARGET).append('>')
+                    .append(schedule.continuous() ? "Finish continuous" : "Continuous run").append("</button>")
+                    .append("</div>");
+            out.append("<p class=\"muted\">").append(esc(SCHEDULE_HINT)).append("</p>");
+        } else if (schedule.continuous()) {
+            out.append("<div class=\"run-actions\"><button type=\"button\" hx-post=\"/run/continuous\" ")
+                    .append(TARGET).append(">Finish continuous</button></div>");
+        }
+        if (!schedule.status().isEmpty()) {
+            out.append("<p class=\"run-notice\" role=\"status\">").append(esc(schedule.status())).append("</p>");
+        }
+        if (!schedule.pending().isEmpty()) {
+            out.append("<ul class=\"run-summary\">");
+            for (RunSchedule.PendingLine line : schedule.pending()) {
+                out.append("<li><span class=\"cat-mono\">#").append(line.id()).append(' ')
+                        .append(esc(line.at())).append("</span> <span class=\"muted\">(")
+                        .append(clockText(line.secondsLeft())).append(")</span> ")
+                        .append(esc(line.plans())).append(' ')
+                        .append("<button type=\"button\" hx-post=\"/run/schedule/cancel\" hx-vals='{\"id\":\"")
+                        .append(line.id()).append("\"}' ").append(TARGET).append(">Cancel</button></li>");
+            }
+            out.append("</ul>");
+        }
+        out.append("</div>");
     }
 
     // ------------------------------------------------------------------ during and after
 
-    private static void started(StringBuilder out, RunService.View view) {
+    private static void started(StringBuilder out, RunService.View view, RunSchedule.View schedule) {
         RunProgress.Snapshot snap = view.snapshot();
         notices(out, view);
         out.append("<div class=\"run-actions\">");
@@ -113,6 +166,7 @@ final class RunOverviewPage {
         double percent = snap == null ? 0 : snap.percent();
         out.append("<progress class=\"run-progress\" max=\"100\" value=\"")
                 .append(String.format(Locale.ROOT, "%.0f", percent)).append("\" aria-label=\"Progress\"></progress>");
+        scheduleCard(out, schedule, false);
 
         if (snap != null) {
             currentStep(out, snap);
