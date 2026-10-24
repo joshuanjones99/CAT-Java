@@ -29,6 +29,9 @@ final class SimLogs {
     /** How often a file tail looks for new bytes. A bounded poll; the wait ends at {@code stop}. */
     static final Duration POLL = Duration.ofMillis(250);
 
+    /** How long stopping a tail waits for its thread to let go of the file. */
+    static final Duration JOIN_WAIT = Duration.ofSeconds(5);
+
     private SimLogs() {
     }
 
@@ -77,7 +80,16 @@ final class SimLogs {
         Thread thread = new Thread(() -> follow(path, name, events, stop, from), "sims-tail-" + name);
         thread.setDaemon(true);
         thread.start();
-        return stop::countDown;
+        return () -> {
+            stop.countDown();
+            // Wait, bounded, for the follow to let go of the file: a caller that deletes the
+            // folder next must not race a tail still holding it open.
+            try {
+                thread.join(JOIN_WAIT.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        };
     }
 
     private static void follow(Path path, String name, Events events, CountDownLatch stop, long from) {
