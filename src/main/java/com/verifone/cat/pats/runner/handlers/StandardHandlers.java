@@ -3,10 +3,15 @@ package com.verifone.cat.pats.runner.handlers;
 import com.verifone.cat.closeday.CloseDay;
 import com.verifone.cat.closeday.RegisterPass;
 import com.verifone.cat.devices.DeviceUnavailable;
+import com.verifone.cat.pats.WidgetKeys;
+import com.verifone.cat.pats.runner.ActionHandler;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.FixtureRequirements;
 import com.verifone.cat.pats.runner.FixtureSource;
 import com.verifone.cat.pats.runner.PatsStepError;
+import com.verifone.cat.pats.runner.handlers.bdd.BddContext;
+import com.verifone.cat.pats.runner.handlers.bdd.BddFamily;
+import com.verifone.cat.pats.runner.handlers.bdd.BddScreen;
 import com.verifone.cat.pats.runner.handlers.cloudsettle.CloudSettle;
 import com.verifone.cat.pats.runner.handlers.cloudsettle.CloudSettleContext;
 import com.verifone.cat.pats.runner.handlers.cloudsettle.CloudSettleFamily;
@@ -79,10 +84,6 @@ import java.util.function.Supplier;
  */
 public final class StandardHandlers {
 
-    /** The widget texts the POS shows in English, from the Python's {@code widget_keys.json}: the identity until ported. */
-    // TODO(widget_keys.json): the table is being ported in parallel; until it is wired a widget key stands for itself.
-    private static final Function<String, String> WIDGET_TEXT_UNPORTED = Function.identity();
-
     private StandardHandlers() {
     }
 
@@ -104,7 +105,7 @@ public final class StandardHandlers {
             }
         });
 
-        Function<String, String> widgetText = f.widgetText() == null ? WIDGET_TEXT_UNPORTED : f.widgetText();
+        Function<String, String> widgetText = f.widgetText() == null ? WidgetKeys.standard() : f.widgetText();
         InitsState inits = f.inits();
         TouchPacer pacer = new TouchPacer(DevicePauses.REAL, f.saleTiming().touchSettle());
         FuelPumps pumps = f.fuelPumps() == null ? FuelPumps.UNAVAILABLE : f.fuelPumps();
@@ -153,6 +154,12 @@ public final class StandardHandlers {
         ConfigurationFamily.register(registry, configuration);
         InitsFamily.register(registry, new InitsContext(inits));
         ValidationFamily.register(registry, validation);
+
+        // The BDD-only actions press the POS through the POS UI family's own TOUCH_EVENT handler, so they share its
+        // pacing and its dead-end handling; the handler is taken from the registry, not built a second time.
+        ActionHandler touch = registry.handlerFor("TOUCH_EVENT").orElseThrow(
+                () -> new IllegalStateException("the POS UI family registers TOUCH_EVENT before the BDD family"));
+        BddFamily.register(registry, BddContext.of(touch, BddScreen.overPos(f.pos().driver())));
 
         // The verdict: a failed case's dead-end OK is pressed, as the Python's finish does.
         registry.onFinish(run -> {

@@ -1,6 +1,7 @@
 package com.verifone.cat.launch;
 
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,6 +53,9 @@ public final class LaunchCommand {
         }
 
         RunLauncher launcher = new RunLauncher(paths);
+        // Step 5 runs the plan's collected cases through the production handler set, on the fake POS or the rig.
+        launcher.wireTests(new StandardRegistry(), PlanCases.forRun(Path.of("").toAbsolutePath()),
+                new BrowserConnector());
         LaunchResult result = launcher.launch(config);
         if (config.fakePos()) {
             out.println(FAKE_POS_BANNER);

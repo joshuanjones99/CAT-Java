@@ -319,7 +319,9 @@ class TestsRunStepTest {
         RunServices services = seen.get();
         assertNotNull(services.fakePosUrl(), "the fake POS is started for the run");
         assertNotNull(services.pinpad(), "fake-POS implies the pinpad double");
-        assertTrue(declared.get(0).contains("pinpad declared=true"));
+        // A case declares the fixtures its actions need (FixtureRequirements), not every fixture the run has: NEEDS_POS
+        // is no action the table names, so it declares neither.
+        assertTrue(declared.get(0).contains("pinpad declared=false"), "the pinpad is not declared by a case that does not need it");
         assertTrue(declared.get(0).contains("pos declared=false"), "no POS driver, so POS is not declared");
 
         List<String> lines = new ArrayList<>();

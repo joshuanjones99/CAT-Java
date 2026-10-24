@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,9 +20,6 @@ import org.junit.jupiter.api.io.TempDir;
  * The run's one handler set: every PATS action name the Python's {@code registry._HANDLERS} runs has exactly one handler,
  * and the handler set builds with every family wired. The names are the Python's {@code SUPPORTED_ACTIONS} (71), read
  * off {@code petrotest/pats/runner/registry.py}.
- *
- * <p>Four BDD-only actions (bdd.py) are not ported and have no handler: a case that names one fails at its step with
- * "no handler", which the runner reports. The test pins that set, so a handler added or dropped is noticed here.
  */
 class StandardHandlersTest {
 
@@ -42,10 +38,6 @@ class StandardHandlersTest {
             "GET_DECIMAL", "WAIT_DCR_PROMPT", "KEY_PRESS", "L1", "L2", "L3", "L4", "FUEL_AMOUNT", "HANDLE_DOWN",
             "HANDLE_UP", "HTTP_SIM_EVENT");
 
-    /** The BDD-only actions with no handler yet (bdd.py: the prepay-fuel and dynamic-prompt actions). */
-    static final Set<String> UNPORTED = Set.of(
-            "ADD_PLU_NUMERIC_KEYPAD", "VALIDATE_DYNAMIC_PROMPTS", "PREPAY_FUEL_AMOUNT", "PREPAY_FUEL_VOLUME");
-
     @TempDir
     Path root;
 
@@ -55,19 +47,9 @@ class StandardHandlersTest {
     }
 
     @Test
-    void sixtySevenOfTheSeventyOnePatsActionsHaveExactlyOneHandler() throws Exception {
-        Set<String> supported = registry().supportedActions();
-        assertEquals(PATS_ACTIONS.size() - UNPORTED.size(), supported.size());
-        for (String action : PATS_ACTIONS) {
-            assertEquals(!UNPORTED.contains(action), supported.contains(action), "handler for " + action);
-        }
-    }
-
-    @Test
-    void theUnportedActionsAreExactlyTheBddOnlyOnes() throws Exception {
-        Set<String> missing = new TreeSet<>(PATS_ACTIONS);
-        missing.removeAll(registry().supportedActions());
-        assertEquals(new TreeSet<>(UNPORTED), missing);
+    void everyPatsActionHasExactlyOneHandler() throws Exception {
+        // ActionRegistry refuses a second handler for a name, so the set equal to PATS_ACTIONS is the exact-one proof.
+        assertEquals(PATS_ACTIONS, registry().supportedActions());
     }
 
     @Test
@@ -90,7 +72,8 @@ class StandardHandlersTest {
                 List.of("SEND_HTTP_REQUEST", "VALIDATE_PAYLOAD"),
                 List.of("REPORT_PRINT", "CLOUD_HTTP_REQUEST", "IMPORT_CONFIGURATION", "HTTP_SIM_EVENT"),
                 List.of("CONTROL_FUNCTION"),
-                List.of("VALIDATE_RECEIPT", "VALIDATE_PACKETS"))) {
+                List.of("VALIDATE_RECEIPT", "VALIDATE_PACKETS"),
+                List.of("ADD_PLU_NUMERIC_KEYPAD", "VALIDATE_DYNAMIC_PROMPTS", "PREPAY_FUEL_AMOUNT", "PREPAY_FUEL_VOLUME"))) {
             for (String action : family) {
                 assertTrue(registry.handlerFor(action).isPresent(), action);
             }
