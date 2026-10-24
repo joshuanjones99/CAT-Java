@@ -321,3 +321,26 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
   .results-table { display: block; overflow-x: auto; }
   .results-controls input[type="search"] { max-width: none; }
 }
+
+/* Run -> Config (web/RunConfigPage.java). */
+[hidden] { display: none !important; }
+.config { display: grid; gap: 16px; max-width: 60rem; }
+.config-section { display: grid; gap: 12px; }
+.config-row { display: grid; grid-template-columns: 9rem 1fr; gap: 12px; align-items: start; }
+.config-label { color: var(--muted); padding-top: 6px; }
+.config-body { display: grid; gap: 8px; min-width: 0; }
+.config-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.config-tools input[type="search"] { min-width: 14rem; }
+.config-scroll { max-height: 18rem; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+.config-cases { max-height: 16rem; }
+.config-group { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 8px 0 2px; }
+.config-check { display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; font-size: 14px; }
+.config-scope { display: grid; gap: 10px; }
+.config-scope .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.config-scope .seg label { border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.config-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.config input[type="text"] { min-width: 16rem; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface); color: var(--text); }
+.config input[type="search"] { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface); color: var(--text); }
+.pre { white-space: pre-wrap; }
+.cat-mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+@media (max-width: 640px) { .config-row { grid-template-columns: 1fr; } }

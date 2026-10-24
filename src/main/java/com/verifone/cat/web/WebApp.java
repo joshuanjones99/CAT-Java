@@ -8,6 +8,7 @@ import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.results.ResultsLibrary;
 import com.verifone.cat.results.RunIndex;
+import com.verifone.cat.runconfig.ConfigForm;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
@@ -31,7 +32,7 @@ public final class WebApp {
     private WebApp() {}
 
     public static Javalin create(PosShimClient shim, String title) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()));
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard());
     }
 
     /**
@@ -39,10 +40,16 @@ public final class WebApp {
      * it, so a test never touches the operator's results or {@code ~/.cat}.
      */
     public static Javalin create(PosShimClient shim, String title, Path resultsRoot) {
-        return create(shim, title, new ResultsLibrary(resultsRoot, resultsRoot.resolve(RunIndex.INDEX_FILE)));
+        return create(shim, title, new ResultsLibrary(resultsRoot, resultsRoot.resolve(RunIndex.INDEX_FILE)),
+                ConfigForm.standard());
     }
 
-    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results) {
+    /** As {@link #create(PosShimClient, String)}, with the Config tab's form injected (tests use a temp file). */
+    public static Javalin create(PosShimClient shim, String title, ConfigForm configForm) {
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm);
+    }
+
+    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm) {
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             config.staticFiles.add(files -> {
@@ -54,7 +61,7 @@ public final class WebApp {
 
         app.get("/", ctx -> ctx.redirect(Section.RUN.path()));
         app.get("/run", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunPage.body(RunPage.Tab.OVERVIEW))));
-        app.get("/run/config", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunPage.body(RunPage.Tab.CONFIG))));
+        RunConfigRoutes.register(app, configForm);
         app.get("/run/log", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunPage.body(RunPage.Tab.LOG))));
         ResultsPage.routes(app, results);
         app.get("/authoring", ctx -> ctx.html(Layout.page(Section.AUTHORING, "Authoring", AuthoringPage.body())));

@@ -40,6 +40,11 @@ final class RunPage {
     private RunPage() {}
 
     static String body(Tab active) {
+        return body(active, Placeholder.html(active.summary, active.module));
+    }
+
+    /** The Run page with {@code content} in place of the tab's body; the tab strip is the same. */
+    static String body(Tab active, String content) {
         StringBuilder out = new StringBuilder("<nav class=\"tabs\" aria-label=\"Run\">");
         for (Tab t : Tab.values()) {
             out.append("<a href=\"").append(esc(t.path)).append('"')
@@ -47,6 +52,6 @@ final class RunPage {
                     .append('>').append(esc(t.label)).append("</a>");
         }
         out.append("</nav>");
-        return out.append(Placeholder.html(active.summary, active.module)).toString();
+        return out.append(content).toString();
     }
 }
