@@ -1,0 +1,1 @@
+{"error":"unsupported","detail":"Printer port state is not on the pushed panel surface. The agent's printer path is recordRemotePrinterLexToken â€” receipt content the POS sends when it prints â€” which says nothing about whether the port is open. A real source would be the POS's JavaPOS printer service."}
