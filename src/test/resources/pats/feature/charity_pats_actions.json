@@ -1,0 +1,5341 @@
+{
+ "charity_combined/PETROCORE-135240-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135240"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the Commander imports configuration \"charitycfg_cash-true_cardIndoor-true_cardOutdoor-true\""
+  ],
+  "actions": [
+   {
+    "name": "IMPORT_CONFIGURATION",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "SELECT_FOLDER",
+      "charitycfg_cash-true_cardIndoor-true_cardOutdoor-true"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135241-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135241"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the Commander imports configuration \"charitycfg_cash-true_cardIndoor-true_cardOutdoor-false\""
+  ],
+  "actions": [
+   {
+    "name": "IMPORT_CONFIGURATION",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "SELECT_FOLDER",
+      "charitycfg_cash-true_cardIndoor-true_cardOutdoor-false"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135242-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135242"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "C-Site is sent \"PUT\" \"pcms/v1/config/{service_id}/charities\" with payload \"CharityConfig_cash-true_cardIndoor-false_cardOutdoor-true.json\""
+  ],
+  "actions": [
+   {
+    "name": "CLOUD_HTTP_REQUEST",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "C-SITE"
+     ],
+     [
+      "HTTP_METHOD",
+      "PUT"
+     ],
+     [
+      "CONFIGURATION_URL",
+      "pcms/v1/config/{service_id}/charities"
+     ],
+     [
+      "SELECT_PAYLOAD_FILE",
+      "CharityConfig_cash-true_cardIndoor-false_cardOutdoor-true.json"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135243-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135243"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "C-Site is sent \"PUT\" \"pcms/v1/config/{service_id}/charities\" with payload \"CharityConfig_cash-true_cardIndoor-false_cardOutdoor-false.json\""
+  ],
+  "actions": [
+   {
+    "name": "CLOUD_HTTP_REQUEST",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "C-SITE"
+     ],
+     [
+      "HTTP_METHOD",
+      "PUT"
+     ],
+     [
+      "CONFIGURATION_URL",
+      "pcms/v1/config/{service_id}/charities"
+     ],
+     [
+      "SELECT_PAYLOAD_FILE",
+      "CharityConfig_cash-true_cardIndoor-false_cardOutdoor-false.json"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135244-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135244"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the Commander imports configuration \"charitycfg_cash-false_cardIndoor-true_cardOutdoor-true\""
+  ],
+  "actions": [
+   {
+    "name": "IMPORT_CONFIGURATION",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "SELECT_FOLDER",
+      "charitycfg_cash-false_cardIndoor-true_cardOutdoor-true"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135245-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135245"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the Commander imports configuration \"charitycfg_cash-false_cardIndoor-true_cardOutdoor-false\""
+  ],
+  "actions": [
+   {
+    "name": "IMPORT_CONFIGURATION",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "SELECT_FOLDER",
+      "charitycfg_cash-false_cardIndoor-true_cardOutdoor-false"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135246-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135246"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the Commander imports configuration \"charitycfg_cash-false_cardIndoor-false_cardOutdoor-true\""
+  ],
+  "actions": [
+   {
+    "name": "IMPORT_CONFIGURATION",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "SELECT_FOLDER",
+      "charitycfg_cash-false_cardIndoor-false_cardOutdoor-true"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135247-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135247"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS runs CLOUD_HTTP_REQUEST with \"DEVICE=cloud_config; HTTP_METHOD=PUT; CONFIGURATION_URL=pcms/v1/config/{service_id}/charities; SELECT_PAYLOAD_FILE=CharityConfig_cash-false_cardIndoor-false_cardOutdoor-false.json\""
+  ],
+  "actions": [
+   {
+    "name": "CLOUD_HTTP_REQUEST",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "cloud_config"
+     ],
+     [
+      "HTTP_METHOD",
+      "PUT"
+     ],
+     [
+      "CONFIGURATION_URL",
+      "pcms/v1/config/{service_id}/charities"
+     ],
+     [
+      "SELECT_PAYLOAD_FILE",
+      "CharityConfig_cash-false_cardIndoor-false_cardOutdoor-false.json"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135585-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135585"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS runs ADD_ITEM with \"PLU=9112; QUANTITY=1; MODIFIER=1; IDC=N; PRICEOVER=N; PLUNOTFUND PRICE=N; DISCOUNT=0; DISCOUNT KEY=SOFT KEY; SELECT SOFTKEY=N; USING MENU=N; CHOICE=N; TAX EXC=N; SELECT_FILE=NO FILE\"",
+   "the register keys TOTAL",
+   "the register keys MOP \"0x7d\" with \"00000\"",
+   "the pinpad prompts \"SWIPE CARD\"",
+   "the card \"EMV AMMEX CREDIT\" is presented at \"VIPERPAY\"",
+   "the pinpad prompts \"donate\"",
+   "the pinpad is answered \"$0.50\"",
+   "the receipt matches \"PETROCORE-135585-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135585-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "ADD_ITEM",
+    "index": 0,
+    "fields": [
+     [
+      "PLU",
+      "9112"
+     ],
+     [
+      "QUANTITY",
+      "1"
+     ],
+     [
+      "MODIFIER",
+      "1"
+     ],
+     [
+      "IDC",
+      "N"
+     ],
+     [
+      "PRICEOVER",
+      "N"
+     ],
+     [
+      "PLUNOTFUND PRICE",
+      "N"
+     ],
+     [
+      "DISCOUNT",
+      "0"
+     ],
+     [
+      "DISCOUNT KEY",
+      "SOFT KEY"
+     ],
+     [
+      "SELECT SOFTKEY",
+      "N"
+     ],
+     [
+      "USING MENU",
+      "N"
+     ],
+     [
+      "CHOICE",
+      "N"
+     ],
+     [
+      "TAX EXC",
+      "N"
+     ],
+     [
+      "SELECT_FILE",
+      "NO FILE"
+     ]
+    ]
+   },
+   {
+    "name": "TOTAL",
+    "index": 1,
+    "fields": []
+   },
+   {
+    "name": "MOP",
+    "index": 2,
+    "fields": [
+     [
+      "MOP",
+      "0x7d"
+     ],
+     [
+      "DATA",
+      "00000"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_FOR_PROMPT",
+    "index": 3,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "DISPLAY_KEY",
+      "SWIPE CARD"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 4,
+    "fields": [
+     [
+      "CARD_NAME",
+      "EMV AMMEX CREDIT"
+     ],
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_FOR_PROMPT",
+    "index": 5,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "DISPLAY_KEY",
+      "donate"
+     ]
+    ]
+   },
+   {
+    "name": "GET_ANY_KEY",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "ENTER_KEY",
+      "$0.50"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 7,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135585-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 8,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135585-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135586-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135586"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-135586-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135586-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 11,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135586-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135586-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135587-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135587"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-135587-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135587-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 11,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135587-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135587-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135588-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135588"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS runs ADD_ITEM with \"PLU=0000000009123; QUANTITY=1; MODIFIER=0; IDC=N; PRICEOVER=N; PLUNOTFUND PRICE=N; DISCOUNT=0; DISCOUNT KEY=SOFT KEY; SELECT SOFTKEY=N; USING MENU=N; CHOICE=N; TAX EXC=N; SELECT_FILE=NO FILE\"",
+   "the register keys TOTAL",
+   "the register keys MOP \"0x7d\" with \"0000\"",
+   "the pinpad prompts \"SWIPE CARD\"",
+   "the card \"EMV AMMEX CREDIT\" is presented at \"VIPERPAY\"",
+   "the pinpad prompts \"donate\"",
+   "the pinpad is answered \"$10.00\"",
+   "the receipt matches \"PETROCORE-135588-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135588-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "ADD_ITEM",
+    "index": 0,
+    "fields": [
+     [
+      "PLU",
+      "0000000009123"
+     ],
+     [
+      "QUANTITY",
+      "1"
+     ],
+     [
+      "MODIFIER",
+      "0"
+     ],
+     [
+      "IDC",
+      "N"
+     ],
+     [
+      "PRICEOVER",
+      "N"
+     ],
+     [
+      "PLUNOTFUND PRICE",
+      "N"
+     ],
+     [
+      "DISCOUNT",
+      "0"
+     ],
+     [
+      "DISCOUNT KEY",
+      "SOFT KEY"
+     ],
+     [
+      "SELECT SOFTKEY",
+      "N"
+     ],
+     [
+      "USING MENU",
+      "N"
+     ],
+     [
+      "CHOICE",
+      "N"
+     ],
+     [
+      "TAX EXC",
+      "N"
+     ],
+     [
+      "SELECT_FILE",
+      "NO FILE"
+     ]
+    ]
+   },
+   {
+    "name": "TOTAL",
+    "index": 1,
+    "fields": []
+   },
+   {
+    "name": "MOP",
+    "index": 2,
+    "fields": [
+     [
+      "MOP",
+      "0x7d"
+     ],
+     [
+      "DATA",
+      "0000"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_FOR_PROMPT",
+    "index": 3,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "DISPLAY_KEY",
+      "SWIPE CARD"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 4,
+    "fields": [
+     [
+      "CARD_NAME",
+      "EMV AMMEX CREDIT"
+     ],
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_FOR_PROMPT",
+    "index": 5,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "DISPLAY_KEY",
+      "donate"
+     ]
+    ]
+   },
+   {
+    "name": "GET_ANY_KEY",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "ENTER_KEY",
+      "$10.00"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 7,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135588-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 8,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135588-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135589-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135589"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS runs ADD_ITEM with \"PLU=32232211; QUANTITY=1; MODIFIER=0; IDC=N; PRICEOVER=N; PLUNOTFUND PRICE=N; DISCOUNT=0; DISCOUNT KEY=SOFT KEY; SELECT SOFTKEY=N; USING MENU=N; CHOICE=N; TAX EXC=N; SELECT_FILE=NO FILE\"",
+   "the register prepays \"500\" on pump \"1\" by MOP \"0x7d\", product \"1\", grade \"N\"",
+   "the register keys TOTAL",
+   "the register keys MOP \"CASH\" with \"1450\"",
+   "the receipt matches \"PETROCORE-135589-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135589-Tlog.xml\" by \"TLOG-RULE.txt\"",
+   "pump \"1\" fuels \"5.00\"",
+   "pump \"1\" hangs up",
+   "PATS pauses 5000 ms"
+  ],
+  "actions": [
+   {
+    "name": "ADD_ITEM",
+    "index": 0,
+    "fields": [
+     [
+      "PLU",
+      "32232211"
+     ],
+     [
+      "QUANTITY",
+      "1"
+     ],
+     [
+      "MODIFIER",
+      "0"
+     ],
+     [
+      "IDC",
+      "N"
+     ],
+     [
+      "PRICEOVER",
+      "N"
+     ],
+     [
+      "PLUNOTFUND PRICE",
+      "N"
+     ],
+     [
+      "DISCOUNT",
+      "0"
+     ],
+     [
+      "DISCOUNT KEY",
+      "SOFT KEY"
+     ],
+     [
+      "SELECT SOFTKEY",
+      "N"
+     ],
+     [
+      "USING MENU",
+      "N"
+     ],
+     [
+      "CHOICE",
+      "N"
+     ],
+     [
+      "TAX EXC",
+      "N"
+     ],
+     [
+      "SELECT_FILE",
+      "NO FILE"
+     ]
+    ]
+   },
+   {
+    "name": "PREPAY",
+    "index": 1,
+    "fields": [
+     [
+      "AMOUNT",
+      "500"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "MOP",
+      "0x7d"
+     ],
+     [
+      "FUEL PRODUCT",
+      "1"
+     ],
+     [
+      "GRADE",
+      "N"
+     ]
+    ]
+   },
+   {
+    "name": "TOTAL",
+    "index": 2,
+    "fields": []
+   },
+   {
+    "name": "MOP",
+    "index": 3,
+    "fields": [
+     [
+      "MOP",
+      "CASH"
+     ],
+     [
+      "DATA",
+      "1450"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 4,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135589-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 5,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135589-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "5.00"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 8,
+    "fields": [
+     [
+      "SLEEP",
+      "5000"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135590-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135590"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS runs ADD_ITEM with \"PLU=9999; QUANTITY=1; MODIFIER=0; IDC=N; PRICEOVER=N; PLUNOTFUND PRICE=N; DISCOUNT=0; DISCOUNT KEY=SOFT KEY; SELECT SOFTKEY=N; USING MENU=N; CHOICE=N; TAX EXC=N; SELECT_FILE=NO FILE\"",
+   "the register keys TOTAL",
+   "the register keys MOP \"CASH\" with \"1100\"",
+   "the pinpad prompts \"donate\"",
+   "the pinpad is answered \"$0.51\"",
+   "the receipt matches \"PETROCORE-135590-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135590-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "ADD_ITEM",
+    "index": 0,
+    "fields": [
+     [
+      "PLU",
+      "9999"
+     ],
+     [
+      "QUANTITY",
+      "1"
+     ],
+     [
+      "MODIFIER",
+      "0"
+     ],
+     [
+      "IDC",
+      "N"
+     ],
+     [
+      "PRICEOVER",
+      "N"
+     ],
+     [
+      "PLUNOTFUND PRICE",
+      "N"
+     ],
+     [
+      "DISCOUNT",
+      "0"
+     ],
+     [
+      "DISCOUNT KEY",
+      "SOFT KEY"
+     ],
+     [
+      "SELECT SOFTKEY",
+      "N"
+     ],
+     [
+      "USING MENU",
+      "N"
+     ],
+     [
+      "CHOICE",
+      "N"
+     ],
+     [
+      "TAX EXC",
+      "N"
+     ],
+     [
+      "SELECT_FILE",
+      "NO FILE"
+     ]
+    ]
+   },
+   {
+    "name": "TOTAL",
+    "index": 1,
+    "fields": []
+   },
+   {
+    "name": "MOP",
+    "index": 2,
+    "fields": [
+     [
+      "MOP",
+      "CASH"
+     ],
+     [
+      "DATA",
+      "1100"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_FOR_PROMPT",
+    "index": 3,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "DISPLAY_KEY",
+      "donate"
+     ]
+    ]
+   },
+   {
+    "name": "GET_ANY_KEY",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "ENTER_KEY",
+      "$0.51"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 5,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135590-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 6,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135590-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135591-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135591"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Select Car Wash\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-135591-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-135591-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Select Car Wash"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 14,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 15,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 16,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135591-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 17,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-135591-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135962-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135962"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the register logs in user \"1\" with password \"123\""
+  ],
+  "actions": [
+   {
+    "name": "LOGIN",
+    "index": 0,
+    "fields": [
+     [
+      "USER_ID",
+      "1"
+     ],
+     [
+      "PASSWORD",
+      "123"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135963-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135963"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the register logs out"
+  ],
+  "actions": [
+   {
+    "name": "LOGOUT",
+    "index": 0,
+    "fields": []
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135964-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135964"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the register logs out"
+  ],
+  "actions": [
+   {
+    "name": "LOGOUT",
+    "index": 0,
+    "fields": []
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-135965-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-135965"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the register logs in user \"1\" with password \"123\""
+  ],
+  "actions": [
+   {
+    "name": "LOGIN",
+    "index": 0,
+    "fields": [
+     [
+      "USER_ID",
+      "1"
+     ],
+     [
+      "PASSWORD",
+      "123"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-136360-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-136360"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the cashier touches ITEM_PANEL_N(145416)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(4)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_OK",
+   "VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_CANCEL shows \"Gallon\"",
+   "VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_OK shows \"$\"",
+   "INPUT_OVERLAY_VIEW_LABEL1 shows \"Enter Amount/Volume\"",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(4)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(00)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_CANCEL",
+   "the cashier touches REVIEW_OVERLAY_VIEW_ITEM_N(13631490)",
+   "the cashier touches ITEM_PANEL_N(145397)",
+   "the cashier touches ITEM_PANEL_N(145395)",
+   "the pinpad prompts \"SWIPE CARD\"",
+   "the card \"EMV VISA CREDIT\" is presented at \"VIPERPAY\"",
+   "the receipt matches \"PETROCORE-136360-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-136360-Tlog.xml\" by \"TLOG-RULE.txt\"",
+   "pump \"4\" fuels \"12.48\"",
+   "pump \"4\" hangs up",
+   "PATS pauses 10000 ms",
+   "the cashier touches FUEL_PANEL_0_FUEL_BUTTON_N_DATA(4)",
+   "the cashier touches FUEL_POINT_DETAIL_OVERLAY_VIEW_MAIN_PANEL_FUNCTION_BUTTON_LABEL_N(4)",
+   "XP_BUTTON_REVIEW_OVERLAY_VIEW_ITEM_SELECTED shows \"12.48\"",
+   "the cashier touches EXPRESS_PANEL_VIEW_BUTTON_ID_N(3)",
+   "the receipt matches \"PETROCORE-136360-1-Receipt.txt\"",
+   "PATS pauses 2000 ms",
+   "the transaction log of \"DCR4\" matches \"PETROCORE-136360-1-Tlog.xml\" by \"TLOG-RULE.txt\"",
+   "PATS pauses 5000 ms"
+  ],
+  "actions": [
+   {
+    "name": "TOUCH_EVENT",
+    "index": 0,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ItemPanel_145416"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 1,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_4"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 2,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_OK"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATION_BY_TEXT",
+    "index": 3,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_CANCEL"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION TEXT",
+      "Gallon"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATION_BY_TEXT",
+    "index": 4,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_OK"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION TEXT",
+      "$"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATION_BY_TEXT",
+    "index": 5,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "InputOverlayView_Label1"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION TEXT",
+      "Enter Amount/Volume"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 6,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_4"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 7,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_00"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 8,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_CANCEL"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 9,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ReviewOverlayView_Item_13631490"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 10,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ItemPanel_145397"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 11,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ItemPanel_145395"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_FOR_PROMPT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ],
+     [
+      "DISPLAY_KEY",
+      "SWIPE CARD"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 13,
+    "fields": [
+     [
+      "CARD_NAME",
+      "EMV VISA CREDIT"
+     ],
+     [
+      "DEVICE",
+      "VIPERPAY"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136360-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136360-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 16,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "4"
+     ],
+     [
+      "AMOUNT",
+      "12.48"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 17,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "4"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 18,
+    "fields": [
+     [
+      "SLEEP",
+      "10000"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 19,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "FuelPanel_0_FuelButton_4_Data"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 20,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "FuelPointDetailOverlayView_mainPanel_functionButtonLabel_4"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATION_BY_TEXT",
+    "index": 21,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "//button[@class='ReviewOverlayView_Item ReviewOverlayView_Item-SELECTED']"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "XPATH"
+     ],
+     [
+      "VALIDATION TEXT",
+      "12.48"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 22,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ExpressPanelView_Button_ID_3"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 23,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136360-1-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 24,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 25,
+    "fields": [
+     [
+      "DEVICEID",
+      "DCR4"
+     ],
+     [
+      "SELECT_FILE",
+      "PETROCORE-136360-1-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 26,
+    "fields": [
+     [
+      "SLEEP",
+      "5000"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-136361-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-136361"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the \"BUYPASS\" packets are reset",
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"VISA\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"12345\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"CAR WASH\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"CAR-WASH-PLU-1\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"REMOVE NOZZLE\"",
+   "pump \"1\" fuels \"22.14\"",
+   "pump \"1\" hangs up",
+   "the receipt matches \"PETROCORE-136361-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-136361-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "RESET_PACKETS",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "BUYPASS"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 3,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 4,
+    "fields": [
+     [
+      "CARD_NAME",
+      "VISA"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 5,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 6,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "12345"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "CAR WASH"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "CAR-WASH-PLU-1"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "REMOVE NOZZLE"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "22.14"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 13,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136361-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136361-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-136362-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-136362"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"EMV VISA CREDIT\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"12345\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"CAR WASH\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"CAR-WASH-PLU-1\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"REMOVE NOZZLE\"",
+   "pump \"1\" fuels \"12.73\"",
+   "pump \"1\" hangs up",
+   "the receipt matches \"PETROCORE-136362-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-136362-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "EMV VISA CREDIT"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "12345"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "CAR WASH"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "CAR-WASH-PLU-1"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "REMOVE NOZZLE"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "12.73"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 13,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136362-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136362-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-136368-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-136368"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L1 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert debit Card\"",
+   "the card \"MSR DEBIT\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER PIN\"",
+   "the customer keys \"1234\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"CAR WASH\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"REMOVE NOZZLE\"",
+   "pump \"1\" fuels \"20.00\" on hose \"4\"",
+   "pump \"1\" hangs up",
+   "the receipt matches \"PETROCORE-136368-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-136368-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L1",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert debit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "MSR DEBIT"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER PIN"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "1234"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "CAR WASH"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "REMOVE NOZZLE"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "20.00"
+     ],
+     [
+      "HOSE NO",
+      "4"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 11,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136368-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 12,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136368-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-136480-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-136480",
+   "plan_end"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the register prints flash report \"4\" from main menu \"1\", functions menu \"20\"",
+   "the receipt matches \"PETROCORE-136480-Receipt.txt\""
+  ],
+  "actions": [
+   {
+    "name": "PRINT_FLASH_REPORT",
+    "index": 0,
+    "fields": [
+     [
+      "FLASH REPORTS MENU NO",
+      "4"
+     ],
+     [
+      "MAIN MENU NO",
+      "1"
+     ],
+     [
+      "FUNCTIONS MENU NO",
+      "20"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 1,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136480-Receipt.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_combined/PETROCORE-136481-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-136481",
+   "plan_end"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the register prints flash report \"1\" from main menu \"1\", functions menu \"20\"",
+   "the receipt matches \"PETROCORE-136481-Receipt.txt\""
+  ],
+  "actions": [
+   {
+    "name": "PRINT_FLASH_REPORT",
+    "index": 0,
+    "fields": [
+     [
+      "FLASH REPORTS MENU NO",
+      "1"
+     ],
+     [
+      "MAIN MENU NO",
+      "1"
+     ],
+     [
+      "FUNCTIONS MENU NO",
+      "20"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 1,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-136481-Receipt.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-37039-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-37039"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS pauses 60000 ms",
+   "the Commander runs \"cfueldrvinit\""
+  ],
+  "actions": [
+   {
+    "name": "SLEEP",
+    "index": 0,
+    "fields": [
+     [
+      "SLEEP",
+      "60000"
+     ]
+    ]
+   },
+   {
+    "name": "CONTROL_FUNCTION",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "INIT_TYPE",
+      "cfueldrvinit"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-37041-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-37041"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS pauses 60000 ms",
+   "the Commander runs \"cdcrdriverinit\""
+  ],
+  "actions": [
+   {
+    "name": "SLEEP",
+    "index": 0,
+    "fields": [
+     [
+      "SLEEP",
+      "60000"
+     ]
+    ]
+   },
+   {
+    "name": "CONTROL_FUNCTION",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "INIT_TYPE",
+      "cdcrdriverinit"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-37042-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-37042"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS pauses 60000 ms",
+   "the Commander runs \"crefreshcfg\"",
+   "PATS pauses 60000 ms"
+  ],
+  "actions": [
+   {
+    "name": "SLEEP",
+    "index": 0,
+    "fields": [
+     [
+      "SLEEP",
+      "60000"
+     ]
+    ]
+   },
+   {
+    "name": "CONTROL_FUNCTION",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "INIT_TYPE",
+      "crefreshcfg"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 2,
+    "fields": [
+     [
+      "SLEEP",
+      "60000"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61430-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61430"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the Commander imports configuration \"charityoutdoor\""
+  ],
+  "actions": [
+   {
+    "name": "IMPORT_CONFIGURATION",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "SITECONTROLLER"
+     ],
+     [
+      "SELECT_FOLDER",
+      "charityoutdoor"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61432-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61432"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "IDLE_SCREEN_VIEW_PRODUCT_NAME is on screen",
+   "the cashier touches IDLE_SCREEN_VIEW_PRODUCT_NAME",
+   "USER_ID_PASSWORD_SCREEN_VIEW_PROMPT_TEXT shows the text of \"ENTER_ID\"",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(1)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_OK",
+   "PATS pauses 1000 ms",
+   "USER_ID_PASSWORD_SCREEN_VIEW_PROMPT_TEXT shows the text of \"ENTER_PASSWORD\"",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(1)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(2)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_N(3)",
+   "the cashier touches VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_OK",
+   "PATS pauses 2000 ms",
+   "REVIEW_OVERLAY_VIEW_ITEM_N(13631488) shows \"1. OPEN TILL for Drawer 1\"",
+   "the cashier touches REVIEW_OVERLAY_VIEW_ITEM_N(13631488)",
+   "PATS pauses 2000 ms",
+   "CALCULATOR_VIEW_TITLE_TEXT shows the text of \"ENTER_OPEN_DRAWER_AMOUNT\"",
+   "the cashier touches CALCULATOR_VIEW_OVERLAY_NUMERIC_KEYPAD_KEY_N(1)",
+   "the cashier touches CALCULATOR_VIEW_OVERLAY_NUMERIC_KEYPAD_KEY_N(00)",
+   "the cashier touches CALCULATOR_VIEW_OVERLAY_NUMERIC_KEYPAD_KEY_N(00)",
+   "the cashier touches CALCULATOR_VIEW_OVERLAY_NUMERIC_KEYPAD_KEY_OK",
+   "PATS pauses 25000 ms"
+  ],
+  "actions": [
+   {
+    "name": "IS_ELEMENT_PRESENT",
+    "index": 0,
+    "fields": [
+     [
+      "YES/NO",
+      "YES"
+     ],
+     [
+      "WEB ELEMENT",
+      "IdleScreenView_productName"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 1,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "IdleScreenView_productName"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "WIDGET_VALIDATION",
+    "index": 2,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "UserIDPasswordScreenView_promptText"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION KEY",
+      "ENTER_ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 3,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_1"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 4,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_OK"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 5,
+    "fields": [
+     [
+      "SLEEP",
+      "1000"
+     ]
+    ]
+   },
+   {
+    "name": "WIDGET_VALIDATION",
+    "index": 6,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "UserIDPasswordScreenView_promptText"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION KEY",
+      "ENTER_PASSWORD"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 7,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_1"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 8,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_2"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 9,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_3"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 10,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "VFIKeypadWidget_OverlayNumericKeypad_KEY_OK"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 11,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATION_BY_TEXT",
+    "index": 12,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ReviewOverlayView_Item_13631488"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION TEXT",
+      "1. OPEN TILL for Drawer 1"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 13,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "ReviewOverlayView_Item_13631488"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 14,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "WIDGET_VALIDATION",
+    "index": 15,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "CalculatorView_TitleText"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ],
+     [
+      "VALIDATION KEY",
+      "ENTER_OPEN_DRAWER_AMOUNT"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 16,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "CalculatorView_OverlayNumericKeypad_KEY_1"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 17,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "CalculatorView_OverlayNumericKeypad_KEY_00"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 18,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "CalculatorView_OverlayNumericKeypad_KEY_00"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "TOUCH_EVENT",
+    "index": 19,
+    "fields": [
+     [
+      "WEB ELEMENT",
+      "CalculatorView_OverlayNumericKeypad_KEY_OK"
+     ],
+     [
+      "TYPE[ID/XPATH]",
+      "ID"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 20,
+    "fields": [
+     [
+      "SLEEP",
+      "25000"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61433-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61433"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "PATS pauses 2000 ms",
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61433-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61433-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "SLEEP",
+    "index": 0,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 3,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 4,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 5,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 6,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 12,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 13,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 14,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61433-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 16,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61433-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61434-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61434"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61434-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61434-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 11,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61434-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61434-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61435-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61435"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61435-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61435-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 11,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61435-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61435-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61436-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61436"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key R4 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61436-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61436-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "R4",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 11,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 14,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61436-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 15,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61436-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61437-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61437"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Select Car Wash\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L4 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61437-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61437-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Select Car Wash"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L4",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 14,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 15,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 16,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61437-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 17,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61437-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61438-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61438"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Select Car Wash\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61438-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61438-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Select Car Wash"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 14,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 15,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 16,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61438-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 17,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61438-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61439-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61439"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Select Car Wash\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61439-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61439-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Select Car Wash"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 14,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 15,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 16,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61439-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 17,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61439-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ },
+ "charity_outdoor/PETROCORE-61440-TestCase.feature": {
+  "feature_tags": [
+   "PETROCORE-61440"
+  ],
+  "scenario_tags": [],
+  "steps": [
+   "the dispenser \"DCR1\" prompts \"WELCOME\"",
+   "the customer presses soft key L2 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Insert Credit Card\"",
+   "the card \"Master Card2\" is presented at \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"ENTER ZIP CODE\"",
+   "the customer keys \"33759\" at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Car Wash Today?\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Select Car Wash\"",
+   "the customer presses soft key L3 at the dispenser \"DCR1\"",
+   "the dispenser \"DCR1\" prompts \"Donate to\"",
+   "the customer presses soft key R4 at the dispenser \"DCR1\"",
+   "pump \"1\" fuels \"4.23\" on hose \"1\"",
+   "PATS pauses 2000 ms",
+   "pump \"1\" hangs up",
+   "PATS pauses 2000 ms",
+   "the receipt matches \"PETROCORE-61440-Receipt.txt\"",
+   "the transaction log matches \"PETROCORE-61440-Tlog.xml\" by \"TLOG-RULE.txt\""
+  ],
+  "actions": [
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 0,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "WELCOME"
+     ]
+    ]
+   },
+   {
+    "name": "L2",
+    "index": 1,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 2,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Insert Credit Card"
+     ]
+    ]
+   },
+   {
+    "name": "INSERT_OR_SLIDE_CARD",
+    "index": 3,
+    "fields": [
+     [
+      "CARD_NAME",
+      "Master Card2"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 4,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "ENTER ZIP CODE"
+     ]
+    ]
+   },
+   {
+    "name": "KEY_PRESS",
+    "index": 5,
+    "fields": [
+     [
+      "KEY_PRESS",
+      "33759"
+     ],
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 6,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Car Wash Today?"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 7,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 8,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Select Car Wash"
+     ]
+    ]
+   },
+   {
+    "name": "L3",
+    "index": 9,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "WAIT_DCR_PROMPT",
+    "index": 10,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ],
+     [
+      "DISPLAY_KEY",
+      "Donate to"
+     ]
+    ]
+   },
+   {
+    "name": "R4",
+    "index": 11,
+    "fields": [
+     [
+      "DEVICE",
+      "DCR1"
+     ]
+    ]
+   },
+   {
+    "name": "FUEL_AMOUNT",
+    "index": 12,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ],
+     [
+      "AMOUNT",
+      "4.23"
+     ],
+     [
+      "HOSE NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 13,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "HANDLE_DOWN",
+    "index": 14,
+    "fields": [
+     [
+      "DEVICE",
+      "FUELSIM"
+     ],
+     [
+      "PUMP NO",
+      "1"
+     ]
+    ]
+   },
+   {
+    "name": "SLEEP",
+    "index": 15,
+    "fields": [
+     [
+      "SLEEP",
+      "2000"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_RECEIPT",
+    "index": 16,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61440-Receipt.txt"
+     ]
+    ]
+   },
+   {
+    "name": "VALIDATE_TRANSACTION",
+    "index": 17,
+    "fields": [
+     [
+      "SELECT_FILE",
+      "PETROCORE-61440-Tlog.xml"
+     ],
+     [
+      "SELECT_RULE_FILE",
+      "TLOG-RULE.txt"
+     ]
+    ]
+   }
+  ]
+ }
+}
