@@ -22,10 +22,20 @@ class SavedChoicesTest {
 
     @Test
     void theOverrideEnvWinsOverTheHomeDirectory() {
-        assertEquals(Path.of(System.getProperty("user.home"), ".cat", "last-config.json"),
-                SavedChoices.defaultPath(Map.of(), System.getProperty("user.home")));
         assertEquals(Path.of("elsewhere.json"),
                 SavedChoices.defaultPath(Map.of("CAT_SAVED_CONFIG", "elsewhere.json"), "C:/home"));
+    }
+
+    @Test
+    void theDefaultIsCatJavasOwnFileNotThePythonCatsFile() {
+        Path home = tmp.resolve("home");
+        Path python = home.resolve(".cat").resolve("last-config.json");
+
+        assertEquals(home.resolve(".cat").resolve("java").resolve("last-config.json"),
+                SavedChoices.defaultPath(Map.of(), home.toString()));
+        assertFalse(SavedChoices.defaultPath(Map.of(), home.toString()).equals(python),
+                "the Python CAT's last-config.json must not be shared");
+        assertFalse(SavedChoices.defaultPath(Map.of("CAT_SAVED_CONFIG", " "), home.toString()).equals(python));
     }
 
     @Test

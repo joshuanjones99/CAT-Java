@@ -157,6 +157,14 @@ class IndexAndJsonTest {
     @Test
     void theIndexFileComesFromTheEnvironmentOrTheUsersCatFolder() {
         assertEquals(tmp.resolve("x.json"), RunIndex.indexPath(Map.of("CAT_RESULTS_INDEX", tmp.resolve("x.json").toString())));
-        assertTrue(RunIndex.indexPath(Map.of()).endsWith(Path.of(".cat", "results-index.json")));
+        assertEquals(Path.of(System.getProperty("user.home"), ".cat", "java", "results-index.json"),
+                RunIndex.indexPath(Map.of()));
+    }
+
+    @Test
+    void theDefaultIsNeverThePythonCatsFile() {
+        Path python = Path.of(System.getProperty("user.home"), ".cat", "results-index.json");
+        assertFalse(RunIndex.indexPath(Map.of()).equals(python), "the Python CAT's index must not be shared");
+        assertFalse(RunIndex.indexPath(Map.of("CAT_RESULTS_INDEX", " ")).equals(python));
     }
 }

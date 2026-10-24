@@ -32,12 +32,12 @@ public final class PreflightCommand {
     public static final int EXIT_USAGE = 2;
 
     static final String USAGE =
-            "usage: preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]";
+            "usage: cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]";
 
     private static final Duration VERIFY_BUDGET = PreflightRunner.VERIFY_BUDGET;
 
     public int run(String[] argv) {
-        return run(argv, System.getenv(), System.out, System.err);
+        return run(argv, System.getenv(), CliOutput.stdout(), CliOutput.stderr());
     }
 
     /** The testable seam: the environment, the rigs folder and both streams are passed in. */
@@ -75,7 +75,7 @@ public final class PreflightCommand {
         RigContext context = RigContextFactory.build(rig, register, options.shimPort, env);
         PreflightReport report = PreflightRunner.run(context, DefaultChecks.defaults().checks(),
                 new PreflightRunner.RunOptions(options.repair, VERIFY_BUDGET, false));
-        out.println(report.render());
+        out.println(CliOutput.fit(report.render()));
 
         if (report.testable()) {
             return EXIT_OK;
@@ -84,7 +84,7 @@ public final class PreflightCommand {
         if (!report.unhealthyChecks().isEmpty()) {
             verdict += " — failed verification twice: " + String.join(", ", report.unhealthyChecks());
         }
-        out.println("\n" + verdict);
+        out.println("\n" + CliOutput.fit(verdict));
         return EXIT_FAILED;
     }
 

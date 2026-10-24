@@ -55,8 +55,14 @@ root, as it does for the Python CAT.
 build.cmd                 :: compile, test, and package target\cat-java.jar
 build.cmd test            :: tests only
 run.cmd --rig lab         :: the web UI on http://127.0.0.1:8090/
-run.cmd --rig lab --register topaz101 --port 8091
+run.cmd web --rig lab --register topaz101 --port 8091   :: the same, with the word "web"
+run.cmd preflight --rig lab               :: the preflight checks; exit 0 when the rig is testable
+run.cmd preflight --rig lab --register topaz101 --no-repair
 ```
+
+`web` is the default, so `run.cmd --rig lab` and `run.cmd web --rig lab` are the same. `preflight`
+takes `--rig`, `--register`, `--shim-port` and `--no-repair`, and exits 0 when the rig is testable,
+1 when it is not, 2 for a usage or load error.
 
 The first build downloads Maven 3.9.9 (through the Maven wrapper) and the dependencies
 from Maven Central.
