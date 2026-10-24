@@ -89,16 +89,23 @@ final class StartSimulatorsStep implements LaunchStep {
         }
 
         SimContext sims = SimContext.of(ToolsRoot.resolve(null), rig == null ? "" : rig.controller().host());
-        Map<String, SimStatus.State> latest = new LinkedHashMap<>();
+        Map<String, SimStatus> latest = new LinkedHashMap<>();
         List<String> reached = new ArrayList<>();
         Events events = new Events() {
             @Override
             public void status(SimStatus status) {
-                latest.put(status.name(), status.state());
-                String text = status.state().label() + (status.detail().isEmpty() ? "" : " — " + status.detail());
+                latest.put(status.name(), status);
+                // A needs-attention row's detail is already the operator's line, which names it.
+                boolean attention = status.state() == SimStatus.State.NEEDS_ATTENTION;
+                String text = attention ? status.detail()
+                        : status.state().label() + (status.detail().isEmpty() ? "" : " — " + status.detail());
                 step.substep(status.name(), outcome(status.state()), text, 0.0);
-                String level = status.state() == SimStatus.State.FAILED ? "ERROR" : "INFO";
-                step.log(status.name() + ": " + text, level);
+                if (attention) {
+                    step.log(text, "WARNING");
+                } else {
+                    String level = status.state() == SimStatus.State.FAILED ? "ERROR" : "INFO";
+                    step.log(status.name() + ": " + text, level);
+                }
                 if (entries.stream().anyMatch(entry -> entry.name().equals(status.name()))
                         && !reached.contains(status.name())) {
                     reached.add(status.name());
@@ -126,19 +133,19 @@ final class StartSimulatorsStep implements LaunchStep {
         List<String> failed = new ArrayList<>();
         List<String> attention = new ArrayList<>();
         Map<String, Integer> counts = new TreeMap<>();
-        for (Map.Entry<String, SimStatus.State> row : latest.entrySet()) {
-            switch (row.getValue()) {
+        for (Map.Entry<String, SimStatus> row : latest.entrySet()) {
+            switch (row.getValue().state()) {
                 case FAILED -> failed.add(row.getKey());
-                case NEEDS_ATTENTION -> attention.add(row.getKey());
-                default -> counts.merge(row.getValue().label(), 1, Integer::sum);
+                // One operator line per row, each naming its simulator (SimStatus.awaitingButtons).
+                case NEEDS_ATTENTION -> attention.add(row.getValue().detail());
+                default -> counts.merge(row.getValue().state().label(), 1, Integer::sum);
             }
         }
         if (!failed.isEmpty()) {
             return step.fail("did not start: " + String.join(", ", failed));
         }
         if (!attention.isEmpty()) {
-            return step.fail("needs attention, so not ready: " + String.join(", ", attention)
-                    + " (see the rows above; the Access Bridge that presses their buttons is not ported)");
+            return step.fail(String.join("\n", attention));
         }
         StringBuilder detail = new StringBuilder();
         counts.forEach((label, count) -> detail.append(detail.length() == 0 ? "" : ", ")

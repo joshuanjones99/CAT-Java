@@ -34,8 +34,9 @@ import java.util.stream.Collectors;
  * run only for a stale {@code replaceStale} process.
  *
  * <p>A row that needs its Swing buttons pressed ({@code click:}) is never started by this port.
- * It is reported {@code needs attention: Access Bridge not ported} and no process is spawned,
- * so nothing is left running that the operator must click by hand from an unknown state.
+ * It is reported {@code needs attention} with the operator's line ({@link SimStatus#awaitingButtons})
+ * and no process is spawned, so nothing is left running that the operator must click by hand from an
+ * unknown state.
  *
  * <p>Every wait is bounded. A timeout is a {@code FAILED} row naming the timeout.
  *
@@ -131,9 +132,7 @@ public final class Supervisor {
             probeError = e.getMessage();
         }
         if (!probeError.isEmpty()) {
-            ev.status(new SimStatus(PROBE_ROW, SimStatus.State.NEEDS_ATTENTION, SimStatus.Owner.CAT, "",
-                    "could not list running processes: " + probeError + " — a simulator that is "
-                            + "already up cannot be recognised and may be started a second time"));
+            ev.status(SimStatus.processListUnavailable(probeError));
         }
         List<SimProcess> procs = new ArrayList<>();
         for (SimEntry entry : list) {
@@ -225,10 +224,7 @@ public final class Supervisor {
                     + "CAT will not launch PATS's " + entry.capkFrom() + " with its expired CAPK keys");
         }
         if (entry.needsClicks()) {
-            String buttons = entry.click().isEmpty() ? "its buttons" : String.join(", ", entry.click());
-            SimStatus status = new SimStatus(entry.name(), SimStatus.State.NEEDS_ATTENTION,
-                    SimStatus.Owner.CAT, "", "Access Bridge not ported — press " + buttons
-                    + " by hand; CAT did not start it");
+            SimStatus status = SimStatus.awaitingButtons(entry.name(), entry.click());
             ev.status(status);
             return new SimProcess(entry, status, null, null);
         }

@@ -116,6 +116,7 @@ final class RunOverviewPage {
 
         if (snap != null) {
             currentStep(out, snap);
+            stepFailures(out, snap);
             steps(out, snap);
             if (snap.finished()) {
                 complete(out, snap);
@@ -195,6 +196,23 @@ final class RunOverviewPage {
 
     private static void row(StringBuilder out, String label, int value) {
         out.append("<div><dt>").append(esc(label)).append("</dt><dd>").append(value).append("</dd></div>");
+    }
+
+    /**
+     * A step that failed, above the step list: its name, then its detail one line per element. The
+     * Start Simulators failure is one operator line per simulator (SimStatus.awaitingButtons).
+     */
+    private static void stepFailures(StringBuilder out, RunProgress.Snapshot snap) {
+        for (RunProgress.StepLine step : snap.steps()) {
+            if (!"failed".equals(step.state()) || step.detail().isEmpty()) {
+                continue;
+            }
+            out.append("<div class=\"card run-card\"><h2>").append(esc(step.name())).append(" failed</h2>");
+            for (String line : step.detail().split("\n")) {
+                out.append("<p class=\"warn\">").append(esc(line)).append("</p>");
+            }
+            out.append("</div>");
+        }
     }
 
     private static void failures(StringBuilder out, RunProgress.Snapshot snap) {
