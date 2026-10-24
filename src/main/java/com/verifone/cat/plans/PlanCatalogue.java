@@ -44,29 +44,51 @@ public final class PlanCatalogue {
         CACHE_ONLY
     }
 
+    /** Where every write goes: this build's own cache, never the Python CAT's. */
     private final Path cacheDir;
+    /**
+     * The Python CAT's cache, read-only and only after {@link #cacheDir} misses. Null when
+     * there is none to fall back to (tests that must not reach the real home).
+     */
+    private final Path pythonCacheDir;
     private final PlanSource network;
     private final PlanSource seed;
     private final CaseNodes nodes;
 
     /**
      * @param cacheDir where {@code catalogue.json}, {@code requirements.json} and
-     *     {@code cases-<key>.json} are cached; the Python CAT uses {@code ~/.cat}
+     *     {@code cases-<key>.json} are written and read first; the default is
+     *     {@code ~/.cat/java}
      * @param repoRoot the checkout whose {@code tests/suites} node paths are resolved against.
      *     Passed in, never taken from the working directory: a launch from elsewhere would
      *     otherwise report every case Not Run with no error
      */
     public PlanCatalogue(Path cacheDir, PlanSource network, PlanSource seed, Path repoRoot) {
+        this(cacheDir, null, network, seed, repoRoot);
+    }
+
+    /**
+     * @param cacheDir the writable cache, read first (see the four-argument form)
+     * @param pythonCacheDir the Python CAT's cache, read only when {@code cacheDir} has no
+     *     readable copy of a file; never written. Null for none.
+     */
+    public PlanCatalogue(Path cacheDir, Path pythonCacheDir, PlanSource network, PlanSource seed,
+            Path repoRoot) {
         this.cacheDir = cacheDir;
+        this.pythonCacheDir = pythonCacheDir;
         this.network = network;
         this.seed = seed;
         this.nodes = new CaseNodes(repoRoot);
     }
 
-    /** The default for this build: {@code ~/.cat}, no network source, and the shipped seed. */
+    /**
+     * The default for this build: writes to {@code ~/.cat/java}, reads that first and falls
+     * back read-only to the Python CAT's {@code ~/.cat}, no network source, and the shipped seed.
+     */
     public static PlanCatalogue offline(Path repoRoot) {
         Path home = Path.of(System.getProperty("user.home"));
         return new PlanCatalogue(
+                home.resolve(".cat").resolve("java"),
                 home.resolve(".cat"),
                 PlanSource.unavailable("no Atlassian source in this build"),
                 new SeedPlanSource(),
@@ -151,7 +173,7 @@ public final class PlanCatalogue {
             Supplier<List<T>> seeded, Mode mode, String what) {
         Path file = cacheDir.resolve(fileName);
         if (mode != Mode.REFRESH) {
-            Optional<SnapshotFiles.Stored<T>> cached = readCache(file, type);
+            Optional<SnapshotFiles.Stored<T>> cached = readCache(fileName, type);
             if (cached.isPresent()) {
                 List<T> rows = cached.get().rows();
                 String reason = rows.isEmpty()
@@ -168,7 +190,8 @@ public final class PlanCatalogue {
         try {
             fetched = fetch.get();
         } catch (PlanSourceUnavailable exc) {
-            Optional<SnapshotFiles.Stored<T>> stale = mode == Mode.REFRESH ? readCache(file, type) : Optional.empty();
+            Optional<SnapshotFiles.Stored<T>> stale = mode == Mode.REFRESH
+                    ? readCache(fileName, type) : Optional.empty();
             if (stale.isPresent()) {
                 return new Snapshot<>(stale.get().rows(), stale.get().fetchedAt(),
                         Snapshot.Source.CACHE, exc.getMessage());
@@ -191,7 +214,7 @@ public final class PlanCatalogue {
             return new Snapshot<>(fetched, fetchedAt, Snapshot.Source.NETWORK, "");
         }
         String reason = what + " came back empty — it may have moved or changed shape";
-        Optional<SnapshotFiles.Stored<T>> stale = readCache(file, type);
+        Optional<SnapshotFiles.Stored<T>> stale = readCache(fileName, type);
         if (stale.isPresent() && !stale.get().rows().isEmpty()) {
             // Keep the operator's last known-good rows; the empty read is the reason, not the data.
             return new Snapshot<>(stale.get().rows(), stale.get().fetchedAt(), Snapshot.Source.CACHE, reason);
@@ -203,8 +226,16 @@ public final class PlanCatalogue {
         return new Snapshot<>(List.of(), fetchedAt, Snapshot.Source.NETWORK, reason);
     }
 
-    private static <T> Optional<SnapshotFiles.Stored<T>> readCache(Path file, Class<T> type) {
-        return SnapshotFiles.read(file, type);
+    /**
+     * The first readable copy of {@code fileName}: this build's cache, then the Python CAT's.
+     * Only reads; nothing is ever written to the Python cache.
+     */
+    private <T> Optional<SnapshotFiles.Stored<T>> readCache(String fileName, Class<T> type) {
+        Optional<SnapshotFiles.Stored<T>> own = SnapshotFiles.read(cacheDir.resolve(fileName), type);
+        if (own.isPresent() || pythonCacheDir == null) {
+            return own;
+        }
+        return SnapshotFiles.read(pythonCacheDir.resolve(fileName), type);
     }
 
     /**
