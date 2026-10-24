@@ -27,7 +27,7 @@ import io.javalin.Javalin;
  */
 class WebAppPagesTest {
 
-    private static final String DASH = "â€”";
+    private static final String DASH = "—";
 
     private FakeShim shim;
     private Javalin app;
