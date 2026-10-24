@@ -260,8 +260,7 @@ final class PosUi {
 
     /** A press has reached the POS: the case has touched it, and the session's last-touch mark moves. */
     void pressed(CaseRun run) {
-        PosUiCaseState state = PosUiCaseState.of(run);
-        state.touch();
+        PosUiCaseState.touch(run);
         ctx.session().touched(pace().nanoTime());
     }
 

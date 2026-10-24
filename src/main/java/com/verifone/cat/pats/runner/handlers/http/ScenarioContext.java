@@ -10,22 +10,16 @@ import com.verifone.cat.pats.runner.ScratchKey;
  * The case's scenario context: the values {@code captureFields} captured and the {@code {name}} tokens the HTTP steps
  * fill from (PATS's {@code ScenarioTokenResolver}; {@code service_id} is the Commander's store service id).
  *
- * <p>Core change requested: this key belongs in {@link ScratchKey} beside the others, so every family reads the same
- * map (the configuration family's {@code CLOUD_HTTP_REQUEST} also fills its tokens from it). Until then this is the
- * one holder, and any other family must use {@link #of}, not its own key.
+ * <p>The map lives under {@link ScratchKey#SCENARIO_CONTEXT}, so every family reads the same
+ * one: the configuration family's {@code CLOUD_HTTP_REQUEST} fills its tokens from it too.
  */
 public final class ScenarioContext {
-
-    /** The scenario context's key. Keys compare by identity, so use this one, not a new one of the same name. */
-    @SuppressWarnings("unchecked")
-    public static final ScratchKey<Map<String, String>> KEY =
-            ScratchKey.of("scenario-context", (Class<Map<String, String>>) (Class<?>) Map.class);
 
     private ScenarioContext() {
     }
 
     /** The case's scenario context, created empty the first time it is read. */
     public static Map<String, String> of(CaseRun run) {
-        return run.scratchOrCreate(KEY, LinkedHashMap::new);
+        return run.scratchOrCreate(ScratchKey.SCENARIO_CONTEXT, LinkedHashMap::new);
     }
 }

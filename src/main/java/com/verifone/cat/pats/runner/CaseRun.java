@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * (the per-action pauses after an init's reply, the POS overlay sweep, the print marks), a begin hook
  * (the TLog and DCR marks), and a finish hook (the dead-end OK press). Per-case state a family needs
  * (prepay, fuel preset, the transaction map) lives in {@link #scratch}. The SLEEP handler itself is a
- * family's. No production handler is registered yet.
+ * family's. {@code handlers.StandardHandlers} registers every family into one registry for a run.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */
@@ -313,6 +313,11 @@ public final class CaseRun {
     /** Adds the seconds a {@code SLEEP} carried to the ceiling of the next bounded wait. */
     public void addCarry(double seconds) {
         carry += seconds;
+    }
+
+    /** The seconds the case's preceding sleeps carried and no wait has spent yet, without spending them. */
+    public double carry() {
+        return carry;
     }
 
     /** {@code base} plus whatever the case's preceding sleeps carried; the carry is then spent. */

@@ -6,6 +6,7 @@ import com.verifone.cat.pats.runner.handlers.devices.DevicePauses;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 /**
  * The touch marks PATS's runner keeps between actions: a case's first input to the POS comes no sooner than the touch
@@ -22,7 +23,7 @@ public final class TouchPacer {
 
     private final DevicePauses pauses;
     private final Duration touchSettle;
-    private volatile long lastTouchNanos = -1L;
+    private volatile OptionalLong lastTouchNanos = OptionalLong.empty();
 
     public TouchPacer(DevicePauses pauses, Duration touchSettle) {
         this.pauses = Objects.requireNonNull(pauses, "pauses");
@@ -32,7 +33,17 @@ public final class TouchPacer {
     /** Marks a touch: the case has touched, and the touch time is now. */
     public void pressed(CaseRun run) {
         run.setScratch(TOUCHED, true);
-        lastTouchNanos = System.nanoTime();
+        touchedAt(System.nanoTime());
+    }
+
+    /** The time of the last touch, on {@link System#nanoTime}'s clock, across every case; empty before the first. */
+    public OptionalLong lastTouch() {
+        return lastTouchNanos;
+    }
+
+    /** Records a touch made at {@code nanos} (for a family that presses the POS on its own clock). */
+    public void touchedAt(long nanos) {
+        lastTouchNanos = OptionalLong.of(nanos);
     }
 
     /**
@@ -40,10 +51,10 @@ public final class TouchPacer {
      * touched.
      */
     public void boundaryPause(CaseRun run) {
-        if (run.scratch(TOUCHED).orElse(false) || lastTouchNanos < 0) {
+        if (run.scratch(TOUCHED).orElse(false) || lastTouchNanos.isEmpty()) {
             return;
         }
-        long elapsed = System.nanoTime() - lastTouchNanos;
+        long elapsed = System.nanoTime() - lastTouchNanos.getAsLong();
         Duration remaining = touchSettle.minusNanos(elapsed);
         if (!remaining.isNegative() && !remaining.isZero()) {
             pauses.pause(remaining);
