@@ -1,0 +1,105 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CR #01 18.938G       21.23
+      SELF @ 1.121/ G
+      POP Discount                 -5.68
+   PLU-AA                  1       10.00
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        35.55
+TOTAL     35.55
+                     CREDIT  $     35.55
+
+
+SALE Receipt
+AMEX   USD$35.55
+Acct/Card #: ***********1005
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+
+MERCHANT COPY
+
+________________________________________
+SIGNATURE
+I agree to pay the amount stated
+on this receipt.
+
+APPROVED
+
+POP-DISCNT-3
+YOU RECEIVED  $0.30 / GALLON DISCOUNT
+FOR  18.938 GALLONS
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CR #01 18.938G       21.23
+      SELF @ 1.121/ G
+      POP Discount                 -5.68
+   PLU-AA                  1       10.00
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        35.55
+TOTAL     35.55
+                     CREDIT  $     35.55
+
+
+
+SALE Receipt
+AMEX   USD$35.55
+Acct/Card #: ***********1005
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+CUSTOMER COPY
+
+APPROVED
+
+POP-DISCNT-3
+YOU RECEIVED  $0.30 / GALLON DISCOUNT
+FOR  18.938 GALLONS
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

@@ -1,0 +1,33 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   MIX-MT-PLU-1            1        7.29
+        FEE-1-REFUNDABLE            5.00
+    8.75 Dsc -1.46
+   MIX-MT-PLU-2            1        7.71
+        FEE-3-PERCENTAGE            0.93
+    9.25 Dsc -1.54
+   CHARITY                 1        0.07
+                              ----------
+                   Subtotal        21.00
+TOTAL     21.00
+                       CASH  $     21.00
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

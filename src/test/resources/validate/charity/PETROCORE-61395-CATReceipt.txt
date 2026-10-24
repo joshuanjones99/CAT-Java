@@ -1,0 +1,193 @@
+FLASH
+Shift REPORT
+  <DATETIME>
+  STORE#CL120 REGISTER#101 daypart#<DAYPART>
+  LOCATION ID BLR
+  CASHIER #01 CORPORATE
+  REG NO#101 Receipt #1011015 to #1011047
+  OPEN  daypart <DATETIME>
+  CLOSE daypart PENDING
+
+SUMMARY REPORT
+
+ALL REGISTERS
+----------------SUMMARY-----------------
+MOP SALES                       551.29
+                               ---------
+NET SALES TOTAL                 551.29
+                               ---------
+TOTAL TO ACCOUNT FOR            551.29
+
+-----------CASHIER DETAILS--------------
+MOP SALES
+CARD BASED
+  CREDIT            10          225.77
+  MOBILE             4           52.57
+CASH                16          253.95
+CHECK                1            9.50
+COUPON               1            9.50
+                    --------------------
+TOTAL MOP SALES                 551.29
+
+MOP CANCEL/REFUNDS
+
+                    --------------------
+TOTAL MOP CANCEL/REFUNDS      ( 0.00 )
+
+MOP UNSETTLED BALANCE
+
+                    --------------------
+TOTAL MOP UNSETTLED BALANCE       0.00
+
+MOP UNSETTLED CHANGE
+
+                    --------------------
+TOTAL MOP UNSETTLED CHANGE    ( 0.00 )
+
+              PAYMENT OUT
+                  ----------------------
+TOTAL PAYMENT OUT                 (0.00)
+
+               PAYMENT IN
+                  ----------------------
+TOTAL PAYMENT IN                    0.00
+
+-----------MEMO ITEMS-------------------
+
+#ITEMS              66
+#CUSTOMERS          32
+
+DISCOUNTS           10           26.00
+VOID TICKETS         0            0.00
+    POSITIVE         0            0.00
+    NEGATIVE         0            0.00
+
+EZ-RECEIPT           0            0.00
+    INSIDE           0            0.00
+    OUTSIDE          0            0.00
+
+
+TIPS/GRATUITY        0            0.00
+
+
+----------POP DISCOUNT TOTALS-----------
+
+               CUST   DISC AMT     VOLUME
+TOT POST-DISP  6      18.53    103.419
+TOT PRE-DISP   5      4.93      24.912
+                    --------------------
+TOTAL POP      11     23.46    128.331
+
+----------TRANSACTION TIMINGS-----------
+             (in seconds)
+
+                   MAX             AVG
+TOTAL               69            0.00
+NETWORK             65            0.00
+END OF TICKET        3            0.00
+
+----------------TOTALS------------------
+
+TOTAL FUEL SALES                172.30
+TOTAL MERCH SALES               372.54
+                    --------------------
+  SALES TAXES                     6.45
+                    --------------------
+TOTAL TAXES                       6.45
+                    --------------------
+
+         SALES TOTALIZER GRAND TOTALIZER
+ENDING         314254.54       394259.34
+BEGINNING      313703.25       393663.52
+DIFFERENCE        551.29          595.82
+
+REGISTER # 101
+----------------SUMMARY-----------------
+MOP SALES                       551.29
+                               ---------
+NET SALES TOTAL                 551.29
+                               ---------
+TOTAL TO ACCOUNT FOR            551.29
+
+-----------CASHIER DETAILS--------------
+MOP SALES
+CARD BASED
+  CREDIT            10          225.77
+  MOBILE             4           52.57
+CASH                16          253.95
+CHECK                1            9.50
+COUPON               1            9.50
+                    --------------------
+TOTAL MOP SALES                 551.29
+
+MOP CANCEL/REFUNDS
+
+                    --------------------
+TOTAL MOP CANCEL/REFUNDS      ( 0.00 )
+
+MOP UNSETTLED BALANCE
+
+                    --------------------
+TOTAL MOP UNSETTLED BALANCE       0.00
+
+MOP UNSETTLED CHANGE
+
+                    --------------------
+TOTAL MOP UNSETTLED CHANGE    ( 0.00 )
+
+              PAYMENT OUT
+                  ----------------------
+TOTAL PAYMENT OUT                 (0.00)
+
+               PAYMENT IN
+                  ----------------------
+TOTAL PAYMENT IN                    0.00
+
+-----------MEMO ITEMS-------------------
+
+#ITEMS              66
+#CUSTOMERS          32
+
+DISCOUNTS           10           26.00
+VOID TICKETS         0            0.00
+    POSITIVE         0            0.00
+    NEGATIVE         0            0.00
+
+EZ-RECEIPT           0            0.00
+    INSIDE           0            0.00
+    OUTSIDE          0            0.00
+
+
+TIPS/GRATUITY        0            0.00
+
+
+----------POP DISCOUNT TOTALS-----------
+
+               CUST   DISC AMT     VOLUME
+TOT POST-DISP  6      18.53    103.419
+TOT PRE-DISP   5      4.93      24.912
+                    --------------------
+TOTAL POP      11     23.46    128.331
+
+----------TRANSACTION TIMINGS-----------
+             (in seconds)
+
+                   MAX             AVG
+TOTAL               69            0.00
+NETWORK             65            0.00
+END OF TICKET        3            0.00
+
+----------------TOTALS------------------
+
+TOTAL FUEL SALES                172.30
+TOTAL MERCH SALES               372.54
+                    --------------------
+  SALES TAXES                     6.45
+                    --------------------
+TOTAL TAXES                       6.45
+                    --------------------
+
+         SALES TOTALIZER GRAND TOTALIZER
+ENDING         306437.75       386442.55
+BEGINNING      305886.46       385846.73
+DIFFERENCE        551.29          595.82

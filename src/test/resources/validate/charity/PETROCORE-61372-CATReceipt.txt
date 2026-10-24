@@ -1,0 +1,35 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CR #01 18.938G       21.23
+      SELF @ 1.121/ G
+      POP Discount                 -1.89
+   CHARITY                 1        0.66
+                              ----------
+                   Subtotal        20.00
+TOTAL     20.00
+                       CASH  $     20.00
+
+
+POP-DISCNT-1
+YOU RECEIVED  $0.10 / GALLON DISCOUNT
+FOR  18.938 GALLONS
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

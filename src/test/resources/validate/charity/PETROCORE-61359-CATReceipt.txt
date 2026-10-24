@@ -1,0 +1,111 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+A  PLU-AM                  1       25.11
+    30.11 Dsc -5.00
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        35.11
+                        Tax         1.26
+TOTAL     36.37
+                     CREDIT  $     36.37
+
+
+SALE Receipt
+USD$36.37
+Acct/Card #: ***********1006
+Entry: Chip Read
+AppName: AMERICAN EXPRESS
+AuthNet: AMEX
+MODE: Issuer
+AID: A000000025010801
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+MERCHANT COPY
+
+APPROVED
+
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+A  PLU-AM                  1       25.11
+    30.11 Dsc -5.00
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        35.11
+                        Tax         1.26
+TOTAL     36.37
+                     CREDIT  $     36.37
+
+
+SALE Receipt
+USD$36.37
+Acct/Card #: ***********1006
+Entry: Chip Read
+AppName: AMERICAN EXPRESS
+AuthNet: AMEX
+MODE: Issuer
+AID: A000000025010801
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+CUSTOMER COPY
+
+APPROVED
+
+
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

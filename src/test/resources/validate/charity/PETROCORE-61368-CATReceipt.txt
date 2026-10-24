@@ -1,0 +1,62 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CR #01 21.543G       24.15
+      SELF @ 1.121/ G
+      POP Discount                 -6.46
+   CHARITY                 1        0.50
+                              ----------
+                   Subtotal        18.19
+TOTAL     18.19
+                     CREDIT  $     18.19
+
+
+SALE Receipt
+USD$18.19
+Acct/Card #: ***********1006
+Entry: Chip Read
+AppName: AMERICAN EXPRESS
+AuthNet: AMEX
+MODE: Issuer
+AID: A000000025010801
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+CUSTOMER COPY
+
+APPROVED
+
+
+
+
+POP-DISCNT-3
+YOU RECEIVED  $0.30 / GALLON DISCOUNT
+FOR  21.543 GALLONS
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

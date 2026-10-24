@@ -1,0 +1,92 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   MIX-MT-PLU-1            2       15.00
+        FEE-1-REFUNDABLE           10.00
+    17.50 Dsc -2.50
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        35.00
+TOTAL     35.00
+                     CREDIT  $     35.00
+
+
+SALE Receipt
+DISCOVER   USD$35.00
+Acct/Card #: ************7297
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+MERCHANT COPY
+
+________________________________________
+SIGNATURE
+I agree to pay the amount stated
+on this receipt.
+
+APPROVED
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   MIX-MT-PLU-1            2       15.00
+        FEE-1-REFUNDABLE           10.00
+    17.50 Dsc -2.50
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        35.00
+TOTAL     35.00
+                     CREDIT  $     35.00
+
+
+
+SALE Receipt
+DISCOVER   USD$35.00
+Acct/Card #: ************7297
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+CUSTOMER COPY
+
+APPROVED
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
