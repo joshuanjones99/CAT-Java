@@ -129,9 +129,11 @@ class WebAppPagesTest {
 
         assertTrue(overview.contains("href=\"/run/config\""), overview);
         assertTrue(overview.contains("href=\"/run/log\""), overview);
-        assertTrue(overview.contains("Ported from cat/web/pages/run.py " + DASH + " not built yet"), overview);
+        // The Overview and the Log are built (RunRoutes); their own placeholders are the parts not yet ported.
+        assertTrue(overview.contains("Start run"), overview);
+        assertTrue(overview.contains("Not built yet: Schedule run and Continuous run"), overview);
         assertTrue(config.contains("Ported from cat/web/pages/config.py " + DASH + " not built yet"), config);
-        assertTrue(log.contains("Ported from cat/web/pages/run.py " + DASH + " not built yet"), log);
+        assertTrue(log.contains("No run yet"), log);
         assertTrue(overview.contains("href=\"/run\" aria-current=\"page\""), overview);
         assertTrue(config.contains("href=\"/run/config\" aria-current=\"page\""), config);
         assertTrue(log.contains("href=\"/run/log\" aria-current=\"page\""), log);

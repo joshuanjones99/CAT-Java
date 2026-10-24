@@ -344,3 +344,26 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
 .pre { white-space: pre-wrap; }
 .cat-mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 @media (max-width: 640px) { .config-row { grid-template-columns: 1fr; } }
+
+/* Run → Overview and Log (web/RunOverviewPage, web/RunLogPage). */
+.run-panel { display: grid; gap: 16px; max-width: 60rem; }
+.run-card { display: grid; gap: 8px; }
+.run-card h2 { margin: 0; font-size: 16px; }
+.run-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.run-primary { font-weight: 600; }
+.run-danger { color: var(--error); }
+.run-notice { margin: 0; padding: 4px 10px; border-left: 3px solid var(--warn); }
+.run-summary { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; }
+.run-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 12px; }
+.run-metric { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.run-metric-label { color: var(--muted); font-size: 12px; }
+.run-metric-value { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.run-progress { width: 100%; height: 8px; }
+.run-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
+.run-step-name { font-weight: 600; }
+.run-preflight { white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 13px; margin: 0; }
+.run-log-panel { max-width: 80rem; }
+.run-log { max-height: 60vh; overflow: auto; margin: 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.run-placeholder { opacity: 0.8; }
+.run-placeholder h3 { margin: 0; font-size: 15px; }
+@media (max-width: 640px) { .run-counters { grid-template-columns: 1fr 1fr; } }
