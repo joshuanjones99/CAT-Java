@@ -1,0 +1,86 @@
+[
+{
+"area": "fuelcfg",
+"a": "<domain:fuelConfig xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\"><site>S1</site><fuel collect=\"0\"/><grade>1</grade></domain:fuelConfig>",
+"b": "<domain:fuelConfig xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\">\n  <site>S2</site>\n  <fuel collect=\"1\" b=\"x &amp; y\"/>\n  <grade>1</grade><grade>2</grade>\n</domain:fuelConfig>",
+"norm_a": "<{urn:vfi-sapphire:np.domain.2001-07-01}fuelConfig><site>S1</site><fuel collect=\"0\"></fuel><grade>1</grade></{urn:vfi-sapphire:np.domain.2001-07-01}fuelConfig>",
+"norm_b": "<{urn:vfi-sapphire:np.domain.2001-07-01}fuelConfig><site>S2</site><fuel b=\"x &amp; y\" collect=\"1\"></fuel><grade>1</grade><grade>2</grade></{urn:vfi-sapphire:np.domain.2001-07-01}fuelConfig>",
+"differences": [
+"-fuelConfig/site=S1",
+"-fuelConfig/fuel@collect=0",
+"+fuelConfig/site=S2",
+"+fuelConfig/fuel@b=x & y",
+"+fuelConfig/fuel@collect=1",
+"+fuelConfig/grade=2"
+],
+"merged": {
+"error": "fuelConfig/grade"
+}
+},
+{
+"area": "panelcfg",
+"a": "<panelCfg creationDate=\"1\" z=\"2\"><panel id=\"1\">t<x/>tail</panel></panelCfg>",
+"b": "<panelCfg creationDate=\"9\" z=\"3\"><panel id=\"1\">t<x/>tail2</panel><panel id=\"2\"/></panelCfg>",
+"norm_a": "<panelCfg z=\"2\"><panel id=\"1\">t<x></x>tail</panel></panelCfg>",
+"norm_b": "<panelCfg z=\"3\"><panel id=\"1\">t<x></x>tail2</panel><panel id=\"2\"></panel></panelCfg>",
+"differences": [
+"-panelCfg@z=2",
+"+panelCfg@z=3",
+"-panelCfg/panel=tail",
+"+panelCfg/panel=tail2",
+"+panelCfg/panel@id=2"
+],
+"merged": {
+"xml": "<panelCfg creationDate=\"9\" z=\"2\"><panel id=\"1\">t<x/>tail2</panel><panel id=\"2\"/></panelCfg>",
+"notes": [
+"kept panelCfg/panel[id=2] (only on this build)"
+]
+}
+},
+{
+"area": "managedmodulecfg",
+"a": "<moduleConfigurations><m><n>b</n></m><m><n>a</n></m></moduleConfigurations>",
+"b": "<moduleConfigurations><m><n>a</n></m><m><n>c</n></m></moduleConfigurations>",
+"norm_a": "<moduleConfigurations><m><n>a</n></m><m><n>b</n></m></moduleConfigurations>",
+"norm_b": "<moduleConfigurations><m><n>a</n></m><m><n>c</n></m></moduleConfigurations>",
+"differences": [
+"-moduleConfigurations/m/n=b",
+"+moduleConfigurations/m/n=c"
+],
+"merged": {
+"error": "moduleConfigurations/m"
+}
+},
+{
+"area": "PLUs",
+"a": "<a>\n <b>x</b>\n<c",
+"b": "<a><b>y</b><c",
+"norm_a": "text:<a><b>x</b><c",
+"norm_b": "text:<a><b>y</b><c",
+"differences": [
+"-<b>x</b>",
+"+<b>y</b>"
+],
+"merged": {
+"error": "not XML"
+}
+},
+{
+"area": "tlssite",
+"a": "<domain:tlsSiteInfo xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\"><site>C</site><tankVariance>0</tankVariance><x a=\"&quot;q&quot;\">'</x></domain:tlsSiteInfo>",
+"b": "<domain:tlsSiteInfo xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\"><site>C</site><tankVariance>5</tankVariance><x a=\"&quot;q&apos;\">\"</x></domain:tlsSiteInfo>",
+"norm_a": "<{urn:vfi-sapphire:np.domain.2001-07-01}tlsSiteInfo><site>C</site><x a='\"q\"'>'</x></{urn:vfi-sapphire:np.domain.2001-07-01}tlsSiteInfo>",
+"norm_b": "<{urn:vfi-sapphire:np.domain.2001-07-01}tlsSiteInfo><site>C</site><tankVariance>5</tankVariance><x a=\"&quot;q'\">\"</x></{urn:vfi-sapphire:np.domain.2001-07-01}tlsSiteInfo>",
+"differences": [
+"-tlsSiteInfo/x@a=\"q\"",
+"-tlsSiteInfo/x='",
+"+tlsSiteInfo/tankVariance=5",
+"+tlsSiteInfo/x@a=\"q'",
+"+tlsSiteInfo/x=\""
+],
+"merged": {
+"xml": "<domain:tlsSiteInfo xmlns:domain=\"urn:vfi-sapphire:np.domain.2001-07-01\"><site>C</site><tankVariance>0</tankVariance><x a='\"q\"'>'</x></domain:tlsSiteInfo>",
+"notes": []
+}
+}
+]

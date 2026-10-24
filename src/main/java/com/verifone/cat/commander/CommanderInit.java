@@ -24,6 +24,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.verifone.cat.commander.snapshot.Restore;
+import com.verifone.cat.commander.snapshot.SnapshotRestore;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
@@ -55,9 +57,13 @@ import com.verifone.cat.sims.ToolsRoot;
  * never from a committed copy (rig owner, 2026-09-22: "we always need to be up to date with petroapps,
  * that would defeat the purpose of testing if we did not").
  *
- * <p>Not ported, and said so in the run's lines rather than passed over: the Commander snapshot restore
- * ({@code petrotest.commander_snapshot.restore_for_rig}), reported as a {@code WARNING} line when it was
- * asked for (the Python never fails the init on a restore either); and the pump release through Petro
+ * <p><b>The Commander snapshot</b> ({@code docs/commander-snapshot.md}): before the base import, every
+ * restorable area that differs from the golden snapshot for the Commander's build is re-imported from it
+ * ({@link SnapshotRestore}, the port of {@code commander_snapshot.restore_for_rig}). Before, not after, so
+ * base's files have the last word. Inert until a snapshot is captured; {@code snapshot=false} and
+ * {@code $CAT_NO_SNAPSHOT} skip it. An area left different is a {@code WARNING} line, never a failed init.
+ *
+ * <p>Not ported, and said so in the run's lines rather than passed over: the pump release through Petro
  * ({@code PetroPumps.clear}), whose absence the Python already treats as "not released", so the FCC
  * restart follows.
  *
@@ -79,7 +85,10 @@ public final class CommanderInit {
     /** {@code $CAT_NO_SNAPSHOT}: skips the snapshot restore, as the Python reads it. */
     public static final String NO_SNAPSHOT_ENV = "CAT_NO_SNAPSHOT";
 
-    /** What the snapshot restore needs, which CAT-Java does not have yet. */
+    /**
+     * What the launch's Commander step still reports for the snapshot row. The init itself restores the snapshot
+     * now ({@link SnapshotRestore}); the launch step's row is the launch's to update.
+     */
     public static final String SNAPSHOT_UNAVAILABLE = "unavailable in CAT-Java: needs the Commander snapshot "
             + "restore (petrotest.commander_snapshot.restore_for_rig, docs/commander-snapshot.md)";
 
@@ -213,6 +222,7 @@ public final class CommanderInit {
     private final Say say;
     private final Duration sshTimeout;
     private final Map<String, String> environ;
+    private final SnapshotRestore snapshots;
 
     private CommanderInit(Builder b) {
         this.rig = b.rig;
@@ -227,6 +237,7 @@ public final class CommanderInit {
         this.say = b.say;
         this.sshTimeout = b.sshTimeout;
         this.environ = b.environ;
+        this.snapshots = b.snapshots;
     }
 
     /** The production init on {@code access}'s Commander, writing to {@code say}. */
@@ -310,7 +321,7 @@ public final class CommanderInit {
      * @param baseFolder the base configuration, or {@code null} for {@link #baseConfigFolder(Map)}
      * @param forecourt  Petro Simulator Suite runs; {@code false} sends {@link #NO_FORECOURT_SEQUENCE}
      * @param snapshot   restore the Commander snapshot first; {@code false} is the Python's
-     *                   {@code --no-snapshot}. The restore is not ported, so asking for it writes a warning
+     *                   {@code --no-snapshot}. The restore runs before the base import ({@link SnapshotRestore})
      * @return whether the Commander was initialised; a failure's reason is the last {@link Say#err} line
      */
     public boolean run(Path baseFolder, boolean forecourt, boolean snapshot) {
@@ -321,7 +332,7 @@ public final class CommanderInit {
         String captured = null; // the syslog, once read for this fault
         Set<String> recovered = new HashSet<>(); // "not idle" lines already acted on
         try {
-            restoreSnapshot(snapshot);
+            restoreSnapshot(snapshot, base);
             List<Path> files = filesOf(base);
             say.out("importing " + files.size() + " files from " + base);
             Map<String, String> applied = client.importConfigurationFolder(base);
@@ -398,13 +409,27 @@ public final class CommanderInit {
         }
     }
 
-    private void restoreSnapshot(boolean enabled) {
+    /**
+     * The Python's {@code _restore_snapshot}: {@code restore_for_rig}, unless switched off. Never fails the init
+     * on its own account: an area left different is a {@code WARNING} line, and an unreadable snapshot one line.
+     * A CGILink failure ({@link DeviceError}) propagates as the Python's does.
+     */
+    private void restoreSnapshot(boolean enabled, Path base) {
         if (!enabled || snapshotDisabled(environ)) {
             String why = !enabled ? "--no-snapshot" : "$" + NO_SNAPSHOT_ENV;
             say.out("Commander snapshot not restored (" + why + ")");
             return;
         }
-        say.err("WARNING Commander snapshot not restored: " + SNAPSHOT_UNAVAILABLE);
+        Restore.RestoreReport report;
+        try {
+            report = snapshots.restore(base, say::out);
+        } catch (UncheckedIOException | IllegalArgumentException | java.util.NoSuchElementException e) {
+            say.err("Commander snapshot not restored: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return;
+        }
+        if (report != null && !report.ok()) {
+            say.err("WARNING " + report.summary());
+        }
     }
 
     // -- the commands -----------------------------------------------------------------------------
@@ -758,6 +783,7 @@ public final class CommanderInit {
         private Say say;
         private Duration sshTimeout;
         private Map<String, String> environ;
+        private SnapshotRestore snapshots;
 
         private Builder(CommanderAccess access) {
             this.rig = access.rig();
@@ -774,6 +800,7 @@ public final class CommanderInit {
             this.say = Say.to(System.out, System.err);
             this.sshTimeout = access.sshTimeout();
             this.environ = access.environ();
+            this.snapshots = SnapshotRestore.forRig(access);
         }
 
         public Builder clients(Supplier<CommanderClient> value) {
@@ -818,6 +845,12 @@ public final class CommanderInit {
 
         public Builder environ(Map<String, String> value) {
             environ = value == null ? Map.of() : Map.copyOf(value);
+            return this;
+        }
+
+        /** The snapshot restore step 4 runs before the base import; {@link SnapshotRestore#forRig} by default. */
+        public Builder snapshots(SnapshotRestore value) {
+            snapshots = Objects.requireNonNull(value);
             return this;
         }
 
