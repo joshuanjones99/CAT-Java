@@ -21,7 +21,9 @@ public record Target(String name, String host, Integer port, Kind kind, boolean 
         /** A TCP connect to the service port. */
         TCP,
         /** Whether this machine holds the address; no port, no packet. */
-        LOCAL
+        LOCAL,
+        /** Signs in to Xray and Jira with the stored credentials (the Python CAT's {@code xray} probe). */
+        XRAY
     }
 
     /** A target that is not fixed: present only when selected. */
@@ -42,5 +44,13 @@ public record Target(String name, String host, Integer port, Kind kind, boolean 
     /** An address that should be one of this machine's own. */
     public static Target local(String name, String host) {
         return new Target(name, host, null, Kind.LOCAL);
+    }
+
+    /**
+     * The Xray row: Atlassian's host, probed by signing in rather than by a connect. Never fixed: a
+     * run without Xray is still a run.
+     */
+    public static Target xray(String name, String host) {
+        return new Target(name, host, 443, Kind.XRAY);
     }
 }

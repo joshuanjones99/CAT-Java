@@ -52,6 +52,8 @@ public final class RunLauncher {
     private final LaunchPaths paths;
     private final Clock clock;
     private final ProcessOps processOps;
+    private final ConnectionChecks checks;
+    private final XraySidecarStart.Spawner spawner;
     private final PauseGate pause = new PauseGate();
     private final AtomicBoolean launched = new AtomicBoolean();
     private volatile boolean stopRequested;
@@ -72,9 +74,20 @@ public final class RunLauncher {
      * A test passes a fake, so no real process is listed or started.
      */
     RunLauncher(LaunchPaths paths, Clock clock, ProcessOps processOps) {
+        this(paths, clock, processOps, ConnectionChecks.real(), XraySidecarStart.detached());
+    }
+
+    /**
+     * A launcher whose outside checks (the SSH logins and the Xray sign-in) and whose sidecar spawn are
+     * the caller's. A test passes fakes, so no run signs in to a box or to Atlassian, or starts a process.
+     */
+    RunLauncher(LaunchPaths paths, Clock clock, ProcessOps processOps, ConnectionChecks checks,
+            XraySidecarStart.Spawner spawner) {
         this.paths = paths;
         this.clock = clock;
         this.processOps = processOps;
+        this.checks = checks;
+        this.spawner = spawner;
     }
 
     /** Pauses the run before its next step (or, if it is not started yet, pauses it from the start). */
@@ -141,8 +154,12 @@ public final class RunLauncher {
             ctx.emit(runStarted(ctx));
             String stoppedAt = config.partial() ? refuse(ctx) : prepareRig(ctx, List.of(LaunchStepNames.TESTS));
             if (stoppedAt.isEmpty()) {
+                // After step 4 and only once the rig is up, as the Python: the sidecar creates the Jira execution.
+                XraySidecarStart.start(ctx, spawner);
                 // Step 5 is unavailable, so it ends the run; CAT-Java never starts pytest.
                 StepRunner.runLocal(ctx, new TestsRunStep());
+            } else {
+                XraySidecarStart.notReported(ctx, stoppedAt);
             }
             ctx.emit(runFinished(ctx, Outcome.ERROR, false));
             StepRunner.runLocal(ctx, new GenerateReportStep());
@@ -161,10 +178,10 @@ public final class RunLauncher {
     }
 
     /** Steps 1 to 4, in order. Returns the step that ended the run, or "" when all four let it go on. */
-    static String prepareRig(RunContext ctx, List<String> notReached) {
+    String prepareRig(RunContext ctx, List<String> notReached) {
         List<LaunchStep> stages = List.of(
                 new SystemChecksStep(),
-                new ConnectionsStep(),
+                new ConnectionsStep(checks),
                 new StartSimulatorsStep(),
                 new CommanderConfigurationStep());
         for (int i = 0; i < stages.size(); i++) {

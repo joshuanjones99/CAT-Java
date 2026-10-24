@@ -16,6 +16,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 /**
  * Asks whether each endpoint is answering, every probe bounded by a timeout.
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeoutException;
 public final class ConnectionProbe {
 
     private final ExecutorService executor;
+    private final Function<Target, ProbeResult> xray;
 
     /**
      * @param executor runs the probes; it should have a thread per target a sweep may
@@ -48,7 +50,17 @@ public final class ConnectionProbe {
      *                 they spent waiting for a thread. The caller shuts it down.
      */
     public ConnectionProbe(ExecutorService executor) {
+        this(executor, null);
+    }
+
+    /**
+     * @param executor runs the probes, as above
+     * @param xray     answers an {@link Target.Kind#XRAY} row; {@code null} reports such a row as
+     *                 {@code unknown}, since nothing here can sign in to Xray
+     */
+    public ConnectionProbe(ExecutorService executor, Function<Target, ProbeResult> xray) {
         this.executor = Objects.requireNonNull(executor, "executor");
+        this.xray = xray;
     }
 
     /** A cached pool of daemon threads, sized to whatever a sweep needs. */
@@ -72,16 +84,23 @@ public final class ConnectionProbe {
      * @param timeout the budget for each probe, counted from the start of the sweep
      */
     public List<ProbeResult> probeAll(List<Target> targets, Duration timeout) {
-        long deadline = System.nanoTime() + timeout.toNanos();
+        long start = System.nanoTime();
         List<Future<ProbeResult>> futures = new ArrayList<>(targets.size());
         for (Target target : targets) {
             futures.add(submit(target, timeout));
         }
         List<ProbeResult> results = new ArrayList<>(targets.size());
         for (int i = 0; i < targets.size(); i++) {
-            results.add(await(targets.get(i), futures.get(i), deadline, timeout));
+            Target target = targets.get(i);
+            Duration budget = budgetFor(target, timeout);
+            results.add(await(target, futures.get(i), start + budget.toNanos(), budget));
         }
         return results;
+    }
+
+    /** The budget for one target: an Xray sign-in gets Atlassian's own ceiling, not the connect's. */
+    static Duration budgetFor(Target target, Duration timeout) {
+        return target.kind() == Target.Kind.XRAY ? XrayProbe.PROBE_TIMEOUT : timeout;
     }
 
     private Future<ProbeResult> submit(Target target, Duration timeout) {
@@ -112,9 +131,14 @@ public final class ConnectionProbe {
         }
     }
 
-    private static ProbeResult run(Target target, Duration timeout) {
+    private ProbeResult run(Target target, Duration timeout) {
         if (target.kind() == Target.Kind.LOCAL) {
             return HostAddressCheck.check(target);
+        }
+        if (target.kind() == Target.Kind.XRAY) {
+            return xray == null
+                    ? unknown(target, "no Xray probe is wired into this run")
+                    : xray.apply(target);
         }
         if (target.port() == null) {
             return unknown(target, "no address declared in the rig file");
@@ -140,6 +164,10 @@ public final class ConnectionProbe {
     }
 
     private static ProbeResult timedOut(Target target, Duration timeout) {
+        if (target.kind() == Target.Kind.XRAY) {
+            return new ProbeResult(target.name(), ProbeState.DOWN,
+                    "Atlassian did not answer in " + seconds(XrayProbe.PROBE_TIMEOUT) + "s", Target.Kind.XRAY);
+        }
         if (target.kind() == Target.Kind.LOCAL) {
             // The local check is name resolution plus an interface listing, neither of which
             // can be interrupted, so the worker outlives this call. Reporting unknown beats

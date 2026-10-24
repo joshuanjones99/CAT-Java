@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -64,5 +65,25 @@ class RunStartTest {
 
         assertFalse(plan.startable());
         assertTrue(plan.refusal().startsWith("Partial runs are not ported"), plan.refusal());
+    }
+
+    @Test
+    void theXraySwitchIsOnByDefaultAndCarriedIntoTheLaunchConfig() throws IOException {
+        ConfigForm form = ConfigFixture.form(tmp);
+        form.togglePlan(ConfigFixture.PLAN);
+
+        assertTrue(RunStart.from(form, "lab").config().xrayReport());
+    }
+
+    @Test
+    void aSavedXrayOffIsCarriedAsOff() throws IOException {
+        Path saved = tmp.resolve("cfg").resolve("last-config.json");
+        Files.createDirectories(saved.getParent());
+        Files.writeString(saved, "{\"config-xray\": false}");
+        ConfigForm form = ConfigFixture.form(tmp);
+        form.load();
+        form.togglePlan(ConfigFixture.PLAN);
+
+        assertFalse(RunStart.from(form, "lab").config().xrayReport());
     }
 }

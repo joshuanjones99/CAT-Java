@@ -54,7 +54,7 @@ public final class RunStart {
             return refused("Nothing to run yet: tick a test plan on the Config tab.");
         }
         LaunchConfig config = new LaunchConfig(rig, List.of(), form.plans(), UpgradeMode.SKIP,
-                false, false, false, List.of(), scope);
+                false, false, false, List.of(), scope, form.xray());
         return new Plan(config, "");
     }
 
