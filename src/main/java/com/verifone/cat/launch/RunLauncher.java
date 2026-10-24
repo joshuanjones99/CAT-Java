@@ -25,8 +25,9 @@ import com.verifone.cat.sims.Supervisor;
  * {@code prepare_rig} and {@code release_rig}.
  *
  * <p>Order: {@code RunStarted}; steps 1 to 4 (a step that ends the run marks the rest of 1 to 5
- * skipped with {@code not reached: <step> failed}); step 5 (always unavailable here, so the run ends
- * with CAT's own {@code RunFinished}, {@code error}); steps 6 and 7 always. Then the run's locks are
+ * skipped with {@code not reached: <step> failed}); step 5 (unavailable unless wired, so the run ends
+ * with CAT's own {@code RunFinished}, {@code error}, unless step 5 wrote the session's own, see
+ * {@link #wireTests}); steps 6 and 7 always. Then the run's locks are
  * released and {@code run.ended} is written, whatever happened.
  *
  * <p>Pause and Stop, as the Python CAT has them. Pause takes effect before the next step. Stop is
@@ -58,6 +59,9 @@ public final class RunLauncher {
     private final AtomicBoolean launched = new AtomicBoolean();
     private volatile boolean stopRequested;
     private volatile RunContext active;
+    private volatile RegistryFactory registries;
+    private volatile CaseSource cases;
+    private volatile RunServices.Connector connector = RunServices.Connector.NONE;
 
     /** A launcher on the system UTC clock, driving the simulators through PowerShell. */
     public RunLauncher(LaunchPaths paths) {
@@ -88,6 +92,21 @@ public final class RunLauncher {
         this.processOps = processOps;
         this.checks = checks;
         this.spawner = spawner;
+    }
+
+    /**
+     * Wires step 5, Tests Run: the action registry, the run's cases and the device connector. Until this is
+     * called the step is unavailable, which fails the run's step 5 rather than passing it. Call before
+     * {@link #launch}.
+     *
+     * @param registries the registry factory; {@code null} leaves the step unavailable
+     * @param cases      the run's cases, in plan order; {@code null} leaves the step unavailable
+     * @param connector  adds the devices the run connects; {@code null} connects none
+     */
+    public void wireTests(RegistryFactory registries, CaseSource cases, RunServices.Connector connector) {
+        this.registries = registries;
+        this.cases = cases;
+        this.connector = connector == null ? RunServices.Connector.NONE : connector;
     }
 
     /** Pauses the run before its next step (or, if it is not started yet, pauses it from the start). */
@@ -156,12 +175,14 @@ public final class RunLauncher {
             if (stoppedAt.isEmpty()) {
                 // After step 4 and only once the rig is up, as the Python: the sidecar creates the Jira execution.
                 XraySidecarStart.start(ctx, spawner);
-                // Step 5 is unavailable, so it ends the run; CAT-Java never starts pytest.
-                StepRunner.runLocal(ctx, new TestsRunStep());
+                // Step 5 runs the cases itself when it is wired; unwired, it is unavailable (a failure).
+                StepRunner.runLocal(ctx, new TestsRunStep(registries, cases, connector));
             } else {
                 XraySidecarStart.notReported(ctx, stoppedAt);
             }
-            ctx.emit(runFinished(ctx, Outcome.ERROR, false));
+            if (!ctx.sessionFinished()) {
+                ctx.emit(runFinished(ctx, Outcome.ERROR, false));
+            }
             StepRunner.runLocal(ctx, new GenerateReportStep());
             StepRunner.runLocal(ctx, new CleanupStep());
         } catch (StepRunner.Cancelled e) {

@@ -36,6 +36,7 @@ public final class RunContext {
     private final Instant startedAt;
     private final Map<String, StepResult> results = new ConcurrentHashMap<>();
     private volatile boolean cancelled;
+    private volatile boolean sessionFinished;
 
     private final List<SimProcess> simulators = new CopyOnWriteArrayList<>();
     private volatile Supervisor supervisor;
@@ -94,6 +95,18 @@ public final class RunContext {
 
     void cancel() {
         cancelled = true;
+    }
+
+    /**
+     * Whether the Tests Run step wrote the run's own {@code RunFinished}, with the counts of the cases it
+     * ran. When it did not, the launcher writes CAT's stand-in ({@code error}) after step 5.
+     */
+    public boolean sessionFinished() {
+        return sessionFinished;
+    }
+
+    void sessionFinished(boolean finished) {
+        sessionFinished = finished;
     }
 
     /** The rig file a run loaded in System Checks, or {@code null}. */
