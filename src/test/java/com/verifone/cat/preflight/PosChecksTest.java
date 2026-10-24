@@ -17,8 +17,16 @@ import org.junit.jupiter.api.Test;
  */
 class PosChecksTest {
 
+    /** The default registry's POS rows: the forecourt and EPS rows have their own tests (EpsLinkPreflightTest). */
+    private static List<Check> posChecks() {
+        return DefaultChecks.defaults().checks().stream()
+                .filter(c -> DefaultChecks.POS_CHECK_ORDER.contains(c.name()))
+                .map(c -> (Check) c)
+                .toList();
+    }
+
     private static PreflightReport runDefaults(RigContext rig) {
-        return PreflightRunner.run(rig, DefaultChecks.defaults().checks(), PreflightRunner.RunOptions.defaults());
+        return PreflightRunner.run(rig, posChecks(), PreflightRunner.RunOptions.defaults());
     }
 
     private static CheckRecord record(PreflightReport report, String name) {
@@ -26,9 +34,11 @@ class PosChecksTest {
     }
 
     @Test
-    void theDefaultRegistryHoldsTheFiveWiredPosChecksInTableOrder() {
-        assertEquals(DefaultChecks.POS_CHECK_ORDER, DefaultChecks.defaults().names());
-        assertEquals(5, DefaultChecks.defaults().size());
+    void theDefaultRegistryHoldsTheWiredChecksInTableOrderPosRowsFirst() {
+        assertEquals(DefaultChecks.CHECK_ORDER, DefaultChecks.defaults().names());
+        assertEquals(7, DefaultChecks.defaults().size());
+        assertEquals(DefaultChecks.POS_CHECK_ORDER, DefaultChecks.defaults().names().subList(0, 5));
+        assertEquals(5, posChecks().size());
     }
 
     @Test
@@ -117,7 +127,7 @@ class PosChecksTest {
     void theParkedTicketCheckIsHeldBackMidRun() {
         RigContext rig = Fixtures.rig(new FakePos());
         rig.setParkedTickets(() -> new Surfaces.UnsettledSuspends(1, ""));
-        PreflightReport report = PreflightRunner.run(rig, DefaultChecks.defaults().checks(),
+        PreflightReport report = PreflightRunner.run(rig, posChecks(),
                 new PreflightRunner.RunOptions(true, PreflightRunner.VERIFY_BUDGET, true));
 
         assertTrue(report.records().stream().noneMatch(r -> r.name().equals("no_parked_transaction")));

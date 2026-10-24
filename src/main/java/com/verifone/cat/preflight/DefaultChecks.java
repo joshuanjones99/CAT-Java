@@ -6,13 +6,10 @@ import java.util.List;
  * The default check set. Ported from {@code petrotest/preflight/checks/__init__.py}, which lists
  * nine checks of DESIGN.md 6.2's ten (the tenth, {@code simhub_healthy}, went with simhub).
  *
- * <p>Wired here: the five POS checks, in table order. Left behind, with the Python module each
- * needs:
+ * <p>Wired here, in table order: the five POS checks, {@code pumps_idle} ({@link ForecourtChecks},
+ * reading {@link RigContext#pumpStatus()}) and {@code eps_reachable} ({@link ServiceChecks}, reading
+ * the Commander's sockets over SSH through {@code devices.eps.CommanderLinkEpsProbe}). Left behind:
  * <ul>
- *   <li>{@code pumps_idle}: {@code petrotest/preflight/checks/forecourt.py}, reads Petro Simulator
- *       Suite ({@code devices/petro_forecourt.py}). No Java forecourt client yet.</li>
- *   <li>{@code eps_reachable}: {@code checks/services.py}, reads the Commander's sockets over SSH
- *       ({@code devices/eps.py}). No Java SSH transport yet.</li>
  *   <li>{@code config_loaded}, {@code build_matches}: {@code checks/config.py}. Neither needs the
  *       CGILink client, which is ported ({@code devices.commander.PdkShim}). In the Python,
  *       {@code config_loaded} reads {@code RigContext.config_status}, which defaults to the
@@ -34,6 +31,16 @@ public final class DefaultChecks {
             "drawer_closed",
             "cashier_signed_on");
 
+    /** Every wired check, in DESIGN.md 6.2's table order (the Python's {@code CHECK_ORDER}, less rows 9-10). */
+    public static final List<String> CHECK_ORDER = List.of(
+            "printer_connected",
+            "pos_idle",
+            "no_parked_transaction",
+            "drawer_closed",
+            "cashier_signed_on",
+            "pumps_idle",
+            "eps_reachable");
+
     private DefaultChecks() {}
 
     /** A fresh registry holding the wired checks, in table order. */
@@ -43,6 +50,8 @@ public final class DefaultChecks {
                 new PosChecks.PosIdle(),
                 new PosChecks.NoParkedTransaction(),
                 new PosChecks.DrawerClosed(),
-                new PosChecks.CashierSignedOn()));
+                new PosChecks.CashierSignedOn(),
+                new ForecourtChecks.PumpsIdle(),
+                new ServiceChecks.EpsReachable()));
     }
 }

@@ -1,5 +1,6 @@
 package com.verifone.cat.preflight;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -37,6 +38,10 @@ public final class RigContext {
     private Supplier<Map<String, Boolean>> printerPorts;
     private Map<String, Boolean> cashDrawers;
     private Supplier<Surfaces.UnsettledSuspends> parkedTickets;
+    private Duration defaultWait = DEFAULT_WAIT;
+
+    /** DESIGN.md 8's {@code timeouts.default_wait}, for a context built without a rig file. */
+    public static final Duration DEFAULT_WAIT = Duration.ofSeconds(15);
 
     public RigContext(String name, Surfaces.PosStatus posStatus, Surfaces.PosControl posControl,
             Surfaces.EpsProbe eps, Surfaces.ConfigStatus configStatus, Surfaces.ConfigControl configControl,
@@ -67,6 +72,7 @@ public final class RigContext {
         frozen.printerPorts = printerPorts;
         frozen.cashDrawers = cashDrawers;
         frozen.parkedTickets = parkedTickets;
+        frozen.defaultWait = defaultWait;
         return frozen;
     }
 
@@ -134,6 +140,19 @@ public final class RigContext {
     /** The Commander's unsettled suspended tickets; null when not read. */
     public Supplier<Surfaces.UnsettledSuspends> parkedTickets() {
         return parkedTickets;
+    }
+
+    /** The rig's {@code timeouts.default_wait}: what a probe such as {@code eps_reachable} is bounded by. */
+    public Duration defaultWait() {
+        return defaultWait;
+    }
+
+    public void setDefaultWait(Duration defaultWait) {
+        guardWrite("default_wait");
+        if (defaultWait == null || defaultWait.isZero() || defaultWait.isNegative()) {
+            throw new IllegalArgumentException("default_wait must be positive, got " + defaultWait);
+        }
+        this.defaultWait = defaultWait;
     }
 
     public void setScreenIdle(BooleanSupplier screenIdle) {
