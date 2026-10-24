@@ -1,5 +1,7 @@
 package com.verifone.cat.pats;
 
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
@@ -66,9 +68,9 @@ public final class CaseParser {
         List<Element> elements = children(testcase, "action");
         for (int i = 0; i < elements.size(); i++) {
             Element action = elements.get(i);
-            List<Action.Field> fields = new ArrayList<>();
+            List<RunnableAction.ActionField> fields = new ArrayList<>();
             for (Element field : children(action, "field")) {
-                fields.add(new Action.Field(field.getAttribute("name"), field.getAttribute("value")));
+                fields.add(new RunnableAction.ActionField(field.getAttribute("name"), field.getAttribute("value")));
             }
             actions.add(new Action(action.getAttribute("name"), fields, i));
         }

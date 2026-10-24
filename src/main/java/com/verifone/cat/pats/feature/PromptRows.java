@@ -1,5 +1,7 @@
 package com.verifone.cat.pats.feature;
 
+import com.verifone.cat.pats.Elements;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.verifone.cat.validate.PyRepr;

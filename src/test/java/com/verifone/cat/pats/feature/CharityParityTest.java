@@ -1,5 +1,9 @@
 package com.verifone.cat.pats.feature;
 
+import com.verifone.cat.pats.Action;
+import com.verifone.cat.pats.runner.Fields;
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,9 +61,9 @@ class CharityParityTest {
     }
 
     private static Action actionOf(JsonNode node) {
-        List<Action.Field> fields = new ArrayList<>();
+        List<RunnableAction.ActionField> fields = new ArrayList<>();
         for (JsonNode pair : node.get("fields")) {
-            fields.add(new Action.Field(pair.get(0).asText(), pair.get(1).asText()));
+            fields.add(new RunnableAction.ActionField(pair.get(0).asText(), pair.get(1).asText()));
         }
         return new Action(node.get("name").asText(), fields, node.get("index").asInt());
     }

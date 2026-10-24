@@ -1,6 +1,9 @@
 package com.verifone.cat.pats;
 
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
@@ -32,8 +34,8 @@ class ScenarioParserTest {
     }
 
     private static Action only(ParsedCase parsed) {
-        assertEquals(1, parsed.actions().size());
-        return parsed.actions().get(0);
+        assertEquals(1, parsed.steps().size());
+        return parsed.steps().get(0);
     }
 
     @Test
@@ -42,9 +44,9 @@ class ScenarioParserTest {
         assertTrue(parsed.title().startsWith("PETROCORE-120859 Indoor postpay"));
         assertEquals(List.of("WIDGET_VALIDATION", "FUEL_AMOUNT", "HANDLE_DOWN", "ADD_PLU_NUMERIC_KEYPAD",
                 "INSERT_OR_SLIDE_CARD", "GET_DECIMAL", "REFUND_WITH_TRANS_MAP", "SLEEP", "VALIDATE_RECEIPT"),
-                parsed.actions().stream().map(Action::name).toList());
+                parsed.steps().stream().map(Action::name).toList());
 
-        List<Action> actions = parsed.actions();
+        List<Action> actions = parsed.steps();
         Action widget = actions.get(0);
         Action fuel = actions.get(1);
         Action down = actions.get(2);
@@ -86,9 +88,9 @@ class ScenarioParserTest {
         ParsedCase parsed = ScenarioParser.parseScenario(scenario("simulator-case.scenario"));
         assertEquals(List.of("RESET_PACKETS", "UPDATE_CONFIGURATION", "WAIT_FOR_PROMPT", "INSERT_OR_SLIDE_CARD",
                 "GET_ANY_KEY", "GET_DECIMAL", "IMPORT_CONFIGURATION", "CONTROL_FUNCTION", "REPORT_PRINT",
-                "VALIDATE_REPORT"), parsed.actions().stream().map(Action::name).toList());
+                "VALIDATE_REPORT"), parsed.steps().stream().map(Action::name).toList());
         Map<String, Action> byName = new HashMap<>();
-        parsed.actions().forEach(a -> byName.putIfAbsent(a.name(), a));
+        parsed.steps().forEach(a -> byName.putIfAbsent(a.name(), a));
 
         assertEquals("BUYPASS", byName.get("RESET_PACKETS").get("DEVICE"));
         Action update = byName.get("UPDATE_CONFIGURATION");
@@ -98,7 +100,7 @@ class ScenarioParserTest {
         assertEquals("DO YOU WANT, CASHBACK ", prompt.get("DISPLAY_KEY"), "PATS's substring, as written");
         assertEquals("No", prompt.get("DISPLAY_KEY_EXACT_MATCH[YES/NO]"));
         assertEquals("MSR DEBIT", byName.get("INSERT_OR_SLIDE_CARD").get("CARD_NAME"));
-        assertEquals(Optional.empty(), byName.get("INSERT_OR_SLIDE_CARD").raw("CARD_SIMULATION_IMAGE_FILE"));
+        assertNull(byName.get("INSERT_OR_SLIDE_CARD").raw("CARD_SIMULATION_IMAGE_FILE"));
         assertEquals("10.00% - $3.40", byName.get("GET_ANY_KEY").get("ENTER_KEY"));
         assertEquals("0042", byName.get("GET_DECIMAL").get("ENTER_DECIMAL"));
         for (String pinpad : List.of("WAIT_FOR_PROMPT", "INSERT_OR_SLIDE_CARD", "GET_ANY_KEY", "GET_DECIMAL")) {
@@ -116,8 +118,8 @@ class ScenarioParserTest {
         assertEquals("vrubyrept", report.get("CMD"));
         assertEquals("2", report.get("PERIOD"));
         assertEquals("2", report.get("REPTNUM"));
-        assertEquals(Optional.of(""), report.raw("REPORTTYPE"));
-        assertEquals(Optional.empty(), report.raw("FILENAME"));
+        assertEquals("", report.raw("REPORTTYPE"));
+        assertNull(report.raw("FILENAME"));
     }
 
     @Test
@@ -133,10 +135,10 @@ class ScenarioParserTest {
     void thePosAndCloudStepsReadIntoTheXmlFieldNames() {
         String sco = Locators.APP_SELECTION_PROMPT_VIEW_APP_PANEL_SCO.value();
         ParsedCase parsed = ScenarioParser.parseScenario(scenario("pos-and-cloud.scenario").replace("@SCO@", sco));
-        assertEquals(3, parsed.actions().size());
-        Action login = parsed.actions().get(0);
-        Action selector = parsed.actions().get(1);
-        Action cloud = parsed.actions().get(2);
+        assertEquals(3, parsed.steps().size());
+        Action login = parsed.steps().get(0);
+        Action selector = parsed.steps().get(1);
+        Action cloud = parsed.steps().get(2);
 
         assertEquals("CASHIER_LOGIN", login.name());
         assertEquals("POS", login.get("DEVICE"));
@@ -159,7 +161,7 @@ class ScenarioParserTest {
                 + "   Then VALIDATE_PAYLOAD with reference file \"PETROCORE-136964-refPayload.json\" "
                 + "and rule file \"ctrlcmd-rule.txt\"\n"
                 + "     |validateSchema|false|\n";
-        List<Action> actions = ScenarioParser.parseScenario(text).actions();
+        List<Action> actions = ScenarioParser.parseScenario(text).steps();
         assertEquals(2, actions.size());
         Action send = actions.get(0);
         Action check = actions.get(1);
@@ -194,7 +196,7 @@ class ScenarioParserTest {
         ParsedCase parsed = ScenarioParser.parseScenario(
                 "  Scenario: S\n    When SLEEP for 20000 milliseconds\n\n@test\n");
         assertEquals("S", parsed.title());
-        assertEquals(List.of("SLEEP"), parsed.actions().stream().map(Action::name).toList());
+        assertEquals(List.of("SLEEP"), parsed.steps().stream().map(Action::name).toList());
     }
 
     @Test
@@ -205,13 +207,13 @@ class ScenarioParserTest {
                         + "And CONTROL_FUNCTION init type \"crefreshcfg\"\n");
         assertEquals(List.of(
                 new Action("IMPORT_CONFIGURATION", List.of(
-                        new Action.Field("SELECT_FOLDER", "buypass-viper-pinpad-devices"),
-                        new Action.Field("DEVICE", "SITECONTROLLER"),
-                        new Action.Field("SOURCE", "BDD")), 0),
+                        new RunnableAction.ActionField("SELECT_FOLDER", "buypass-viper-pinpad-devices"),
+                        new RunnableAction.ActionField("DEVICE", "SITECONTROLLER"),
+                        new RunnableAction.ActionField("SOURCE", "BDD")), 0),
                 new Action("CONTROL_FUNCTION", List.of(
-                        new Action.Field("INIT_TYPE", "crefreshcfg"),
-                        new Action.Field("DEVICE", "SITECONTROLLER"),
-                        new Action.Field("SOURCE", "BDD")), 1)), parsed.actions());
+                        new RunnableAction.ActionField("INIT_TYPE", "crefreshcfg"),
+                        new RunnableAction.ActionField("DEVICE", "SITECONTROLLER"),
+                        new RunnableAction.ActionField("SOURCE", "BDD")), 1)), parsed.steps());
     }
 
     @Test
@@ -221,7 +223,7 @@ class ScenarioParserTest {
         String ok = Locators.VFI_KEYPAD_WIDGET_OVERLAY_NUMERIC_KEYPAD_KEY_OK.value();
         String text = scenario("dynamic-prompts.scenario")
                 .replace("@LABEL@", label).replace("@ONE@", one).replace("@OK@", ok);
-        List<Action> actions = ScenarioParser.parseScenario(text).actions();
+        List<Action> actions = ScenarioParser.parseScenario(text).steps();
 
         assertEquals(List.of("VALIDATE_DYNAMIC_PROMPTS", "WAIT_DCR_PROMPT", "L4", "KEY_PRESS"),
                 actions.stream().map(Action::name).toList());
@@ -251,7 +253,7 @@ class ScenarioParserTest {
         ParsedCase parsed = ScenarioParser.parseScenario("Scenario: A\nWhen SLEEP for 5 milliseconds"
                 + "Scenario: B\nThen SLEEP for 6 milliseconds\n");
         assertEquals("A", parsed.title());
-        assertEquals(List.of("5", "6"), parsed.actions().stream().map(a -> a.get("SLEEP")).toList());
+        assertEquals(List.of("5", "6"), parsed.steps().stream().map(a -> a.get("SLEEP")).toList());
     }
 
     @Test

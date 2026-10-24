@@ -1,5 +1,10 @@
 package com.verifone.cat.pats.feature;
 
+import com.verifone.cat.pats.Action;
+import com.verifone.cat.pats.Elements;
+import com.verifone.cat.pats.runner.Fields;
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import com.verifone.cat.validate.PyRepr;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +36,7 @@ public record Phrase(
         String kind,
         String example,
         List<Bind> binds,
-        List<Action.Field> fixed) {
+        List<RunnableAction.ActionField> fixed) {
 
     /** A phrase argument that is a whole element ({@code WEB ELEMENT} and {@code TYPE[ID/XPATH]}). */
     public static final String ELEMENT = "@element";
@@ -55,7 +60,7 @@ public record Phrase(
     /** The action this phrase says, with {@code arguments} as the step parsed them. */
     public Action build(Map<String, String> arguments, int index) {
         String name = action == null ? "" : action;
-        List<Action.Field> fields = new ArrayList<>(fixed);
+        List<RunnableAction.ActionField> fields = new ArrayList<>(fixed);
         for (Bind bind : binds) {
             String value = arguments.get(bind.argument());
             if (value == null) {
@@ -64,13 +69,13 @@ public record Phrase(
             switch (bind.field()) {
                 case ELEMENT -> {
                     Elements.Ref ref = Elements.elementValue(value);
-                    fields.add(new Action.Field("WEB ELEMENT", ref.literal()));
-                    fields.add(new Action.Field("TYPE[ID/XPATH]", ref.kind()));
+                    fields.add(new RunnableAction.ActionField("WEB ELEMENT", ref.literal()));
+                    fields.add(new RunnableAction.ActionField("TYPE[ID/XPATH]", ref.kind()));
                 }
                 case NAME -> name = value.toUpperCase(Locale.ROOT);
                 case FIELDS -> fields.addAll(unpack(value));
-                case PROMPT_ROWS -> fields.add(new Action.Field("PROMPTS", PromptRows.fromText(value)));
-                default -> fields.add(new Action.Field(bind.field(), value));
+                case PROMPT_ROWS -> fields.add(new RunnableAction.ActionField("PROMPTS", PromptRows.fromText(value)));
+                default -> fields.add(new RunnableAction.ActionField(bind.field(), value));
             }
         }
         return new Action(name, fields, index);
@@ -140,8 +145,8 @@ public record Phrase(
     }
 
     /** The fields a {@code KEY=value; KEY=value} step text carries, in order. */
-    static List<Action.Field> unpack(String text) {
-        List<Action.Field> fields = new ArrayList<>();
+    static List<RunnableAction.ActionField> unpack(String text) {
+        List<RunnableAction.ActionField> fields = new ArrayList<>();
         for (String raw : text.split(";")) {
             String part = raw.strip();
             if (part.isEmpty()) {
@@ -151,7 +156,7 @@ public record Phrase(
             if (equals < 0) {
                 throw new IllegalArgumentException(PyRepr.reprString(part) + " is not KEY=value");
             }
-            fields.add(new Action.Field(part.substring(0, equals).strip(), part.substring(equals + 1)));
+            fields.add(new RunnableAction.ActionField(part.substring(0, equals).strip(), part.substring(equals + 1)));
         }
         return fields;
     }

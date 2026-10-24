@@ -209,7 +209,7 @@ class CaseRunTest {
     }
 
     @Test
-    void anActionWithNoHandlerIsAHardFailureAndNothingIsRestored() {
+    void anActionWithNoHandlerFailsBeforeAnythingIsRecordedForIt() {
         CaseRecord record = record("PETROCORE-9");
         TestCase kase = TestCase.of("PETROCORE-9", TestAction.of(0, "FROBNICATE"));
         RunState state = new RunState();
@@ -217,7 +217,20 @@ class CaseRunTest {
         PatsStepError raised = assertThrows(PatsStepError.class, () -> run(kase, record, state, Set.of()).run());
 
         assertTrue(raised.getMessage().contains("no handler for FROBNICATE"), raised.getMessage());
-        assertEquals("failed", record.steps().get(0).outcome());
+        assertTrue(record.steps().isEmpty(), "no step is recorded for an action with no handler, as PATS does");
+        assertFalse(state.beginCase(), "nothing was done, so the next case is not told the POS was pressed on");
+    }
+
+    @Test
+    void anActionWithNoHandlerAfterAnotherLeavesTheEarlierStepPassedAndTheLaterOnesNotReached() {
+        CaseRecord record = record("PETROCORE-9");
+        TestCase kase = TestCase.of("PETROCORE-9", TestAction.of(0, "NOOP"), TestAction.of(1, "FROBNICATE"),
+                TestAction.of(2, "NOOP"));
+
+        assertThrows(PatsStepError.class, () -> run(kase, record).run());
+
+        assertEquals(List.of("passed", "skipped"),
+                record.steps().stream().map(CaseRecord.StepRecord::outcome).toList());
     }
 
     @Test
