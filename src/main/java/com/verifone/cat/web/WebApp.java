@@ -1,10 +1,13 @@
 package com.verifone.cat.web;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.posshim.PosShimClient;
+import com.verifone.cat.results.ResultsLibrary;
+import com.verifone.cat.results.RunIndex;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
@@ -28,6 +31,18 @@ public final class WebApp {
     private WebApp() {}
 
     public static Javalin create(PosShimClient shim, String title) {
+        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()));
+    }
+
+    /**
+     * The same app, with the Results page reading {@code resultsRoot} and its index beside
+     * it, so a test never touches the operator's results or {@code ~/.cat}.
+     */
+    public static Javalin create(PosShimClient shim, String title, Path resultsRoot) {
+        return create(shim, title, new ResultsLibrary(resultsRoot, resultsRoot.resolve(RunIndex.INDEX_FILE)));
+    }
+
+    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results) {
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             config.staticFiles.add(files -> {
@@ -41,7 +56,7 @@ public final class WebApp {
         app.get("/run", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunPage.body(RunPage.Tab.OVERVIEW))));
         app.get("/run/config", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunPage.body(RunPage.Tab.CONFIG))));
         app.get("/run/log", ctx -> ctx.html(Layout.page(Section.RUN, "Run", RunPage.body(RunPage.Tab.LOG))));
-        app.get("/results", ctx -> ctx.html(Layout.page(Section.RESULTS, "Results", ResultsPage.body())));
+        ResultsPage.routes(app, results);
         app.get("/authoring", ctx -> ctx.html(Layout.page(Section.AUTHORING, "Authoring", AuthoringPage.body())));
         app.get("/upgrade", ctx -> ctx.html(Layout.page(Section.UPGRADE, "Install Upgrade", UpgradePage.body())));
         app.get("/simulators", ctx -> ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators",
