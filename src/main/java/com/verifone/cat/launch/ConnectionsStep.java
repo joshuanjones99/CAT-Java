@@ -4,41 +4,52 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 
+import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.connections.ConnectionProbe;
 import com.verifone.cat.connections.ConnectionWatch;
 import com.verifone.cat.connections.Endpoints;
 import com.verifone.cat.connections.ProbeResult;
 import com.verifone.cat.connections.ProbeState;
 import com.verifone.cat.connections.Target;
+import com.verifone.cat.provision.transport.SshLogin;
+import com.verifone.cat.provision.transport.SshTarget;
 import com.verifone.cat.report.events.CatEvent;
 import com.verifone.cat.rig.LoadedRig;
 import com.verifone.cat.rig.Rig;
 
 /**
- * Step 2, Connections: probe the run's devices, then re-probe for the rest of the run. The Python
- * CAT's {@code cat.launch.steps.connections}.
+ * Step 2, Connections: probe the run's devices, check the SSH login to each provisioning target, then
+ * re-probe for the rest of the run. The Python CAT's {@code cat.launch.steps.connections}.
  *
- * <p>The targets are {@link Endpoints#targetsFor}: the Commander (CGILink, port 80), the primary
- * register (SSH, port 22) and the Host PC, all fixed. A fixed row that is not up fails the step. A
- * run with no rig has nothing to probe, and the step is skipped.
+ * <p>The probe targets are {@link Endpoints#targetsFor}: the Commander (CGILink, port 80), the primary
+ * register (SSH, port 22) and the Host PC, all fixed. A fixed row that is not up fails the step, and
+ * then no SSH login is tried (a box known to be down is not signed in to; the Python tries, and reports
+ * the failure). With the rig reachable, each provisioning target is signed in to, the Commander first,
+ * all at once: a <em>refused</em> login fails the step and ends the run, because step 4 cannot provision
+ * a box that will not take CAT's key; a box SSH cannot reach is only reported.
  *
- * <p>Two parts are unavailable, and so the step fails after its probes on a rig run. The SSH login
- * check needs an SSH client, which CAT-Java does not have ({@code petrotest.provision.transport}).
- * The Receipt Printer row is a serial listing, which needs the printer slice; a rig whose primary
- * register declares a {@code printer_port} says so. The Xray row is absent because a run does not
- * carry the Xray switch yet. A fake-POS run needs none of the first two (the Python CAT skips the SSH
- * check there and adds no printer row), so it completes, and starts the connection watch.
+ * <p>With the run reporting to Xray ({@link LaunchConfig#xrayReport()}, never under fake POS) the Xray row
+ * is added after the fixed rows. It is never fixed, so a red Xray row is a warning, not a failed step.
+ *
+ * <p>One part is still unavailable, so a rig whose primary register declares a {@code printer_port}
+ * fails the step after the checks: the Receipt Printer row is a serial listing, which needs the printer
+ * slice. A fake-POS run needs none of the SSH or printer checks (the Python CAT skips them there), so it
+ * completes and starts the connection watch.
  *
  * <p>The watch re-probes every {@link #WATCH_INTERVAL} and emits only the changes. It is stopped by
  * {@link RunContext#stopWatching}, which the launcher calls when the run ends.
  *
- * <p>UNVERIFIED AGAINST HARDWARE: the probes are TCP connects and an interface check to the rig's
- * addresses; the tests use loopback and {@code .invalid} names only.
+ * <p>UNVERIFIED AGAINST HARDWARE: the probes are TCP connects, an interface check and the Xray sign-in;
+ * the SSH logins are JSch to the rig's addresses. The tests inject fake checks and use loopback and
+ * {@code .invalid} names only.
  */
 final class ConnectionsStep implements LaunchStep {
 
@@ -47,6 +58,23 @@ final class ConnectionsStep implements LaunchStep {
 
     /** How often the watch re-probes: the Python CAT's {@code CONNECTION_WATCH_INTERVAL}. */
     static final Duration WATCH_INTERVAL = Duration.ofSeconds(10);
+
+    /** The Xray row's label, as the Python CAT's {@code XRAY_TARGET_NAME}. */
+    static final String XRAY_ROW = "Xray";
+
+    private static final String PRINTER_PYTHON_MODULE = "src/cat/launch/steps/connections.py";
+
+    private final ConnectionChecks checks;
+
+    /** The real checks: the JSch login and the Xray sign-in. */
+    ConnectionsStep() {
+        this(ConnectionChecks.real());
+    }
+
+    /** The checks to use; a test passes fakes. */
+    ConnectionsStep(ConnectionChecks checks) {
+        this.checks = checks;
+    }
 
     @Override
     public String name() {
@@ -61,12 +89,16 @@ final class ConnectionsStep implements LaunchStep {
             return step.skipStep("no rig loaded — nothing to probe");
         }
         Rig rig = loaded.rig();
-        List<Target> targets = Endpoints.targetsFor(rig, List.of());
+        LaunchConfig config = ctx.config();
+        List<Target> targets = new ArrayList<>(Endpoints.targetsFor(rig, List.of()));
+        if (config.xrayReport() && !config.fakePos()) {
+            targets.add(Target.xray(XRAY_ROW, AtlassianClient.XRAY_API.getHost()));
+        }
 
         ExecutorService pool = ConnectionProbe.newProbePool();
         boolean watching = false;
         try {
-            ConnectionProbe probe = new ConnectionProbe(pool);
+            ConnectionProbe probe = new ConnectionProbe(pool, checks.xray());
             List<ProbeResult> results = probe.probeAll(targets, PROBE_TIMEOUT);
             List<String> down = new ArrayList<>();
             for (int i = 0; i < targets.size(); i++) {
@@ -83,8 +115,14 @@ final class ConnectionsStep implements LaunchStep {
             if (!down.isEmpty()) {
                 return step.fail("not reachable: " + String.join(", ", down));
             }
-            if (!ctx.config().fakePos()) {
-                return step.unavailable("src/cat/launch/steps/connections.py", missing(rig));
+            if (!config.fakePos()) {
+                List<String> refused = sshLogins(rig, pool, step);
+                if (!refused.isEmpty()) {
+                    return step.fail("SSH login failed — " + String.join("; ", refused));
+                }
+                if (printerRowPresent(rig)) {
+                    return step.unavailable(PRINTER_PYTHON_MODULE, printerMissing());
+                }
             }
             startWatch(ctx, probe, targets, pool);
             watching = true;
@@ -96,11 +134,55 @@ final class ConnectionsStep implements LaunchStep {
         }
     }
 
-    /** The parts of step 2 this port does not have, for a rig run, named in words. */
-    static String missing(Rig rig) {
-        String printer = rig.primaryRegister().printerPort() == null || rig.primaryRegister().printerPort().isEmpty()
-                ? "" : ", the Receipt Printer row (a serial listing, the printer slice)";
-        return "the SSH login check (petrotest.provision.transport: no SSH client in CAT-Java)" + printer;
+    /**
+     * The SSH login to each provisioning target, the Commander first, then the registers, all at once. Each
+     * is a check row: a login that works passes, a refused one fails and is required, and one SSH cannot
+     * reach is a warning. Returns the refused logins' words, which end the run.
+     */
+    List<String> sshLogins(Rig rig, ExecutorService pool, StepEmitter step) {
+        Map<String, String> environ = System.getenv();
+        List<SshTarget> specs = new ArrayList<>();
+        specs.add(SshTarget.commander(rig, environ));
+        for (Rig.Register register : rig.registers()) {
+            specs.add(SshTarget.register(rig, register, environ));
+        }
+        List<CompletableFuture<Optional<SshLogin.Problem>>> outcomes = new ArrayList<>();
+        for (SshTarget spec : specs) {
+            outcomes.add(CompletableFuture.supplyAsync(() -> sshCheck(spec), pool));
+        }
+        List<String> refused = new ArrayList<>();
+        for (int i = 0; i < specs.size(); i++) {
+            SshTarget spec = specs.get(i);
+            Optional<SshLogin.Problem> problem = outcomes.get(i).join();
+            boolean refusedLogin = problem.isPresent() && problem.get().refused();
+            String text = problem.map(SshLogin.Problem::message).orElse("key login accepted");
+            step.check(problem.isEmpty(), "SSH " + spec.name(), text, refusedLogin);
+            if (refusedLogin) {
+                refused.add(text);
+            }
+        }
+        return refused;
+    }
+
+    /** One login, with an unexpected failure reported as that target's problem rather than thrown. */
+    private Optional<SshLogin.Problem> sshCheck(SshTarget spec) {
+        try {
+            return checks.ssh().apply(spec);
+        } catch (RuntimeException e) {
+            return Optional.of(new SshLogin.Problem(
+                    "SSH to " + spec.name() + " (" + spec.host() + ") failed: " + e.getMessage(), false));
+        }
+    }
+
+    /** Whether the primary register declares a printer port, which this port cannot probe yet. */
+    static boolean printerRowPresent(Rig rig) {
+        String port = rig.primaryRegister().printerPort();
+        return port != null && !port.isEmpty();
+    }
+
+    /** The part of step 2 this port does not have, for a rig run, named in words. */
+    static String printerMissing() {
+        return "the Receipt Printer row (a serial listing, the printer slice)";
     }
 
     /** Starts the re-probe, and registers its stop with the run. */

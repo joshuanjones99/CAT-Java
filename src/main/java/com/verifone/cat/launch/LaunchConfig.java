@@ -12,10 +12,11 @@ import com.verifone.cat.runconfig.RunScope;
  * fields the framework and the seven steps need in this port.
  *
  * <p>Carried here: the rig, the suites and plans, the upgrade mode, the fake-POS switches, the
- * simulator selection, the Run tab's {@link RunScope} and the {@code pytest} argv. Not carried yet,
- * because the steps that read them are not ported: the Downloads section, Commander Connect, the
- * Secondary FEPs, JaCoCo, the Xray switch, the probe targets, the BUYPASS host, the Commander config
- * snapshot, and the Configuration execution mode. A later slice adds each one with its step.
+ * simulator selection, the Run tab's {@link RunScope}, the Xray switch and the {@code pytest} argv. Not
+ * carried yet, because the steps that read them are not ported: the Downloads section, Commander
+ * Connect, the Secondary FEPs, JaCoCo, the probe targets beyond the Xray row, the BUYPASS host, the
+ * Commander config snapshot, and the Configuration execution mode. A later slice adds each one with
+ * its step.
  *
  * <p>A run that is not the whole plan is refused by {@link RunLauncher} (see there), because the
  * partial selection reads petroapps' case files, which this port does not read yet.
@@ -30,6 +31,8 @@ import com.verifone.cat.runconfig.RunScope;
  * @param snapshotUpdate pytest's {@code --snapshot-update}
  * @param simulators   the simulators step 3 should start, by registry name; empty means none
  * @param scope        the Run tab's scope; {@link RunScope#whole()} unless a partial run was asked for
+ * @param xrayReport  report the run to Xray: the Connections step adds the Xray row and the launcher
+ *                     starts the reporting sidecar. Never under {@code fakePos}, whatever this says
  */
 public record LaunchConfig(
         String rig,
@@ -40,7 +43,8 @@ public record LaunchConfig(
         boolean fakePinpad,
         boolean snapshotUpdate,
         List<String> simulators,
-        RunScope scope) {
+        RunScope scope,
+        boolean xrayReport) {
 
     public LaunchConfig {
         rig = rig == null ? "" : rig.strip();
@@ -54,10 +58,24 @@ public record LaunchConfig(
         }
     }
 
-    /** A whole-plan run of {@code rig} with every default: nothing upgraded, nothing started. */
+    /** A run with the Xray switch off, as every caller before the switch was carried. */
+    public LaunchConfig(
+            String rig,
+            List<String> suites,
+            List<String> testPlans,
+            UpgradeMode upgradeMode,
+            boolean fakePos,
+            boolean fakePinpad,
+            boolean snapshotUpdate,
+            List<String> simulators,
+            RunScope scope) {
+        this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope, false);
+    }
+
+    /** A whole-plan run of {@code rig} with every default: nothing upgraded, nothing started, Xray off. */
     public static LaunchConfig forRig(String rig) {
         return new LaunchConfig(rig, List.of(), List.of(), UpgradeMode.SKIP, false, false, false,
-                List.of(), RunScope.whole());
+                List.of(), RunScope.whole(), false);
     }
 
     /** True when a partial run (tags, cases, or from a case) was asked for. */
@@ -124,6 +142,7 @@ public record LaunchConfig(
         private boolean fakePinpad;
         private boolean snapshotUpdate;
         private RunScope scope = RunScope.whole();
+        private boolean xrayReport;
 
         public Builder(String rig) {
             this.rig = rig;
@@ -169,9 +188,14 @@ public record LaunchConfig(
             return this;
         }
 
+        public Builder xrayReport(boolean on) {
+            xrayReport = on;
+            return this;
+        }
+
         public LaunchConfig build() {
             return new LaunchConfig(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad,
-                    snapshotUpdate, simulators, scope);
+                    snapshotUpdate, simulators, scope, xrayReport);
         }
     }
 }

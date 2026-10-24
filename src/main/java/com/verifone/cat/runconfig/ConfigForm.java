@@ -41,6 +41,9 @@ public final class ConfigForm {
     /** The Run configuration's ticked plans. */
     public static final String KEY_PLANS = "config-plans";
 
+    /** The Config tab's "Report to Xray" switch, the Python CAT's {@code config-xray}. */
+    public static final String KEY_XRAY = "config-xray";
+
     /** Where the checkout's {@code tests/suites} node paths resolve, unless the env says otherwise. */
     public static final String ENV_REPO_ROOT = "CAT_REPO_ROOT";
     public static final Path DEFAULT_REPO_ROOT = Path.of("C:\\gitrepos\\CAT");
@@ -54,6 +57,7 @@ public final class ConfigForm {
     private List<String> plans = List.of();
     private String filter = "";
     private RunScope scope = RunScope.whole();
+    private boolean xray = true;
 
     public ConfigForm(PlanCatalogue catalogue, Path savedPath, Path repoRoot) {
         this.catalogue = catalogue;
@@ -95,6 +99,8 @@ public final class ConfigForm {
             plans = List.copyOf(kept);
         }
         scope = RunScope.fromSaved(saved);
+        // On by default for a rig run, as the Python form: a saved false turns it off.
+        xray = !(saved.get(KEY_XRAY) instanceof Boolean saidOff) || saidOff;
         filter = "";
     }
 
@@ -255,6 +261,11 @@ public final class ConfigForm {
 
     public synchronized RunScope scope() {
         return scope;
+    }
+
+    /** Whether the run reports to Xray: the saved {@code config-xray}, on when nothing is saved. */
+    public synchronized boolean xray() {
+        return xray;
     }
 
     public Path savedPath() {
