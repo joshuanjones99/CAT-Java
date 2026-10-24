@@ -1,5 +1,7 @@
 package com.verifone.cat.pats;
 
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,7 +66,7 @@ public final class ScenarioParser {
     private static final Pattern KEYWORD = Pattern.compile("^\\s*(?:Given|When|Then|And|But)\\s+(.*?)\\s*$");
     private static final Pattern TITLE = Pattern.compile("Scenario:\\s*(.*?)\\s*$");
 
-    private record Step(String name, List<Action.Field> fields) {
+    private record Step(String name, List<RunnableAction.ActionField> fields) {
     }
 
     private record Rule(Pattern pattern, Function<Matcher, Step> build) {
@@ -349,38 +351,38 @@ public final class ScenarioParser {
         return new Rule(Pattern.compile(regex + "\\s*$"), build);
     }
 
-    private static Step step(String name, List<Action.Field> fields) {
+    private static Step step(String name, List<RunnableAction.ActionField> fields) {
         return new Step(name, fields);
     }
 
-    private static List<Action.Field> withSource(List<Action.Field> fields) {
-        List<Action.Field> out = new ArrayList<>(fields);
-        out.add(new Action.Field("SOURCE", "BDD"));
+    private static List<RunnableAction.ActionField> withSource(List<RunnableAction.ActionField> fields) {
+        List<RunnableAction.ActionField> out = new ArrayList<>(fields);
+        out.add(new RunnableAction.ActionField("SOURCE", "BDD"));
         return out;
     }
 
     /** {@code name, value, name, value, ...} as fields, in the order written. */
-    private static List<Action.Field> pairs(String... kv) {
-        List<Action.Field> out = new ArrayList<>();
+    private static List<RunnableAction.ActionField> pairs(String... kv) {
+        List<RunnableAction.ActionField> out = new ArrayList<>();
         for (int i = 0; i < kv.length; i += 2) {
-            out.add(new Action.Field(kv[i], kv[i + 1]));
+            out.add(new RunnableAction.ActionField(kv[i], kv[i + 1]));
         }
         return out;
     }
 
     /** A POS step: the given fields, then {@code DEVICE=POS}. */
-    private static List<Action.Field> pos(String... kv) {
+    private static List<RunnableAction.ActionField> pos(String... kv) {
         return withDevice(kv, "POS");
     }
 
     /** A ViperPay step: the given fields, then {@code DEVICE=VIPERPAY}. */
-    private static List<Action.Field> viperpay(String... kv) {
+    private static List<RunnableAction.ActionField> viperpay(String... kv) {
         return withDevice(kv, "VIPERPAY");
     }
 
-    private static List<Action.Field> withDevice(String[] kv, String device) {
-        List<Action.Field> out = pairs(kv);
-        out.add(new Action.Field("DEVICE", device));
+    private static List<RunnableAction.ActionField> withDevice(String[] kv, String device) {
+        List<RunnableAction.ActionField> out = pairs(kv);
+        out.add(new RunnableAction.ActionField("DEVICE", device));
         return out;
     }
 
@@ -433,13 +435,13 @@ public final class ScenarioParser {
         if (rows.isEmpty() && TABLES.get(last.name()) == TableKind.MAP) {
             return;
         }
-        List<Action.Field> fields = new ArrayList<>(last.fields());
+        List<RunnableAction.ActionField> fields = new ArrayList<>(last.fields());
         fields.addAll(tableFields(last.name(), rows));
         actions.set(actions.size() - 1, new Action(last.name(), fields, last.index()));
     }
 
     /** The fields a step's data table gives its action. */
-    private static List<Action.Field> tableFields(String name, List<List<String>> rows) {
+    private static List<RunnableAction.ActionField> tableFields(String name, List<List<String>> rows) {
         TableKind kind = TABLES.get(name);
         if (kind == TableKind.LIST) {
             List<String> plus = new ArrayList<>();
@@ -467,12 +469,12 @@ public final class ScenarioParser {
             }
             return pairs("PROMPTS", dynamicPromptsField(shaped));
         }
-        List<Action.Field> fields = new ArrayList<>();
+        List<RunnableAction.ActionField> fields = new ArrayList<>();
         for (List<String> row : rows) {
             if (row.size() != 2) {
                 throw new UnknownStepException(name + ": a table row that is not | key | value |: " + row);
             }
-            fields.add(new Action.Field(row.get(0), row.get(1)));
+            fields.add(new RunnableAction.ActionField(row.get(0), row.get(1)));
         }
         return fields;
     }

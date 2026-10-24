@@ -7,8 +7,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,10 +37,11 @@ import org.slf4j.LoggerFactory;
  *       waits them out as PATS does.</li>
  * </ul>
  *
- * <p>Left out, for the handler families to add: the per-action pauses PATS takes after an init's reply,
- * the POS overlay sweep, the POS print and transaction marks, the DCR marks, the dead-end OK press at
- * the verdict, and the SLEEP handler itself. A test-only handler can drive this class; no production
- * handler is registered yet.
+ * <p>The handler families' marks come in through {@link ActionRegistry}'s hooks: a before-action hook
+ * (the per-action pauses after an init's reply, the POS overlay sweep, the print marks), a begin hook
+ * (the TLog and DCR marks), and a finish hook (the dead-end OK press). Per-case state a family needs
+ * (prepay, fuel preset, the transaction map) lives in {@link #scratch}. The SLEEP handler itself is a
+ * family's. No production handler is registered yet.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */
@@ -57,6 +60,7 @@ public final class CaseRun {
     private final RunState state;
     private final List<String> soft = new ArrayList<>();
     private final Map<Object, Runnable> simulatorRestores = new LinkedHashMap<>();
+    private final Map<ScratchKey<?>, Object> scratch = new LinkedHashMap<>();
 
     private Path baselineDir;
     private EvidenceSink evidence;
@@ -143,11 +147,17 @@ public final class CaseRun {
     public void begin() {
         afterFailure = state.beginCase();
         LOG.info("{}: {} ({} actions, {})", kase.key(), kase.title(), kase.actions().size(), kase.source());
+        for (ActionRegistry.BeginHook hook : registry.beginHooks()) {
+            hook.begin(this);
+        }
     }
 
     /**
      * One action. Dispatches it to its handler and records the step: a validation failure carries on
      * (the step is recorded failed, with its detail); any other failure is recorded and stops the case.
+     *
+     * <p>An action with no handler fails before anything is recorded for it: no step, no restore, no
+     * evidence, and the case is not marked failed, as PATS does (Python {@code CaseRun.do}).
      *
      * @throws PatsStepError when the action could not be done, or has no handler
      */
@@ -156,16 +166,15 @@ public final class CaseRun {
         int stepIndex = action.index() + 1;
         Optional<ActionHandler> handler = registry.handlerFor(action.name());
         if (handler.isEmpty()) {
-            // As PATS: no state is restored and no evidence taken, since nothing was done.
-            String message = kase.key() + " " + text + ": no handler for " + action.name();
-            record.beginStep(stepIndex, "", text);
-            record.failStep(message);
-            throw new PatsStepError(message);
+            throw new PatsStepError(kase.key() + " " + text + ": no handler for " + action.name());
         }
         record.beginStep(stepIndex, "", text);
         int verdictsBefore = record.validations().size();
         compared = null;
         try {
+            for (ActionRegistry.BeforeActionHook hook : registry.beforeActionHooks()) {
+                hook.before(this, action);
+            }
             handler.get().handle(this, action);
         } catch (ValidationFailure check) {
             String message = text + ": " + check.getMessage();
@@ -208,6 +217,9 @@ public final class CaseRun {
      * @throws ValidationsFailed when any validation failed
      */
     public void finish() {
+        for (ActionRegistry.FinishHook hook : registry.finishHooks()) {
+            hook.finish(this);
+        }
         if (soft.isEmpty()) {
             return;
         }
@@ -266,6 +278,31 @@ public final class CaseRun {
     /** The validations that failed so far, as {@link #finish()} will list them. */
     public List<String> softFailures() {
         return List.copyOf(soft);
+    }
+
+    /**
+     * The value a case's earlier action left under {@code key}, or empty. The state is per case: a new
+     * {@link CaseRun} starts empty, and nothing carries from one case to the next (the run's
+     * {@link RunState} is the only state shared between cases).
+     */
+    public <T> Optional<T> scratch(ScratchKey<T> key) {
+        return Optional.ofNullable(key.type().cast(scratch.get(key)));
+    }
+
+    /** Leaves {@code value} under {@code key} for a later action of this case. */
+    public <T> void setScratch(ScratchKey<T> key, T value) {
+        scratch.put(key, Objects.requireNonNull(value, "value"));
+    }
+
+    /** Takes the value under {@code key}, creating it with {@code initial} the first time. */
+    public <T> T scratchOrCreate(ScratchKey<T> key, Supplier<? extends T> initial) {
+        Object value = scratch.computeIfAbsent(key, ignored -> Objects.requireNonNull(initial.get(), "initial"));
+        return key.type().cast(value);
+    }
+
+    /** Forgets the value under {@code key}, as the Python sets a flag back to its default. */
+    public void clearScratch(ScratchKey<?> key) {
+        scratch.remove(key);
     }
 
     /** Sets the texts the running action compared, for its verdict in the Validations view. */

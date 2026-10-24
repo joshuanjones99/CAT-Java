@@ -1,5 +1,9 @@
 package com.verifone.cat.pats.feature;
 
+import com.verifone.cat.pats.Action;
+import com.verifone.cat.pats.runner.Fields;
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import com.verifone.cat.validate.PyRepr;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -157,8 +161,8 @@ public final class PatsFeature {
             if ("BDD".equals(action.raw("SOURCE"))) {
                 out.add(action);
             } else {
-                List<Action.Field> fields = new ArrayList<>(action.fields());
-                fields.add(new Action.Field("SOURCE", "BDD"));
+                List<RunnableAction.ActionField> fields = new ArrayList<>(action.fields());
+                fields.add(new RunnableAction.ActionField("SOURCE", "BDD"));
                 out.add(new Action(action.name(), fields, action.index()));
             }
         }

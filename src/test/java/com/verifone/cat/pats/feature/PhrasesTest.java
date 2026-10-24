@@ -1,5 +1,9 @@
 package com.verifone.cat.pats.feature;
 
+import com.verifone.cat.pats.Action;
+import com.verifone.cat.pats.runner.Fields;
+import com.verifone.cat.pats.runner.RunnableAction;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,8 +24,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 class PhrasesTest {
 
     private static final Action TOUCH = new Action("TOUCH_EVENT", List.of(
-            new Action.Field("WEB ELEMENT", Locators.ITEM_PANEL_N.at(145397).value()),
-            new Action.Field("TYPE[ID/XPATH]", "ID")), 0);
+            new RunnableAction.ActionField("WEB ELEMENT", Locators.ITEM_PANEL_N.at(145397).value()),
+            new RunnableAction.ActionField("TYPE[ID/XPATH]", "ID")), 0);
 
     static List<Phrase> phrases() {
         return Phrases.ALL;
@@ -41,7 +45,7 @@ class PhrasesTest {
     @Test
     void anActionWithNoPhraseIsRefusedNotWritten() {
         Action unknown = new Action("VALIDATION_BY_TEXT", List.of(
-                new Action.Field("WEB ELEMENT", "no-such-catalogue-literal")), 0);
+                new RunnableAction.ActionField("WEB ELEMENT", "no-such-catalogue-literal")), 0);
         assertThrows(UnreadableActionException.class, () -> PatsFeature.render(unknown));
     }
 
@@ -55,9 +59,9 @@ class PhrasesTest {
     @Test
     void anActionNoPhraseNamesFallsToTheCatchAllAndReadsBack() {
         Action report = new Action("NETWORK_REPORT", List.of(
-                new Action.Field("MAIN_MENU_NO", "2"),
-                new Action.Field("NETWORK_MENU_NO", "4"),
-                new Action.Field("REPORT_NO", "1")), 0);
+                new RunnableAction.ActionField("MAIN_MENU_NO", "2"),
+                new RunnableAction.ActionField("NETWORK_MENU_NO", "4"),
+                new RunnableAction.ActionField("REPORT_NO", "1")), 0);
         String line = PatsFeature.render(report);
         assertTrue(line.startsWith("PATS runs NETWORK_REPORT with \""), line);
         assertEquals(Fields.canonical(report), Fields.canonical(PatsFeature.buildLine(line)));
@@ -66,7 +70,7 @@ class PhrasesTest {
     @Test
     void theCatchAllRefusesAnElementItWouldWriteRaw() {
         Action raw = new Action("TOUCH_EVENT", List.of(
-                new Action.Field("WEB ELEMENT", Locators.ITEM_PANEL_N.at(145397).value())), 0);
+                new RunnableAction.ActionField("WEB ELEMENT", Locators.ITEM_PANEL_N.at(145397).value())), 0);
         assertThrows(UnreadableActionException.class, () -> Phrase.pack(raw));
     }
 
@@ -101,7 +105,7 @@ class PhrasesTest {
                 "promptElementLocatorType", "ID",
                 "touchActionLocatorType", "ID",
                 "touchActionWebElements", String.join(", ", keys))));
-        Action action = new Action("VALIDATE_DYNAMIC_PROMPTS", List.of(new Action.Field("PROMPTS", field)), 0);
+        Action action = new Action("VALIDATE_DYNAMIC_PROMPTS", List.of(new RunnableAction.ActionField("PROMPTS", field)), 0);
         String line = PatsFeature.render(action);
         assertTrue(line.contains("VFI_KEYPAD_WIDGET_ALPHABET_UPPER_CASE_KEYPAD_B"), line);
         for (String key : keys) {
@@ -149,24 +153,24 @@ class PhrasesTest {
     @Test
     void canonicalIgnoresWhatNoHandlerReadsAndKeepsAbsentApartFromEmpty() {
         Action touch = new Action("TOUCH_EVENT", List.of(
-                new Action.Field("WEB ELEMENT", "X"),
-                new Action.Field("PLU", "8002"),
-                new Action.Field("DEVICE", "POS")), 0);
-        Action bare = new Action("TOUCH_EVENT", List.of(new Action.Field("WEB ELEMENT", "X")), 0);
+                new RunnableAction.ActionField("WEB ELEMENT", "X"),
+                new RunnableAction.ActionField("PLU", "8002"),
+                new RunnableAction.ActionField("DEVICE", "POS")), 0);
+        Action bare = new Action("TOUCH_EVENT", List.of(new RunnableAction.ActionField("WEB ELEMENT", "X")), 0);
         assertEquals(Fields.canonical(bare), Fields.canonical(touch));
 
         assertFalse(Fields.canonical(new Action("PRESS_ENTER", List.of(), 0))
-                .equals(Fields.canonical(new Action("PRESS_ENTER", List.of(new Action.Field("DATA", "")), 0))));
+                .equals(Fields.canonical(new Action("PRESS_ENTER", List.of(new RunnableAction.ActionField("DATA", "")), 0))));
 
-        Action dcr = new Action("VALIDATE_TRANSACTION", List.of(new Action.Field("DEVICEID", "DCR3")), 0);
-        Action pos = new Action("VALIDATE_TRANSACTION", List.of(new Action.Field("DEVICEID", "topaz101")), 0);
+        Action dcr = new Action("VALIDATE_TRANSACTION", List.of(new RunnableAction.ActionField("DEVICEID", "DCR3")), 0);
+        Action pos = new Action("VALIDATE_TRANSACTION", List.of(new RunnableAction.ActionField("DEVICEID", "topaz101")), 0);
         assertFalse(Fields.canonical(dcr).equals(Fields.canonical(pos)));
     }
 
     @Test
     void driftNamesTheFirstActionThatDiffers() {
-        Action same = new Action("SLEEP", List.of(new Action.Field("SLEEP", "2000")), 0);
-        Action slower = new Action("SLEEP", List.of(new Action.Field("SLEEP", "3000")), 1);
+        Action same = new Action("SLEEP", List.of(new RunnableAction.ActionField("SLEEP", "2000")), 0);
+        Action slower = new Action("SLEEP", List.of(new RunnableAction.ActionField("SLEEP", "3000")), 1);
         assertEquals(Optional.empty(), PatsFeature.drift("K", List.of(same), List.of(same)));
         String message = PatsFeature.drift("K", List.of(same, same), List.of(same, slower)).orElseThrow();
         assertTrue(message.contains("differs from this .feature at action 2"), message);
@@ -181,7 +185,7 @@ class PhrasesTest {
 
     @Test
     void aSleepIsWrittenAsPatsPauses() {
-        Action sleep = new Action("SLEEP", List.of(new Action.Field("SLEEP", "2000")), 0);
+        Action sleep = new Action("SLEEP", List.of(new RunnableAction.ActionField("SLEEP", "2000")), 0);
         assertEquals("PATS pauses 2000 ms", PatsFeature.render(sleep));
         assertFalse(PatsFeature.isPatsLine("the cashier totals the sale"));
     }
