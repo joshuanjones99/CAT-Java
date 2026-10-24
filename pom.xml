@@ -23,6 +23,7 @@
     <junit.version>5.11.4</junit.version>
     <playwright.version>1.49.0</playwright.version>
     <jsch.version>0.2.20</jsch.version>
+    <jserialcomm.version>2.11.0</jserialcomm.version>
   </properties>
 
   <dependencies>
@@ -59,6 +60,13 @@
       <groupId>com.github.mwiede</groupId>
       <artifactId>jsch</artifactId>
       <version>${jsch.version}</version>
+    </dependency>
+
+    <dependency>
+      <!-- The Topaz receipt printer read off a PC serial port, as the Python CAT's pyserial does. -->
+      <groupId>com.fazecast</groupId>
+      <artifactId>jSerialComm</artifactId>
+      <version>${jserialcomm.version}</version>
     </dependency>
 
     <dependency>
