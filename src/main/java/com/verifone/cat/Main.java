@@ -9,6 +9,7 @@ import java.util.List;
 import com.verifone.cat.launch.LaunchCommand;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.preflight.PreflightCommand;
+import com.verifone.cat.provision.ProvisionCommand;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
 import com.verifone.cat.web.WebApp;
@@ -17,7 +18,7 @@ import com.verifone.cat.xray.XraySidecar;
 /**
  * {@code java -jar cat-java.jar --rig lab [--register topaz101] [--port 8090]} starts the web UI;
  * {@code cat-java web --rig lab ...} is the same. {@code cat-java preflight}, {@code cat-java launch}
- * and {@code cat-java xray} run their command instead and exit with its code.
+ * {@code cat-java provision} and {@code cat-java xray} run their command instead and exit with its code.
  *
  * <p>Reads the rig, points a {@link PosShimClient} at the register's shim, and serves
  * the web UI on localhost. The web UI is told the rig's name, as typed, so its Start run launches on it.
@@ -31,11 +32,13 @@ public final class Main {
             usage: cat-java [web] --rig <name|file.yaml> [--register <id>] [--port <n>] [--shim-port <n>]
                    cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]
                    cat-java launch --rig <name|file.yaml> [--suite <node>]... [--plan <key>]...
+                   cat-java provision --rig <name> [--force] [--no-stage] [--payload-root <dir>]
                    cat-java xray --run <run-id> [--results-root <dir>] [--once] [--dry-run]
 
               web          the default: the web UI (the word is optional)
               preflight    check the rig and repair what can be repaired; exits 0 when testable
               launch       one run, headless, through the seven steps; exits 0 only when every step completed
+              provision    push, verify and stamp the pos-shim payload on every target; exits 0 when provisioned
               xray         the Xray reporting sidecar for a run; exits 0 whatever Xray did
               --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
               --register   which register's shim to use; default the rig's first
@@ -46,7 +49,7 @@ public final class Main {
     private Main() {}
 
     /**
-     * {@code cat-java preflight ...}, {@code cat-java launch ...} and {@code cat-java xray ...} run their
+     * {@code cat-java preflight ...}, {@code launch ...}, {@code provision ...} and {@code xray ...} run their
      * command and exit with its code. {@code cat-java web ...}, or the same flags with no word, starts the
      * web UI, which keeps running after {@code main} returns.
      */
@@ -57,6 +60,10 @@ public final class Main {
         }
         if (argv.length > 0 && "launch".equals(argv[0])) {
             System.exit(new LaunchCommand().run(Arrays.copyOfRange(argv, 1, argv.length)));
+            return;
+        }
+        if (argv.length > 0 && "provision".equals(argv[0])) {
+            System.exit(new ProvisionCommand().run(Arrays.copyOfRange(argv, 1, argv.length)));
             return;
         }
         if (argv.length > 0 && "xray".equals(argv[0])) {

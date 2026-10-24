@@ -1,6 +1,7 @@
 package com.verifone.cat.provision;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -10,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.verifone.cat.posshim.ShimReplies.Health;
 import com.verifone.cat.provision.transport.CommandResult;
 
 /**
@@ -122,7 +125,21 @@ class RegisterBringupTest {
         assertTrue(result.detail().contains("build " + FakeShim.NEW.substring(0, 12)), result.detail());
         assertTrue(result.detail().contains("drivable_but_silent ['" + FakeShim.CLIENT + "']"), result.detail());
         assertTrue(result.detail().contains("state_present False"), result.detail());
+        assertTrue(result.detail().contains("(" + FakeShim.SILENT_WARNING + ")"), result.detail());
         assertEquals(List.of(FakeShim.SHIM_RESTART, RegisterBringup.POS_APP_RESTART), ran());
+    }
+
+    @Test
+    void healthSaidAppendsTheShimsWarningOnlyWhenItSendsOne() {
+        assertFalse(RegisterBringup.healthSaid(health(null)).contains("("), RegisterBringup.healthSaid(health(null)));
+        assertFalse(RegisterBringup.healthSaid(health("")).contains("("), RegisterBringup.healthSaid(health("")));
+        assertTrue(RegisterBringup.healthSaid(health("the shim's own words")).endsWith(" (the shim's own words)"),
+                RegisterBringup.healthSaid(health("the shim's own words")));
+    }
+
+    private static Health health(String warning) {
+        return new Health(true, FakeShim.NEW, 3, List.of(FakeShim.CLIENT), List.of(), List.of(), false, Map.of(),
+                List.of(FakeShim.CLIENT), warning);
     }
 
     @Test

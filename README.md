@@ -59,6 +59,7 @@ run.cmd web --rig lab --register topaz101 --port 8091   :: the same, with the wo
 run.cmd preflight --rig lab               :: the preflight checks; exit 0 when the rig is testable
 run.cmd preflight --rig lab --register topaz101 --no-repair
 run.cmd launch --rig lab --plan PETROCORE-135127   :: one run, headless, through the seven steps
+run.cmd provision --rig lab               :: push, verify and stamp the pos-shim payload; exit 0 when provisioned
 run.cmd xray --run <run-id> [--once] [--dry-run]    :: the Xray reporting sidecar for one run
 ```
 

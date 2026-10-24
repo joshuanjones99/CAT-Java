@@ -97,11 +97,18 @@ public final class StepEmitter {
         return true;
     }
 
-    /** The step failed. Always returns {@code false}: the run does not go on past a failed step. */
+    /**
+     * The step failed. Always returns {@code false}: the run does not go on past a failed step. A reason
+     * of several lines (one operator line per simulator) is logged one line each, so run.log reads the same.
+     */
     public boolean fail(String reason) {
         state = StepResult.FAILED;
         detail = reason;
-        log("FAIL  " + step + " — " + reason, "ERROR");
+        String[] lines = reason.split("\n");
+        log("FAIL  " + step + " — " + lines[0], "ERROR");
+        for (int i = 1; i < lines.length; i++) {
+            log("      " + lines[i], "ERROR");
+        }
         return false;
     }
 

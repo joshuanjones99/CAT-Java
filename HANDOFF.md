@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 1,022 tests, 0 failures, end of wave 5, 2026-10-24 |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 1,327 tests, 0 failures, mid wave 7, 2026-10-24 |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -47,6 +47,7 @@ reaches parity on a rig; nothing here replaces it yet.
 | Canonical TLog for both fixture TLogs | 2026-10-24: identical to the Python's `tlog.canonicalise` output (LF) |
 | `cat-java preflight --rig lab --no-repair` | live 2026-10-24, same verdicts as the class-level run |
 | POS locator catalogue equals the Python's | 2026-10-24: 852 constants on both sides; LocatorsParityTest compares every name, field, rendered selector and registry against the live Python import (runs whenever C:\gitrepos\CAT exists) |
+| CGILink routing without the trailing `?` | 2026-10-24: the lab Commander answers `POST /cgi-bin/CGILink` and `.../CGILink?` identically (unauthenticated empty request, 400-byte InternalError fault both ways). Java's HttpClient cannot send the `?` the Python sends |
 | Config tab over the real plan cache | live 2026-10-24 (GET only; `~/.cat` redirected to scratch) |
 | Key press from CAT-Java reaching the POS | **not yet exercised** |
 
@@ -59,7 +60,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 |---|---|---|
 | `petrotest/devices/pos_shim.py` (read + keys) | `posshim` | ported (PoC), read path live-checked |
 | `petrotest/rig/` (models, loader, duration, lease) | `rig` | ported (ppk.py skipped). Strict like pydantic `extra=forbid`; Jackson reports only the first error; lease tested in one JVM only |
-| `petrotest/devices/config_shim.py` (Commander CGILink) | `devices.commander` | in progress on Opus 5.5 (rig owner, 2026-10-24) after Haiku 5.5's safeguard stopped two agents |
+| `petrotest/devices/config_shim.py` (Commander CGILink) | `devices.commander` | ported on Opus 5.5 (Haiku's safeguard stopped two attempts): transport, OTP/re-login/15-attempt retry, reads, writes, inits, Connect, close-day, upgrade commands. `devices/commander.py` (SSH OTP reader factory): todo |
 | `cat/connections.py`, `cat/readiness.py` | `connections` | ported; not wired to the rig model yet (Endpoints takes plain hosts). Xray/printer/VATS rows left as TODOs |
 | `cat/plans.py`, `petrotest/selection.py`, `cat/requirements.py`, `cat/seed/` | `plans` | ported offline (seed: 68 plans; 135127 = 358 cases, checked against the Python seed). Confluence/Jira fetch and page parsers left for `atlassian`; selection's PATS-XML reader behind a `CaseActions` interface |
 | `petrotest/report/` + `cat/report/events.py` writer | `report` | ported, including `html.py` (summary.html); case_record's pytest glue is the runner's |
@@ -71,14 +72,17 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `petrotest/preflight/` | `preflight` | ported: framework, runner, POS checks via pos-shim screen(). pumps_idle, eps_reachable, config_loaded, build_matches and every repair await forecourt/SSH/Commander/POS-control clients |
 | `petrotest/recovery/` | `recovery` | ported: CAPTURE (no files yet), PREFLIGHT, SOFT and VOID (pos-shim halves; CDP halves todo). RESET, REPROVISION raise DeviceUnavailable |
 | `petrotest/provision/transport.py` | `provision.transport` | ported over JSch: AutoAddPolicy-equivalent host keys (as the Python), publickey only, SELinux step. Never run against a box |
-| `petrotest/provision/` (rest) | `provision` | todo (wave 6) |
+| `petrotest/provision/` (rest) | `provision` | ported: artifacts, manifest (digests equal the Python's), runner, register bring-up, checklist, render, offline stage; `ProvisionCommand`. browser_override, libcups stub, Chrome tarball, shim jar build stay with the Python |
 | `petrotest/pos/locators.py`, `locator_types.py` | `pos` | ported: generated `Locators.java` (`pos.gen.GenLocators`, staleness test), parity-tested against the Python |
 | `petrotest/pos/receipt.py`, `pinpad_double.py` | `pos.receipt`, `pos.pinpad` | ported (DOM driver behind an interface; `LOOPBACK/` prefix kept) |
-| `petrotest/pos/driver.py`, `pages/`, `fake.py`, `plugin.py` | `pos` | todo (wave 6) |
+| `petrotest/pos/driver.py`, `pages/base.py` | `pos.driver`, `pos.pages` | ported (CDP, frames, bounded waits, capture); browser tests run on Playwright's Chromium 1148 |
+| `petrotest/pos/fake.py` | `pos.fake` | ported (loopback, IDs from Locators, pinpad double wired) |
+| `petrotest/pos/pages/*` (page objects) | `pos.pages` | wave 7 |
+| `petrotest/pos/plugin.py` | — | pytest glue; becomes the runner's |
 | `petrotest/pats/` (PATS -TestCase.xml runner) | `pats` | todo |
 | `petrotest/validate/` (receipt/TLog snapshots) | `validate` | ported: receipt (normalisers, snapshots, rule) and TLog/packets. Report hooks (record_receipt etc.) belong to the test runner, not ported |
 | `petrotest/build/` | `build` | ported: local discovery, Artifactory listing, verified download. Credentials from ARTIFACTORY_USER/PASSWORD only (DPAPI store todo). build_contents, viper merge, installed.py: todo |
-| `petrotest/upgrade/` (PSI install) | `upgrade` | todo — needs SSH |
+| `petrotest/upgrade/` (PSI install) | `upgrade` | new_install ported; classic.py AU path and psi_init (needs Commander + POS driver): todo |
 | `cat/launch/` (the seven steps) | `launch` | steps 2, 3, 6 wired (Connections, Start Simulators, Generate Report); 1 partial; 4, 5, 7 unavailable. Framework ported (sequence, events, run.log, pause/stop, run lock, run.ended, `LaunchCommand`). Every step needing an unported client reports unavailable, so no run can complete yet. Step 6 can now use `report.html` |
 | `cat/sims/` (simulator supervisor, Access Bridge) | `sims` | registry (7 rows) + supervisor ported; `stop()` kills only its own handles; `stopRunning()` (the red Stop) matches by port/exact token, taskkill by PID. Click rows report NEEDS_ATTENTION (Access Bridge needs JNA). Never run against the real simulators yet |
 | `cat/atlassian.py` + plans page parsers | `atlassian` | ported (read-only; credentials from `%USERPROFILE%\jira_api_token.properties` as the Python; redirects refused so Basic auth never follows one) |
@@ -111,7 +115,9 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 
 9. **Decided (rig owner, 2026-10-24):** a simulator that needs attention FAILS Start
    Simulators (stricter than the Python, which warns), and the operator gets a concise,
-   direct warning naming the simulator and what to do. Wording pass queued.
+   direct warning naming the simulator and what to do. Done: one line per simulator,
+   worded in one place (SimStatus), shown in run.log/events, Run → Overview and Launch
+   Simulators.
 10. `GET /simulators` probes localhost ports 41107 and 9001 (connect only) even in tests.
 
 11. Subcommands: `cat-java [web] --rig R`, `preflight`, `launch`, `xray`.
@@ -140,3 +146,5 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 - **2026-10-24** Wave 5 merged: locator catalogue (852 = 852), SSH transport, POS receipt +
   pinpad double, Main wiring (1,022 tests). One agent committed under an invented identity;
   the orchestrator reset it to the repo's author before merging.
+- **2026-10-24** Wave 6 merged (POS driver, fake POS, upgrade, provision, SSH check + Xray
+  on runs) and wave 7 in part (Commander client on Opus, simulator warning): 1,327 tests.

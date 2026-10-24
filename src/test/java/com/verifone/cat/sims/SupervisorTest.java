@@ -317,8 +317,8 @@ class SupervisorTest {
         SimProcess proc = supervisor(new FakeProcessOps())
                 .startAll(List.of(loysim), ctx(), rec, BUDGET, null).get(0);
         assertEquals(SimStatus.State.NEEDS_ATTENTION, proc.status().state());
-        assertTrue(proc.status().detail().contains("Access Bridge not ported"), proc.status().detail());
-        assertTrue(proc.status().detail().contains("Start Host"), proc.status().detail());
+        assertEquals("PCATS01 Loyalty needs attention: press \"Start Host\" in its window (Access Bridge not ported).",
+                proc.status().detail());
         assertFalse(proc.spawned(), "a click row is never started half-way");
     }
 
@@ -353,7 +353,9 @@ class SupervisorTest {
         supervisor(ops).startAll(List.of(loysim), ctx(), rec, BUDGET, null);
         SimStatus probe = rec.last(Supervisor.PROBE_ROW);
         assertEquals(SimStatus.State.NEEDS_ATTENTION, probe.state());
-        assertTrue(probe.detail().contains("could not list running processes: Access is denied"), probe.detail());
+        assertEquals("could not list running processes: Access is denied; a simulator that is already up cannot be "
+                + "recognised and may be started a second time. Fix the process listing, then start again.",
+                probe.detail());
     }
 
     @Test

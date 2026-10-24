@@ -117,8 +117,25 @@ class StartSimulatorsStepTest {
         assertFalse(new StartSimulatorsStep().run(ctx, step), "a needs-attention row must never pass");
 
         assertEquals(StepResult.FAILED, step.state());
-        assertTrue(step.detail().startsWith("needs attention, so not ready: MPPA Server Sim"), step.detail());
+        assertEquals("MPPA Server Sim needs attention: press \"Load Data\", then \"Load Servers\" in its window "
+                + "(Access Bridge not ported).", step.detail());
         assertTrue(ctx.simulators().isEmpty(), "nothing was spawned, so nothing is owned");
+    }
+
+    @Test
+    void eachNeedsAttentionRowIsOneOperatorLineInTheStepFailure() throws IOException {
+        LaunchConfig config = new LaunchConfig.Builder("").fakePos(true)
+                .simulator("PCATS01 Loyalty").simulator("MPPA Server Sim").build();
+        RunContext ctx = context(config, "eeeeeeeeeeee");
+        ctx.supervisor(new Supervisor(new QuietOps()));
+        StepEmitter step = new StepEmitter(ctx, LaunchStepNames.SIMULATORS);
+
+        assertFalse(new StartSimulatorsStep().run(ctx, step));
+
+        assertEquals(StepResult.FAILED, step.state());
+        assertEquals("PCATS01 Loyalty needs attention: press \"Start Host\" in its window (Access Bridge not ported)."
+                + "\nMPPA Server Sim needs attention: press \"Load Data\", then \"Load Servers\" in its window "
+                + "(Access Bridge not ported).", step.detail());
     }
 
     @Test

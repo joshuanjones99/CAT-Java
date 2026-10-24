@@ -33,6 +33,8 @@ import com.verifone.cat.runconfig.RunScope;
  * @param scope        the Run tab's scope; {@link RunScope#whole()} unless a partial run was asked for
  * @param xrayReport  report the run to Xray: the Connections step adds the Xray row and the launcher
  *                     starts the reporting sidecar. Never under {@code fakePos}, whatever this says
+ * @param coverage    the Config tab's JaCoCo switch, off by default. Read by the coverage package, whose
+ *                     wiring into the launch steps is not done yet. Never under {@code fakePos}
  */
 public record LaunchConfig(
         String rig,
@@ -44,7 +46,8 @@ public record LaunchConfig(
         boolean snapshotUpdate,
         List<String> simulators,
         RunScope scope,
-        boolean xrayReport) {
+        boolean xrayReport,
+        boolean coverage) {
 
     public LaunchConfig {
         rig = rig == null ? "" : rig.strip();
@@ -58,7 +61,23 @@ public record LaunchConfig(
         }
     }
 
-    /** A run with the Xray switch off, as every caller before the switch was carried. */
+    /** A run with the JaCoCo switch off, as every caller before that switch was carried. */
+    public LaunchConfig(
+            String rig,
+            List<String> suites,
+            List<String> testPlans,
+            UpgradeMode upgradeMode,
+            boolean fakePos,
+            boolean fakePinpad,
+            boolean snapshotUpdate,
+            List<String> simulators,
+            RunScope scope,
+            boolean xrayReport) {
+        this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope,
+                xrayReport, false);
+    }
+
+    /** A run with the Xray and JaCoCo switches off, as every caller before the Xray switch was carried. */
     public LaunchConfig(
             String rig,
             List<String> suites,
@@ -69,13 +88,14 @@ public record LaunchConfig(
             boolean snapshotUpdate,
             List<String> simulators,
             RunScope scope) {
-        this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope, false);
+        this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope, false,
+                false);
     }
 
-    /** A whole-plan run of {@code rig} with every default: nothing upgraded, nothing started, Xray off. */
+    /** A whole-plan run of {@code rig} with every default: nothing upgraded, nothing started, Xray and JaCoCo off. */
     public static LaunchConfig forRig(String rig) {
         return new LaunchConfig(rig, List.of(), List.of(), UpgradeMode.SKIP, false, false, false,
-                List.of(), RunScope.whole(), false);
+                List.of(), RunScope.whole(), false, false);
     }
 
     /** True when a partial run (tags, cases, or from a case) was asked for. */
@@ -143,6 +163,7 @@ public record LaunchConfig(
         private boolean snapshotUpdate;
         private RunScope scope = RunScope.whole();
         private boolean xrayReport;
+        private boolean coverage;
 
         public Builder(String rig) {
             this.rig = rig;
@@ -193,9 +214,14 @@ public record LaunchConfig(
             return this;
         }
 
+        public Builder coverage(boolean on) {
+            coverage = on;
+            return this;
+        }
+
         public LaunchConfig build() {
             return new LaunchConfig(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad,
-                    snapshotUpdate, simulators, scope, xrayReport);
+                    snapshotUpdate, simulators, scope, xrayReport, coverage);
         }
     }
 }
