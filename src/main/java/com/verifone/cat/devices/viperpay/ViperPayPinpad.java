@@ -150,6 +150,16 @@ public final class ViperPayPinpad implements PinpadDevice, AutoCloseable {
         return server != null ? server.getLocalPort() : requestedListenPort;
     }
 
+    /** The host the simulator runs on, as this pinpad was given it. */
+    public String simulatorHost() {
+        return simulatorHost;
+    }
+
+    /** The simulator's port that key events go to (9001 on a rig). */
+    public int simulatorPort() {
+        return simulatorPort;
+    }
+
     @Override
     public synchronized void close() {
         closed = true;

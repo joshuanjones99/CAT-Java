@@ -4,8 +4,11 @@ import java.net.URI;
 import java.nio.file.Path;
 
 import com.verifone.cat.devices.commander.PdkShim;
+import com.verifone.cat.pats.runner.handlers.devices.DcrDevice;
+import com.verifone.cat.pats.runner.handlers.devices.FuelPumps;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.pinpad.PinpadDevice;
+import com.verifone.cat.pos.receipt.ReceiptPrinter;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.recovery.RecoveryTarget;
 import com.verifone.cat.rig.LoadedRig;
@@ -22,11 +25,15 @@ import com.verifone.cat.rig.LoadedRig;
  *   <li>{@code pos}: a connected POS driver. Null until the connector supplies one.</li>
  *   <li>{@code posShim}: the pos-shim HTTP client (register:8801). Null until the connector supplies one.</li>
  *   <li>{@code commander}: the Commander PDK shim. Null until the connector supplies one.</li>
- *   <li>{@code pinpad}: the pinpad double, when fake-pinpad or fake-POS is selected; otherwise null.</li>
+ *   <li>{@code pinpad}: the pinpad double, when fake-pinpad or fake-POS is selected; otherwise null until the connector
+ *       supplies the rig's ViperPay pinpad.</li>
  *   <li>{@code fakePosUrl}: the loopback URL of the fake POS this run started, on a fake-POS run; else null.
  *       The connector can open a driver on it.</li>
  *   <li>{@code recovery}: the rig surface the recovery ladder walks, or null, which leaves failed cases
  *       unrecovered (the ladder is walked only on a rig, as the Python's is).</li>
+ *   <li>{@code printer}: the register's receipt printer (its {@code printer_port}), or null.</li>
+ *   <li>{@code dcr}: Petro Simulator Suite's DCR 1, or null.</li>
+ *   <li>{@code fuelPumps}: Petro Simulator Suite's pumps, or null.</li>
  * </ul>
  *
  * @param config     the run's configuration
@@ -40,6 +47,9 @@ import com.verifone.cat.rig.LoadedRig;
  * @param pinpad     the pinpad, or null
  * @param fakePosUrl the fake POS's URL, or null
  * @param recovery   the recovery target, or null
+ * @param printer    the receipt printer, or null
+ * @param dcr        the DCR, or null
+ * @param fuelPumps  the forecourt's pumps, or null
  */
 public record RunServices(
         LaunchConfig config,
@@ -52,7 +62,27 @@ public record RunServices(
         PdkShim commander,
         PinpadDevice pinpad,
         URI fakePosUrl,
-        RecoveryTarget recovery) {
+        RecoveryTarget recovery,
+        ReceiptPrinter printer,
+        DcrDevice dcr,
+        FuelPumps fuelPumps) {
+
+    /** The services before {@code printer}, {@code dcr} and {@code fuelPumps} were added: those three are unwired. */
+    public RunServices(
+            LaunchConfig config,
+            LaunchPaths paths,
+            String runId,
+            Path runFolder,
+            LoadedRig rig,
+            PosDriver pos,
+            PosShimClient posShim,
+            PdkShim commander,
+            PinpadDevice pinpad,
+            URI fakePosUrl,
+            RecoveryTarget recovery) {
+        this(config, paths, runId, runFolder, rig, pos, posShim, commander, pinpad, fakePosUrl, recovery,
+                null, null, null);
+    }
 
     /** Adds the devices a run connects. The Tests Run step calls it once, after the base is built. */
     @FunctionalInterface
@@ -62,8 +92,9 @@ public record RunServices(
         RunServices connect(RunServices base);
 
         /**
-         * Releases what {@link #connect} opened (a browser session, its driver). The Tests Run step calls it once when
-         * the step ends, whether or not the cases ran. Nothing to release by default.
+         * Releases what {@link #connect} opened (a browser session, its driver, the device listeners and the printer
+         * port). The Tests Run step calls it once when the step ends, whether or not the cases ran. Nothing to release
+         * by default.
          */
         default void close() {
         }

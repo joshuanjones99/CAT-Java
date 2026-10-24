@@ -48,6 +48,9 @@ import com.verifone.cat.pats.runner.handlers.sale.TouchPacer;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationContext;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationFamily;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
+import com.verifone.cat.pos.receipt.Receipt;
+import com.verifone.cat.pos.receipt.ReceiptParser;
+import com.verifone.cat.pos.receipt.Source;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -114,12 +117,12 @@ public final class StandardHandlers {
         PosUiContext posUi = new PosUiContext(f.pos().driver(), f.posShim(), widgetText)
                 .withTimings(f.posUiTimings())
                 // The Python's print count is the serial printer's; with none wired it reads -1, as its does.
-                .withPrintCount(run -> -1)
+                .withPrintCount(run -> f.printer() == null ? -1 : f.printer().receiptCount())
                 .withInits(inits)
                 .withTouchPacer(pacer);
 
         // Sale: the screen over the page objects, the pumps, and the petroapps scanner data.
-        SaleContext sale = new SaleContext(SaleScreen.of(f.pos()), SaleRmi.UNAVAILABLE, pumps,
+        SaleContext sale = new SaleContext(SaleScreen.of(f.pos()), f.saleRmi(), pumps,
                 scannerData(f.petroapps()), LastTlog.UNAVAILABLE, DevicePauses.REAL, pacer, f.saleTiming());
 
         DcrDevice dcr = f.dcr() == null ? DcrDevice.UNAVAILABLE : f.dcr();
@@ -140,7 +143,7 @@ public final class StandardHandlers {
                 RegisterPos.UNBOUND, cloudSender, closeRecovery, () -> Optional.ofNullable(f.buypassV2()),
                 folders.configurationFiles(), inits, Waits.production());
 
-        ValidationContext validation = new ValidationContext(f.receipts(), null,
+        ValidationContext validation = new ValidationContext(f.receipts(), dcrReceipts(f.dcr()),
                 FixtureRequirements::printsAtDcr, unavailablePosTransactions(),
                 CommanderSeams.reads(f.commander()), unavailablePackets(), folders.references(),
                 f.environment()::get);
@@ -177,7 +180,7 @@ public final class StandardHandlers {
     public static FixtureSource fixtureSource(HandlerFixtures f) {
         PinpadView pinpad = new PinpadView() {
         };
-        FuelPumpsView pumps = unavailablePumps();
+        FuelPumpsView pumps = f.fuelPumps() == null ? unavailablePumps() : pumpsView(f.fuelPumps());
         DcrDevice dcr = f.dcr() == null ? DcrDevice.UNAVAILABLE : f.dcr();
         return name -> switch (name) {
             case POS -> f.pos();
@@ -205,6 +208,48 @@ public final class StandardHandlers {
             } catch (IOException e) {
                 throw new PatsStepError("scannerdata/" + fileName + " is not in the petroapps checkout: "
                         + e.getMessage(), e);
+            }
+        };
+    }
+
+    /** The POS UI family's view of the run's pumps: the fuel panel's tile press waits on the same client the sale uses. */
+    private static FuelPumpsView pumpsView(FuelPumps pumps) {
+        return new FuelPumpsView() {
+            @Override
+            public boolean waitForPostedSale(int pump, Duration timeout) {
+                return pumps.waitForPostedSale(pump, timeout);
+            }
+
+            @Override
+            public boolean lifted(int pump) {
+                return pumps.lifted(pump);
+            }
+
+            @Override
+            public String state(int pump) {
+                return pumps.state(pump).orElse("");
+            }
+        };
+    }
+
+    /**
+     * The DCR's receipts for the validations, or null when the run has no DCR (the validation then reads the POS's own
+     * receipt, as it did before a DCR was wired). The DCR's text is parsed as a printed receipt.
+     */
+    private static ValidationContext.DcrReceipts dcrReceipts(DcrDevice dcr) {
+        if (dcr == null) {
+            return null;
+        }
+        return new ValidationContext.DcrReceipts() {
+            @Override
+            public long printCount() {
+                return dcr.printCount();
+            }
+
+            @Override
+            public Receipt receiptSince(long mark, double timeoutSeconds) {
+                String text = dcr.receiptSince((int) mark, Duration.ofMillis(Math.round(timeoutSeconds * 1000)));
+                return ReceiptParser.parse(text, Source.SERIAL);
             }
         };
     }

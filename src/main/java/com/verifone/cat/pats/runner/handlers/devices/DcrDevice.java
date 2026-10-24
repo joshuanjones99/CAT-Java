@@ -3,6 +3,7 @@ package com.verifone.cat.pats.runner.handlers.devices;
 import com.verifone.cat.devices.DeviceUnavailable;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * The DCR beside the POS: its card reader, its display and its keys. Ported from the Python
@@ -47,6 +48,30 @@ public interface DcrDevice {
 
     /** Presses a DCR function key, named as PATS names it: {@code L1}..{@code L4}, {@code R1}..{@code R4}. */
     void press(String functionKey);
+
+    /** The lines on the DCR's display now, as the suite last pushed them (the Python's {@code prompt_lines}). */
+    default List<String> promptLines() {
+        throw unavailable("read the DCR's display");
+    }
+
+    /** How many receipts the DCR has printed so far: the mark a case takes before its first DCR print. */
+    default int printCount() {
+        throw unavailable("count the DCR's receipts");
+    }
+
+    /**
+     * The DCR's newest receipt printed after {@code mark}, once there is one (the Python's {@code receipt_since}).
+     *
+     * @throws com.verifone.cat.devices.forecourt.ForecourtWaitExpired when no receipt arrives within {@code timeout}
+     *         (a DeviceError, so the case fails by name)
+     */
+    default String receiptSince(int mark, Duration timeout) {
+        throw unavailable("read the DCR's receipt since " + mark);
+    }
+
+    /** Releases the DCR's listener and login. Nothing to release by default. */
+    default void close() {
+    }
 
     /** The step failure an unwired DCR gives. */
     static DeviceUnavailable unavailable(String operation) {

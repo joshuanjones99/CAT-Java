@@ -127,6 +127,16 @@ public final class PetroPumps implements AutoCloseable {
         }
     }
 
+    /** The host the suite runs on, as this client was given it. */
+    public String simulatorHost() {
+        return simulatorHost;
+    }
+
+    /** The suite's port this client logs in to (9700 on a rig). */
+    public int simulatorPort() {
+        return simulatorPort;
+    }
+
     @Override
     public void close() {
         if (listener != null) {
