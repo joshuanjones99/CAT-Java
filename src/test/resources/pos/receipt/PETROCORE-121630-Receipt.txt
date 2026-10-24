@@ -1,0 +1,19 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+99999
+VFI-QA-LAB
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PREPAY CA #02                   10.00
+   WOODSTOCK SINGLE T      1        9.60
+                              ----------
+                   Subtotal        19.60
+                   DISCOUNT        -0.15
+TOTAL     19.45
+                       CASH  $     10.00
+
+
+Stan: 000412893
