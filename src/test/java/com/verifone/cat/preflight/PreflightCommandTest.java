@@ -20,6 +20,8 @@ import org.junit.jupiter.api.io.TempDir;
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.devices.eps.CommanderLinkEpsProbe;
 import com.verifone.cat.devices.eps.CommanderLinks;
+import com.verifone.cat.devices.forecourt.ForecourtTimeouts;
+import com.verifone.cat.devices.forecourt.PetroPumpStatus;
 import com.verifone.cat.devices.suspended.CommanderSuspends;
 import com.verifone.cat.posshim.FakeShim;
 import com.verifone.cat.provision.transport.CommandResult;
@@ -195,15 +197,20 @@ class PreflightCommandTest {
     }
 
     @Test
-    void aPetroForecourtRigGetsAPumpSourceThatSaysWhyItCannotReadYet() throws IOException {
+    void aPetroForecourtRigReadsItsPumpsFromPetroSimulatorSuiteOnTheController() throws IOException {
         Path file = rigFile(true);
-        Files.writeString(file, Files.readString(file) + "forecourt: petro\n", StandardCharsets.UTF_8);
+        // The controller at an RFC 5737 documentation address; pumps() is never called, so nothing connects.
+        String yaml = Files.readString(file).replace("host: 10.0.0.160", "host: 192.0.2.10")
+                + "forecourt: petro\ntimeouts:\n  default_wait: 12s\n";
+        Files.writeString(file, yaml, StandardCharsets.UTF_8);
         Rig rig = RigLoader.loadFile(file).rig();
         RigContextFactory.Sources live = RigContextFactory.Sources.live(rig, Map.of());
 
-        DeviceUnavailable e = org.junit.jupiter.api.Assertions.assertThrows(DeviceUnavailable.class,
-                () -> live.pumpStatus().pumps(java.util.List.of(1)));
-        assertTrue(e.getMessage().contains("PetroPumpStatus"), e.getMessage());
+        PetroPumpStatus pumps = org.junit.jupiter.api.Assertions.assertInstanceOf(PetroPumpStatus.class,
+                live.pumpStatus());
+        assertEquals("192.0.2.10", pumps.simulatorHost());
+        assertEquals(new ForecourtTimeouts(java.time.Duration.ofSeconds(90), java.time.Duration.ofSeconds(30),
+                java.time.Duration.ofSeconds(12)), RigContextFactory.forecourtTimeouts(rig));
     }
 
     private String lineOf(String check) {

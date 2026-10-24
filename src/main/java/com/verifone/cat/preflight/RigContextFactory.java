@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import com.verifone.cat.devices.eps.CommanderLinkEpsProbe;
+import com.verifone.cat.devices.forecourt.ForecourtTimeouts;
+import com.verifone.cat.devices.forecourt.PetroPumpStatus;
 import com.verifone.cat.devices.suspended.CommanderSuspends;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.rig.Rig;
@@ -22,7 +24,8 @@ import com.verifone.cat.rig.Rig;
  *       the rig's key; unavailable (ERROR) when {@code commander.ssh_key_path_env} does not resolve.</li>
  *   <li>{@code no_parked_transaction}: {@link CommanderSuspends}, the Day summary's {@code suspendUnsettled}
  *       over CGILink.</li>
- *   <li>{@code pumps_idle}: Petro Simulator Suite on a {@code forecourt: petro} rig; none otherwise, so a rig
+ *   <li>{@code pumps_idle}: {@link PetroPumpStatus} (Petro Simulator Suite on the controller) on a
+ *       {@code forecourt: petro} rig; none otherwise, so a rig
  *       with pumps and no forecourt reports ERROR.</li>
  * </ul>
  * All three are reads: {@code verify()} stays read-only. Nothing connects until a check asks.
@@ -39,16 +42,16 @@ public final class RigContextFactory {
             "no CGILink command reads the active config folder (Python: config_status defaults to "
                     + "UnavailableConfigStatus, and PDKShim.active_config_folder raises DeviceUnavailable)";
 
-    /**
-     * Why a {@code forecourt: petro} rig's pumps cannot be read yet. The Petro client is
-     * {@code devices.forecourt.PetroPumpStatus} on branch {@code wave13/forecourt}; once it is merged,
-     * {@link Sources#live} passes {@code PetroPumpStatus.standard(rig.controller().host(), timeouts)} here,
-     * as the Python's {@code PetroPumpStatus(rig.controller.host, timeouts=...)}.
-     */
-    static final String FORECOURT_REASON =
-            "the Petro Simulator Suite pump client (devices.forecourt.PetroPumpStatus) is not merged into this build";
-
     private RigContextFactory() {}
+
+    /**
+     * The forecourt bounds from the rig's {@code timeouts:} block. {@code http} is the rig's
+     * {@code default_wait}, as the Python's {@code Timeouts.http} defaults to it.
+     */
+    static ForecourtTimeouts forecourtTimeouts(Rig rig) {
+        Rig.Timeouts t = rig.timeouts();
+        return new ForecourtTimeouts(t.fuelComplete(), t.promptWait(), t.defaultWait());
+    }
 
     /**
      * The Commander- and forecourt-side sources a context reads. Each is injectable, as the Python's
@@ -63,9 +66,9 @@ public final class RigContextFactory {
 
         /** The production sources for {@code rig}. Building them contacts nothing. */
         public static Sources live(Rig rig, Map<String, String> env) {
+            // As the Python's PetroPumpStatus(rig.controller.host, timeouts=...): the suite runs on the controller.
             Surfaces.PumpStatus pumps = rig.forecourt() == Rig.Forecourt.PETRO
-                    ? Surfaces.unavailable(Surfaces.PumpStatus.class, "Petro Simulator Suite pump status",
-                            FORECOURT_REASON)
+                    ? PetroPumpStatus.standard(rig.controller().host(), forecourtTimeouts(rig))
                     : null;
             return new Sources(CommanderLinkEpsProbe.fromRig(rig, env), CommanderSuspends.fromRig(rig), pumps);
         }
