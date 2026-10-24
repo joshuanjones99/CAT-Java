@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<viper:fepDetails xmlns:viper="core.viper.verifone.com.2011-11-08">
+  <primaryFep>buypass</primaryFep>
+  <fepDetail fep="buypass" fepType="Primary">
+    <allowedCommand name="vfepcfg" type="CONFIG_VIEW" />
+    <enabled>true</enabled>
+    <isPrimary>true</isPrimary>
+  </fepDetail>
+  <fepDetail fep="PropFleet" fepType="Secondary">
+    <allowedCommand name="vfepcfg" type="CONFIG_VIEW" />
+    <enabled>false</enabled>
+    <isPrimary>false</isPrimary>
+  </fepDetail>
+</viper:fepDetails>

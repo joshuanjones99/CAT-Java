@@ -26,7 +26,8 @@ public final class RigContextFactory {
 
     private static final String EPS_REASON = "the EPS probe is not ported yet (Python: petrotest/devices/eps.py, over SSH)";
     private static final String CONFIG_REASON =
-            "the config surfaces are not ported yet (Python: petrotest/devices/config_shim.py, Commander CGILink)";
+            "no CGILink command reads the active config folder (Python: config_status defaults to "
+                    + "UnavailableConfigStatus, and PDKShim.active_config_folder raises DeviceUnavailable)";
 
     private RigContextFactory() {}
 
