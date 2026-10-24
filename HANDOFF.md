@@ -38,9 +38,12 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 220 tests, 0 failures, end of wave 1, 2026-10-24 |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 522 tests, 0 failures, end of wave 2, 2026-10-24 |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
+| Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
+| Results page over the real `C:\CICD\Results\CAT` (320 folders, 205 runs) | live 2026-10-24: cold index 34 s, warm 0.19 s; run 202ca297ae18 reads TAX 71132 132/2, as the Python recorded |
+| Config tab over the real plan cache | live 2026-10-24 (GET only; `~/.cat` redirected to scratch) |
 | Key press from CAT-Java reaching the POS | **not yet exercised** |
 
 ## 5. Port map
@@ -56,17 +59,21 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `cat/connections.py`, `cat/readiness.py` | `connections` | ported; not wired to the rig model yet (Endpoints takes plain hosts). Xray/printer/VATS rows left as TODOs |
 | `cat/plans.py`, `petrotest/selection.py`, `cat/requirements.py`, `cat/seed/` | `plans` | ported offline (seed: 68 plans; 135127 = 358 cases, checked against the Python seed). Confluence/Jira fetch and page parsers left for `atlassian`; selection's PATS-XML reader behind a `CaseActions` interface |
 | `petrotest/report/` + `cat/report/events.py` writer | `report` | ported except `html.py` and case_record's pytest glue |
+| `cat/results/`, `cat/web/pages/results.py` | `results`, `web` | ported: store, index, stats, run list, run detail, last 500 log lines. Validations tab, async index: todo |
+| `cat/web/pages/config.py` | `runconfig`, `web` | ported: plans, run scope, Needs, saved choices. Downloads, Commander Connect, Execution, branch, Refresh: placeholders |
+| `cat/report/events.py`, `run_log.py`, `run.ended` | `report.events` | ported (file transport only) |
 | `cat/web/` layout, pages shell | `web` | shell ported: sections, Run tabs, placeholders, POS page. Not built: every page body, Settings appearance, the CAT monogram |
-| `petrotest/preflight/` | `preflight` | todo |
+| `petrotest/preflight/` | `preflight` | ported: framework, runner, POS checks via pos-shim screen(). pumps_idle, eps_reachable, config_loaded, build_matches and every repair await forecourt/SSH/Commander/POS-control clients |
 | `petrotest/recovery/` | `recovery` | todo |
 | `petrotest/provision/` | `provision` | todo |
 | `petrotest/pos/` (Playwright page objects; locators generated) | `pos` | todo — needs Playwright for Java |
 | `petrotest/pats/` (PATS -TestCase.xml runner) | `pats` | todo |
-| `petrotest/validate/` (receipt/TLog snapshots) | `validate` | todo |
+| `petrotest/validate/` (receipt/TLog snapshots) | `validate` | receipt half ported (normalisers, snapshots, receipt rule, 35 Charity baselines as fixtures). TLog, packets: todo |
 | `petrotest/build/`, `upgrade/` (Artifactory, PSI install) | `build`, `upgrade` | todo |
 | `cat/launch/` (the seven steps) | `launch` | todo |
 | `cat/sims/` (simulator supervisor, Access Bridge) | `sims` | todo — Access Bridge needs JNA |
-| `cat/xray/`, `cat/atlassian.py` | `xray`, `atlassian` | todo |
+| `cat/atlassian.py` + plans page parsers | `atlassian` | ported (read-only; credentials from `%USERPROFILE%\jira_api_token.properties` as the Python; redirects refused so Basic auth never follows one) |
+| `cat/xray/` | `xray` | todo |
 | `petrotest/authoring/`, `.feature` step library | `authoring` | todo — Cucumber-JVM |
 | `petrotest/coverage/` (JaCoCo) | `coverage` | todo |
 
@@ -79,6 +86,14 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
    `GET /pos/screen?client=nosuch`, which seeds an empty holder named `nosuch` in the
    shim. Harmless (the register's client list is unchanged); it clears on shim restart.
 
+4. **Shared `~/.cat` files.** The Results index (`~/.cat/results-index.json`) and the
+   Config tab (`~/.cat/last-config.json`) use the Python CAT's own files and keys. Until
+   the formats are proven identical, CAT-Java must use its own files so it can never
+   corrupt the Python CAT's (wave 3 fix). Run it with `CAT_RESULTS_INDEX` and
+   `CAT_SAVED_CONFIG` pointed elsewhere until then.
+5. `plans/Text.java` uses `"\s+"`, which in Java is a literal space, not `\s` (wave 3 fix).
+6. Preflight's console output mis-encodes `—` on Windows (wave 3 fix).
+
 ## 7. Log
 
 - **2026-10-24** PoC: pos-shim client + web page on Java 17, read path checked live.
@@ -87,3 +102,6 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
   Commander blocked by the model safeguard. Lesson: run `build.cmd` from PowerShell
   with full paths; through Git Bash it can exit 0 without building. The orchestrator
   must never stop processes by image name on the controller — PATS simulators are java too.
+- **2026-10-24** Wave 2 merged: validate (receipt), preflight, atlassian, results +
+  Results page, report.events, Config tab (522 tests). Orchestrator lesson: PowerShell 5.1
+  `Get-Content -Raw` reads UTF-8 as ANSI; edit files with a UTF-8-safe tool.
