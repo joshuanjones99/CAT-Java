@@ -1,17 +1,20 @@
 # CAT-Java
 
-A proof of concept: CAT in Java 17, with a web UI, reading and driving the Topaz POS
-through the register's pos-shim. It is the first slice of a possible Java rewrite of
-[CAT](https://github.com/joshuanjones99/CAT), not a replacement for it yet.
+A Java 17 port of [CAT](https://github.com/joshuanjones99/CAT), the Python test harness
+that drives the Topaz POS and the Commander on a lab rig, with a web UI only. It is not a
+replacement for the Python CAT yet: most of the code is ported and tested off-rig, but no
+plan has completed a Java run and almost nothing has been proven on hardware.
+
+**Start with [`HANDOFF.md`](HANDOFF.md)** (state, port map, open items in priority order)
+and [`CLAUDE.md`](CLAUDE.md) (commands and hard rules).
 
 ## What it does
 
-`run.cmd --rig lab` serves one page on `http://127.0.0.1:8090/`:
-
-- **Shim health**: pos-shim's build, uptime and which POS clients are connected and drivable.
-- **POS screen**: the current overlay, soft keys and totals, refreshed every 2 seconds.
-- **Press a key**: one button per key the shim can build. Each press asks for confirmation,
-  because it drives the live POS.
+`run.cmd --rig lab` serves the web UI on `http://127.0.0.1:8090/`: Run (Overview, Config,
+Log, scheduled and continuous runs), Results, Authoring, Install Upgrade with Downloads,
+Launch Simulators, Setup, Settings, and a POS page (live pos-shim screen and key presses,
+each behind a confirmation). The command line runs preflight, a whole plan (`launch`),
+provisioning and the Xray reporter.
 
 ## How it reaches the POS
 
@@ -33,14 +36,13 @@ controller (Java 17)                        register 192.168.x.101
 
 ## What has been proven, and what has not
 
-| | Evidence |
-|---|---|
-| Builds and tests on `C:\CICD\Tools\Java17\jdk-17.0.5+8` | 26 tests, 2026-10-24 |
-| Health, screen and key list read from the lab register's shim (Reg101) | Live, 2026-10-24, through the running jar and a headless Chromium |
-| A key press reaching the POS | **Not exercised from this client.** The route is tested against `FakeShim` only; the shim's own key path was verified from the Python CAT on 2026-08-03 |
+See HANDOFF.md §4. In short: 3,111 tests pass off-rig, and the Java port matches the Python
+on real data where that could be checked (locator catalogue, `.feature` reading, PATS field
+table, summary.html, canonical TLog, snapshot diffing). On the lab rig, only read-only
+paths have run (pos-shim reads, preflight without repair, the Results and Config pages).
+No key press, case, install, provision, day close or simulator start has run from Java.
 
-`FakeShim` (in `src/test`) is evidence about this repository, not about a rig. Its canned
-200 replies are real lab-shim replies captured on 2026-10-24.
+Fake-backed tests are evidence about this repository, not about a rig.
 
 ## Java
 
@@ -70,7 +72,7 @@ takes `--rig`, `--register`, `--shim-port` and `--no-repair`, and exits 0 when t
 
 `launch` takes `--rig`, `--plan`, `--suite`, `--simulator`, `--upgrade`, `--fake-pos` and `--fake-pinpad`.
 It exits 0 only when every step completed, 1 when a step failed or is unavailable, and 2 for a usage
-error. Not every step is ported yet, so no run can complete yet. `xray` takes the run's id and exits 0
+error. Step 4 still reports parts unavailable on a rig (HANDOFF.md §6), so a rig run cannot complete yet. `xray` takes the run's id and exits 0
 whatever Xray did, and 2 for a usage error.
 
 The first build downloads Maven 3.9.9 (through the Maven wrapper) and the dependencies
@@ -85,15 +87,9 @@ read the same files. `--rig path\to\file.yaml` reads a file directly. The rig mu
 
 ## Layout
 
-```
-src/main/java/com/verifone/cat/
-  Main.java          command line: rig, register, port
-  rig/               the rig file: Rig, RigLoader
-  posshim/           PosShimClient and the shim's replies as records
-  devices/           DeviceError and its three kinds (unreachable, unavailable, protocol)
-  web/               Javalin app, server-rendered fragments, HTML escaping
-src/main/resources/public/   htmx 2.0.4 (vendored) and cat.css
-```
+See CLAUDE.md for the package map. In brief: `launch/` runs the seven steps, `pats/` reads
+and runs PATS cases, `pos/` drives the POS browser, `devices/` and `commander/` talk to the
+rig, `web/` is the UI, and `src/main/resources/public/` holds htmx 2.0.4 and cat.css.
 
 ## Safety
 
