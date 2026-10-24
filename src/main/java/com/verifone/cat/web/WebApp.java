@@ -122,7 +122,10 @@ public final class WebApp {
         RunConfigRoutes.register(app, configForm);
         ResultsPage.routes(app, results);
         AuthoringRoutes.register(app, authoring);
-        app.get("/upgrade", ctx -> ctx.html(Layout.page(Section.UPGRADE, "Install Upgrade", UpgradePage.body())));
+        DownloadsService downloads = DownloadsService.standard(System.getenv());
+        DownloadsRoutes.register(app, downloads);
+        UpgradeRoutes.register(app, UpgradeService.standard(downloads, run::rig,
+                () -> run.view().busy() || run.view().preflighting(), System.getenv()), downloads);
         SimulatorsRoutes.register(app, sims);
         SetupRoutes.register(app, SetupService.standard());
         SettingsRoutes.register(app, settingsFile, System.getenv(), System.getProperty("user.home"));
