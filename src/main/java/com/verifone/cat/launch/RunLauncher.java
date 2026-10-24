@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -70,6 +71,14 @@ public final class RunLauncher {
     /** Continues a paused run. */
     public void resume() {
         pause.resume();
+    }
+
+    /**
+     * The run this launcher is in, once {@link #launch} has made its folder; empty before that.
+     * The web UI reads the run id and folder from it while the run is still going.
+     */
+    public Optional<RunContext> activeRun() {
+        return Optional.ofNullable(active);
     }
 
     /** Whether the run is paused now. */
