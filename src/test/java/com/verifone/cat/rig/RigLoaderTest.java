@@ -15,12 +15,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 class RigLoaderTest {
 
-    // Shaped like the Python CAT's rigs/example.yaml, documentation addresses included,
-    // with keys this loader ignores.
+    // Shaped like the Python CAT's rigs/example.yaml, documentation addresses included. The schema is
+    // strict now (as the Python one is), so the required keys pinpad:, build: and the commander's
+    // ssh_user: and eps_port: are present; an unknown key would fail the load.
     private static final String RIG = """
             name: bench
             commander:
               host: 10.0.0.11
+              ssh_user: root
+              eps_port: 41107
             registers:
               - id: topaz101
                 host: 10.0.0.101
@@ -29,8 +32,21 @@ class RigLoaderTest {
                 host: 10.0.0.102
             controller:
               host: 10.0.0.160
+            pinpad: viperpay
             pos_shim: true
             pumps: [1, 2, 3]
+            build:
+              expected_version: "057.02"
+            """;
+
+    private static final String PLAIN = """
+            name: plain
+            commander: {host: 10.0.0.11, ssh_user: root, eps_port: 41107}
+            registers:
+              - {id: r1, host: 10.0.0.101}
+            controller: {host: 10.0.0.160}
+            pinpad: viperpay
+            build: {expected_version: "057.02"}
             """;
 
     @TempDir
@@ -58,7 +74,7 @@ class RigLoaderTest {
 
     @Test
     void posShimDefaultsToFalse() throws IOException {
-        Files.writeString(dir.resolve("plain.yaml"), "name: plain\nregisters:\n  - id: r1\n    host: 10.0.0.101\n");
+        Files.writeString(dir.resolve("plain.yaml"), PLAIN);
 
         assertFalse(RigLoader.load("plain", dir).posShim());
     }
