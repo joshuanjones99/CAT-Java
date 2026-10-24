@@ -1,0 +1,37 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETROL-LD4 CA #05 3.519G        14.50
+      SELF @ 4.121/ G
+   CHARITY                 1        0.50
+                              ----------
+                   Subtotal        15.00
+TOTAL     15.00
+                     MOBILE  $     15.00
+
+MOBILE
+VISA
+CREDIT
+Acct/Card #:
+*******1234
+Auth #: <AUTH>
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

@@ -1,0 +1,61 @@
+     WELCOME TO     
+      VERIFONE      
+   AUTOMATION LAB   
+    HAVE YOU RUN    
+  AUTOMATION TODAY  
+     VFI-QA-LAB     
+     CLEARWATER     
+       TPA FL       
+       560100       
+                    
+
+DATE 3/1/21 13:21   
+TRAN# 9010317       
+PUMP# 01            
+SERVICE LEVEL: SELF 
+PRODUCT: UNLD       
+GALLONS:       4.548
+PRICE/G:      $2.199
+FUEL SALE     $10.00
+CARWASH       $10.00
+TOTAL SALE    $20.00
+   CREDIT     $20.00
+
+********************
+   CAR WASH CODE    
+      CARWASH       
+     1 8 8 3 2      
+********************
+
+  VALID FOR 14 DAYS 
+
+
+
+BP BRND MKTR        
+************0005    
+Entry:Swiped        
+Auth #: 123628      
+Odometer: 37465     
+Resp Code: 000      
+Stan: 001015724     
+Invoice #: 9781     
+BP SITE ID: 99999   
+
+
+REWARD              
+                    
+************0005    
+Trace #: 17         
+Stan: 001015724     
+Thanks for Shopping 
+with Us             
+Enjoy Your Rewards  
+Come back soon      
+Discount From: SaveA
+round               
+
+   THANK YOU FOR    
+ AUTOMATING THINGS  
+     PLEASE RUN     
+     AUTOMATION     
+  AGAIN AND AGAIN   

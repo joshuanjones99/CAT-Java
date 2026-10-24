@@ -1,0 +1,29 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+***PREPAID RECEIPT***
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   Charity PLU             1        9.50
+   PREPAY CR #01                    5.00
+                              ----------
+                   Subtotal        14.50
+TOTAL     14.50
+                       CASH  $     14.50
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

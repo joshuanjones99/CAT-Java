@@ -1,0 +1,42 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   Charity PLU             1        9.50
+                              ----------
+                   Subtotal         9.50
+TOTAL      9.50
+                     CREDIT  $      9.50
+
+
+
+SALE Receipt
+MASTERCARD   USD$9.50
+Acct/Card #: ************0018
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+CUSTOMER COPY
+
+APPROVED
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

@@ -1,0 +1,55 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+***PRE-AUTHORIZED RECEIPT***
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PREPAY CR #01                    5.00
+   CHARITY                 1        0.50
+                              ----------
+                   Subtotal         5.50
+TOTAL      5.50
+                    PREAUTH  $      5.50
+
+
+PREPAY Receipt
+USD$5.50
+Acct/Card #: ***********1006
+Entry: Chip Read
+AppName: AMERICAN EXPRESS
+AuthNet: AMEX
+AID: A000000025010801
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+CUSTOMER COPY
+
+APPROVED
+
+
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

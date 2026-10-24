@@ -1,0 +1,38 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+***PRE-AUTHORIZED RECEIPT***
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PREPAY CR #04     5.000         20.61
+     Product: PETROL-LD4
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        30.61
+TOTAL     30.61
+                    PREAUTH  $     75.00
+
+MOBILE
+VISA
+CREDIT
+Acct/Card #:
+*******1234
+Auth #: <AUTH>
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

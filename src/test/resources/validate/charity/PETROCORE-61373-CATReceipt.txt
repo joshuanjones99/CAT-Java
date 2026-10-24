@@ -1,0 +1,109 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CR #01 18.938G       21.23
+      SELF @ 1.121/ G
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        31.23
+TOTAL     31.23
+                     CREDIT  $     31.23
+
+
+SALE Receipt
+USD$31.23
+Acct/Card #: ************9130
+Entry: Chip Read
+AppName: US Maestro
+AuthNet: AMEX
+MODE: Issuer
+AID: A0000000042203
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+MERCHANT COPY
+
+APPROVED
+
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CR #01 18.938G       21.23
+      SELF @ 1.121/ G
+   CHARITY                 1       10.00
+                              ----------
+                   Subtotal        31.23
+TOTAL     31.23
+                     CREDIT  $     31.23
+
+
+SALE Receipt
+USD$31.23
+Acct/Card #: ************9130
+Entry: Chip Read
+AppName: US Maestro
+AuthNet: AMEX
+MODE: Issuer
+AID: A0000000042203
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+CUSTOMER COPY
+
+APPROVED
+
+
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

@@ -1,0 +1,55 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PLU-AB                  1       11.50
+   CHARITY                 1        0.50
+                              ----------
+                   Subtotal        12.00
+TOTAL     12.00
+                     CREDIT  $     12.00
+
+
+SALE Receipt
+USD$12.00
+Acct/Card #: ***********1006
+Entry: Chip Read
+AppName: AMERICAN EXPRESS
+AuthNet: AMEX
+MODE: Issuer
+AID: A000000025010801
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+Shift #: <SHIFT>
+Store # 99999
+
+Verified By PIN
+No Signature Needed
+
+CUSTOMER COPY
+
+APPROVED
+
+
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> TILL XXXX DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

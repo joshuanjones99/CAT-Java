@@ -1,0 +1,35 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETROL-LD4 CA #05 3.519G        14.50
+      SELF @ 4.121/ G
+      POP Discount                 -0.46
+   CHARITY                 1        0.96
+                              ----------
+                   Subtotal        15.00
+TOTAL     15.00
+                       CASH  $     15.00
+
+
+POP-DISCNT-1
+YOU RECEIVED  $0.13 / GALLON DISCOUNT
+FOR  3.519 GALLONS
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>

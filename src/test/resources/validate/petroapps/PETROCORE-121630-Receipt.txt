@@ -1,0 +1,46 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PREPAY CA #02                   10.00
+   WOODSTOCK SINGLE T      1        9.60
+    10.00 Dsc -0.20                    
+          Dsc -0.20                    
+                              ----------
+                   Subtotal        19.60
+                   DISCOUNT        -0.15
+TOTAL     19.45 
+                       CASH  $     10.00
+
+
+Loyalty Program: PROGRAM01
+Card: PCATS01
+Acct # : **************3161
+Trace #: 403
+Stan: 000412893
+
+
+Loyalty Program: PROGRAM02
+Card: PCATS02
+Acct # : **************8937
+Trace #: 409
+Stan: 000412893
+
+VOID TICKET
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#10016               DR#1 TRAN#1010897
+CSH: 1                8/14/25 5:28:27 PM

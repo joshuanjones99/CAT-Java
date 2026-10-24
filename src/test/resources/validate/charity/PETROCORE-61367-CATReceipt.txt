@@ -1,0 +1,29 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   COMBO-PLU-2             2       17.00
+    23.00 Dsc -6.00
+   CHARITY                 1        1.00
+                              ----------
+                   Subtotal        18.00
+TOTAL     18.00
+                       CASH  $     18.00
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
