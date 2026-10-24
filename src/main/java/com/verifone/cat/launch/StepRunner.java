@@ -45,6 +45,12 @@ final class StepRunner {
         boolean keepGoing;
         try {
             keepGoing = step.run(ctx, emitter);
+        } catch (Cancelled stopped) {
+            // The operator's Stop is not a step failure: the bracket still ends, as skipped, and the
+            // launcher ends the run.
+            emitter.skipStep("stopped by the operator");
+            emitter.finish();
+            throw stopped;
         } catch (RuntimeException e) {
             LOG.error("step {} raised", step.name(), e);
             keepGoing = emitter.fail(e.getClass().getSimpleName() + ": " + e.getMessage());
