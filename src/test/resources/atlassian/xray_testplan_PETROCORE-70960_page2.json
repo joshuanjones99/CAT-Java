@@ -1,0 +1,132 @@
+{
+ "data": {
+  "getTestPlans": {
+   "total": 1,
+   "results": [
+    {
+     "tests": {
+      "total": 39,
+      "start": 20,
+      "limit": 20,
+      "results": [
+       {
+        "jira": {
+         "key": "PETROCORE-61385",
+         "summary": "Charity Donations - Cash Fuel Preset Postpay"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61373",
+         "summary": "Charity Donations_Rest for charity_ Pay Inside-1"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61369",
+         "summary": "Charity Donations- Basic+Code - Qualify by PLU"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61368",
+         "summary": "Charity Donations- POP Discount Qualify By MOP"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61372",
+         "summary": "Charity Donations_Rest for charity_ Pay Inside-2"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61386",
+         "summary": "Charity Donations- Card Fuel Pay Inside Merchandise-1"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61387",
+         "summary": "Charity Donations- Cash Fuel Pay Inside Merchandise-2"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61388",
+         "summary": "Charity Donations- Card Naxml Combo"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61367",
+         "summary": "Charity Donations-NAXML.ComboMaintenance.ComboItems.Disc by amount"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61389",
+         "summary": "Charity Donations- Cash Naxml Mix And Match"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61390",
+         "summary": "Charity Donations- Card Naxml Mix And Match"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61357",
+         "summary": "Charity Donations- Cash sale - PLU Promo"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61359",
+         "summary": "Charity Donations- Credit sale - PLU Promo"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61348",
+         "summary": "Charity Donataions - Mobile sale with Preset Amounts"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61391",
+         "summary": "Charity Donations - Mobile Merchandise Scan Token"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61392",
+         "summary": "Charity Donations - Mobile Fuel Preset Postpay with Amount"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61393",
+         "summary": "Charity Donations - Mobile Fuel Prepay Quantity"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61394",
+         "summary": "Charity Donations - Department Report"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61395",
+         "summary": "Charity Donations - Summary Report"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

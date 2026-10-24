@@ -1,0 +1,138 @@
+{
+ "data": {
+  "getTestPlans": {
+   "total": 1,
+   "results": [
+    {
+     "tests": {
+      "total": 39,
+      "start": 0,
+      "limit": 20,
+      "results": [
+       {
+        "jira": {
+         "key": "PETROCORE-61396",
+         "summary": "Charity Donations - Import Configurations"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-124034",
+         "summary": "Import-buypass-host-simulator-config"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-37070",
+         "summary": "FUEL-DCR-INIT"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-37043",
+         "summary": "POS-Login"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61334",
+         "summary": "Charity Donations - Cash sale with Rest for charity"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61339",
+         "summary": "Charity Donations - Cash sale with Round to next dollar"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61352",
+         "summary": "Charity Donations- No Charity"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61337",
+         "summary": "Charity Donations - CHECK sale with Rest for charity"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61338",
+         "summary": "Charity Donations - COUPON sale with Rest for charity"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61336",
+         "summary": "Charity Donations - Cash sale - No Thanks"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61335",
+         "summary": "Charity Donations - Cash Department sale with Rest for charity"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61341",
+         "summary": "Charity Donations - Cash sale with Rest for charity + timeout"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61343",
+         "summary": "Charity Donations - Credit sale with Preset Amounts"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61342",
+         "summary": "Charity Donations - Credit/ Debit/ Mobile sale with Preset Amounts + timeout"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61380",
+         "summary": "Charity Donations - Cash Prepay Merchandise"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61381",
+         "summary": "Charity Donations - Cash Prepay Underrun Merchandise"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61382",
+         "summary": "Charity Donations - Cash Underrun Completion"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61383",
+         "summary": "Charity Donations - Cash Prepay"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61384",
+         "summary": "Charity Donations - Card Prepay"
+        }
+       },
+       {
+        "jira": {
+         "key": "PETROCORE-61376",
+         "summary": "Charity Donations_Preset Amounts_ Prepay + Merchandise"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}
