@@ -38,8 +38,9 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 26 tests, 2026-10-24 |
-| Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24 |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 220 tests, 0 failures, end of wave 1, 2026-10-24 |
+| Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
+| `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Key press from CAT-Java reaching the POS | **not yet exercised** |
 
 ## 5. Port map
@@ -50,12 +51,12 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | Python (CAT) | Java package | Status |
 |---|---|---|
 | `petrotest/devices/pos_shim.py` (read + keys) | `posshim` | ported (PoC), read path live-checked |
-| `petrotest/rig/` (models, loader, duration, lease) | `rig` | wave 1 |
-| `petrotest/devices/config_shim.py` (Commander CGILink) | `devices.commander` | wave 1 |
-| `cat/connections.py` (TCP probes) | `connections` | wave 1 |
-| `cat/plans.py`, `petrotest/selection.py`, `cat/seed/` | `plans` | wave 1 |
-| `petrotest/report/` (paths, ndjson, case_record, junit, index) | `report` | wave 1 |
-| `cat/web/` layout, pages shell | `web` | wave 1 |
+| `petrotest/rig/` (models, loader, duration, lease) | `rig` | ported (ppk.py skipped). Strict like pydantic `extra=forbid`; Jackson reports only the first error; lease tested in one JVM only |
+| `petrotest/devices/config_shim.py` (Commander CGILink) | `devices.commander` | **blocked**: Haiku 5.5's cyber safeguard stopped two agents (login/OTP/lab credential). ~700 uncommitted lines in worktree `CAT-Java-wt/commander`. Needs a different model or hand work — rig owner's call |
+| `cat/connections.py`, `cat/readiness.py` | `connections` | ported; not wired to the rig model yet (Endpoints takes plain hosts). Xray/printer/VATS rows left as TODOs |
+| `cat/plans.py`, `petrotest/selection.py`, `cat/requirements.py`, `cat/seed/` | `plans` | ported offline (seed: 68 plans; 135127 = 358 cases, checked against the Python seed). Confluence/Jira fetch and page parsers left for `atlassian`; selection's PATS-XML reader behind a `CaseActions` interface |
+| `petrotest/report/` + `cat/report/events.py` writer | `report` | ported except `html.py` and case_record's pytest glue |
+| `cat/web/` layout, pages shell | `web` | shell ported: sections, Run tabs, placeholders, POS page. Not built: every page body, Settings appearance, the CAT monogram |
 | `petrotest/preflight/` | `preflight` | todo |
 | `petrotest/recovery/` | `recovery` | todo |
 | `petrotest/provision/` | `provision` | todo |
@@ -82,3 +83,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 
 - **2026-10-24** PoC: pos-shim client + web page on Java 17, read path checked live.
   Wave 1 started: rig, commander, connections, plans, report, web shell.
+- **2026-10-24** Wave 1 merged: rig, connections, plans, report, web shell (220 tests).
+  Commander blocked by the model safeguard. Lesson: run `build.cmd` from PowerShell
+  with full paths; through Git Bash it can exit 0 without building. The orchestrator
+  must never stop processes by image name on the controller — PATS simulators are java too.
