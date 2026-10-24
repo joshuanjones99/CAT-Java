@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 1,327 tests, 0 failures, mid wave 7, 2026-10-24 |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 1,468 tests, 0 failures, end of wave 7, 2026-10-24; four lint gates (no sleep, no raw locators, no IP literals, UI only in web/) run as tests |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -77,7 +77,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `petrotest/pos/receipt.py`, `pinpad_double.py` | `pos.receipt`, `pos.pinpad` | ported (DOM driver behind an interface; `LOOPBACK/` prefix kept) |
 | `petrotest/pos/driver.py`, `pages/base.py` | `pos.driver`, `pos.pages` | ported (CDP, frames, bounded waits, capture); browser tests run on Playwright's Chromium 1148 |
 | `petrotest/pos/fake.py` | `pos.fake` | ported (loopback, IDs from Locators, pinpad double wired) |
-| `petrotest/pos/pages/*` (page objects) | `pos.pages` | wave 7 |
+| `petrotest/pos/pages/*` (page objects) | `pos.pages` | ported: Pos, overlays, keypad, menus, fuel, item/express panels, device monitoring, pairing, sign-on. Tested on setContent markup and the fake POS, not a register. ProductMenu, SCOMenu untested |
 | `petrotest/pos/plugin.py` | — | pytest glue; becomes the runner's |
 | `petrotest/pats/` (PATS -TestCase.xml runner) | `pats` | todo |
 | `petrotest/validate/` (receipt/TLog snapshots) | `validate` | ported: receipt (normalisers, snapshots, rule) and TLog/packets. Report hooks (record_receipt etc.) belong to the test runner, not ported |
@@ -88,7 +88,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `cat/atlassian.py` + plans page parsers | `atlassian` | ported (read-only; credentials from `%USERPROFILE%\jira_api_token.properties` as the Python; redirects refused so Basic auth never follows one) |
 | `cat/xray/` | `xray` | ported: reporter, client, summary, ADF, follower, sidecar CLI (`XraySidecar.main`). Not spawned by the launcher yet; attach.py waits on coverage. Never sent live |
 | `petrotest/authoring/`, `.feature` step library | `authoring` | todo — Cucumber-JVM |
-| `petrotest/coverage/` (JaCoCo) | `coverage` | todo |
+| `petrotest/coverage/` (JaCoCo) | `coverage` | ported: components, tool finding, prepare/collect over Transport, report/zip; `LaunchConfig.coverage`. Launch-step wiring, overlay class extraction, summary.py: todo |
 
 ## 6. Open items
 
@@ -148,3 +148,5 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
   the orchestrator reset it to the repo's author before merging.
 - **2026-10-24** Wave 6 merged (POS driver, fake POS, upgrade, provision, SSH check + Xray
   on runs) and wave 7 in part (Commander client on Opus, simulator warning): 1,327 tests.
+- **2026-10-24** Wave 7 merged: Commander (Opus), simulator warning, page objects A+B
+  (reconciled), coverage, small fixes + Java lint gates (1,468 tests).
