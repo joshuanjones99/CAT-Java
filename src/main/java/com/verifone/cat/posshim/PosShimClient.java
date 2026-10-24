@@ -21,8 +21,11 @@ import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceProtocolError;
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.devices.DeviceUnreachable;
+import com.verifone.cat.posshim.ShimReplies.ControlResult;
 import com.verifone.cat.posshim.ShimReplies.Health;
 import com.verifone.cat.posshim.ShimReplies.KeyPressResult;
+import com.verifone.cat.posshim.ShimReplies.PendingKeyResult;
+import com.verifone.cat.posshim.ShimReplies.ScanResult;
 import com.verifone.cat.posshim.ShimReplies.Screen;
 import com.verifone.cat.posshim.ShimReplies.SupportedKeys;
 
@@ -97,8 +100,97 @@ public final class PosShimClient {
      * shim waits for the POS to acknowledge each one.
      */
     public KeyPressResult pressKeys(List<String> keys) {
-        Duration keyTimeout = timeout.plus(KEY_PROCESSING.multipliedBy(keys.size()));
-        return request("POST", "/pos/keys", Map.of("keys", keys), keyTimeout, KeyPressResult.class);
+        return request("POST", "/pos/keys", Map.of("keys", keys), keyTimeout(keys.size()), KeyPressResult.class);
+    }
+
+    /**
+     * DESIGN.md 6.3 rung 1 (SOFT), and PosControl's cancel/escape ladder: dismiss overlays, verified by
+     * the shim re-reading the screen. {@code true} means no overlay remains. It does not mean a
+     * key was accepted, so a key the POS ignored never reads as a cleared screen.
+     *
+     * <p>Python: {@code PosShimClient.cancel_ladder}. UNVERIFIED AGAINST HARDWARE (Java port).
+     */
+    public boolean cancelLadder() {
+        return verifiedSuccess("/pos/control/cancel");
+    }
+
+    /**
+     * DESIGN.md 6.3 rung 2 (VOID): void the open ticket, confirming if the POS asks. {@code true} only
+     * when the shim's re-read shows no open ticket.
+     *
+     * <p>Python: {@code PosShimClient.void_open_ticket}. UNVERIFIED AGAINST HARDWARE (Java port).
+     */
+    public boolean voidOpenTicket() {
+        return verifiedSuccess("/pos/control/ticket/void");
+    }
+
+    /**
+     * Presses ENTER carrying a data payload: PATS's {@code pendingToken} path, the same
+     * {@code LexToken} source as a bare ENTER, with the payload as a plain string. A bare ENTER
+     * goes through {@link #pressKeys} instead.
+     *
+     * <p>Python: {@code PosShimClient.press_enter_with_data}. UNVERIFIED AGAINST HARDWARE (Java port).
+     *
+     * @throws IllegalArgumentException when {@code data} is empty
+     */
+    public PendingKeyResult pressEnterWithData(String data) {
+        if (data == null || data.isEmpty()) {
+            throw new IllegalArgumentException("ENTER with data needs a non-empty payload; press ENTER with pressKeys");
+        }
+        return request("POST", "/pos/keys/enter", Map.of("data", data), keyTimeout(1), PendingKeyResult.class);
+    }
+
+    /**
+     * Presents a barcode scan: the decoded value and its symbology type travel as data, and the
+     * shim builds the scan event from them. {@code label} defaults to the scan data, as the
+     * corpus's scanner files repeat it.
+     *
+     * <p>Python: {@code PosShimClient.scan_item}. UNVERIFIED AGAINST HARDWARE (Java port).
+     */
+    public ScanResult scanItem(String scanData, int scanDataType, boolean decodeData, String label, int status) {
+        Map<String, Object> body = Map.of(
+                "scan_data", scanData,
+                "scan_data_type", scanDataType,
+                "decode_data", decodeData,
+                "scan_data_label", label == null ? scanData : label,
+                "status", status);
+        return request("POST", "/pos/scan", body, keyTimeout(1), ScanResult.class);
+    }
+
+    /** {@link #scanItem} with the corpus's usual values: decoded, label = data, status 0. */
+    public ScanResult scanItem(String scanData, int scanDataType) {
+        return scanItem(scanData, scanDataType, true, null, 0);
+    }
+
+    /**
+     * A POST the shim has marked unsupported on this surface, expected to be refused.
+     *
+     * <p>Every one of these answers 501 and raises {@link DeviceUnavailable} from the 501 arm
+     * of {@link #request}, so the call never returns in practice. It exists so the repairs that
+     * have no source read as what they are: a probe whose answer is "the shim cannot do this".
+     * If the shim ever answers 200, that is a contract change this client has not been updated
+     * for, and it raises {@link DeviceProtocolError} rather than pretending the action happened.
+     *
+     * <p>Python: {@code PosShimClient._probe_unsupported}.
+     */
+    public void unsupported(String method, String path, Map<String, ?> body) {
+        request(method, path, body, timeout, Object.class);
+        throw new DeviceProtocolError(method + " " + path,
+                "shim answered 200 on a route this client expects to be unsupported; "
+                        + "the shim's surface has grown and PosShimClient needs updating");
+    }
+
+    private boolean verifiedSuccess(String path) {
+        ControlResult reply = request("POST", path, null, timeout, ControlResult.class);
+        if (reply.success() == null) {
+            throw new DeviceProtocolError("POST " + path, "reply has no 'success' field");
+        }
+        return reply.success();
+    }
+
+    /** Key presses wait for the POS to acknowledge each key (Python: {@code _key_timeout}). */
+    private Duration keyTimeout(int keys) {
+        return timeout.plus(KEY_PROCESSING.multipliedBy(keys));
     }
 
     private <T> T get(String path, Class<T> type) {

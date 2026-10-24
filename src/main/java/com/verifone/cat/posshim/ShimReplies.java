@@ -72,4 +72,19 @@ public final class ShimReplies {
     public record KeyPressResult(String client, List<String> requested, List<KeyPress> pressed, boolean allProcessed) {}
 
     public record KeyPress(String key, boolean processed, long elapsedMs) {}
+
+    /**
+     * {@code POST /pos/control/cancel} and {@code POST /pos/control/ticket/void}.
+     *
+     * <p>{@code success} is the shim's own re-read of the screen after the action: true only
+     * when the overlay (or the open ticket) is gone. It is boxed so a reply without the field
+     * is seen as a contract break, not as a silent false.
+     */
+    public record ControlResult(String outcome, Boolean success) {}
+
+    /** {@code POST /pos/keys/enter}: ENTER carrying a data payload. */
+    public record PendingKeyResult(String key, boolean processed) {}
+
+    /** {@code POST /pos/scan}: a barcode scan presented to the POS. */
+    public record ScanResult(boolean processed) {}
 }

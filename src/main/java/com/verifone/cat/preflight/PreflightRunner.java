@@ -25,8 +25,8 @@ import com.verifone.cat.devices.DeviceUnavailable;
  * A probe that does not answer inside the budget is TIMEOUT.
  *
  * <p>Not ported yet: the recovery ladder's {@code current_deadline()} (a repair must fit in the
- * rung's remaining budget) and {@code RunSummary} (the repair log's findings). Both live in the
- * Python {@code petrotest.recovery}, which is still to be ported.
+ * rung's remaining budget). The repair log is kept by the caller: {@code recovery.LiveRecoveryTarget}
+ * records rung 4's repairs in a {@code recovery.RunSummary}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
