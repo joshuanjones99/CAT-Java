@@ -3,10 +3,12 @@ package com.verifone.cat.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.verifone.cat.sims.SimTestSupport.fakeArgs;
+import static com.verifone.cat.sims.SimTestSupport.freePort;
+import static com.verifone.cat.sims.SimTestSupport.testJava;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -30,8 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.posshim.FakeShim;
 import com.verifone.cat.posshim.PosShimClient;
-import com.verifone.cat.sims.FakeSimulator;
-import com.verifone.cat.sims.ProcessOps;
+import com.verifone.cat.sims.FakeProcessOps;
 import com.verifone.cat.sims.SimContext;
 import com.verifone.cat.sims.SimEntry;
 import com.verifone.cat.sims.Supervisor;
@@ -47,71 +48,12 @@ class SimulatorsWebTest {
 
     private static final Duration REAP_WAIT = Duration.ofSeconds(15);
 
-    /**
-     * A {@link ProcessOps} that answers from fields the test sets and records every kill. It kills
-     * nothing: the sims package's own fakes are package-private, so this one lives here.
-     */
-    static final class RecordingOps implements ProcessOps {
-        String listingText = "";
-        final List<List<Long>> killRequests = new ArrayList<>();
-
-        @Override
-        public Snapshot commandLines(List<String> names, Duration timeout) {
-            return Snapshot.ok("");
-        }
-
-        @Override
-        public Snapshot listenerCommandLine(int port, Duration timeout) {
-            return Snapshot.ok("");
-        }
-
-        @Override
-        public Snapshot listing(List<String> names, List<Integer> ports, Duration timeout) {
-            return Snapshot.ok(listingText);
-        }
-
-        @Override
-        public Snapshot stillAlive(List<Long> pids, Duration timeout) {
-            return Snapshot.ok("");
-        }
-
-        @Override
-        public String taskkill(List<Long> pids, Duration timeout) {
-            killRequests.add(List.copyOf(pids));
-            return "";
-        }
-    }
-
-    /** The test JVM's own {@code java} executable: the only program these tests launch. */
-    private static Optional<Path> testJava() {
-        return ProcessHandle.current().info().command().map(Path::of);
-    }
-
-    /** The argv that runs {@link FakeSimulator} in {@code mode}, after the executable. */
-    private static List<String> fakeArgs(int port, String token, String mode) {
-        try {
-            Path classes = Path.of(FakeSimulator.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            return List.of("-cp", classes.toString(), FakeSimulator.class.getName(), String.valueOf(port), token, mode);
-        } catch (java.net.URISyntaxException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    /** A port nothing is listening on right now. */
-    private static int freePort() {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
     @TempDir
     Path tools;
 
     private FakeShim shim;
     private Javalin app;
-    private RecordingOps ops;
+    private FakeProcessOps ops;
     private SimulatorsService sims;
     private final List<Runnable> queued = new ArrayList<>();
     private final HttpClient http = HttpClient.newHttpClient();
@@ -119,7 +61,7 @@ class SimulatorsWebTest {
     @BeforeEach
     void setUp() {
         shim = new FakeShim();
-        ops = new RecordingOps();
+        ops = new FakeProcessOps();
     }
 
     /** Stops the page's own children and reaps any fake simulator a test left running. */

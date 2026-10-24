@@ -160,7 +160,7 @@ public final class Supervisor {
 
         Adoption adoption;
         try {
-            adoption = probe(entry, ctx, lines);
+            adoption = adoptionOf(entry, ctx, lines);
         } catch (IllegalArgumentException e) {
             return fail(entry, ev, SimStatus.Owner.CAT, "bad registry row: " + e.getMessage());
         }
@@ -344,7 +344,29 @@ public final class Supervisor {
 
     // ----- adoption and probing ---------------------------------------------------------
 
-    private static Adoption probe(SimEntry entry, SimContext ctx, String cmdlines) {
+    /**
+     * What a read-only look at one registry row found.
+     *
+     * @param listening true if the row's ready port accepts a connection
+     * @param host      the host that answered (the controller's, then loopback), or empty
+     */
+    public record Probe(boolean listening, String host) {
+    }
+
+    /**
+     * Asks, read-only, whether a row's ready port is answering. It connects to nothing but that
+     * port, and starts, adopts, stops and kills nothing. A row with no ready port is not listening,
+     * and no connection is made.
+     */
+    public Probe probe(SimEntry entry, SimContext ctx) {
+        if (!entry.hasTcpReady()) {
+            return new Probe(false, "");
+        }
+        String host = firstListening(hosts(ctx), entry.readyTcp());
+        return new Probe(!host.isEmpty(), host);
+    }
+
+    private static Adoption adoptionOf(SimEntry entry, SimContext ctx, String cmdlines) {
         if (entry.hasTcpReady() && !firstListening(hosts(ctx), entry.readyTcp()).isEmpty()) {
             return Adoption.LISTENING;
         }

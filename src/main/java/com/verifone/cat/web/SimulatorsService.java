@@ -1,8 +1,5 @@
 package com.verifone.cat.web;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -41,8 +38,9 @@ import com.verifone.cat.sims.ToolsRoot;
  * {@link Supervisor#stopRunning} over every launchable row, whoever started it (HANDOFF.md
  * §1.116, the operator's override of D9). The web thread never waits for either.
  *
- * <p>A row with no supervisor status is probed by a TCP connect to its ready port, the same
- * check the supervisor makes before it adopts; that is the only thing the page does on its own.
+ * <p>A row with no supervisor status is looked at with {@link Supervisor#probe}, a read-only TCP
+ * connect to its ready port, the same check the supervisor makes before it adopts. The page
+ * starts, stops and kills nothing on its own account.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). Nothing here has started or stopped a real
  * simulator from this page.
@@ -57,9 +55,6 @@ final class SimulatorsService {
 
     /** How long a child CAT started gets to exit after it is asked to. */
     static final Duration CHILD_STOP_BUDGET = Duration.ofSeconds(5);
-
-    /** How long one readiness connect may take when the page probes a row. */
-    static final Duration PROBE_TIMEOUT = Duration.ofMillis(500);
 
     /** Interval between checks while a stopped child's port closes. */
     static final Duration POLL = Duration.ofMillis(100);
@@ -208,14 +203,14 @@ final class SimulatorsService {
                     || status.state() == SimStatus.State.STARTED;
             boolean attention = status.state() == SimStatus.State.FAILED
                     || status.state() == SimStatus.State.NEEDS_ATTENTION;
-            if (up && entry.hasTcpReady() && !listening(entry.readyTcp())) {
+            if (up && entry.hasTcpReady() && !listening(entry)) {
                 return new RowView(entry.name(), "stopped", "", "no longer listening on port "
                         + entry.readyTcp(), false, false);
             }
             return new RowView(entry.name(), status.state().label(), status.owner().label(),
                     join(status.bind(), status.detail()), up, attention);
         }
-        if (entry.hasTcpReady() && listening(entry.readyTcp())) {
+        if (listening(entry)) {
             return new RowView(entry.name(), "already running", "external",
                     "listening on localhost:" + entry.readyTcp() + " (not started from this page)", true, false);
         }
@@ -293,7 +288,7 @@ final class SimulatorsService {
             supervisor.stop(List.copyOf(owned), CHILD_STOP_BUDGET);
             for (SimProcess proc : owned) {
                 if (proc.entry().hasTcpReady()) {
-                    awaitPortClosed(proc.entry().readyTcp(), CHILD_STOP_BUDGET);
+                    awaitPortClosed(proc.entry(), CHILD_STOP_BUDGET);
                 }
             }
             owned.clear();
@@ -341,9 +336,9 @@ final class SimulatorsService {
      * Waits, bounded, for a port a stopped child held to close. A process is gone a moment before
      * its socket is; without this the panel would show a just-stopped simulator as still up.
      */
-    private static void awaitPortClosed(int port, Duration budget) {
+    private void awaitPortClosed(SimEntry entry, Duration budget) {
         long deadline = System.nanoTime() + budget.toNanos();
-        while (listening(port) && System.nanoTime() - deadline < 0) {
+        while (listening(entry) && System.nanoTime() - deadline < 0) {
             try {
                 new CountDownLatch(1).await(POLL.toMillis(), TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
@@ -353,14 +348,9 @@ final class SimulatorsService {
         }
     }
 
-    /** True if something accepts a connection on localhost:{@code port}. A read-only probe. */
-    static boolean listening(int port) {
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress("localhost", port), (int) PROBE_TIMEOUT.toMillis());
-            return true;
-        } catch (IOException | IllegalArgumentException e) {
-            return false;
-        }
+    /** True if the row's ready port is answering, by the supervisor's read-only probe. */
+    private boolean listening(SimEntry entry) {
+        return supervisor.probe(entry, ctx).listening();
     }
 
     private static String join(String bind, String detail) {

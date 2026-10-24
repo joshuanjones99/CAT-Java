@@ -58,11 +58,19 @@ run.cmd --rig lab         :: the web UI on http://127.0.0.1:8090/
 run.cmd web --rig lab --register topaz101 --port 8091   :: the same, with the word "web"
 run.cmd preflight --rig lab               :: the preflight checks; exit 0 when the rig is testable
 run.cmd preflight --rig lab --register topaz101 --no-repair
+run.cmd launch --rig lab --plan PETROCORE-135127   :: one run, headless, through the seven steps
+run.cmd xray --run <run-id> [--once] [--dry-run]    :: the Xray reporting sidecar for one run
 ```
 
-`web` is the default, so `run.cmd --rig lab` and `run.cmd web --rig lab` are the same. `preflight`
+`web` is the default, so `run.cmd --rig lab` and `run.cmd web --rig lab` are the same. The web UI
+knows the rig it was started with, so its Start run launches on it. `preflight`
 takes `--rig`, `--register`, `--shim-port` and `--no-repair`, and exits 0 when the rig is testable,
 1 when it is not, 2 for a usage or load error.
+
+`launch` takes `--rig`, `--plan`, `--suite`, `--simulator`, `--upgrade`, `--fake-pos` and `--fake-pinpad`.
+It exits 0 only when every step completed, 1 when a step failed or is unavailable, and 2 for a usage
+error. Not every step is ported yet, so no run can complete yet. `xray` takes the run's id and exits 0
+whatever Xray did, and 2 for a usage error.
 
 The first build downloads Maven 3.9.9 (through the Maven wrapper) and the dependencies
 from Maven Central.
