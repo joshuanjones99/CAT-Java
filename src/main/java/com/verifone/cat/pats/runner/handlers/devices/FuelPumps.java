@@ -4,6 +4,7 @@ import com.verifone.cat.devices.DeviceUnavailable;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The forecourt's pumps, as the sale and devices families drive them: lift a nozzle, fill it, put it back, and
@@ -58,6 +59,35 @@ public interface FuelPumps {
 
     /** Waits, bounded by {@code timeout}, until the pump is idle. Throws when it does not get there. */
     void waitUntilIdle(int pump, Duration timeout);
+
+    /**
+     * Waits, bounded by {@code timeout}, for a hang-up on {@code pump} to post its sale to the POS's fuel panel (the
+     * Python's {@code wait_for_posted_sale}; the POS UI family's tile press waits on it).
+     *
+     * @return whether the sale was posted within {@code timeout}; false when it was not, which is not a failure here
+     */
+    default boolean waitForPostedSale(int pump, Duration timeout) {
+        throw unavailable("wait for pump " + pump + "'s posted sale");
+    }
+
+    /** Whether {@code pump} is lifted: a fill or a lift has been sent and nothing has hung it up. */
+    default boolean lifted(int pump) {
+        throw unavailable("read whether pump " + pump + " is lifted");
+    }
+
+    /**
+     * Puts a pump a failed case left mid-sale back to IDLEOFF (the Python's {@code PetroPumps.clear}).
+     *
+     * @return the state the pump was in, or null when it was idle or never reported
+     */
+    default String clear(int pump) {
+        throw unavailable("clear pump " + pump);
+    }
+
+    /** Every pump a test lifted, hung up or waited on: what {@link #clear} may touch. */
+    default Set<Integer> touched() {
+        throw unavailable("list the pumps the run touched");
+    }
 
     /** The step failure an unwired pump gives. */
     static DeviceUnavailable unavailable(String operation) {

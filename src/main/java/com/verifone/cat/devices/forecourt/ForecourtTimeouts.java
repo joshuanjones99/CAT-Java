@@ -17,6 +17,11 @@ public record ForecourtTimeouts(Duration fuelComplete, Duration promptWait, Dura
     public static final ForecourtTimeouts DEFAULTS = new ForecourtTimeouts(
             Duration.ofSeconds(90), Duration.ofSeconds(30), Duration.ofSeconds(15));
 
+    /** The forecourt's three bounds, from the rig's recovery budgets (the same fields, under the same names). */
+    public static ForecourtTimeouts of(com.verifone.cat.recovery.Timeouts timeouts) {
+        return new ForecourtTimeouts(timeouts.fuelComplete(), timeouts.promptWait(), timeouts.http());
+    }
+
     public ForecourtTimeouts {
         requirePositive("fuel_complete", fuelComplete);
         requirePositive("prompt_wait", promptWait);

@@ -1,9 +1,13 @@
 package com.verifone.cat.launch;
 
+import com.verifone.cat.closeday.CommanderAccess;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.devices.commander.PdkShim;
 import com.verifone.cat.devices.csite.CSiteCloud;
+import com.verifone.cat.devices.legacyrmi.LegacyRmi;
+import com.verifone.cat.devices.legacyrmi.LegacySaleRmi;
+import com.verifone.cat.devices.printer.PrinterReceipts;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.handlers.HandlerFixtures;
 import com.verifone.cat.pats.runner.handlers.StandardHandlers;
@@ -11,6 +15,7 @@ import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
 import com.verifone.cat.pats.runner.handlers.devices.DevicesTiming;
 import com.verifone.cat.pats.runner.handlers.inits.InitsState;
 import com.verifone.cat.pats.runner.handlers.posui.PosUiTimings;
+import com.verifone.cat.pats.runner.handlers.sale.SaleRmi;
 import com.verifone.cat.pats.runner.handlers.sale.SaleTiming;
 import com.verifone.cat.pos.driver.PosDomDriver;
 import com.verifone.cat.pos.driver.PosDriver;
@@ -18,7 +23,9 @@ import com.verifone.cat.pos.pages.Pos;
 import com.verifone.cat.pos.pinpad.PinpadDevice;
 import com.verifone.cat.pos.pinpad.PinpadDisplay;
 import com.verifone.cat.pos.receipt.DomReceiptCapture;
+import com.verifone.cat.pos.receipt.ReceiptSource;
 import com.verifone.cat.posshim.PosShimClient;
+import com.verifone.cat.recovery.Timeouts;
 
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -36,13 +43,25 @@ import org.slf4j.LoggerFactory;
  * action that needs it fails by name and nothing reports success:
  * <ul>
  *   <li>no POS driver: the registry is empty, so every action fails with "no handler" (the step is then unusable);</li>
- *   <li>no pos-shim, no Commander, no pinpad: the shim and the Commander point at a port nothing listens on, and the
- *       pinpad throws {@link DeviceUnavailable}.</li>
+ *   <li>no pos-shim, no Commander: the shim and the Commander point at a port nothing listens on;</li>
+ *   <li>no pinpad, no DCR, no pumps, no printer: their families' defaults throw {@link DeviceUnavailable}, and the
+ *       receipt falls back to the screen.</li>
  * </ul>
- * The C-Site client is built only when its settings are in the environment ({@code csite.username}), and is then the
- * one the HTTP and configuration families send through; without them the CSITE step fails by name.
  *
- * <p>UNVERIFIED AGAINST HARDWARE: the wiring is tested on the fake POS only.
+ * <p>With the devices the connector supplies, the fixtures are the real clients, each built from the rig file:
+ * <ul>
+ *   <li>the pos-shim and the Commander's PDK shim, as the connector built them;</li>
+ *   <li>{@code SaleRmi}: {@link LegacySaleRmi} over the pos-shim, its overlay sweep the POS driver's
+ *       {@link PosDriver#clearBlockingOverlays};</li>
+ *   <li>the receipt: {@link PrinterReceipts} over the register's printer, begun at each case's start, when the run has a
+ *       printer; the screen's {@link DomReceiptCapture} otherwise. Its print count is the printer's;</li>
+ *   <li>the Commander's SSH and CGILink access ({@link CommanderAccess#forRig}), for the close-day recovery and the
+ *       cloud settle's Commander log;</li>
+ *   <li>the C-Site client when its settings are in the environment ({@code csite.username}).</li>
+ * </ul>
+ * The pinpad, DCR and pumps come from the connector ({@link RunServices}).
+ *
+ * <p>UNVERIFIED AGAINST HARDWARE: the wiring is tested on the fake POS and on documentation names only.
  */
 public final class StandardRegistry implements RegistryFactory {
 
@@ -66,7 +85,13 @@ public final class StandardRegistry implements RegistryFactory {
             LOG.warn("no POS driver is connected to this run; no action has a handler");
             return new ActionRegistry();
         }
-        return StandardHandlers.create(fixtures(services, System.getenv()));
+        HandlerFixtures fixtures = fixtures(services, System.getenv());
+        ActionRegistry registry = StandardHandlers.create(fixtures);
+        if (fixtures.receipts() instanceof PrinterReceipts printed) {
+            // Each case's receipt is picked from the Commander's numbers as they stand when the case begins.
+            registry.onBegin(run -> printed.begin());
+        }
+        return registry;
     }
 
     /** The handler fixtures a run's services give, with the stand-ins for the surfaces it lacks. */
@@ -74,34 +99,69 @@ public final class StandardRegistry implements RegistryFactory {
         PosDriver driver = services.pos();
         Path tools = toolsRoot(env);
         Map<String, String> environment = Map.copyOf(env);
+        PosShimClient shim = services.posShim() != null ? services.posShim()
+                : new PosShimClient("localhost", UNBOUND_PORT, "CAT", Duration.ofSeconds(5));
+        PdkShim commander = services.commander() != null ? services.commander()
+                : PdkShim.onPort("localhost", UNBOUND_PORT, Duration.ofSeconds(5), () -> "");
+        Timeouts timeouts = services.rig() == null ? Timeouts.defaults() : Timeouts.of(services.rig().rig().timeouts());
         return new HandlerFixtures(
                 new Pos(driver),
-                services.posShim() != null ? services.posShim()
-                        : new PosShimClient("localhost", UNBOUND_PORT, "CAT", Duration.ofSeconds(5)),
-                new DomReceiptCapture(new PosDomDriver(driver), PosDomDriver.itemFamilies()),
+                shim,
+                receipts(services, commander, timeouts),
                 services.pinpad() != null ? services.pinpad() : unboundPinpad(),
-                services.commander() != null ? services.commander()
-                        : PdkShim.onPort("localhost", UNBOUND_PORT, Duration.ofSeconds(5), () -> ""),
-                null,
+                commander,
+                commanderAccess(services, environment),
                 PetroappsFiles.fromEnvironment(environment),
                 tools,
                 services.paths().resultsRoot(),
                 environment,
                 InitsState.production(tools),
-                null,
-                null,
+                services.dcr(),
+                services.fuelPumps(),
                 cloudSite(environment),
                 null,
                 null,
                 PosUiTimings.defaults(),
                 SaleTiming.DEFAULT,
-                DevicesTiming.DEFAULT);
+                DevicesTiming.DEFAULT,
+                saleRmi(services, driver, shim),
+                services.printer());
     }
 
     /** {@code CAT_TOOLS_ROOT}, else PATS's {@code C:\CICD\Tools}. */
     static Path toolsRoot(Map<String, String> env) {
         String named = env.getOrDefault(TOOLS_ROOT_ENV, "").strip();
         return named.isEmpty() ? DEFAULT_TOOLS_ROOT : Path.of(named);
+    }
+
+    /**
+     * The POS receipt: the printed one, begun per case, when the run has a printer (as the Python's {@code pos} fixture
+     * wires {@code SerialReceiptCapture}); the screen's otherwise.
+     */
+    static ReceiptSource receipts(RunServices services, PdkShim commander, Timeouts timeouts) {
+        if (services.printer() == null) {
+            return new DomReceiptCapture(new PosDomDriver(services.pos()), PosDomDriver.itemFamilies());
+        }
+        return new PrinterReceipts(services.printer(),
+                () -> commander.listTransactionNumbers().stream().map(Long::valueOf).toList(),
+                timeouts.promptWait());
+    }
+
+    /**
+     * The register's RMI calls over the pos-shim's key path, with the POS driver's overlay sweep before each action (the
+     * Python's {@code legacy_rmi} fixture, which wires {@code clear_blocking_overlays} when the test holds {@code pos}).
+     * Unwired when the run has no pos-shim.
+     */
+    static SaleRmi saleRmi(RunServices services, PosDriver driver, PosShimClient shim) {
+        if (services.posShim() == null) {
+            return SaleRmi.UNAVAILABLE;
+        }
+        return new LegacySaleRmi(new LegacyRmi(shim, () -> driver.clearBlockingOverlays(null)));
+    }
+
+    /** The Commander's SSH and CGILink access over the rig, or null on a run with no rig. */
+    static CommanderAccess commanderAccess(RunServices services, Map<String, String> env) {
+        return services.rig() == null ? null : CommanderAccess.forRig(services.rig().rig(), env);
     }
 
     /** The C-Site client over the environment's settings, or null when there are none or they are not ported. */
