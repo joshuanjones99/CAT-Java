@@ -1,0 +1,6 @@
+{"type":"run.started","run_id":"deadbeef","rig":"lab","suite":"tests/suites/charity","fake_pos":true,"test_plans":["PETROCORE-70960"]}
+{"type":"plan.resolved","cases":[{"key":"PETROCORE-61334","summary":"Cash sale","node":"tests/x/test_a.py"},{"key":"PETROCORE-61391","summary":"Never ported","node":null},{"key":"PETROCORE-37043","summary":"Placeholder","node":null}]}
+{"type":"test.finished","nodeid":"tests/x/test_a.py::test_receipt","worker":"session","outcome":"failed","duration":1.5,"warnings":0,"exc_type":"AssertionError","detail":"receipt line 3 differs\n  expected: CHARITY 1.00\n  actual:   (missing)"}
+{"type":"test.finished","nodeid":"tests/x/test_b.py::test_stub","worker":"session","outcome":"failed","duration":0.0,"warnings":0,"exc_type":"Failed","detail":"SKIPPED: no ported body"}
+{"type":"test.finished","nodeid":"tests/x/test_c.py::test_ok","worker":"session","outcome":"passed","duration":0.2,"warnings":0}
+{"type":"run.finished","run_id":"deadbeef","outcome":"failed","passed":1,"failed":2,"warned":0,"elapsed":12.7,"dropped_events":0}
