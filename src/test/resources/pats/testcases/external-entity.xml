@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!DOCTYPE testscript [ <!ENTITY secret SYSTEM "file:///C:/Windows/win.ini"> ]>
+<testscript><testcase name="x"><action name="TOTAL"><field name="A" value="&secret;"/></action></testcase></testscript>

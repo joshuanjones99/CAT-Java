@@ -1,0 +1,4 @@
+Scenario: x
+When CASHIER_LOGIN on register with deviceid "topaz101"
+When APP_SELECTOR select element "@SCO@" of type "id" on register with deviceid "topaz101"
+When CLOUD_HTTP_REQUEST of type "PUT" is sent to url "pcms/v1/config/{service_id}/tips/1" with payload "TippingConfigurationPayload.json"
