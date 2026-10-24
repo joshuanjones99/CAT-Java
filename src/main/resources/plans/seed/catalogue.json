@@ -1,0 +1,618 @@
+{
+ "note": "Shipped snapshot, not a fetch. Captured from the Automated-Features Confluence page and Jira on 2026-09-09 and committed so the Config tab offers a plan on a controller with no Atlassian credentials. Regenerate from tests/fixtures/atlassian/ via cat.plans.parse_catalogue_page / parse_cases. Press Refresh from Confluence for the live page.",
+ "fetched_at": "2026-09-09T00:00:00+00:00",
+ "rows": [
+  {
+   "key": "PETROCORE-79667",
+   "feature": "Cadence",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "247",
+   "test_set": "PETROCORE-124037",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-118517",
+   "feature": "Cadence",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "264",
+   "test_set": "PETROCORE-118459",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-135127",
+   "feature": "Cadence",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "358",
+   "test_set": "PETROCORE-135126",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-70960",
+   "feature": "Charity-Donations-Indoor",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "38",
+   "test_set": "PETROCORE-70909",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-70979",
+   "feature": "Charity-Donations-Outdoor",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "14",
+   "test_set": "PETROCORE-69452",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-70973",
+   "feature": "Rule-Manager",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "243",
+   "test_set": "PETROCORE-71135",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-70970",
+   "feature": "NAXML",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "132",
+   "test_set": "PETROCORE-70910",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-134968",
+   "feature": "Naxml-MixAndMatch",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "58",
+   "test_set": "PETROCORE-134967",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-71132",
+   "feature": "TAX",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "137",
+   "test_set": "PETROCORE-70913",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-135480",
+   "feature": "TAX",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "162",
+   "test_set": "PETROCORE-135478",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-75962",
+   "feature": "Swipe Ahead",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "44",
+   "test_set": "PETROCORE-75963",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-94537",
+   "feature": "SCO",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "273",
+   "test_set": "PETROCORE-70916",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-97286",
+   "feature": "Menu",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "62",
+   "test_set": "PETROCORE-80232",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-95716",
+   "feature": "AgeVerification feature handler change",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "179",
+   "test_set": "PETROCORE-91932",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-93624",
+   "feature": "Commander-F",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "56",
+   "test_set": "PETROCORE-93741",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-93625",
+   "feature": "Commander-EF",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "45",
+   "test_set": "PETROCORE-93743",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-94884",
+   "feature": "Verifone EPS",
+   "section": "Non Viper Features",
+   "status": "",
+   "case_count": "127",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-118819",
+   "feature": "DeviceMonitoring_TestPlan",
+   "section": "Non Viper Features",
+   "status": "Broken",
+   "case_count": "97",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-98940",
+   "feature": "LicenseTestPlanNewKillFunctionality",
+   "section": "Non Viper Features",
+   "status": "N/A",
+   "case_count": "71",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-99578",
+   "feature": "LicenseTestPlanRemoveKillFunctionality",
+   "section": "Non Viper Features",
+   "status": "",
+   "case_count": "23",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-81040",
+   "feature": "NACSTruageTestPlan",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "58",
+   "test_set": "PETROCORE-80880",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-119676",
+   "feature": "Tipping POS/SCO",
+   "section": "Non Viper Features",
+   "status": "In Progress PETROCORE-1194111461afb5-3d31-39cf-86d5-6bf1f401a309System Jira",
+   "case_count": "81",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-127796",
+   "feature": "PDK Back Office",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "213",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-130640",
+   "feature": "RCI Functions",
+   "section": "Non Viper Features",
+   "status": "Working, Needs to be updated",
+   "case_count": "8",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-137551",
+   "feature": "PCI-MIN-AGE",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "15",
+   "test_set": "",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-138482",
+   "feature": "Control Commands",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "12",
+   "test_set": "",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-137657",
+   "feature": "Smart Suggestion for commander side",
+   "section": "Non Viper Features",
+   "status": "Working",
+   "case_count": "185",
+   "test_set": "PETROCORE-137069",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-136127",
+   "feature": "TaxVisitor_CouponsTestPlan",
+   "section": "Non Viper Features",
+   "status": "working",
+   "case_count": "57",
+   "test_set": "",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-70983",
+   "feature": "Loyalty-Single",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "194",
+   "test_set": "PETROCORE-71220",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-122267",
+   "feature": "Loyalty-Multiple",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "300",
+   "test_set": "PETROCORE-122516",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-70985",
+   "feature": "TOR-Without-VisaFleet",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "24",
+   "test_set": "PETROCORE-70917",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-70987",
+   "feature": "Cadence-Payment",
+   "section": "Viper Features",
+   "status": "N/A",
+   "case_count": "60",
+   "test_set": "",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-78200",
+   "feature": "NGFC",
+   "section": "Viper Features",
+   "status": "In Progress PETROCORE-1194081461afb5-3d31-39cf-86d5-6bf1f401a309System Jira",
+   "case_count": "286",
+   "test_set": "PETROCORE-74631",
+   "kind": "XML"
+  },
+  {
+   "key": "PETROCORE-104666",
+   "feature": "ProprietaryFleetAutomation-testplan-(Mannatec)_@propfleet",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "33",
+   "test_set": "PETROCORE-104438",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-117780",
+   "feature": "Incomm",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "54",
+   "test_set": "PETROCORE-117780",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-122738",
+   "feature": "Test_Plan_MSR_Credit_Debit_EBT",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "115",
+   "test_set": "PETROCORE-122695",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-122795",
+   "feature": "EMV_Credit_Contact",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "163",
+   "test_set": "PETROCORE-122714",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-122721",
+   "feature": "EMV_Debit_Contact",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "53",
+   "test_set": "PETROCORE-122719",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-122723",
+   "feature": "EMV_Debit_Contactless",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "52",
+   "test_set": "PETROCORE-122722",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-123202",
+   "feature": "EMV_Fallback_Credit_&_Debit",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "54",
+   "test_set": "PETROCORE-122703",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-122891",
+   "feature": "CreditCTLSTestPlan",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "129",
+   "test_set": "PETROCORE-122715",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-123070",
+   "feature": "UScommonDEBITCT@",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "79",
+   "test_set": "PETROCORE-122115",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-123337",
+   "feature": "USCOMMONDebitContactlesstestplan@",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "82",
+   "test_set": "PETROCORE-122257",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-123590",
+   "feature": "EMV_Legacy_Fleet (Visa, MC & Voyager)",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "209",
+   "test_set": "PETROCORE-123205",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-123927",
+   "feature": "Test_Plan_EMV_Enhanced_VISA_Fleet_CT",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "79",
+   "test_set": "PETROCORE-123925",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-124024",
+   "feature": "EnhancedFleetCTLSTestPLan",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "94",
+   "test_set": "PETROCORE-124022",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-124963",
+   "feature": "MSRFleet_Test_Case",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "173",
+   "test_set": "PETROCORE-1239211461",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-124450",
+   "feature": "Test_Plan_Legacy_CTLS_Fleet_VISA_and_MC",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "134",
+   "test_set": "PETROCORE-124259",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-125564",
+   "feature": "Test_Plan_Legacy_CT_Fleet_WEX_HOST",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "40",
+   "test_set": "PETROCORE-125041",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-125566",
+   "feature": "Test_Plan_Legacy_CT_Fleet_WEX_Simulator",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "15",
+   "test_set": "PETROCORE-125478",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-125997",
+   "feature": "Gift/Prepaid Cards",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "19",
+   "test_set": "PETROCORE-125996",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-126605",
+   "feature": "Test_Plan_EMV_CT_Credit_Signature",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "23",
+   "test_set": "PETROCORE-126601",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-126606",
+   "feature": "Test_Plan_EMV_CTLS_Credit_Signature",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "28",
+   "test_set": "PETROCORE-126602",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-127599",
+   "feature": "Valero-Gift-cards",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "40",
+   "test_set": "PETROCORE-127563",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-128200",
+   "feature": "Test_Plan_WEX_OTR_MSR",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "65",
+   "test_set": "PETROCORE-128187",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-128765",
+   "feature": "Test_Plan_WEX_OTR_Fleet_Check",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "18",
+   "test_set": "PETROCORE-128769",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-131051",
+   "feature": "Test_Plan_COMDATA_MSR",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "69",
+   "test_set": "PETROCORE-131049",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-131052",
+   "feature": "Test_Plan_ComCheck_ExpressCode",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "18",
+   "test_set": "PETROCORE-131050",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-133021",
+   "feature": "Test_Plan_Sunoco_Specific_Cards_Automated_Test_Cases",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "38",
+   "test_set": "PETROCORE-133020",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-135335",
+   "feature": "Test_Plan_Commercial_Fleet_Code_WEX_OTR_Direct",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "35",
+   "test_set": "PETROCORE-135131",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-135547",
+   "feature": "Test_Plan_Commercial_Fleet_Code_Comdata_Direct",
+   "section": "Viper Features",
+   "status": "Working",
+   "case_count": "25",
+   "test_set": "PETROCORE-135534",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-72109",
+   "feature": "Cadence-FCC",
+   "section": "Deprecated Test plans",
+   "status": "",
+   "case_count": "",
+   "test_set": "",
+   "kind": ""
+  },
+  {
+   "key": "PETROCORE-70988",
+   "feature": "SCO-Old",
+   "section": "Deprecated Test plans",
+   "status": "",
+   "case_count": "",
+   "test_set": "",
+   "kind": ""
+  },
+  {
+   "key": "PETROCORE-91397",
+   "feature": "GloryAutomation",
+   "section": "Deprecated Test plans",
+   "status": "",
+   "case_count": "",
+   "test_set": "",
+   "kind": ""
+  },
+  {
+   "key": "PETROCORE-99578",
+   "feature": "LicenseTestPlanNewKillFunctionality",
+   "section": "Deprecated Test plans",
+   "status": "",
+   "case_count": "",
+   "test_set": "",
+   "kind": ""
+  },
+  {
+   "key": "PETROCORE-135812",
+   "feature": "Chevron - CTLS - MC Fleet Automation (Buypass to Chevron Converted)",
+   "section": "Chevron Specific Test plans",
+   "status": "Working",
+   "case_count": "57",
+   "test_set": "PETROCORE-135811",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-140691",
+   "feature": "Chevron - CT - Fleet Automation (Buypass to Chevron Converted) MC, VISA, Voyager.",
+   "section": "Chevron Specific Test plans",
+   "status": "Working",
+   "case_count": "171",
+   "test_set": "PETROCORE-140692",
+   "kind": "BDD"
+  },
+  {
+   "key": "PETROCORE-140747",
+   "feature": "Secondary FEP Commercial Fleet WEX-OTR Direct Chevron",
+   "section": "Chevron Specific Test plans",
+   "status": "Working",
+   "case_count": "39",
+   "test_set": "PETROCORE-140748",
+   "kind": "BDD"
+  }
+ ]
+}
