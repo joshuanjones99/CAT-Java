@@ -59,7 +59,7 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 |---|---|---|
 | `petrotest/devices/pos_shim.py` (read + keys) | `posshim` | ported (PoC), read path live-checked |
 | `petrotest/rig/` (models, loader, duration, lease) | `rig` | ported (ppk.py skipped). Strict like pydantic `extra=forbid`; Jackson reports only the first error; lease tested in one JVM only |
-| `petrotest/devices/config_shim.py` (Commander CGILink) | `devices.commander` | **blocked**: Haiku 5.5's cyber safeguard stopped two agents (login/OTP/lab credential). ~700 uncommitted lines in worktree `CAT-Java-wt/commander`. Needs a different model or hand work — rig owner's call |
+| `petrotest/devices/config_shim.py` (Commander CGILink) | `devices.commander` | in progress on Opus 5.5 (rig owner, 2026-10-24) after Haiku 5.5's safeguard stopped two agents |
 | `cat/connections.py`, `cat/readiness.py` | `connections` | ported; not wired to the rig model yet (Endpoints takes plain hosts). Xray/printer/VATS rows left as TODOs |
 | `cat/plans.py`, `petrotest/selection.py`, `cat/requirements.py`, `cat/seed/` | `plans` | ported offline (seed: 68 plans; 135127 = 358 cases, checked against the Python seed). Confluence/Jira fetch and page parsers left for `atlassian`; selection's PATS-XML reader behind a `CaseActions` interface |
 | `petrotest/report/` + `cat/report/events.py` writer | `report` | ported, including `html.py` (summary.html); case_record's pytest glue is the runner's |
@@ -109,11 +109,17 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
    The Python CAT's `_powershell` uses `-Command`; it is probably fine there (Python
    escapes the quotes) but is unchecked.
 
-9. **Parity deviation to decide:** Start Simulators fails the step when a simulator
-   needs attention; the Python lets it through as a warning.
+9. **Decided (rig owner, 2026-10-24):** a simulator that needs attention FAILS Start
+   Simulators (stricter than the Python, which warns), and the operator gets a concise,
+   direct warning naming the simulator and what to do. Wording pass queued.
 10. `GET /simulators` probes localhost ports 41107 and 9001 (connect only) even in tests.
 
 11. Subcommands: `cat-java [web] --rig R`, `preflight`, `launch`, `xray`.
+
+12. Playwright for Java downloads every browser on first use. A wave 6 test run did so
+    once (Chromium 1148, Firefox, WebKit into %LOCALAPPDATA%\ms-playwright, beside the
+    Python CAT's Chromium 1228). Since then PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 is set for
+    tests and run.cmd; browser tests skip when Chromium is absent.
 
 ## 7. Log
 
