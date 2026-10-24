@@ -388,3 +388,16 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
 .cat-places dd { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
 .cat-places code { color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) { .cat-places { grid-template-columns: 1fr; } .cat-places dt { margin-top: 6px; } }
+
+/* Install Upgrade and the Downloads pickers */
+.pick-grid { display: grid; gap: 12px; margin: 8px 0 12px; }
+.pick { display: grid; grid-template-columns: 180px 1fr; gap: 4px 12px; align-items: start; }
+.pick-label { color: var(--muted); padding-top: 6px; }
+.pick-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick-controls select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; min-width: 14rem; }
+.pick-hint { grid-column: 2; margin: 0; font-size: 13px; }
+@media (max-width: 640px) { .pick { grid-template-columns: 1fr; } .pick-hint { grid-column: 1; } }
+.stages { list-style: none; padding: 0; margin: 0; }
+.stages li { padding: 2px 0; }
+.stage-mark { display: inline-block; width: 1.2em; text-align: center; }
+.job { margin-top: 12px; }
