@@ -14,6 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -58,7 +60,11 @@ class RunRoutesTest {
                         + "\"detail\":\"<script>alert(1)</script>\\nsecond line\"}"), null);
         Files.createDirectories(folder);
         Files.writeString(folder.resolve("run.log"), "<b>hi</b> and & more\n", StandardCharsets.UTF_8);
-        run = new RunService("lab", () -> engine, () -> "REPORT <ok>", Clock.systemUTC());
+        // A fixed mid-morning clock: a continuous pass must not wait for the Commander's forced end of day,
+        // whatever the time of day the test runs at.
+        Clock morning = Clock.fixed(LocalDateTime.of(2026, 10, 24, 10, 0).atZone(ZoneId.systemDefault()).toInstant(),
+                ZoneId.systemDefault());
+        run = new RunService("lab", () -> engine, () -> "REPORT <ok>", morning);
         PosShimClient client = new PosShimClient("127.0.0.1", 1, null, Duration.ofSeconds(1));
         app = WebApp.create(client, "CAT-Java: test", form, run).start(WebApp.BIND_HOST, 0);
     }
@@ -75,7 +81,32 @@ class RunRoutesTest {
         assertTrue(page.contains("Start run"), page);
         assertTrue(page.contains("Preflight (check only)"), page);
         assertTrue(page.contains("Pre-Run"), page);
-        assertTrue(page.contains("Not built yet: Schedule run and Continuous run"), page);
+        assertTrue(page.contains("Schedule run"), page);
+        assertTrue(page.contains("Continuous run"), page);
+        assertFalse(page.contains("Not built yet: Schedule"), page);
+        assertFalse(get("/fragments/run").body().contains("every 2s"));
+    }
+
+    @Test
+    void theScheduleAndTheContinuousRunWorkFromThePage() throws Exception {
+        String scheduled = postForm("/run/schedule", "at=2999-01-01+23%3A00", true).body();
+        assertTrue(scheduled.contains("Scheduled for 2999-01-01 23:00:00."), scheduled);
+        assertTrue(scheduled.contains("#1 2999-01-01 23:00:00"), scheduled);
+        assertTrue(scheduled.contains("every 2s"), scheduled);
+
+        String refused = postForm("/run/schedule", "at=nonsense", true).body();
+        assertTrue(refused.contains("Could not read that time"), refused);
+
+        assertFalse(postForm("/run/schedule/cancel", "id=1", true).body().contains("#1 2999"));
+        assertTrue(postForm("/run/schedule/clear", "", true).body().contains("Schedule cleared."));
+        assertEquals(403, postForm("/run/schedule", "at=23%3A00", false).statusCode());
+
+        String continuous = post("/run/continuous", true).body();
+        assertTrue(continuous.contains("Finish continuous"), continuous);
+        engine.awaitWritten();
+        assertTrue(post("/run/continuous", true).body().contains("will finish after pass 1"));
+        engine.release();
+        FakeRunEngine.awaitIdle(run);
         assertFalse(get("/fragments/run").body().contains("every 2s"));
     }
 
@@ -156,6 +187,17 @@ class RunRoutesTest {
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
         return http.send(HttpRequest.newBuilder(uri(path)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> postForm(String path, String form, boolean htmx)
+            throws IOException, InterruptedException {
+        HttpRequest.Builder request = HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(form));
+        if (htmx) {
+            request.header("HX-Request", "true");
+        }
+        return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> post(String path, boolean htmx) throws IOException, InterruptedException {
