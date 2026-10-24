@@ -1,0 +1,12 @@
+{"type":"run.started","run_id":"run-20260804-001","rig":"test-rig","suite":"tests/suites/test","cmd":"pytest tests/suites/test --rig test-rig","workers":1,"v":1,"at":"2026-08-04T10:00:00Z","seq":0,"worker":"session"}
+{"type":"plan.resolved","cases":[{"key":"PETROCORE-61391","node":null,"summary":"Charity: receipt check"},{"key":"PETROCORE-37043","node":null}],"v":1,"at":"2026-08-04T10:00:00Z","seq":1,"worker":"session"}
+{"type":"test.finished","nodeid":"tests/suites/test/test_pass.py::test_pass","outcome":"passed","duration":1.23,"v":1,"at":"2026-08-04T10:00:01Z","seq":2,"worker":"session"}
+{"type":"test.finished","nodeid":"tests/suites/test/test_fail.py::test_fail","outcome":"failed","duration":2.45,"exc_type":"AssertionError","detail":"receipt line 3 differs\nexpected: CHARITY 1.00\nactual:   CHARITY 2.00","v":1,"at":"2026-08-04T10:00:03Z","seq":3,"worker":"session"}
+{"type":"test.finished","nodeid":"tests/suites/test/test_error.py::test_error","outcome":"error","duration":0.5,"exc_type":"Failed","detail":"setup failed","v":1,"at":"2026-08-04T10:00:03Z","seq":4,"worker":"session"}
+{"type":"test.finished","nodeid":"tests/suites/test/test_timeout.py::test_timeout","outcome":"timeout","duration":30.0,"v":1,"at":"2026-08-04T10:00:33Z","seq":5,"worker":"session"}
+{"type":"test.finished","nodeid":"tests/suites/test/test_skip.py::test_skip","outcome":"skipped","duration":0.1,"v":1,"at":"2026-08-04T10:00:34Z","seq":6,"worker":"session"}
+{"type":"preflight.check","name":"system_checks","phase":"verify","outcome":"pass","detail":"All checks passed","v":1,"at":"2026-08-04T10:00:00Z","seq":7,"worker":"session"}
+{"type":"preflight.check","name":"commander_connection","phase":"verify","outcome":"error","detail":"SSH key not found","v":1,"at":"2026-08-04T10:00:00Z","seq":8,"worker":"session"}
+{"type":"preflight.check","name":"rig_lease","phase":"repair","outcome":"repaired","detail":"Rig was busy, now available","v":1,"at":"2026-08-04T10:00:01Z","seq":9,"worker":"session"}
+{"type":"recovery.rung","nodeid":"tests/suites/test/test_fail.py::test_fail","rung":0,"outcome":"pass","v":1,"at":"2026-08-04T10:00:04Z","seq":10,"worker":"session"}
+{"type":"run.finished","run_id":"run-20260804-001","outcome":"failed","passed":1,"failed":2,"warned":0,"elapsed":34.5,"dropped_events":0,"v":1,"at":"2026-08-04T10:00:35Z","seq":11,"worker":"session"}
