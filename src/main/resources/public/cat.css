@@ -375,3 +375,16 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
 .sim-log-pre { max-height: 28rem; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--surface); color: var(--text); padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
 .danger { color: var(--error); border-color: var(--error); }
 .ghost { background: transparent; }
+/* Settings (web/SettingsPage.java): the appearance choice and where CAT keeps things. */
+.settings-card { display: grid; gap: 10px; max-width: 60rem; }
+.settings-card h2 { margin: 0; font-size: 16px; }
+.appearance fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.appearance legend { font-weight: 600; margin-bottom: 6px; }
+.appearance .choice { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.appearance .choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.appearance-result { margin: 4px 0 0; min-height: 1.2em; font-size: 14px; }
+.cat-places { display: grid; grid-template-columns: minmax(10rem, max-content) 1fr; gap: 6px 16px; margin: 0; }
+.cat-places dt { font-weight: 600; }
+.cat-places dd { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.cat-places code { color: var(--muted); font-size: 12px; }
+@media (max-width: 640px) { .cat-places { grid-template-columns: 1fr; } .cat-places dt { margin-top: 6px; } }
