@@ -222,7 +222,7 @@ class CgiRepliesTest {
     @Test
     void aDoctypeIsRefused() {
         assertThrows(DeviceProtocolError.class, () -> CgiReplies.parse(
-                "<!DOCTYPE r [<!ENTITY x SYSTEM \"file:///c:/windows/win.ini\">]><r>&x;</r>", "test"));
+                "<!DOCTYPE r [<!ENTITY x SYSTEM \"file:/c:/windows/win.ini\">]><r>&x;</r>", "test"));
     }
 
     @Test
