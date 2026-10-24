@@ -17,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.verifone.cat.commander.links.CommanderLinks;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
 
@@ -152,6 +153,39 @@ class CommanderTrustTest {
     void theDerToPemFormIsPythonsAndRoundTrips() {
         String pem = CommanderTrust.derToPem(new byte[] {1, 2, 3});
         assertEquals("-----BEGIN CERTIFICATE-----\nAQID\n-----END CERTIFICATE-----\n", pem);
+    }
+
+    @Test
+    void anImportIsFollowedByThePmcRestartAndAFailedRestartIsSaidNotSwallowed() {
+        // The import wants PMC restarted so its JVM reads the new cacerts (the restart the payment links use).
+        Shell shell = new Shell();
+        Say.Recorded say = new Say.Recorded();
+        assertTrue(CommanderTrust.importAndRestart(shell, A, "cat-cullinan", true, say));
+        assertTrue(shell.commands.stream().anyMatch(c -> c.equals(CommanderLinks.PMC_RESTART.get(0))));
+        assertTrue(say.outText().contains("restarting PMC so its JVM reads the new cacerts"), say.outText());
+
+        Shell refusing = new Shell() {
+            @Override
+            public CommandResult run(String command, Duration timeout) {
+                if (command.equals(CommanderLinks.PMC_RESTART.get(0))) {
+                    commands.add(command);
+                    return new CommandResult(1, "", "denied");
+                }
+                return super.run(command, timeout);
+            }
+        };
+        Say.Recorded failed = new Say.Recorded();
+        assertFalse(CommanderTrust.importAndRestart(refusing, B, "cat-cullinan", true, failed));
+        assertTrue(failed.errText().contains("denied"), failed.errText());
+    }
+
+    @Test
+    void aSameCertificateNeedsNoRestart() {
+        Shell shell = new Shell();
+        shell.held.put("cat-cullinan", A);
+        Say.Recorded say = new Say.Recorded();
+        assertTrue(CommanderTrust.importAndRestart(shell, A, "cat-cullinan", true, say));
+        assertTrue(shell.commands.stream().noneMatch(c -> c.equals(CommanderLinks.PMC_RESTART.get(0))));
     }
 
     @Test
