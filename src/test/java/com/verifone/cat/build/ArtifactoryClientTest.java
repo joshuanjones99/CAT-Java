@@ -28,6 +28,14 @@ class ArtifactoryClientTest {
     @TempDir
     Path dir;
 
+    private static String sha256Hex(byte[] bytes) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private static byte[] payload(int length) {
         byte[] bytes = new byte[length];
         for (int i = 0; i < length; i++) {
@@ -144,9 +152,24 @@ class ArtifactoryClientTest {
             client.downloadFile(client.fileUrl("repo/overlay.zip"), dest, info.size(), info.sha256(), 6);
 
             assertArrayEquals(bytes, Files.readAllBytes(dest));
-            assertEquals(6, fake.ranges.size());
-            assertEquals("bytes=0-1706", fake.ranges.get(0));
+            assertEquals(sha256Hex(bytes), ArtifactoryClient.sha256Of(dest));
             assertFalse(Files.exists(dir.resolve("overlay.zip.part")));
+
+            // The ranges arrive in no fixed order, so compare the sorted set of what was asked for.
+            // Slice = ceil(10240 / 6) = 1707; the last slice ends at size - 1.
+            List<String> expected = List.of("bytes=0-1706", "bytes=1707-3413", "bytes=3414-5120",
+                    "bytes=5121-6827", "bytes=6828-8534", "bytes=8535-10239");
+            List<String> asked = fake.ranges.stream().sorted().toList();
+            assertEquals(expected.stream().sorted().toList(), asked);
+
+            // Coverage: sorted by start, each range begins one byte after the last ended, from 0 to size - 1.
+            long next = 0;
+            for (String range : expected) {
+                String[] bounds = range.replace("bytes=", "").split("-");
+                assertEquals(next, Long.parseLong(bounds[0]), "gap or overlap before " + range);
+                next = Long.parseLong(bounds[1]) + 1;
+            }
+            assertEquals(bytes.length, next);
         }
     }
 
