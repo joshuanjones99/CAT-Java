@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -138,8 +140,11 @@ class ConnectionsStepTest {
             List<String> refused = step.sshLogins(bench, pool, new StepEmitter(ctx, LaunchStepNames.CONNECTIONS));
 
             assertEquals(List.of("topaz101 (10.0.0.2) refused CAT's SSH key"), refused);
-            // The Commander first, then every register, as targets_from_rig lists them.
-            assertEquals(List.of("commander", "topaz101"), asked);
+            // Every provisioning target is signed in to. The logins run concurrently, so the order the fake
+            // saw them start in is not fixed; the order of the refusals and check rows is (input order).
+            List<String> seen = new ArrayList<>(asked);
+            Collections.sort(seen);
+            assertEquals(List.of("commander", "topaz101"), seen);
         } finally {
             pool.shutdownNow();
         }
