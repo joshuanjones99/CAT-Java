@@ -1,0 +1,15 @@
+name: bench
+commander:
+  host: 10.0.0.11
+  ssh_user: root
+  eps_port: 41107
+registers:
+  - id: topaz101
+    host: 10.0.0.101
+    cdp_port: 9222
+controller:
+  host: 10.0.0.160
+pinpad: viperpay
+pos_shim: true
+build:
+  expected_version: "057.02"
