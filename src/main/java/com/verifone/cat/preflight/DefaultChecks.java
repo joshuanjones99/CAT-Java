@@ -13,9 +13,13 @@ import java.util.List;
  *       Suite ({@code devices/petro_forecourt.py}). No Java forecourt client yet.</li>
  *   <li>{@code eps_reachable}: {@code checks/services.py}, reads the Commander's sockets over SSH
  *       ({@code devices/eps.py}). No Java SSH transport yet.</li>
- *   <li>{@code config_loaded}, {@code build_matches}: {@code checks/config.py}, reads the Commander's
- *       CGILink ({@code devices/config_shim.py}) and {@code suiteinfo.dat}. The Commander client is
- *       blocked (HANDOFF.md, wave 1).</li>
+ *   <li>{@code config_loaded}, {@code build_matches}: {@code checks/config.py}. Neither needs the
+ *       CGILink client, which is ported ({@code devices.commander.PdkShim}). In the Python,
+ *       {@code config_loaded} reads {@code RigContext.config_status}, which defaults to the
+ *       unavailable stub because no CGILink command for the active folder is known
+ *       ({@code PDKShim.active_config_folder} raises {@code DeviceUnavailable} too), and
+ *       {@code build_matches} reads {@code suiteinfo.dat} over SSH (its HANDOFF.md §1.87).
+ *       The checks themselves are not ported yet.</li>
  * </ul>
  * {@code checks/register.py} ({@code browser_override_safe}) is not registered by default in Python
  * either; it is left behind with the browser-override work.
