@@ -1,0 +1,1796 @@
+{
+ "note": "Shipped snapshot, not a fetch. This case list is Xray's test plan PETROCORE-135127 (Cadence_ExtendedReports) on 2026-09-22, in the plan's own order (HANDOFF.md §1.88). Committed so the Config tab offers the plan on a controller with no Atlassian credentials.",
+ "fetched_at": "2026-09-22T20:33:36.676486+00:00",
+ "rows": [
+  {
+   "key": "PETROCORE-79588",
+   "summary": "Import Config-FuelWithAdditionalData",
+   "node": "tests/suites/cadence/PETROCORE-79588-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-124034",
+   "summary": "Import-buypass-host-simulator-config",
+   "node": "tests/suites/charity/PETROCORE-124034-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-79590",
+   "summary": "Fuel DCR Init",
+   "node": "tests/suites/cadence/PETROCORE-79590-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37043",
+   "summary": "POS-Login",
+   "node": "tests/suites/charity/PETROCORE-37043-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36847",
+   "summary": "PLU-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36847-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36848",
+   "summary": "PLU-Modifier-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36848-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36849",
+   "summary": "PLU-Modifier-Cash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36849-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36850",
+   "summary": "PLU-NotFound-FS-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36850-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36851",
+   "summary": "PLU-PriceOverride-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36851-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36852",
+   "summary": "PLU-PriceOverride-Coupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36852-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36853",
+   "summary": "Refund- Multiple-PLU-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36853-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36854",
+   "summary": "PLU-Tax-TaxableCoupon-Credit ",
+   "node": "tests/suites/cadence/PETROCORE-36854-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36855",
+   "summary": "PLU-Tax-NonTaxableCoupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36855-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36856",
+   "summary": "PLU-Fee-Cash-TaxableCoupon-Credit ",
+   "node": "tests/suites/cadence/PETROCORE-36856-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36857",
+   "summary": "PLU-Fee-Cash-NonTaxableCoupon-Credit ",
+   "node": "tests/suites/cadence/PETROCORE-36857-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36858",
+   "summary": "PLU-Fee-TAX-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36858-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36859",
+   "summary": "PLU-Fee-Multiple-Tax-TaxRebate-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36859-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36860",
+   "summary": "PLU-IDCheck-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36860-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36861",
+   "summary": "PLU-Blue-Law-Restriction",
+   "node": "tests/suites/cadence/PETROCORE-36861-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118535",
+   "summary": "import bypass id recheck config",
+   "node": "tests/suites/cadence/PETROCORE-118535-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118536",
+   "summary": "logout and login",
+   "node": "tests/suites/cadence/PETROCORE-118536-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118537",
+   "summary": "Combination of bypass id",
+   "node": "tests/suites/cadence/PETROCORE-118537-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118538",
+   "summary": "bypass id reprompt for higher age",
+   "node": "tests/suites/cadence/PETROCORE-118538-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118539",
+   "summary": "bypass id repropmt for higher security",
+   "node": "tests/suites/cadence/PETROCORE-118539-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118540",
+   "summary": "import id config",
+   "node": "tests/suites/cadence/PETROCORE-118540-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36862",
+   "summary": "PLU-PROMO-Tax-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36862-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36863",
+   "summary": "PLU-PROMO-Tax-TaxRebate-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36863-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36864",
+   "summary": "PLU-Fee-Special-Discount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36864-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36865",
+   "summary": "PLU-ProhibitedManualDiscount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36865-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36866",
+   "summary": "PLU-FractionalQuantity-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36866-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36867",
+   "summary": "PLU-ManualDiscount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36867-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36868",
+   "summary": "PLU-GroupId1-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36868-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36869",
+   "summary": "PLU-GroupId2-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36869-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36870",
+   "summary": "PLU-Open-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36870-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36871",
+   "summary": "PLU-SerialNumber-Tax-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36871-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36872",
+   "summary": "PLU-FS-Fee-TAX- Cash-FS",
+   "node": "tests/suites/cadence/PETROCORE-36872-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36873",
+   "summary": "DEPT-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36873-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36874",
+   "summary": "DEPT-Tax-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36874-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36875",
+   "summary": "DEPT-Fee-Credit-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36875-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36876",
+   "summary": "DEPT-Fee-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36876-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36877",
+   "summary": "DEPT-Tax-Fee-Credit -Cash",
+   "node": "tests/suites/cadence/PETROCORE-36877-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36878",
+   "summary": "DEPT-IDCheck-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36878-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36879",
+   "summary": "DEPT-Negative-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36879-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36880",
+   "summary": "DEPT-BlueLawRestriction",
+   "node": "tests/suites/cadence/PETROCORE-36880-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36881",
+   "summary": "DEPT-SpecialDiscount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36881-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36882",
+   "summary": "DEPT-FractionalQTY-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36882-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36883",
+   "summary": "DEPT-MultipleQTY-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36883-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36884",
+   "summary": "DEPT-ManualDiscount-TaxableCoupon-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36884-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36885",
+   "summary": "DEPT-ProhibitManualDiscount-NonTaxableCoupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36885-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36886",
+   "summary": "DEPT-SerialNumber-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36886-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36887",
+   "summary": "DEPT-ManualFuel-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36887-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36888",
+   "summary": "DEPT-GiftActivation-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36888-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36889",
+   "summary": "DEPT- GIFTRecharge-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36889-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36890",
+   "summary": "PLU-Multiple-NAXML-Combo-DiscountByNewPrice-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36890-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36891",
+   "summary": "PLU-MultipleQty-NAXML-Combo-DiscountByNewPrice-TaxableCoupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36891-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36892",
+   "summary": "PLU-Multiple-NAXML-Combo-DiscountByAmount-NonTaxableCoupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36892-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36893",
+   "summary": "PLU-Multiple-NAXML-Combo-DiscountByPercentage-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36893-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36894",
+   "summary": "PLU-Multiple-NAXML-Combo-ComboByPriority-FoodStamp-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36894-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36895",
+   "summary": "PLU-Multiple-NAXML-Combo-TaxRebate-FoodStamp-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36895-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36896",
+   "summary": "PLU-Multiple-NAXML-MixAndMatch-TotalPackagePrice-FoodStamp-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36896-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36897",
+   "summary": "PLU-MultipleQty-NAXML-MixAndMatch-TotalPackagePrice-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36897-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36898",
+   "summary": "PLU-Multiple-NAXML-MixAndMatch-AmounOffPackagePrice-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36898-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36899",
+   "summary": "PLU-Multiple-NAXML-MixAndMatch-PercentOffPackagePrice-Food-Stam-TaxableCoupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36899-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36900",
+   "summary": "PLU-Multiple-NAXML-MixAndMatch-TotalPackagePrice-TaxRebate-NonTaxableCoupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36900-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36901",
+   "summary": "PLU-Multiple-Combo-NONCombo-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36901-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36902",
+   "summary": "PLU-Multiple-MixAndMatch-NONMixAndMatch-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36902-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36903",
+   "summary": "PLU-Multiple-Combo-MixAndMatch-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36903-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118399",
+   "summary": "Prepay-Outdoor-POP-Credit",
+   "node": "tests/suites/cadence/PETROCORE-118399-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118403",
+   "summary": "PREPAY-OUTDOOR-LOYALTY-MULTIPLE-CREDIT-POP-DISCOUNT",
+   "node": "tests/suites/cadence/PETROCORE-118403-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118410",
+   "summary": "IMPORT CONFIGURATION- POP Discount",
+   "node": "tests/suites/cadence/PETROCORE-118410-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118413",
+   "summary": "REFRESH-CONFIG",
+   "node": "tests/suites/cadence/PETROCORE-118413-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118400",
+   "summary": " Prepay-Outdoor-POP-Dedit",
+   "node": "tests/suites/cadence/PETROCORE-118400-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118401",
+   "summary": "Prepay-Outdoor-POP-Carwash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-118401-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118404",
+   "summary": "PREPAY-OUTDOOR-LOYALTY-SINGLE-CREDIT-POP-DISCOUNT",
+   "node": "tests/suites/cadence/PETROCORE-118404-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118409",
+   "summary": "Prepay-Outdoor-POP_Discount-Minimum_Purchase",
+   "node": "tests/suites/cadence/PETROCORE-118409-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118414",
+   "summary": "Import configurations-POP-Config",
+   "node": "tests/suites/cadence/PETROCORE-118414-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-118415",
+   "summary": "REFRESH-CONFIG",
+   "node": "tests/suites/cadence/PETROCORE-118415-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36917",
+   "summary": "PREPAY-PLU-CarWash-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36917-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36904",
+   "summary": "Multiple-PLU-Prepay-POP-Discount-FS-Cedit",
+   "node": "tests/suites/cadence/PETROCORE-36904-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36905",
+   "summary": "Multiple-PLU-Postpay-POP-Discount-FS-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36905-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36906",
+   "summary": "PLU-Prepay-POP-Discount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36906-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36907",
+   "summary": "PLU-Postpay-POP-Discount-Taxable-Coupon-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36907-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36908",
+   "summary": "PREPAY-DEPT-POP-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36908-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36909",
+   "summary": "PLU-Postpay-POP-Discount-Non-Taxable-Coupon-Cash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36909-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36910",
+   "summary": "PLU-Postpay-POP-Discount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36910-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36911",
+   "summary": "PLU-NO-POP-Discount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36911-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36912",
+   "summary": "Prepay-CarWash-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36912-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36913",
+   "summary": "Multiple-PLU-CarWash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36913-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36914",
+   "summary": "Postpay-CarWash-Credit-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36914-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36915",
+   "summary": "Prepay-CarWash-3-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36915-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36916",
+   "summary": "Postpay-CarWash-Credit-CashBack",
+   "node": "tests/suites/cadence/PETROCORE-36916-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36918",
+   "summary": " Prepay-OutDoor-1-PLU-CarWash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36918-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36927",
+   "summary": " Prepay-OutDoor-2-PLU-CarWash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36927-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36936",
+   "summary": "PostPay-Loyalty-Single-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36936-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36937",
+   "summary": "PostPay-Loyalty-Multiple-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36937-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36938",
+   "summary": "PostPay-Loyalty-POP-Discount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36938-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36939",
+   "summary": "PostPay-Loyalty-POP-Discount-CarWash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36939-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36940",
+   "summary": "PostPay-Loyalty-Multiple-POP-Discount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36940-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36941",
+   "summary": "PLU-Loyalty-Single-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36941-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36942",
+   "summary": "Postpay-PLU-Loyalty-Multiple-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36942-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36943",
+   "summary": "Prepay-Amount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36943-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36944",
+   "summary": "Prepay-Quantity-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36944-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36945",
+   "summary": "Preset-Postpay-Amount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36945-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36946",
+   "summary": "Preset-Postpay-Quantity-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36946-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36947",
+   "summary": "PostPay-Approve-Cash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36947-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36948",
+   "summary": "PAY-Inside-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36948-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36949",
+   "summary": "PrePay-UnderRun-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36949-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36950",
+   "summary": "Prepay-UnderRun-Claim-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36950-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36951",
+   "summary": "PrePay-Cash-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36951-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36952",
+   "summary": "PostPay-Multiple-Pump-ClaimOn-One-Pump-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36952-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36953",
+   "summary": "PostPay-Claim-Stacked-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36953-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36954",
+   "summary": "PostPay-Multiple-On-SamePump-FIFO-Claim-First-Sale-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36954-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36955",
+   "summary": "PostPay-FIFO-Claim-Stacked-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36955-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36956",
+   "summary": "PostPay-DRIVE-OFF",
+   "node": "tests/suites/cadence/PETROCORE-36956-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36957",
+   "summary": "PostPay-Pump-Test",
+   "node": "tests/suites/cadence/PETROCORE-36957-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36958",
+   "summary": "PrePay-Pump-Currency-Limit",
+   "node": "tests/suites/cadence/PETROCORE-36958-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36959",
+   "summary": "PostPay-Pump-Currency-Limit-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36959-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36960",
+   "summary": "PrePay-Pump-Quantity-Limit",
+   "node": "tests/suites/cadence/PETROCORE-36960-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36961",
+   "summary": " PostPay-Auto-Collect",
+   "node": "tests/suites/cadence/PETROCORE-36961-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36962",
+   "summary": "PrePay-Pop-Discount",
+   "node": "tests/suites/cadence/PETROCORE-36962-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36963",
+   "summary": "PostPay-Pop-Discount",
+   "node": "tests/suites/cadence/PETROCORE-36963-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36964",
+   "summary": "PrePay-Pop-Discount-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36964-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36965",
+   "summary": "PostPay-Pop-Discount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36965-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36966",
+   "summary": "PrePay-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36966-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36967",
+   "summary": "PostPay-Pop-Discount-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36967-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36968",
+   "summary": "PLU-PrePay-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36968-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36969",
+   "summary": "PLU-DOB-Manual-Discount-Dept-Fractional-Quantity-Credit-CashBack",
+   "node": "tests/suites/cadence/PETROCORE-36969-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36970",
+   "summary": "DCR-Pay-Inside-PLU-Multiple-Fee-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36970-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36971",
+   "summary": "Pay-Inside-PLU-Dept-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36971-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36972",
+   "summary": "PLU-MultipleQTY-ErrorCorrect-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36972-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36973",
+   "summary": " PLU- DEPT-Activation-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36973-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36974",
+   "summary": "PLU-DEPT-Recharge-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36974-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36975",
+   "summary": "DEPT-PLU-MultipleTax-Fees-FoodStamp-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36975-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36976",
+   "summary": "PLU-Prepay-Suspend-VoidTicket",
+   "node": "tests/suites/cadence/PETROCORE-36976-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36977",
+   "summary": "POSTPAY-PLU-Suspend",
+   "node": "tests/suites/cadence/PETROCORE-36977-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36978",
+   "summary": "PLU-POSTPAY-Recall-Credit",
+   "node": "tests/suites/cadence/PETROCORE-36978-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36979",
+   "summary": "SafeDrop-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36979-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36980",
+   "summary": "SafeLoan-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36980-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36981",
+   "summary": "Clock-In ",
+   "node": "tests/suites/cadence/PETROCORE-36981-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36982",
+   "summary": "CLOCK-Out",
+   "node": "tests/suites/cadence/PETROCORE-36982-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36983",
+   "summary": "PAY-IN-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36983-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36984",
+   "summary": "PAY-IN-InHouseAccount",
+   "node": "tests/suites/cadence/PETROCORE-36984-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36985",
+   "summary": "PAY-Out-InHouseAccount",
+   "node": "tests/suites/cadence/PETROCORE-36985-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36986",
+   "summary": "PAY-Out-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36986-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36987",
+   "summary": "NO-SALE",
+   "node": "tests/suites/cadence/PETROCORE-36987-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36988",
+   "summary": "PLU-Multiple-VOID-LINE",
+   "node": "tests/suites/cadence/PETROCORE-36988-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36989",
+   "summary": "Prepay-PLU-Multiple-VOID-TICKET",
+   "node": "tests/suites/cadence/PETROCORE-36989-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36990",
+   "summary": "REFUND-PLU-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36990-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36991",
+   "summary": "REFUND-PLU-Tax-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36991-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36992",
+   "summary": "REFUND-DEPT-Tax-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36992-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36993",
+   "summary": "REFUND-DEPT-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36993-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36994",
+   "summary": "REFUND-PLU-Refundable-Fee-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36994-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36995",
+   "summary": "REFUND-PLU-NonRefundable-Fee-ManualCredit",
+   "node": "tests/suites/cadence/PETROCORE-36995-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36996",
+   "summary": "REFUND-DEPT-Fee-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36996-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36997",
+   "summary": "REFUND-DEPT-NonRefundableFee-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36997-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36998",
+   "summary": "REFUND-PLU-PLUNotFoundDEPT-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36998-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37047",
+   "summary": "PLU-PLUNotFoundDEPT-Cash",
+   "node": "tests/suites/cadence/PETROCORE-37047-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-36999",
+   "summary": "PLU-REFUND-NonRefundable-PLU-Cash",
+   "node": "tests/suites/cadence/PETROCORE-36999-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37000",
+   "summary": "PLU-RULE-Alert-Cash",
+   "node": "tests/suites/cadence/PETROCORE-37000-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37001",
+   "summary": "PLU-RULE-BlueLaw",
+   "node": "tests/suites/cadence/PETROCORE-37001-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37002",
+   "summary": "PLU-RULE-IDCheck-Cash",
+   "node": "tests/suites/cadence/PETROCORE-37002-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37003",
+   "summary": "PLU-RULE-VETO",
+   "node": "tests/suites/cadence/PETROCORE-37003-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37004",
+   "summary": "DEPT-RULE-Alert-Cash",
+   "node": "tests/suites/cadence/PETROCORE-37004-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37005",
+   "summary": "PLU-RULE-ADD-ITEM-Cash",
+   "node": "tests/suites/cadence/PETROCORE-37005-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37048",
+   "summary": "Prepay-Loyalty-Single-Credit",
+   "node": "tests/suites/cadence/PETROCORE-37048-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37049",
+   "summary": "Prepay-PLU-Loyalty-Multiple-Credit",
+   "node": "tests/suites/cadence/PETROCORE-37049-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37050",
+   "summary": "Prepay-Quantity-Loyalty-Single-Credit",
+   "node": "tests/suites/cadence/PETROCORE-37050-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37051",
+   "summary": "Prepay-Quantity-Loyalty-Multiple-Credit",
+   "node": "tests/suites/cadence/PETROCORE-37051-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37052",
+   "summary": "PLU-Prepay-POP-Loyalty-Multiple-Cash",
+   "node": "tests/suites/cadence/PETROCORE-37052-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37053",
+   "summary": "Prepay-OutDoor-Loyalty-Multiple-Credit",
+   "node": "tests/suites/cadence/PETROCORE-37053-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37087",
+   "summary": "DCR-FLEET-Vehicle-ODOMETER",
+   "node": "tests/suites/cadence/PETROCORE-37087-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37073",
+   "summary": "Host-Decline-Merchandise-POSTPAY",
+   "node": "tests/suites/cadence/PETROCORE-37073-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37074",
+   "summary": "Host-Partial-Auth-Merchandise-POSTPAY",
+   "node": "tests/suites/cadence/PETROCORE-37074-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37075",
+   "summary": "Host-Partial-Auth-Merchandise-Void-Ticket",
+   "node": "tests/suites/cadence/PETROCORE-37075-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37076",
+   "summary": "Prepay-Merchandise-Debit",
+   "node": "tests/suites/cadence/PETROCORE-37076-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37077",
+   "summary": "Postpay-Debit-CASH-BACK-YES",
+   "node": "tests/suites/cadence/PETROCORE-37077-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37078",
+   "summary": "DCR-OUTDOOR-DEBIT",
+   "node": "tests/suites/cadence/PETROCORE-37078-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71024",
+   "summary": "IMPORT CONFIG-EXXON NGFC",
+   "node": "tests/suites/cadence/PETROCORE-71024-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59790",
+   "summary": "Fuel and DCR Init",
+   "node": "tests/suites/cadence/PETROCORE-59790-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71036",
+   "summary": "LOGOUT",
+   "node": "tests/suites/cadence/PETROCORE-71036-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71037",
+   "summary": "POS-LOGIN",
+   "node": "tests/suites/cadence/PETROCORE-71037-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40581",
+   "summary": "Transaction log for completion of prepay by amount transaction without selecting any grade with CASH MOP. ",
+   "node": "tests/suites/cadence/PETROCORE-40581-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40524",
+   "summary": "Single grade prepay by amount transaction with CASH MOP with \"Enforce Prompting Inside\" disabled. ",
+   "node": "tests/suites/cadence/PETROCORE-40524-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40473",
+   "summary": "Multigrade prepay by amount transaction with CASH MOP with \"Enforce Prompting Inside\" disabled.",
+   "node": "tests/suites/cadence/PETROCORE-40473-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40475",
+   "summary": "Site's pump limit for each grade in case of Regular prepay transaction from commercial pump on topaz when multiple grades are selected. ",
+   "node": "tests/suites/cadence/PETROCORE-40475-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71000",
+   "summary": "IMPORT CONFIG-CA ENABLED",
+   "node": "tests/suites/cadence/PETROCORE-71000-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71045",
+   "summary": "FUEL-DCR-INIT",
+   "node": "tests/suites/cadence/PETROCORE-71045-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71026",
+   "summary": "REFRESH CONFIG",
+   "node": "tests/suites/cadence/PETROCORE-71026-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71027",
+   "summary": "LOGOUT",
+   "node": "tests/suites/cadence/PETROCORE-71027-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71028",
+   "summary": "LOGIN",
+   "node": "tests/suites/cadence/PETROCORE-71028-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41429",
+   "summary": "Single grade prepay by amount transaction with Fleet check MOP WHERE prepay amount is equal to fleet check amount.",
+   "node": "tests/suites/cadence/PETROCORE-41429-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71025",
+   "summary": "IMPORT CONFIG-EXXON NGFC",
+   "node": "tests/suites/cadence/PETROCORE-71025-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71038",
+   "summary": "FUEL-INIT",
+   "node": "tests/suites/cadence/PETROCORE-71038-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71029",
+   "summary": "REFRESH CONFIG",
+   "node": "tests/suites/cadence/PETROCORE-71029-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71039",
+   "summary": "LOGOUT",
+   "node": "tests/suites/cadence/PETROCORE-71039-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71040",
+   "summary": "LOGIN",
+   "node": "tests/suites/cadence/PETROCORE-71040-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40554",
+   "summary": "Single grade prepay by amount transaction with CASH MOP with \"Enforce Prompting Inside\" enabled. ",
+   "node": "tests/suites/cadence/PETROCORE-40554-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40560",
+   "summary": "Transaction log for completed transaction with single grade selection from multi grade prompt when \"Enforce Prompting Inside\" is enabled. ",
+   "node": "tests/suites/cadence/PETROCORE-40560-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-40504",
+   "summary": "Multigrade prepay by amount transaction with CASH MOP with \"Enforce Prompting Inside\" enabled.",
+   "node": "tests/suites/cadence/PETROCORE-40504-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59788",
+   "summary": "Import configurations-1",
+   "node": "tests/suites/cadence/PETROCORE-59788-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59784",
+   "summary": "Fuel and DCR Inits-1",
+   "node": "tests/suites/cadence/PETROCORE-59784-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59786",
+   "summary": "Refresh-Config-1",
+   "node": "tests/suites/cadence/PETROCORE-59786-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71041",
+   "summary": "LOGOUT",
+   "node": "tests/suites/cadence/PETROCORE-71041-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71042",
+   "summary": "POS-LOGIN",
+   "node": "tests/suites/cadence/PETROCORE-71042-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41842",
+   "summary": "MSR-OUTDOOR-3-MULTIPRODUCTS1-2-3",
+   "node": "tests/suites/cadence/PETROCORE-41842-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41843",
+   "summary": "MSR-OUTDOOR-2-MULTIPRODUCTS1&2",
+   "node": "tests/suites/cadence/PETROCORE-41843-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41844",
+   "summary": "MSR-OUTDOOR-2-MULTIPRODUCTS-3&2",
+   "node": "tests/suites/cadence/PETROCORE-41844-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41845",
+   "summary": "MSR-OUTDOOR-2-MULTIPRODUCTS-1&3",
+   "node": "tests/suites/cadence/PETROCORE-41845-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41846",
+   "summary": "MSR-OUTDOOR-1-MULTIPRODUCT-1",
+   "node": "tests/suites/cadence/PETROCORE-41846-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41847",
+   "summary": "MSR-OUTDOOR-1-MULTI PRODUCT-3",
+   "node": "tests/suites/cadence/PETROCORE-41847-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59789",
+   "summary": "Import configurations-2",
+   "node": "tests/suites/cadence/PETROCORE-59789-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59785",
+   "summary": "Fuel and DCR inits-2",
+   "node": "tests/suites/cadence/PETROCORE-59785-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-59787",
+   "summary": "Refresh-Config-2",
+   "node": "tests/suites/cadence/PETROCORE-59787-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71043",
+   "summary": "LOGOUT",
+   "node": "tests/suites/cadence/PETROCORE-71043-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-71044",
+   "summary": "POS-LOGIN",
+   "node": "tests/suites/cadence/PETROCORE-71044-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41848",
+   "summary": "MSR-OUTDOOR-3-MULTIPRODUCTS-1,2,3-YN",
+   "node": "tests/suites/cadence/PETROCORE-41848-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41849",
+   "summary": "MSR-OUTDOOR-2-MULTIPRODUCTS-1&2-YN",
+   "node": "tests/suites/cadence/PETROCORE-41849-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41850",
+   "summary": "MSR-OUTDOOR-2-MULTIPRODUCTS-1&3YN",
+   "node": "tests/suites/cadence/PETROCORE-41850-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41851",
+   "summary": "MSR-OUTDOOR-2-MULTIPRODUCTS-2&3YN",
+   "node": "tests/suites/cadence/PETROCORE-41851-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41852",
+   "summary": "MSR-OUTDOOR-1-MULTIPRODUCTS-1YN",
+   "node": "tests/suites/cadence/PETROCORE-41852-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-41853",
+   "summary": "MSR-OUTDOOR-1-MULTIPRODUCTS-2YN",
+   "node": "tests/suites/cadence/PETROCORE-41853-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-79589",
+   "summary": "Import Config-FuelWithoutAdditionalData",
+   "node": "tests/suites/cadence/PETROCORE-79589-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-79591",
+   "summary": "Fuel DCR Init",
+   "node": "tests/suites/cadence/PETROCORE-79591-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37006",
+   "summary": "FLASH-REPORT-1-SUMMARY-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37006-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37007",
+   "summary": "FLASH-REPORT-2-CATEGORY-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37007-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37008",
+   "summary": "FLASH-REPORT-3-DEAL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37008-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37009",
+   "summary": "FLASH-REPORT-4-DEPTARTMENT-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37009-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37010",
+   "summary": "FLASH-REPORT-6-LOYALTY-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37010-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37011",
+   "summary": "FLASH-REPORT-7-PLU-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37011-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37012",
+   "summary": "FLASH-REPORT-8-PLU-PROMO-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37012-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37013",
+   "summary": "FLASH-REPORT-9-TAX-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37013-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37014",
+   "summary": "FLASH-REPORT-10-FUEL-AUTO-COLLECT-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37014-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37015",
+   "summary": "FLASH-REPORT-13-FUEL-FP-HOSE-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37015-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37016",
+   "summary": "FLASH-REPORT-15-FP-HOSE-TEST-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37016-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37017",
+   "summary": "FLASH-REPORT-16-PR-PRICE-LEVEL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37017-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37018",
+   "summary": "FLASH-REPORT-17-SL-PRICE-LEVEL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37018-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37019",
+   "summary": "FLASH-REPORT-18-FUEL-TANK-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37019-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37020",
+   "summary": "FLASH-REPORT-19-FUEL-TIER-PRODUCT-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37020-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37021",
+   "summary": "FLASH-REPORT-20-DCR-STATISTICAL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37021-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37022",
+   "summary": "FLASH-REPORT-21-POP-DISCOUNT-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37022-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37023",
+   "summary": "FLASH-REPORT-22-POP-DISCOUNT-DEF-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37023-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37024",
+   "summary": "FLASH-REPORT-23-POP-DISCOUNT-PROGRAM-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37024-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37025",
+   "summary": "FLASH-REPORT-24-NETWORK-CARD-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37025-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37026",
+   "summary": "FLASH-REPORT-26-NETWORK-PRODUCT-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37026-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37027",
+   "summary": "FLASH-REPORT-34-FUEL-STREE-PRICE-CHANGE-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37027-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37028",
+   "summary": "NETWORK-REPORT-1-TERMINAL-BATCH-SUMMARY-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37028-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37029",
+   "summary": "NETWORK-REPORT-2-LOCALS-TOTAL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37029-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37030",
+   "summary": "NETWORK-REPORT-6-PENDING-STORED-TRANSAACTION-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37030-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37031",
+   "summary": "NETWORK-REPORT-13-TERMINAL-LOYALTY-DETAIL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37031-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37032",
+   "summary": "NETWORK-REPORT-14-LOYALTY-DIS-BY-TYPE-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37032-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37033",
+   "summary": "NETWORK-REPORT-17-LINE-ITEM-DIS-DETAIL-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37033-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37034",
+   "summary": "NETWORK-REPORT-9-LOYALTY-DISCOUNT-BY-TYPE-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37034-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37035",
+   "summary": "EPS-SECURE-REPORT-1-TERMINAL-DETAIL-REPRORT",
+   "node": "tests/suites/cadence/PETROCORE-37035-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37036",
+   "summary": "EPS-SECURE-REPORT-7-LOYALTY-DETAILREPORT",
+   "node": "tests/suites/cadence/PETROCORE-37036-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37037",
+   "summary": "CASHIER-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37037-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37062",
+   "summary": "EMV-REPORT-1-AVAILABLE-EMV-CONFIGURATION",
+   "node": "tests/suites/cadence/PETROCORE-37062-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37063",
+   "summary": "EPS-NETWORK-REPORTS-15-LOYALTY-PPU-TOTALS-BY-GRADE-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37063-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37064",
+   "summary": "EPS-NETWORK-REPORTS-9.3-LOYALTY-APPROVALS-TERMINAL-BATCH",
+   "node": "tests/suites/cadence/PETROCORE-37064-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37065",
+   "summary": "EPS-NETWORK-REPORTS-9.4-PRINT-LOYALTY-FEP-INDICATOR",
+   "node": "tests/suites/cadence/PETROCORE-37065-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37066",
+   "summary": "EPS-NETWORK-REPORTS-9.5-PRINT-RECONPERIOD-INDICATORS",
+   "node": "tests/suites/cadence/PETROCORE-37066-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37067",
+   "summary": "EMV-REPORT-5-TRANSAACTION-STATISTICS-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37067-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37068",
+   "summary": "EMV-REPORT-6-EMV-FAILURE-REPORT",
+   "node": "tests/suites/cadence/PETROCORE-37068-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135027",
+   "summary": "EPS Network Reports - List Available Totals Report",
+   "node": "tests/suites/cadence/PETROCORE-135027-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135028",
+   "summary": "EPS Network Reports - Print Totals Report",
+   "node": "tests/suites/cadence/PETROCORE-135028-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135029",
+   "summary": "EPS Network Reports - List Available Host Discount Reports",
+   "node": "tests/suites/cadence/PETROCORE-135029-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135030",
+   "summary": "EPS Network Reports - Print Host Discount Report",
+   "node": "tests/suites/cadence/PETROCORE-135030-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135031",
+   "summary": "EPS Network Reports - FSA Totals By Cardtype Report",
+   "node": "tests/suites/cadence/PETROCORE-135031-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135032",
+   "summary": "EPS Network Reports - Incomm Reports",
+   "node": "tests/suites/cadence/PETROCORE-135032-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135033",
+   "summary": "EPS Network Reports - Loyalty PPU Transaction Detail Report",
+   "node": "tests/suites/cadence/PETROCORE-135033-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135035",
+   "summary": "EPS Network Reports - Loyalty PPU Totals By Grade Report",
+   "node": "tests/suites/cadence/PETROCORE-135035-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135038",
+   "summary": "EPS Network Reports - Loyalty Earn Totals By Grade Report",
+   "node": "tests/suites/cadence/PETROCORE-135038-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135039",
+   "summary": "EPS Network Reports - Totals By Card Type Report",
+   "node": "tests/suites/cadence/PETROCORE-135039-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135040",
+   "summary": "EPS Network Reports - Totals By Product Type Report",
+   "node": "tests/suites/cadence/PETROCORE-135040-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135042",
+   "summary": "EPS Network Reports - EMV Configuration Report",
+   "node": "tests/suites/cadence/PETROCORE-135042-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135043",
+   "summary": "EPS Network Reports - EMV CAPK Report",
+   "node": "tests/suites/cadence/PETROCORE-135043-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135046",
+   "summary": "EPS Network Reports - APM Summary Report",
+   "node": "tests/suites/cadence/PETROCORE-135046-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135047",
+   "summary": "EPS Network Reports - APM Detail Report",
+   "node": "tests/suites/cadence/PETROCORE-135047-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135048",
+   "summary": "EPS Network Reports - APM Exception Report",
+   "node": "tests/suites/cadence/PETROCORE-135048-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135050",
+   "summary": "EPS Secure Reports - Exception Log Report",
+   "node": "tests/suites/cadence/PETROCORE-135050-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135051",
+   "summary": "EPS Secure Reports - InComm Reports",
+   "node": "tests/suites/cadence/PETROCORE-135051-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135052",
+   "summary": "EPS Secure Reports - Print Totals Report",
+   "node": "tests/suites/cadence/PETROCORE-135052-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135053",
+   "summary": "EPS Secure Reports - Loyalty PPU Transaction Detail Report",
+   "node": "tests/suites/cadence/PETROCORE-135053-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135054",
+   "summary": "EPS Secure Reports - Line Item Discount Detail Report",
+   "node": "tests/suites/cadence/PETROCORE-135054-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135055",
+   "summary": "EPS Secure Reports - Loyalty PPU Transaction Detail Report (Menu Item 8)",
+   "node": "tests/suites/cadence/PETROCORE-135055-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135056",
+   "summary": "EPS Secure Reports - PropFleet Unconfirmed Transaction Report",
+   "node": "tests/suites/cadence/PETROCORE-135056-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135057",
+   "summary": "EPS Secure Reports - Secure Print Totals Report",
+   "node": "tests/suites/cadence/PETROCORE-135057-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135058",
+   "summary": "EPS Secure Reports - Cullinan Reports",
+   "node": "tests/suites/cadence/PETROCORE-135058-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135059",
+   "summary": "EPS Secure Reports - WEX-OTR Reports",
+   "node": "tests/suites/cadence/PETROCORE-135059-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135060",
+   "summary": "EPS Secure Reports - Comdata Reports",
+   "node": "tests/suites/cadence/PETROCORE-135060-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135073",
+   "summary": "EPS Secure Reports - InComm Reports - Exception Report",
+   "node": "tests/suites/cadence/PETROCORE-135073-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135238",
+   "summary": "EMV CONFIGURATION REPORT - OUTSIDE CONFIG",
+   "node": "tests/suites/cadence/PETROCORE-135238-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-135239",
+   "summary": "EMV CAPK REPORT - OUTSIDE CONFIG",
+   "node": "tests/suites/cadence/PETROCORE-135239-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134636",
+   "summary": "Hourly Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134636-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134637",
+   "summary": "Fuel Blend Product Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134637-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134638",
+   "summary": "Fuel Dispenser Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134638-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134639",
+   "summary": "Fuel FP Hose Running Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134639-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134640",
+   "summary": "Mobile Payment Collected By Host Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134640-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134641",
+   "summary": "Carwash Pay Point Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134641-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134642",
+   "summary": "Proprietary NW Card Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134642-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134643",
+   "summary": "Proprietary NW Product Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134643-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134644",
+   "summary": "Cash Acceptor Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134644-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134645",
+   "summary": "Future Mobile Food Order Report Shift",
+   "node": "tests/suites/cadence/PETROCORE-134645-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134646",
+   "summary": "Cashier Worksheet Report",
+   "node": "tests/suites/cadence/PETROCORE-134646-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134647",
+   "summary": "Print Current Cashier Report",
+   "node": "tests/suites/cadence/PETROCORE-134647-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134648",
+   "summary": "Print Shift Report",
+   "node": "tests/suites/cadence/PETROCORE-134648-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134649",
+   "summary": "Print Day Report",
+   "node": "tests/suites/cadence/PETROCORE-134649-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134650",
+   "summary": "Print Month Report",
+   "node": "tests/suites/cadence/PETROCORE-134650-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134651",
+   "summary": "Print Year Report",
+   "node": "tests/suites/cadence/PETROCORE-134651-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134652",
+   "summary": "Print Carwash Pay Point Period Report",
+   "node": "tests/suites/cadence/PETROCORE-134652-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134653",
+   "summary": "Payroll Reports",
+   "node": "tests/suites/cadence/PETROCORE-134653-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134654",
+   "summary": "Funds Audit Report",
+   "node": "tests/suites/cadence/PETROCORE-134654-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-134659",
+   "summary": "Close Carwash Pay Point Period Report",
+   "node": "tests/suites/cadence/PETROCORE-134659-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140322",
+   "summary": "paymentTotals Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140322-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140323",
+   "summary": "prepaidTotals Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140323-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140324",
+   "summary": "batchTotals Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140324-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140325",
+   "summary": "TerminalBatchSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140325-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140326",
+   "summary": "LocalTotal Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140326-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140327",
+   "summary": "CurrentExceptionLog Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140327-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140328",
+   "summary": "AvailableHostTotals Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140328-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140329",
+   "summary": "DayCloseSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140329-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140330",
+   "summary": "SecureDayCloseSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140330-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140331",
+   "summary": "TerminalBatchDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140331-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140332",
+   "summary": "ProprietaryCardTotal Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140332-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140333",
+   "summary": "ProprietaryProductTotal Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140333-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140334",
+   "summary": "TotalsByCardType Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140334-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140335",
+   "summary": "loyaltyTotals Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140335-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140336",
+   "summary": "LoyaltyDiscountsByType Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140336-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140337",
+   "summary": "LoyaltyPpuTotalsByGrade Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140337-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140338",
+   "summary": "LoyaltyPpuTransactionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140338-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140339",
+   "summary": "SecureLoyaltyPpuTransactionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140339-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140340",
+   "summary": "SecureTerminalBatchLoyaltyDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140340-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140341",
+   "summary": "TerminalBatchLoyaltyDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140341-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140342",
+   "summary": "LineItemDiscountDetailReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140342-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140343",
+   "summary": "SecureLineItemDiscountDetailReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140343-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140344",
+   "summary": "LoyaltyEarnTotalsByGrade Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140344-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140345",
+   "summary": "UnconfirmedTransTotal Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140345-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140348",
+   "summary": "IncommTerminalBatchSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140348-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140349",
+   "summary": "IncommTerminalBatchDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140349-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140350",
+   "summary": "IncommExceptionReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140350-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140353",
+   "summary": "TransactionStatisticsReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140353-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140355",
+   "summary": "LotteryTransactionReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140355-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140356",
+   "summary": "LotteryMonthlySummaryReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140356-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140357",
+   "summary": "NetworkSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140357-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140358",
+   "summary": "PaywareFleetTerminalBatchSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140358-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140359",
+   "summary": "PaywareFleetTerminalBatchDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140359-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140360",
+   "summary": "PaywareFleetExceptionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140360-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140361",
+   "summary": "PaywareFleetSettlementSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140361-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140362",
+   "summary": "CullinanExceptionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140362-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140363",
+   "summary": "APMTerminalBatchSummary Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140363-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140364",
+   "summary": "APMTerminalBatchDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140364-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140365",
+   "summary": "APMExceptionReport Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140365-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140366",
+   "summary": "WEXOTRNetworkBatchDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140366-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140367",
+   "summary": "ComdataNetworkBatchDetail Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140367-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140370",
+   "summary": "WEXOTRExceptionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140370-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140371",
+   "summary": "ComdataExceptionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140371-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-140374",
+   "summary": "MudflapDayExceptionDetails Report Validation",
+   "node": "tests/suites/cadence/PETROCORE-140374-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37071",
+   "summary": "Close Cashier Report",
+   "node": "tests/suites/cadence/PETROCORE-37071-TestCase.py"
+  },
+  {
+   "key": "PETROCORE-37072",
+   "summary": "Print Cashier Report",
+   "node": "tests/suites/cadence/PETROCORE-37072-TestCase.py"
+  }
+ ]
+}

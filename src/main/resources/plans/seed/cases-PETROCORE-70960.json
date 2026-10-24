@@ -1,0 +1,201 @@
+{
+ "note": "Shipped snapshot, not a fetch. The catalogue was captured from the Automated-Features Confluence page on 2026-09-09; this case list from Xray's test plan on 2026-09-18, in the plan's own order (HANDOFF.md §1.62). Committed so the Config tab offers a plan on a controller with no Atlassian credentials. Regenerate from tests/fixtures/atlassian/ via cat.plans.parse_cases. Press Refresh from Confluence for the live plan.",
+ "fetched_at": "2026-09-18T00:00:00+00:00",
+ "rows": [
+  {
+   "key": "PETROCORE-61396",
+   "summary": "Charity Donations - Import Configurations",
+   "node": "tests/suites/charity/test_petrocore_61396.py"
+  },
+  {
+   "key": "PETROCORE-124034",
+   "summary": "Import-buypass-host-simulator-config",
+   "node": "tests/suites/charity/test_petrocore_124034.py"
+  },
+  {
+   "key": "PETROCORE-37070",
+   "summary": "FUEL-DCR-INIT",
+   "node": "tests/suites/charity/test_petrocore_37070.py"
+  },
+  {
+   "key": "PETROCORE-37043",
+   "summary": "POS-Login",
+   "node": "tests/suites/charity/test_petrocore_37043.py"
+  },
+  {
+   "key": "PETROCORE-61334",
+   "summary": "Charity Donations - Cash sale with Rest for charity",
+   "node": "tests/suites/charity/test_petrocore_61334.py"
+  },
+  {
+   "key": "PETROCORE-61339",
+   "summary": "Charity Donations - Cash sale with Round to next dollar",
+   "node": "tests/suites/charity/test_petrocore_61339.py"
+  },
+  {
+   "key": "PETROCORE-61352",
+   "summary": "Charity Donations- No Charity",
+   "node": "tests/suites/charity/test_petrocore_61352.py"
+  },
+  {
+   "key": "PETROCORE-61337",
+   "summary": "Charity Donations - CHECK sale with Rest for charity",
+   "node": "tests/suites/charity/test_petrocore_61337.py"
+  },
+  {
+   "key": "PETROCORE-61338",
+   "summary": "Charity Donations - COUPON sale with Rest for charity",
+   "node": "tests/suites/charity/test_petrocore_61338.py"
+  },
+  {
+   "key": "PETROCORE-61336",
+   "summary": "Charity Donations - Cash sale - No Thanks",
+   "node": "tests/suites/charity/test_petrocore_61336.py"
+  },
+  {
+   "key": "PETROCORE-61335",
+   "summary": "Charity Donations - Cash Department sale with Rest for charity",
+   "node": "tests/suites/charity/test_petrocore_61335.py"
+  },
+  {
+   "key": "PETROCORE-61341",
+   "summary": "Charity Donations - Cash sale with Rest for charity + timeout",
+   "node": "tests/suites/charity/test_petrocore_61341.py"
+  },
+  {
+   "key": "PETROCORE-61343",
+   "summary": "Charity Donations - Credit sale with Preset Amounts",
+   "node": "tests/suites/charity/test_petrocore_61343.py"
+  },
+  {
+   "key": "PETROCORE-61342",
+   "summary": "Charity Donations - Credit/ Debit/ Mobile sale with Preset Amounts + timeout",
+   "node": "tests/suites/charity/test_petrocore_61342.py"
+  },
+  {
+   "key": "PETROCORE-61380",
+   "summary": "Charity Donations - Cash Prepay Merchandise",
+   "node": "tests/suites/charity/test_petrocore_61380.py"
+  },
+  {
+   "key": "PETROCORE-61381",
+   "summary": "Charity Donations - Cash Prepay Underrun Merchandise",
+   "node": "tests/suites/charity/test_petrocore_61381.py"
+  },
+  {
+   "key": "PETROCORE-61382",
+   "summary": "Charity Donations - Cash Underrun Completion",
+   "node": "tests/suites/charity/test_petrocore_61382.py"
+  },
+  {
+   "key": "PETROCORE-61383",
+   "summary": "Charity Donations - Cash Prepay",
+   "node": "tests/suites/charity/test_petrocore_61383.py"
+  },
+  {
+   "key": "PETROCORE-61384",
+   "summary": "Charity Donations - Card Prepay",
+   "node": "tests/suites/charity/test_petrocore_61384.py"
+  },
+  {
+   "key": "PETROCORE-61376",
+   "summary": "Charity Donations_Preset Amounts_ Prepay + Merchandise",
+   "node": "tests/suites/charity/test_petrocore_61376.py"
+  },
+  {
+   "key": "PETROCORE-61385",
+   "summary": "Charity Donations - Cash Fuel Preset Postpay",
+   "node": "tests/suites/charity/test_petrocore_61385.py"
+  },
+  {
+   "key": "PETROCORE-61373",
+   "summary": "Charity Donations_Rest for charity_ Pay Inside-1",
+   "node": "tests/suites/charity/test_petrocore_61373.py"
+  },
+  {
+   "key": "PETROCORE-61369",
+   "summary": "Charity Donations- Basic+Code - Qualify by PLU",
+   "node": "tests/suites/charity/test_petrocore_61369.py"
+  },
+  {
+   "key": "PETROCORE-61368",
+   "summary": "Charity Donations- POP Discount Qualify By MOP",
+   "node": "tests/suites/charity/test_petrocore_61368.py"
+  },
+  {
+   "key": "PETROCORE-61372",
+   "summary": "Charity Donations_Rest for charity_ Pay Inside-2",
+   "node": "tests/suites/charity/test_petrocore_61372.py"
+  },
+  {
+   "key": "PETROCORE-61386",
+   "summary": "Charity Donations- Card Fuel Pay Inside Merchandise-1",
+   "node": "tests/suites/charity/test_petrocore_61386.py"
+  },
+  {
+   "key": "PETROCORE-61387",
+   "summary": "Charity Donations- Cash Fuel Pay Inside Merchandise-2",
+   "node": "tests/suites/charity/test_petrocore_61387.py"
+  },
+  {
+   "key": "PETROCORE-61388",
+   "summary": "Charity Donations- Card Naxml Combo",
+   "node": "tests/suites/charity/test_petrocore_61388.py"
+  },
+  {
+   "key": "PETROCORE-61367",
+   "summary": "Charity Donations-NAXML.ComboMaintenance.ComboItems.Disc by amount",
+   "node": "tests/suites/charity/test_petrocore_61367.py"
+  },
+  {
+   "key": "PETROCORE-61389",
+   "summary": "Charity Donations- Cash Naxml Mix And Match",
+   "node": "tests/suites/charity/test_petrocore_61389.py"
+  },
+  {
+   "key": "PETROCORE-61390",
+   "summary": "Charity Donations- Card Naxml Mix And Match",
+   "node": "tests/suites/charity/test_petrocore_61390.py"
+  },
+  {
+   "key": "PETROCORE-61357",
+   "summary": "Charity Donations- Cash sale - PLU Promo",
+   "node": "tests/suites/charity/test_petrocore_61357.py"
+  },
+  {
+   "key": "PETROCORE-61359",
+   "summary": "Charity Donations- Credit sale - PLU Promo",
+   "node": "tests/suites/charity/test_petrocore_61359.py"
+  },
+  {
+   "key": "PETROCORE-61348",
+   "summary": "Charity Donataions - Mobile sale with Preset Amounts",
+   "node": "tests/suites/charity/test_petrocore_61348.py"
+  },
+  {
+   "key": "PETROCORE-61391",
+   "summary": "Charity Donations - Mobile Merchandise Scan Token",
+   "node": "tests/suites/charity/test_petrocore_61391.py"
+  },
+  {
+   "key": "PETROCORE-61392",
+   "summary": "Charity Donations - Mobile Fuel Preset Postpay with Amount",
+   "node": "tests/suites/charity/test_petrocore_61392.py"
+  },
+  {
+   "key": "PETROCORE-61393",
+   "summary": "Charity Donations - Mobile Fuel Prepay Quantity",
+   "node": "tests/suites/charity/test_petrocore_61393.py"
+  },
+  {
+   "key": "PETROCORE-61394",
+   "summary": "Charity Donations - Department Report",
+   "node": "tests/suites/charity/test_petrocore_61394.py"
+  },
+  {
+   "key": "PETROCORE-61395",
+   "summary": "Charity Donations - Summary Report",
+   "node": "tests/suites/charity/test_petrocore_61395.py"
+  }
+ ]
+}

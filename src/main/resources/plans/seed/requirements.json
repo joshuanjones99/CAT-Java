@@ -1,0 +1,708 @@
+{
+ "fetched_at": "2026-10-23T15:15:03.116573+00:00",
+ "rows": [
+  {
+   "key": "PETROCORE-79667",
+   "base": "56\u2264",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-118517",
+   "base": "57\u2265",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "PCATS03 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-135127",
+   "base": "57\u2265",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "PCATS03 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-143371",
+   "base": "57\u2265",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-70960",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite",
+    "MPPA Server Sim"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-70979",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-70973",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-70970",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-134968",
+   "base": "5on Base 57.01 onwards",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-71132",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-135480",
+   "base": "on Base 57.01 onwards",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-75962",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-94537",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "PCATS03 Loyalty",
+    "Petro Simulator Suite",
+    "MPPA Server Sim"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-97286",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-95716",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-93624",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-93625",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-94884",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-118819",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-98940",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-99578",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-81040",
+   "base": "56\u2265",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-119676",
+   "base": "57\u2265",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite",
+    "MPPA Server Sim"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-127796",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-130640",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-137551",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "Petro Simulator Suite"
+   ],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-138482",
+   "base": "",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "Petro Simulator Suite"
+   ],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-137657",
+   "base": "",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-136127",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-130946",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-135803",
+   "base": "",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "PCATS01 Loyalty",
+    "PCATS02 Loyalty",
+    "Petro Simulator Suite",
+    "MPPA Server Sim"
+   ],
+   "devices": [
+    "printer"
+   ]
+  },
+  {
+   "key": "PETROCORE-140106",
+   "base": "",
+   "commander_connect": true,
+   "simulators": [
+    "BUYPASS Host",
+    "Petro Simulator Suite"
+   ],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-70983",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-122267",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-70985",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-70987",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-78200",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-104666",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-117780",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-122738",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-122795",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-122721",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-122723",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-123202",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-122891",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-123070",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-123337",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-123590",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-123927",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-124024",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-124963",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-124450",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-125564",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-125566",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-125997",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-126605",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-126606",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-127599",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-128200",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-128765",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-131051",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-131052",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-133021",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-135335",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-135547",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-135812",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-140691",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-140747",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-142668",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-134805",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-134344",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-135377",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-135389",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-135688",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  },
+  {
+   "key": "PETROCORE-139741",
+   "base": "",
+   "commander_connect": false,
+   "simulators": [],
+   "devices": []
+  }
+ ]
+}
