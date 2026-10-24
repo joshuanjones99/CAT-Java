@@ -38,7 +38,7 @@ reaches parity on a rig; nothing here replaces it yet.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 914 tests, 0 failures, end of wave 4, 2026-10-24 |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 1,022 tests, 0 failures, end of wave 5, 2026-10-24 |
 | Shim health/screen/keys read from the lab register (Reg101) | live, 2026-10-24, PoC and again on merged wave 1 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 (also a test) |
 | Read-only preflight (`--no-repair`) against the lab | live 2026-10-24: pos_idle FAIL (a ticket really was open), unsupplied surfaces ERROR, drawer PASS |
@@ -46,6 +46,7 @@ reaches parity on a rig; nothing here replaces it yet.
 | summary.html from a real run's events (202ca297ae18) | 2026-10-24: all 685 text lines equal to the Python's own summary.html; only `&#39;` vs `&#x27;` differs |
 | Canonical TLog for both fixture TLogs | 2026-10-24: identical to the Python's `tlog.canonicalise` output (LF) |
 | `cat-java preflight --rig lab --no-repair` | live 2026-10-24, same verdicts as the class-level run |
+| POS locator catalogue equals the Python's | 2026-10-24: 852 constants on both sides; LocatorsParityTest compares every name, field, rendered selector and registry against the live Python import (runs whenever C:\gitrepos\CAT exists) |
 | Config tab over the real plan cache | live 2026-10-24 (GET only; `~/.cat` redirected to scratch) |
 | Key press from CAT-Java reaching the POS | **not yet exercised** |
 
@@ -65,12 +66,15 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
 | `cat/results/`, `cat/web/pages/results.py` | `results`, `web` | ported: store, index, stats, run list, run detail, last 500 log lines. Validations tab, async index: todo |
 | `cat/web/pages/config.py` | `runconfig`, `web` | ported: plans, run scope, Needs, saved choices. Downloads, Commander Connect, Execution, branch, Refresh: placeholders |
 | `cat/report/events.py`, `run_log.py`, `run.ended` | `report.events` | ported (file transport only) |
-| `cat/web/pages/run.py`, `simulators.py` | `runservice`, `web` | ported: Run Overview/Log (start, pause, stop, new run, counters, log tail) and Launch Simulators (ticks, Start, red Stop, logs). Start run is refused until Main passes the rig (wave 5) |
+| `cat/web/pages/run.py`, `simulators.py` | `runservice`, `web` | ported: Run Overview/Log (start, pause, stop, new run, counters, log tail) and Launch Simulators (ticks, Start, red Stop, logs). Main passes `--rig` since wave 5 |
 | `cat/web/` layout, pages shell | `web` | shell ported: sections, Run tabs, placeholders, POS page. Not built: every page body, Settings appearance, the CAT monogram |
 | `petrotest/preflight/` | `preflight` | ported: framework, runner, POS checks via pos-shim screen(). pumps_idle, eps_reachable, config_loaded, build_matches and every repair await forecourt/SSH/Commander/POS-control clients |
 | `petrotest/recovery/` | `recovery` | ported: CAPTURE (no files yet), PREFLIGHT, SOFT and VOID (pos-shim halves; CDP halves todo). RESET, REPROVISION raise DeviceUnavailable |
-| `petrotest/provision/` | `provision` | todo |
-| `petrotest/pos/` (Playwright page objects; locators generated) | `pos` | todo — needs Playwright for Java |
+| `petrotest/provision/transport.py` | `provision.transport` | ported over JSch: AutoAddPolicy-equivalent host keys (as the Python), publickey only, SELinux step. Never run against a box |
+| `petrotest/provision/` (rest) | `provision` | todo (wave 6) |
+| `petrotest/pos/locators.py`, `locator_types.py` | `pos` | ported: generated `Locators.java` (`pos.gen.GenLocators`, staleness test), parity-tested against the Python |
+| `petrotest/pos/receipt.py`, `pinpad_double.py` | `pos.receipt`, `pos.pinpad` | ported (DOM driver behind an interface; `LOOPBACK/` prefix kept) |
+| `petrotest/pos/driver.py`, `pages/`, `fake.py`, `plugin.py` | `pos` | todo (wave 6) |
 | `petrotest/pats/` (PATS -TestCase.xml runner) | `pats` | todo |
 | `petrotest/validate/` (receipt/TLog snapshots) | `validate` | ported: receipt (normalisers, snapshots, rule) and TLog/packets. Report hooks (record_receipt etc.) belong to the test runner, not ported |
 | `petrotest/build/` | `build` | ported: local discovery, Artifactory listing, verified download. Credentials from ARTIFACTORY_USER/PASSWORD only (DPAPI store todo). build_contents, viper merge, installed.py: todo |
@@ -109,6 +113,8 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
    needs attention; the Python lets it through as a warning.
 10. `GET /simulators` probes localhost ports 41107 and 9001 (connect only) even in tests.
 
+11. Subcommands: `cat-java [web] --rig R`, `preflight`, `launch`, `xray`.
+
 ## 7. Log
 
 - **2026-10-24** PoC: pos-shim client + web page on Java 17, read path checked live.
@@ -125,3 +131,6 @@ Status: `todo`, `wave N` (in progress), `ported` (merged, tests pass off-rig),
   data: summary.html and canonical TLog match.
 - **2026-10-24** Wave 4 merged: build, Run Overview/Log, Launch Simulators, launch wiring,
   Xray (914 tests). Playwright and JSch added; packaging switched to thin jar + lib.
+- **2026-10-24** Wave 5 merged: locator catalogue (852 = 852), SSH transport, POS receipt +
+  pinpad double, Main wiring (1,022 tests). One agent committed under an invented identity;
+  the orchestrator reset it to the repo's author before merging.
