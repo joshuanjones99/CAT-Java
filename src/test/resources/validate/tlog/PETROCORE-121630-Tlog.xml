@@ -1,0 +1,105 @@
+<trans fuelPrepay="true" recalled="false" type="void">
+  <trHeader>
+    <termMsgSN term="101" type="FINANCIAL">0</termMsgSN>
+    <trTickNum>
+      <posNum>101</posNum>
+      <trSeq>1010897</trSeq>
+    </trTickNum>
+    <trUniqueSN>1183</trUniqueSN>
+    <period level="0" name="HOUR" seq="17" />
+    <period level="1" name="Shift" seq="4" />
+    <period level="2" name="Day" seq="4" />
+    <date>2025-08-14T17:28:27-04:00</date>
+    <duration>25</duration>
+    <till>1</till>
+    <cashier drawer="1" empNum="1" period="2" posNum="101" sysid="1">CORPORATE</cashier>
+    <storeNumber>10016</storeNumber>
+    <physicalRegisterID>101</physicalRegisterID>
+    <uniqueID>1753885888000-660006948-0000010979</uniqueID>
+  </trHeader>
+  <trValue>
+    <trTotNoTax>19.60</trTotNoTax>
+    <trTotWTax>19.60</trTotWTax>
+    <trTotTax>0.00</trTotTax>
+    <trTax />
+    <trCurrTot locale="USD">19.60</trCurrTot>
+    <trSTotalizer>0</trSTotalizer>
+    <trGTotalizer>19.60</trGTotalizer>
+    <trFstmp>
+      <trFstmpTot>10.00</trFstmpTot>
+      <trFstmpTax>0.00</trFstmpTax>
+      <trFstmpChg>0.00</trFstmpChg>
+      <trFstmpTnd>0.00</trFstmpTnd>
+    </trFstmp>
+  </trValue>
+  <trExNetProds>
+    <trExNetProd>
+      <trENPPcode>900</trENPPcode>
+      <trENPAmount>-0.15</trENPAmount>
+      <trENPItemCnt>1</trENPItemCnt>
+    </trExNetProd>
+    <trExNetProd>
+      <trENPPcode>400</trENPPcode>
+      <trENPAmount>0.40</trENPAmount>
+      <trENPItemCnt>0</trENPItemCnt>
+    </trExNetProd>
+    <trExNetProd>
+      <trENPPcode>900</trENPPcode>
+      <trENPAmount>-0.40</trENPAmount>
+      <trENPItemCnt>1</trENPItemCnt>
+    </trExNetProd>
+  </trExNetProds>
+  <trLines>
+    <trLine type="preFuel" unsettled="true">
+      <trlTaxes />
+      <trlFlags>
+        <trlFuelSale />
+      </trlFlags>
+      <trlDept number="9999" type="fuel">FUEL DEPOSIT</trlDept>
+      <trlCat number="9999">FUEL DEPOSIT</trlCat>
+      <trlNetwCode>0</trlNetwCode>
+      <trlQty>1</trlQty>
+      <trlSign>1.00</trlSign>
+      <trlUnitPrice>0.00</trlUnitPrice>
+      <trlLineTot>10.00</trlLineTot>
+      <trlDesc>PREPAY CA #02</trlDesc>
+    </trLine>
+    <trLine type="plu">
+      <trlTaxes />
+      <trlFlags>
+        <trlFstmp />
+        <trlPLU />
+        <trlFuelSale />
+        <trlLoyLnDisc />
+      </trlFlags>
+      <trlDept number="257" type="norm">WOODSTOCK TICKETS</trlDept>
+      <trlCat number="12">OTHER INCOME</trlCat>
+      <trlNetwCode>400</trlNetwCode>
+      <trlQty>1</trlQty>
+      <trlSign>1.00</trlSign>
+      <trlSellUnit>1.000</trlSellUnit>
+      <trlUnitPrice>10.00</trlUnitPrice>
+      <trlLineTot>9.60</trlLineTot>
+      <trlDesc>WOODSTOCK SINGLE T</trlDesc>
+      <trlUPC>00000000032094</trlUPC>
+      <trlModifier>000</trlModifier>
+      <trlUPCEntry type="manual" />
+      <trloLnItemDisc programID="PROGRAM01">
+        <discAmt>0.20</discAmt>
+        <qty>1</qty>
+        <taxCred>0</taxCred>
+      </trloLnItemDisc>
+      <trloLnItemDisc programID="PROGRAM02">
+        <discAmt>0.20</discAmt>
+        <qty>1</qty>
+        <taxCred>0</taxCred>
+      </trloLnItemDisc>
+    </trLine>
+  </trLines>
+  <trPaylines>
+    <trPayline locale="DOLLAR" sysid="1" type="sale">
+      <trpPaycode cat="0" mop="1" nacstendercode="generic" nacstendersubcode="generic">CASH</trpPaycode>
+      <trpAmt>10.00</trpAmt>
+    </trPayline>
+  </trPaylines>
+</trans>
