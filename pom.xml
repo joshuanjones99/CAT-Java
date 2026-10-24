@@ -100,6 +100,14 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
+        <configuration>
+          <environmentVariables>
+            <!-- Playwright for Java downloads every browser on first use unless told not to.
+                 Tests that need Chromium skip when it is absent; installing it is a
+                 deliberate step (README.md), never a side effect of a build. -->
+            <PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD>1</PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD>
+          </environmentVariables>
+        </configuration>
       </plugin>
       <plugin>
         <!-- java -jar target/cat-java.jar: a thin jar whose manifest lists target/lib/*.
