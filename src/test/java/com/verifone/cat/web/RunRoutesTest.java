@@ -55,7 +55,7 @@ class RunRoutesTest {
         engine = new FakeRunEngine(folder, List.of(STARTED,
                 "{\"type\":\"step.entered\",\"step\":\"System Checks\"}",
                 "{\"type\":\"step.finished\",\"step\":\"System Checks\",\"state\":\"failed\","
-                        + "\"detail\":\"<script>alert(1)</script>\"}"), null);
+                        + "\"detail\":\"<script>alert(1)</script>\\nsecond line\"}"), null);
         Files.createDirectories(folder);
         Files.writeString(folder.resolve("run.log"), "<b>hi</b> and & more\n", StandardCharsets.UTF_8);
         run = new RunService("lab", () -> engine, () -> "REPORT <ok>", Clock.systemUTC());
@@ -98,6 +98,10 @@ class RunRoutesTest {
         assertTrue(panel.contains("System Checks"), panel);
         assertTrue(panel.contains("&lt;script&gt;alert(1)&lt;/script&gt;"), panel);
         assertFalse(panel.contains("<script>alert(1)"), panel);
+        // A failed step is a card of its own, above the step list, with its detail as the warning line.
+        assertTrue(panel.contains("<h2>System Checks failed</h2>"), panel);
+        assertTrue(panel.contains("<p class=\"warn\">&lt;script&gt;alert(1)&lt;/script&gt;</p>"
+                + "<p class=\"warn\">second line</p>"), panel);
 
         assertTrue(post("/run/start", true).body().contains("A run is in progress: stop it first."));
         assertTrue(post("/run/pause", true).body().contains("Continue"));

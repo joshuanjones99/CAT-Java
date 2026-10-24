@@ -158,7 +158,9 @@ class SimulatorsWebTest {
         HttpResponse<String> response = post("/simulators/start", true);
 
         assertTrue(response.body().contains("needs attention"), response.body());
-        assertTrue(response.body().contains("Access Bridge not ported"), response.body());
+        // The row's detail is the operator's line, escaped the way the page writes it.
+        assertTrue(response.body().contains(Html.esc("Clicked needs attention: press \"Start Host\" in its window "
+                + "(Access Bridge not ported).")), response.body());
     }
 
     @Test
