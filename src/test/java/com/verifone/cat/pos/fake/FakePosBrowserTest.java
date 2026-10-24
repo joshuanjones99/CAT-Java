@@ -44,21 +44,21 @@ class FakePosBrowserTest {
                         new Page.NavigateOptions().setWaitUntil(WaitUntilState.NETWORKIDLE));
                 assertEquals("Fake POS", page.title());
 
-                click(page, Locators.ITEM_PANEL_N.at(TEST_ITEM).value());
+                click(page, Locators.ITEM_PANEL_N.at(TEST_ITEM).selector());
                 page.waitForFunction("id => document.getElementById(id).textContent === 'Item " + TEST_ITEM + "'",
                         FakePosPage.SELECTED_ITEMS_ID);
-                String description = Locators.RECEIPT_VIEW_ITEM_LINE_DESCRIPTION_N.at(0).value();
+                String description = Locators.RECEIPT_VIEW_ITEM_LINE_DESCRIPTION_N.at(0).selector();
                 assertEquals("Item " + TEST_ITEM, text(page, description));
 
-                click(page, Locators.ITEM_PANEL_N.at(PAYMENT_GATEWAY).value());
+                click(page, Locators.ITEM_PANEL_N.at(PAYMENT_GATEWAY).selector());
                 page.waitForFunction("id => document.getElementById(id).textContent === 'TRANSACTION_ACTIVE'",
                         FakePosPage.STATE_ID);
-                assertEquals("Error Correct", text(page, Locators.EXPRESS_PANEL_VIEW_BUTTON_ID_N.at(7).value()));
+                assertEquals("Error Correct", text(page, Locators.EXPRESS_PANEL_VIEW_BUTTON_ID_N.at(7).selector()));
 
-                click(page, Locators.ITEM_PANEL_N.at(CASH).value());
+                click(page, Locators.ITEM_PANEL_N.at(CASH).selector());
                 page.waitForFunction("id => document.getElementById(id).textContent === 'IDLE'",
                         FakePosPage.STATE_ID);
-                assertEquals("CSR Func", text(page, Locators.EXPRESS_PANEL_VIEW_BUTTON_ID_N.at(7).value()));
+                assertEquals("CSR Func", text(page, Locators.EXPRESS_PANEL_VIEW_BUTTON_ID_N.at(7).selector()));
             }
         }
     }
@@ -72,11 +72,12 @@ class FakePosBrowserTest {
         }
     }
 
-    private static void click(Page page, String id) {
-        page.locator("[id=\"" + id + "\"]").click();
+    /** Clicks the element a catalogue locator's selector names; the selector is the catalogue's, not built here. */
+    private static void click(Page page, String selector) {
+        page.locator(selector).click();
     }
 
-    private static String text(Page page, String id) {
-        return page.locator("[id=\"" + id + "\"]").textContent();
+    private static String text(Page page, String selector) {
+        return page.locator(selector).textContent();
     }
 }

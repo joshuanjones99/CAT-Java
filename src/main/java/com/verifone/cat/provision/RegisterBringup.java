@@ -240,6 +240,9 @@ public final class RegisterBringup {
         if (!h.readOnlyClients().isEmpty()) {
             said.append(", read_only_clients ").append(pyList(h.readOnlyClients()));
         }
+        if (h.warning() != null && !h.warning().isEmpty()) {
+            said.append(" (").append(h.warning()).append(")");
+        }
         return said.toString();
     }
 

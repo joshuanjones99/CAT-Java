@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 
 /**
@@ -111,7 +112,7 @@ public final class SerialReceiptCapture implements ReceiptSource {
                 printer.checkAlive();
                 throw ReceiptWaitException.timedOut("the printed receipt");
             }
-            pause();
+            pause(deadline);
         }
         next += got.offset() + 1;
         List<ReceiptLine> lines = new ArrayList<>();
@@ -192,12 +193,19 @@ public final class SerialReceiptCapture implements ReceiptSource {
         return number == newest || number == newest + 1;
     }
 
-    private void pause() {
-        try {
-            Thread.sleep(POLL_INTERVAL.toMillis());
-        } catch (InterruptedException interrupted) {
+    /**
+     * A bounded park between looks: at most {@link #POLL_INTERVAL}, and never past the deadline, as in
+     * {@code RigLease} and {@code upgrade.Bounded}. An interrupt keeps its flag and fails the wait,
+     * as the sleep this replaces did.
+     */
+    private static void pause(long deadline) {
+        long remaining = deadline - System.nanoTime();
+        if (remaining > 0) {
+            LockSupport.parkNanos(Math.min(POLL_INTERVAL.toNanos(), remaining));
+        }
+        if (Thread.interrupted()) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("interrupted waiting for the printed receipt", interrupted);
+            throw new IllegalStateException("interrupted waiting for the printed receipt");
         }
     }
 

@@ -36,7 +36,7 @@ class CaseReaderTest {
     @Test
     void aDoctypeIsNotExpanded() throws IOException {
         write("tests/a/PETROCORE-6-TestCase.xml", """
-                <!DOCTYPE testscript [<!ENTITY x SYSTEM "file:///nonexistent-secret">]>
+                <!DOCTYPE testscript [<!ENTITY x SYSTEM "file:/nonexistent-secret">]>
                 <testscript><testcase name="t"><action name="&x;"/></testcase></testscript>
                 """);
         assertNull(new CaseReader(root).facts("tests/a/PETROCORE-6-TestCase.xml").actions());

@@ -15,7 +15,12 @@ public final class ShimReplies {
 
     private ShimReplies() {}
 
-    /** {@code GET /health}. */
+    /**
+     * {@code GET /health}.
+     *
+     * <p>{@code warning} is set only when the shim has something to say about the state it reports (a POS that
+     * accepts keys but has pushed no status, for one). It is null when there is none, and when the shim omits it.
+     */
     public record Health(
             boolean ok,
             String build,
@@ -25,7 +30,8 @@ public final class ShimReplies {
             List<String> readOnlyClients,
             boolean statePresent,
             Map<String, Long> lastChangeAgeS,
-            List<String> drivableButSilent) {}
+            List<String> drivableButSilent,
+            String warning) {}
 
     /**
      * {@code GET /pos/screen}: everything the POS last pushed.
