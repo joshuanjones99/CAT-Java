@@ -30,18 +30,18 @@ import com.sun.net.httpserver.HttpServer;
  * <p>Evidence about this repository only: it shows the client puts the bodies PATS puts on the
  * wire and reads the replies the Python CAT's tests quote, not that any Commander answers so.
  */
-final class FakeCommander implements AutoCloseable {
+public final class FakeCommander implements AutoCloseable {
 
     /** What the client sent: the body, the request target, two headers and the client's port. */
-    record Request(String body, String target, String accept, String contentType, int remotePort, String method) {
+    public record Request(String body, String target, String accept, String contentType, int remotePort, String method) {
 
         /** The {@code cmd=} value, read as the Python's handlers read it. */
-        String cmd() {
+        public String cmd() {
             return fields().getOrDefault("cmd", "?");
         }
 
         /** The head's {@code key=value} pairs, split on {@code &} as the Python's handlers split them. */
-        Map<String, String> fields() {
+        public Map<String, String> fields() {
             String head = body.split("\n\n", 2)[0];
             Map<String, String> out = new LinkedHashMap<>();
             for (String part : head.split("&")) {
@@ -53,37 +53,37 @@ final class FakeCommander implements AutoCloseable {
     }
 
     /** A reply: a status, a body, and how long to hold it back (a read timeout's double). */
-    record Reply(int status, String body, Duration delay) {
+    public record Reply(int status, String body, Duration delay) {
 
-        static Reply ok(String body) {
+        public static Reply ok(String body) {
             return new Reply(200, body, Duration.ZERO);
         }
 
-        static Reply status(int status, String body) {
+        public static Reply status(int status, String body) {
             return new Reply(status, body, Duration.ZERO);
         }
 
-        static Reply late(Duration delay, String body) {
+        public static Reply late(Duration delay, String body) {
             return new Reply(200, body, delay);
         }
     }
 
-    static final String OK = "<VFI:Response/>";
-    static final String NS_OK = "<VFI:Response xmlns:VFI=\"urn:vfi-sapphire:np.cgilink.2001-07-01\"/>";
+    public static final String OK = "<VFI:Response/>";
+    public static final String NS_OK = "<VFI:Response xmlns:VFI=\"urn:vfi-sapphire:np.cgilink.2001-07-01\"/>";
 
     /** A fault as the Python's tests write it: an undeclared {@code VFI:} prefix, as text matching sees it. */
-    static String bareFault(String code) {
+    public static String bareFault(String code) {
         return "<VFI:Fault><faultCode>" + code + "</faultCode></VFI:Fault>";
     }
 
     /** A fault with its namespace declared, as {@code test_commander_snapshot.py} writes it. */
-    static String fault(String code) {
+    public static String fault(String code) {
         return "<VFI:Response xmlns:VFI=\"urn:vfi-sapphire:np.domain.2001-07-01\"><VFI:Fault>"
                 + "<faultCode>" + code + "</faultCode><faultString>" + code + "</faultString>"
                 + "</VFI:Fault></VFI:Response>";
     }
 
-    static final String FRESH_COOKIE = "<credential><cookie>fresh</cookie></credential>";
+    public static final String FRESH_COOKIE = "<credential><cookie>fresh</cookie></credential>";
 
     private final HttpServer server;
     private final ExecutorService executor = Executors.newCachedThreadPool(runnable -> {
@@ -93,9 +93,9 @@ final class FakeCommander implements AutoCloseable {
     });
     private final CountDownLatch closed = new CountDownLatch(1);
     private volatile Function<Request, Reply> answer;
-    final List<Request> requests = new CopyOnWriteArrayList<>();
+    public final List<Request> requests = new CopyOnWriteArrayList<>();
 
-    FakeCommander(Function<Request, Reply> answer) {
+    public FakeCommander(Function<Request, Reply> answer) {
         this.answer = answer;
         try {
             server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
@@ -142,7 +142,7 @@ final class FakeCommander implements AutoCloseable {
     }
 
     /** An answer that replays {@code replies} in order, one per request. */
-    static Function<Request, Reply> inOrder(List<Reply> replies) {
+    public static Function<Request, Reply> inOrder(List<Reply> replies) {
         List<Reply> queue = new ArrayList<>(replies);
         return request -> {
             synchronized (queue) {
@@ -154,20 +154,20 @@ final class FakeCommander implements AutoCloseable {
         };
     }
 
-    void answer(Function<Request, Reply> next) {
+    public void answer(Function<Request, Reply> next) {
         this.answer = next;
     }
 
-    String host() {
+    public String host() {
         return InetAddress.getLoopbackAddress().getHostAddress();
     }
 
-    int port() {
+    public int port() {
         return server.getAddress().getPort();
     }
 
     /** The bodies, in arrival order. */
-    List<String> bodies() {
+    public List<String> bodies() {
         List<String> out = new ArrayList<>();
         for (Request request : requests) {
             out.add(request.body());
@@ -176,7 +176,7 @@ final class FakeCommander implements AutoCloseable {
     }
 
     /** Each body's command as the Python's {@code _commands} reads it: between {@code cmd=} and {@code &cookie=}. */
-    List<String> commands() {
+    public List<String> commands() {
         List<String> out = new ArrayList<>();
         for (String body : bodies()) {
             out.add(body.split("cmd=", 2)[1].split("&cookie=", 2)[0]);

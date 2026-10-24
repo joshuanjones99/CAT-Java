@@ -617,6 +617,18 @@ class PdkShimTest {
         }
 
         @Test
+        void onPortLogsInAndSendsToTheGivenPort() {
+            try (FakeCommander fake = new FakeCommander(request -> Reply.ok(
+                    "validate".equals(request.cmd()) ? FakeCommander.FRESH_COOKIE : "<Response/>"))) {
+                PdkShim client = PdkShim.onPort(fake.host(), fake.port(), Duration.ofSeconds(5), null);
+                client.controlFunction("cfuelinit");
+                assertEquals(List.of("validate", "cfuelinit"),
+                        fake.requests.stream().map(FakeCommander.Request::cmd).toList());
+                assertEquals("cmd=cfuelinit&cookie=fresh", fake.bodies().get(1));
+            }
+        }
+
+        @Test
         void aFaultRaisesDeviceError() {
             FakeCommander fake = fakeOk(FakeCommander.fault("bad init type"));
             DeviceError e = assertThrows(DeviceError.class, () -> fake.clientWithCookie(pauses, "c").controlFunction("cbogusinit"));

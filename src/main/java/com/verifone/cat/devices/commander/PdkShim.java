@@ -190,6 +190,15 @@ public final class PdkShim implements AutoCloseable {
         this(commanderHost, DEFAULT_PORT, timeout, readOtp, password, passwordMayBeExpired, CgiLink.Pauser.REAL);
     }
 
+    /**
+     * A client on {@code port} instead of CGILink's {@link #DEFAULT_PORT}, with the lab password and
+     * the production pauser. For a loopback stand-in in another package's tests (the Commander
+     * bring-up's, wave 8); a backward-compatible addition, nothing else changes.
+     */
+    public static PdkShim onPort(String commanderHost, int port, Duration timeout, Supplier<String> readOtp) {
+        return new PdkShim(commanderHost, port, timeout, readOtp, COMMANDER_PASSWORD, false, CgiLink.Pauser.REAL);
+    }
+
     /** The full constructor: a test passes a loopback port and a recording pauser. */
     PdkShim(String commanderHost, int port, Duration timeout, Supplier<String> readOtp, String password,
             boolean passwordMayBeExpired, CgiLink.Pauser pauser) {
