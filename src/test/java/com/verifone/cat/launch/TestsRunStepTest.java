@@ -241,6 +241,107 @@ class TestsRunStepTest {
         assertEquals(1, run.get("failed").asInt());
     }
 
+    /**
+     * The Python's {@code actions_completed} gate: a case that failed only on its validations ran every action as
+     * PATS does, so the ladder is not walked after it (two plans drained on that, 2026-10-15).
+     */
+    @Test
+    void aCaseThatFailedOnlyOnItsValidationsIsNotWalked() throws IOException {
+        RunContext ctx = context("validation-only", rigRun());
+        List<String> seen = new ArrayList<>();
+        FakeRig rig = new FakeRig();
+        RunServices.Connector connector = base -> new RunServices(base.config(), base.paths(), base.runId(),
+                base.runFolder(), base.rig(), null, null, null, base.pinpad(), base.fakePosUrl(), rig);
+        RegistryFactory checks = services -> {
+            ActionRegistry registry = new ActionRegistry();
+            registry.register("TOUCH_EVENT", (run, action) -> seen.add(run.kase().key()));
+            registry.register("CHECK", (run, action) -> {
+                throw new com.verifone.cat.pats.runner.ValidationFailure("receipt differs");
+            });
+            return registry;
+        };
+        TestsRunStep step = new TestsRunStep(checks, threeCases("TOUCH_EVENT", "CHECK", "TOUCH_EVENT"), connector);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        assertEquals(List.of("tests/suites/pulled/PETROCORE-100-TestCase.xml=passed",
+                "tests/suites/pulled/PETROCORE-200-TestCase.xml=failed",
+                "tests/suites/pulled/PETROCORE-300-TestCase.xml=passed"), finishedOutcomes(events(ctx)));
+        assertTrue(events(ctx).stream().noneMatch(e -> "recovery.rung".equals(e.get("type").asText())),
+                "no ladder walk after a validation-only failure");
+        assertFalse(rig.softCancelled, "no rung reached the rig");
+        assertEquals(List.of("PETROCORE-100", "PETROCORE-300"), seen);
+    }
+
+    /** A failed action walks the rungs in order until one restores the rig, each reaching the run's target. */
+    @Test
+    void aFailedActionWalksTheRungsInOrderOnTheRunsTarget() throws IOException {
+        RunContext ctx = context("walked", rigRun());
+        List<String> rungs = new ArrayList<>();
+        RecoveryTarget rig = new RecoveryTarget() {
+            private boolean voided;
+
+            @Override
+            public String rigName() {
+                return LaunchFixtures.RIG;
+            }
+
+            @Override
+            public boolean isTestable() {
+                rungs.add("isTestable");
+                return voided;
+            }
+
+            @Override
+            public boolean softCancel() {
+                rungs.add("soft");
+                return true;
+            }
+
+            @Override
+            public boolean voidOpenTicket() {
+                rungs.add("void");
+                voided = true;
+                return true;
+            }
+
+            @Override
+            public boolean resetState() {
+                rungs.add("reset");
+                return true;
+            }
+
+            @Override
+            public boolean runPreflight() {
+                rungs.add("preflight");
+                return true;
+            }
+
+            @Override
+            public boolean reprovision() {
+                rungs.add("reprovision");
+                return true;
+            }
+
+            @Override
+            public void drain(String reason) {
+                rungs.add("drain");
+            }
+        };
+        RunServices.Connector connector = base -> new RunServices(base.config(), base.paths(), base.runId(),
+                base.runFolder(), base.rig(), null, null, null, base.pinpad(), base.fakePosUrl(), rig);
+        TestsRunStep step = new TestsRunStep(touching(new ArrayList<>()),
+                threeCases("BOOM", "TOUCH_EVENT", "TOUCH_EVENT"), connector);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        assertEquals(List.of("soft", "isTestable", "void", "isTestable"), rungs);
+        JsonNode rung = events(ctx).stream().filter(e -> "recovery.rung".equals(e.get("type").asText()))
+                .findFirst().orElseThrow();
+        assertEquals("tests/suites/pulled/PETROCORE-100-TestCase.xml", rung.get("nodeid").asText());
+        assertEquals(2, rung.get("rung").asInt(), "VOID restored the rig");
+    }
+
     @Test
     void aStopBetweenCasesEndsTheStepAsStoppedAndWritesNoRunFinished() throws IOException {
         RunContext ctx = context("stopped", rigRun());

@@ -104,6 +104,18 @@ class RunServicesWiringTest {
 
     }
 
+    /**
+     * Run f6b5c0596966: a rig run had no recovery target, so no case after a failed one was recovered. The rig's own
+     * target is built over its hosts (shim, DOM, preflight) and connects to nothing until a rung runs.
+     */
+    @Test
+    void aRigRunsRecoveryTargetIsTheRigsAndConnectsToNothing() throws IOException {
+        com.verifone.cat.recovery.RecoveryTarget target = BrowserConnector.recoveryTarget(load(RIG).rig(), "run-1");
+
+        assertInstanceOf(com.verifone.cat.recovery.LiveRecoveryTarget.class, target);
+        assertEquals("bench", target.rigName());
+    }
+
     @Test
     void thePinpadIsLeftOutWhenTheRunHasOneAndTheForecourtWhenTheRigHasNone() throws IOException {
         LoadedRig rig = load(RIG);

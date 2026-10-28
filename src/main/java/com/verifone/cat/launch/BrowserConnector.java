@@ -16,6 +16,9 @@ import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.pinpad.PinpadDevice;
 import com.verifone.cat.pos.receipt.ReceiptPrinter;
 import com.verifone.cat.posshim.PosShimClient;
+import com.verifone.cat.recovery.RecoveryTarget;
+import com.verifone.cat.recovery.RigRecovery;
+import com.verifone.cat.recovery.RunSummary;
 import com.verifone.cat.recovery.Timeouts;
 import com.verifone.cat.rig.Rig;
 
@@ -40,7 +43,8 @@ import org.slf4j.LoggerFactory;
  *       not. The rig's pinpad is ViperPay's when the rig says {@code pinpad: viperpay}; the primary
  *       register's {@code printer_port} is
  *       opened as its receipt printer. Each is logged and left absent when it cannot start, so its actions fail by
- *       name.</li>
+ *       name. The run's recovery target is the rig's ({@link RigRecovery}), so step 5 walks the ladder after a
+ *       failed case; a fake-POS run has none, as the Python walks it only with {@code --rig}.</li>
  * </ul>
  *
  * <p>{@link #clients} builds the network clients without connecting or listening, so the wiring is testable on
@@ -108,7 +112,7 @@ public final class BrowserConnector implements RunServices.Connector {
         page.navigate(base.fakePosUrl().toString(),
                 new Page.NavigateOptions().setWaitUntil(WaitUntilState.NETWORKIDLE));
         PosDriver driver = PosDriver.builder(page).registerId(FAKE_REGISTER).settleOverlays(false).build();
-        return with(base, driver, null, null, base.pinpad(), null, base.dcr(), base.fuelPumps());
+        return with(base, driver, null, null, base.pinpad(), null, base.dcr(), base.fuelPumps(), base.recovery());
     }
 
     private RunServices rig(RunServices base) {
@@ -123,8 +127,19 @@ public final class BrowserConnector implements RunServices.Connector {
             pinpad = startViperPay(viperPay);
         }
         printer = openPrinter(register);
+        RecoveryTarget recovery = base.recovery() != null ? base.recovery() : recoveryTarget(rig, base.runId());
         // The DCR and the pumps are step 5's session listeners (PetroSession), already in the base.
-        return with(base, driver, clients.shim(), clients.commander(), pinpad, printer, base.dcr(), base.fuelPumps());
+        return with(base, driver, clients.shim(), clients.commander(), pinpad, printer, base.dcr(), base.fuelPumps(),
+                recovery);
+    }
+
+    /**
+     * The rig's recovery target, which step 5 walks the ladder over after a failed case: the Python's
+     * {@code recovery.plugin._recovery_ladder_session}, built whenever the run has a rig. Its rungs connect when they
+     * run (their own CDP session, the pos-shim, preflight's probes), so building it here contacts nothing.
+     */
+    static RecoveryTarget recoveryTarget(Rig rig, String runId) {
+        return RigRecovery.forRig(rig, System.getenv(), new RunSummary(runId), null);
     }
 
     /**
@@ -187,9 +202,10 @@ public final class BrowserConnector implements RunServices.Connector {
     }
 
     private static RunServices with(RunServices base, PosDriver driver, PosShimClient shim, PdkShim commander,
-            PinpadDevice pinpad, ReceiptPrinter receiptPrinter, DcrDevice dcrDevice, FuelPumps fuelPumps) {
+            PinpadDevice pinpad, ReceiptPrinter receiptPrinter, DcrDevice dcrDevice, FuelPumps fuelPumps,
+            RecoveryTarget recovery) {
         return new RunServices(base.config(), base.paths(), base.runId(), base.runFolder(), base.rig(), driver,
-                shim, commander, pinpad, base.fakePosUrl(), base.recovery(), receiptPrinter, dcrDevice, fuelPumps);
+                shim, commander, pinpad, base.fakePosUrl(), recovery, receiptPrinter, dcrDevice, fuelPumps);
     }
 
     @Override
