@@ -391,7 +391,9 @@ public final class PsiInit {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             factory.setNamespaceAware(true);
-            var root = factory.newDocumentBuilder()
+            var builder = factory.newDocumentBuilder();
+            builder.setErrorHandler(new org.xml.sax.helpers.DefaultHandler()); // no "[Fatal Error]" on stderr
+            var root = builder
                     .parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))).getDocumentElement();
             StringBuilder text = new StringBuilder();
             for (var node = root.getFirstChild(); node != null; node = node.getNextSibling()) {

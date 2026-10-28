@@ -11,13 +11,16 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.verifone.cat.commander.CommanderInit;
+import com.verifone.cat.build.Installed;
 import com.verifone.cat.commander.Say;
+import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
@@ -82,6 +85,62 @@ class CommanderConfigurationStepTest {
         public String missingAfterInit() {
             return missing;
         }
+
+        // The install half (InstallCommanderBuild and the psi-init insertion points).
+        Path root = Path.of("builds-root-unused");
+        boolean download = true;
+        boolean install = true;
+        boolean psiNoPairing = true;
+        boolean psiPairing = true;
+        Optional<Path> newest = Optional.empty();
+        Installed.Identification installed;
+
+        @Override
+        public Path buildsRoot() {
+            return root;
+        }
+
+        @Override
+        public boolean downloadCommanderBuild(String branch, String build, String dist, Say say) {
+            ran.add("build " + branch + " " + build + " " + dist);
+            if (!download) {
+                say.err("build: Solutions 134 holds no buypass folder ()");
+            }
+            return download;
+        }
+
+        @Override
+        public Optional<Path> newestBuild(String dist) {
+            ran.add("newest " + dist);
+            return newest;
+        }
+
+        @Override
+        public boolean installNewInstall(Rig rig, Path buildDir, Say say) {
+            ran.add("upgrade " + root.relativize(buildDir).toString().replace('\\', '/'));
+            if (!install) {
+                say.err("upgrade: install_commander failed: 'Installation Failed'");
+            }
+            return install;
+        }
+
+        @Override
+        public boolean psiInit(Rig rig, boolean pair, Say say) {
+            ran.add(pair ? "psi-init" : "psi-init --no-pairing");
+            boolean ok = pair ? psiPairing : psiNoPairing;
+            if (!ok) {
+                say.err("psi-init failed: changepasswd still faulting after 6 attempts");
+            }
+            return ok;
+        }
+
+        @Override
+        public Installed.Identification installedBuild(Rig rig, String dist) {
+            if (installed == null) {
+                throw new DeviceError("could not read suiteinfo.dat");
+            }
+            return installed;
+        }
     }
 
     private RunContext context(LaunchConfig config, boolean withRig) throws IOException {
@@ -94,7 +153,8 @@ class CommanderConfigurationStepTest {
         return ctx;
     }
 
-    private record Outcome(boolean keepGoing, StepEmitter step, Map<String, String> rows, Map<String, String> details) {}
+    private record Outcome(boolean keepGoing, StepEmitter step, Map<String, String> rows, Map<String, String> details,
+            RunContext ctx) {}
 
     private Outcome run(LaunchConfig config, Stages stages, Map<String, String> environ, boolean withRig)
             throws IOException {
@@ -110,7 +170,7 @@ class CommanderConfigurationStepTest {
                 details.put(event.get("label").asText(), event.get("detail").asText());
             }
         }
-        return new Outcome(keepGoing, step, rows, details);
+        return new Outcome(keepGoing, step, rows, details, ctx);
     }
 
     private Outcome run(LaunchConfig config, Stages stages) throws IOException {
@@ -252,6 +312,182 @@ class CommanderConfigurationStepTest {
         fine.missing = "";
         Outcome ready = run(LaunchConfig.forRig(LaunchFixtures.RIG), fine);
         assertEquals(SubstepOutcome.PASSED, ready.rows().get(label("payment-ready")));
+    }
+
+    // ------------------------------------------------------------ the clean install
+
+    private static LaunchConfig psi(String branch, String build) {
+        return new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.NEW_INSTALL)
+                .commanderBranch(branch).commanderBuild(build).build();
+    }
+
+    @Test
+    void aNewInstallOrdersDownloadInstallResetProvisionPairProvisionThenPrep() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        Outcome out = run(psi("Solutions", "134"), stages);
+
+        assertEquals(List.of("build Solutions 134 buypass", "upgrade Solutions134/buypass", "psi-init --no-pairing",
+                "provision", "psi-init", "provision", "commander-prep", "commander-init forecourt=false"),
+                stages.ran);
+        assertTrue(out.ctx().commanderReached());
+        assertTrue(out.ctx().commanderLoginReady());
+        assertEquals(SubstepOutcome.PASSED, out.rows().get(label("build")));
+        assertEquals(SubstepOutcome.PASSED, out.rows().get(label("upgrade")));
+        assertEquals(SubstepOutcome.PASSED, out.rows().get(label("psi-init")));
+        assertEquals("Download the Commander build", label("build"));
+        assertEquals("Install the Commander build", label("upgrade"));
+        assertEquals("PSI init (Commander password, register pairing)", label("psi-init"));
+    }
+
+    @Test
+    void aFailedPasswordResetLeavesTheLoginNotReadyAndStopsBeforeProvision() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        stages.psiNoPairing = false;
+        Outcome out = run(psi("Solutions", "134"), stages);
+
+        assertFalse(out.keepGoing());
+        assertEquals(List.of("build Solutions 134 buypass", "upgrade Solutions134/buypass", "psi-init --no-pairing"),
+                stages.ran);
+        assertFalse(out.ctx().commanderLoginReady(), "the day close must not log in with the lab password");
+        assertTrue(out.ctx().commanderReached());
+        assertEquals("psi-init failed: changepasswd still faulting after 6 attempts", out.step().detail());
+        assertEquals(SubstepOutcome.FAILED, out.rows().get(label("psi-init")));
+    }
+
+    @Test
+    void aFailedPairingStopsTheStepButThePasswordIsAlreadyReset() throws IOException {
+        // As the Python: the --no-pairing reset already made the login usable; pairing failing does not undo that.
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        stages.psiPairing = false;
+        Outcome out = run(psi("Solutions", "134"), stages);
+
+        assertFalse(out.keepGoing());
+        assertEquals("psi-init", stages.ran.get(stages.ran.size() - 1));
+        assertTrue(out.ctx().commanderLoginReady());
+    }
+
+    @Test
+    void aFailedInstallStopsWithTheLoginNotReady() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        stages.install = false;
+        Outcome out = run(psi("Solutions", "134"), stages);
+
+        assertFalse(out.keepGoing());
+        assertEquals(List.of("build Solutions 134 buypass", "upgrade Solutions134/buypass"), stages.ran);
+        assertFalse(out.ctx().commanderLoginReady());
+        assertEquals("upgrade: install_commander failed: 'Installation Failed'", out.step().detail());
+    }
+
+    @Test
+    void aFailedDownloadInstallsNothingAndLeavesTheLoginAlone() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        stages.download = false;
+        Outcome out = run(psi("Solutions", "134"), stages);
+
+        assertFalse(out.keepGoing());
+        assertEquals(List.of("build Solutions 134 buypass"), stages.ran);
+        assertTrue(out.ctx().commanderLoginReady(), "nothing was installed, so the password is still the lab's");
+        assertEquals(SubstepOutcome.FAILED, out.rows().get(label("build")));
+    }
+
+    @Test
+    void noBuildChosenInstallsTheNewestAlreadyDownloaded() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        stages.newest = Optional.of(stages.root.resolve("Solutions90").resolve("buypass"));
+        Outcome out = run(psi("", ""), stages);
+
+        assertEquals(List.of("newest buypass", "upgrade Solutions90/buypass", "psi-init --no-pairing", "provision",
+                "psi-init", "provision", "commander-prep", "commander-init forecourt=false"), stages.ran);
+        assertFalse(out.rows().containsKey(label("build")));
+    }
+
+    @Test
+    void noBuildChosenAndNoneDownloadedFailsNamingTheRoot() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        Outcome out = run(psi("", ""), stages);
+
+        assertFalse(out.keepGoing());
+        assertEquals(List.of("newest buypass"), stages.ran);
+        assertTrue(out.step().detail().startsWith("no build under " + stages.root + " holds buypass"),
+                out.step().detail());
+    }
+
+    @Test
+    void aChosenBuildWithModeSkipDownloadsNothing() throws IOException {
+        Stages stages = new Stages();
+        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).commanderBranch("Solutions")
+                .commanderBuild("134").build(), stages);
+
+        assertEquals("provision", stages.ran.get(0));
+        assertEquals("Solutions 134: Upgrade mode is Skip, nothing to install", out.details().get(label("build")));
+        assertTrue(out.ctx().commanderLoginReady());
+    }
+
+    @Test
+    void vhqIsUnavailableBeforeAnythingRuns() throws IOException {
+        Stages stages = new Stages();
+        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.VHQ).build(), stages);
+        assertFalse(out.keepGoing());
+        assertTrue(stages.ran.isEmpty());
+        assertTrue(out.step().detail().contains("petrotest/upgrade/vhq.py"), out.step().detail());
+    }
+
+    @Test
+    void aFakePosNewInstallInstallsNothing() throws IOException {
+        Stages stages = new Stages();
+        Outcome out = run(new LaunchConfig.Builder("").fakePos(true).upgradeMode(UpgradeMode.NEW_INSTALL)
+                .commanderBranch("Solutions").commanderBuild("134").build(), stages, Map.of(), false);
+
+        assertTrue(out.keepGoing());
+        assertTrue(stages.ran.isEmpty(), stages.ran.toString());
+        assertEquals(SubstepOutcome.SKIPPED, out.rows().get(label("upgrade")));
+        assertTrue(out.ctx().commanderLoginReady());
+    }
+
+    @Test
+    void theInstalledBuildIsReadAndFallsBackToTheBuildThisRunInstalled() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        stages.missing = "";
+        stages.installed = new Installed.Identification("Solutions134", "Solutions134 (Commit_Hash abc, built t)");
+        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        assertEquals(SubstepOutcome.PASSED, out.rows().get(CommanderConfigurationStep.INSTALLED_BUILD_ROW));
+        assertEquals("Solutions134", out.ctx().installedBuild());
+
+        Stages unread = new Stages();
+        unread.root = dir.resolve("builds");
+        unread.missing = "";
+        Outcome installedHere = run(psi("Solutions", "134"), unread);
+        assertEquals("Solutions134", installedHere.ctx().installedBuild());
+        assertEquals("Solutions134, installed by this run (DeviceError: could not read suiteinfo.dat)",
+                installedHere.details().get(CommanderConfigurationStep.INSTALLED_BUILD_ROW));
+
+        Stages unknown = new Stages();
+        unknown.missing = "";
+        Outcome notHere = run(LaunchConfig.forRig(LaunchFixtures.RIG), unknown);
+        assertEquals("", notHere.ctx().installedBuild());
+        assertEquals(SubstepOutcome.WARNED, notHere.rows().get(CommanderConfigurationStep.INSTALLED_BUILD_ROW));
+    }
+
+    @Test
+    void theDownloadsFieldsDefaultEmptyAndAreTrimmed() {
+        LaunchConfig plain = LaunchConfig.forRig(LaunchFixtures.RIG);
+        assertEquals("", plain.commanderBranch());
+        assertEquals("", plain.simBuild());
+        assertFalse(plain.commanderBuildChosen());
+        LaunchConfig chosen = new LaunchConfig.Builder(LaunchFixtures.RIG).commanderBranch(" Solutions ")
+                .commanderBuild("134").simBranch("master").simBuild("74").build();
+        assertTrue(chosen.commanderBuildChosen());
+        assertEquals("Solutions", chosen.commanderBranch());
+        assertEquals("master", chosen.simBranch());
+        assertEquals("74", chosen.simBuild());
     }
 
     @Test
