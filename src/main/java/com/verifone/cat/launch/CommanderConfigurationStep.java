@@ -1,8 +1,16 @@
 package com.verifone.cat.launch;
 
+import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
+import com.verifone.cat.build.BuildDiscovery;
+import com.verifone.cat.build.Installed;
 import com.verifone.cat.commander.CommanderInit;
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.report.events.SubstepOutcome;
@@ -15,13 +23,14 @@ import com.verifone.cat.rig.Rig;
  *
  * <p>The order, and what each part is here:
  * <ol>
- *   <li>The Commander build download and install ({@code install_commander_build}): with upgrade mode
- *       {@code skip} and no build chosen (CAT-Java carries no Downloads section) there is nothing to do;
- *       any other mode is unavailable.</li>
+ *   <li>The Commander build download and install ({@link InstallCommanderBuild}, the Python's
+ *       {@code install_commander_build}): the chosen build downloaded, the PSI install, and {@code psi-init
+ *       --no-pairing}. AU and VHQ are unavailable.</li>
  *   <li>On a rig: JaCoCo coverage when asked (unavailable: its launch wiring is not ported); the pos-shim
  *       jar build (the Python CAT's, so a row says so); {@code provision} (ported, the {@code provision}
- *       package); the printer-port hold (unavailable, a warning, as the Python's hold is best effort);
- *       {@code commander-prep} (ported).</li>
+ *       package); the printer-port hold (unavailable, a warning, as the Python's hold is best effort); after a
+ *       PSI install, {@code psi-init} with pairing, then {@link RunContext#commanderLoginReady()} and
+ *       {@code provision} again (pairing reboots the register); {@code commander-prep} (ported).</li>
  *   <li>{@code commander-init} (ported, every run: CAT-Java has only the {@code dev} execution mode), with
  *       {@code --no-forecourt} when Petro Simulator Suite is not selected. The Commander snapshot restore it
  *       starts with is not ported: a warning row says so.</li>
@@ -31,8 +40,7 @@ import com.verifone.cat.rig.Rig;
  *       the EMV tables and keys, the register app, the day close and the pinpad link. None is ported, so a
  *       rig run ends unavailable here ({@link #MISSING_AFTER_INIT}).</li>
  *   <li>{@code payment-ready} (ported; a WARN, never a failure, as in the Python), then the installed-build
- *       read (a warning: not ported). The snapshot capture follows only a fresh install, which is
- *       unavailable already.</li>
+ *       read ({@code build.Installed}; a warning when unknown). The snapshot capture is not ported.</li>
  * </ol>
  *
  * <p>A fake-POS run touches no device: everything is skipped, and the step is {@code skipped}, as the
@@ -54,6 +62,8 @@ final class CommanderConfigurationStep implements LaunchStep {
     /** The checklist rows, as the Python's {@code STAGE_LABELS}. */
     static final Map<String, String> STAGE_LABELS = Map.of(
             "build", "Download the Commander build",
+            "upgrade", "Install the Commander build",
+            "psi-init", "PSI init (Commander password, register pairing)",
             "provision", "Provision the register (pos-shim, browser, CDP relay)",
             "commander-prep", "Commander prep (licence dates, gemreg marker)",
             "commander-init", "Commander init (base import, fuel and DCR inits)",
@@ -90,25 +100,28 @@ final class CommanderConfigurationStep implements LaunchStep {
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
         LaunchConfig config = ctx.config();
+        ctx.commanderReached(true);
+        Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
 
-        // 1. The Commander build. CAT-Java has no Downloads section, so no build is ever chosen.
-        if (config.upgradeMode() != UpgradeMode.SKIP) {
-            return step.unavailable(PYTHON_MODULE, "the Commander build install for upgrade mode '"
-                    + config.upgradeMode().wire() + "' (cat.launch.upgrade.install_commander_build: petrotest build, "
-                    + "upgrade and psi-init)");
+        // 1. The Commander build: download, install, and reset the password PSI left, before anything is pushed
+        // to the register, because a PSI install wipes both devices.
+        InstallCommanderBuild.Result installed = InstallCommanderBuild.run(ctx, step, stages, rig);
+        if (!installed.ok()) {
+            return false;
         }
-        step.skip(label("build"), "no Commander Build chosen; upgrade mode is skip");
 
         if (config.fakePos()) {
             step.skip(label("provision"), "--fake-pos never touches real hardware");
             if (config.coverage()) {
                 step.skip(label("coverage"), "this run does not touch the rig's devices");
             }
+            if (installed.ran()) {
+                return true;
+            }
             step.skip("Commander configuration", "using the existing build, no upgrade");
             return step.skipStep("existing build, upgrade mode 'skip', provision not requested");
         }
 
-        Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
         if (rig == null) {
             return step.fail("the rig file did not load, so the Commander cannot be configured");
         }
@@ -128,6 +141,18 @@ final class CommanderConfigurationStep implements LaunchStep {
             step.warn(PRINTER_ROW, primary.printerPort() + " not held during setup: unavailable in CAT-Java (needs "
                     + "petrotest.devices.topaz_printer.TopazPrinter); the register's first receipt after a POS "
                     + "restart may be dropped");
+        }
+        // PATS's -newinstall tasks: the Commander password PSI generated, and pairing. Nothing may log in as
+        // manager with the lab password before this reset (2026-09-21). Pairing reboots the register, so
+        // provision runs again (a stamp match) to bring the shim up on it.
+        if (config.upgradeMode() == UpgradeMode.NEW_INSTALL) {
+            if (!stage(step, "psi-init", say -> stages.psiInit(rig, true, say))) {
+                return false;
+            }
+            ctx.commanderLoginReady(true);
+            if (!stage(step, "provision", say -> stages.provision(rig, say))) {
+                return false;
+            }
         }
         if (!stage(step, "commander-prep", say -> stages.commanderPrep(rig, say))) {
             return false;
@@ -171,16 +196,67 @@ final class CommanderConfigurationStep implements LaunchStep {
             step.log("WARN  the EPS was not ready for card sales; see payment-ready above", "WARNING");
         }
 
-        step.warn(INSTALLED_BUILD_ROW, "unknown — unavailable in CAT-Java (needs petrotest.build.installed); the "
-                + "Xray execution is titled with the rig's name");
+        identifyInstalledBuild(ctx, step, rig);
         return true;
+    }
+
+    /** Bound on reading the Commander's {@code suiteinfo.dat} and the downloaded overlays' hashes. */
+    static final Duration IDENTIFY_BUILD_TIMEOUT = Duration.ofSeconds(60);
+
+    /**
+     * Names the build on the Commander ({@link RunContext#installedBuild()}), for the Xray execution's title: the
+     * Python's {@code _identify_installed_build}. One row either way; never fails the step.
+     */
+    void identifyInstalledBuild(RunContext ctx, StepEmitter step, Rig rig) {
+        LaunchConfig config = ctx.config();
+        String name;
+        String why;
+        ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "identify-installed-build");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            Installed.Identification found = worker.submit(() -> stages.installedBuild(rig, PlanCases.DIST))
+                    .get(IDENTIFY_BUILD_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            name = found.name();
+            why = found.why();
+        } catch (TimeoutException e) {
+            name = "";
+            why = "the Commander did not answer in " + IDENTIFY_BUILD_TIMEOUT.toSeconds() + "s";
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            name = "";
+            why = cause.getClass().getSimpleName() + ": " + cause.getMessage();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            name = "";
+            why = "interrupted";
+        } finally {
+            worker.shutdownNow();
+        }
+        boolean installedHere = config.commanderBuildChosen() && config.upgradeMode() == UpgradeMode.NEW_INSTALL;
+        if (name.isEmpty() && installedHere) {
+            // This run installed it, so its name is known even when the read failed.
+            name = BuildDiscovery.buildLabel(config.commanderBranch(), config.commanderBuild());
+            why = name + ", installed by this run (" + why + ")";
+        }
+        ctx.installedBuild(name);
+        if (!name.isEmpty()) {
+            step.log("Installed build: " + why, "INFO");
+            step.substep(INSTALLED_BUILD_ROW, SubstepOutcome.PASSED, why, 0.0);
+        } else {
+            String unknown = "unknown — " + why + "; the Xray execution is titled with the rig's name";
+            step.log("Installed build: " + unknown, "WARNING");
+            step.substep(INSTALLED_BUILD_ROW, SubstepOutcome.WARNED, unknown, 0.0);
+        }
     }
 
     /**
      * One ported stage as one timed checklist row, as the Python's {@code run_petrotest} makes each child one:
      * a failure fails the step with the stage's last error line.
      */
-    private static boolean stage(StepEmitter step, String command, Function<Say, Boolean> body) {
+    static boolean stage(StepEmitter step, String command, Function<Say, Boolean> body) {
         String label = label(command);
         step.log("CAT-Java " + command, "INFO");
         step.substep(label, SubstepOutcome.RUNNING, "", 0.0);

@@ -45,6 +45,13 @@ import com.verifone.cat.runconfig.RunScope;
  * @param commanderConnectSettings the lab, email, service id and password the switch onboards with (the Python's
  *                     {@code cc_lab}, {@code cc_email}, {@code cc_service_id}, {@code cc_password}); never null.
  *                     Its {@code toString} hides the password
+ * @param commanderBranch the Downloads section's Commander Build branch ({@code Solutions}, {@code master}, ...); ""
+ *                     downloads nothing, and a PSI install then installs the newest build under the builds root.
+ *                     Read by step 4 ({@link InstallCommanderBuild})
+ * @param commanderBuild the Commander Build's number on {@code commanderBranch}; "" downloads nothing
+ * @param simBranch    the Simulator Build's branch (the Python's {@code sim_branch}); carried, not read yet: the
+ *                     Python's System Checks replaces the staged simulators with it ({@code cat/sims/fetch.py})
+ * @param simBuild     the Simulator Build's number; carried, not read yet
  */
 public record LaunchConfig(
         String rig,
@@ -59,13 +66,21 @@ public record LaunchConfig(
         boolean xrayReport,
         boolean coverage,
         boolean commanderConnect,
-        CommanderConnect commanderConnectSettings) {
+        CommanderConnect commanderConnectSettings,
+        String commanderBranch,
+        String commanderBuild,
+        String simBranch,
+        String simBuild) {
 
     /** The Config tab's Commander Connect defaults: lab Prod, everything else empty. */
     public static final CommanderConnect NO_COMMANDER_CONNECT = new CommanderConnect("Prod", "", "", "");
 
     public LaunchConfig {
         rig = rig == null ? "" : rig.strip();
+        commanderBranch = commanderBranch == null ? "" : commanderBranch.strip();
+        commanderBuild = commanderBuild == null ? "" : commanderBuild.strip();
+        simBranch = simBranch == null ? "" : simBranch.strip();
+        simBuild = simBuild == null ? "" : simBuild.strip();
         commanderConnectSettings = commanderConnectSettings == null ? NO_COMMANDER_CONNECT : commanderConnectSettings;
         suites = List.copyOf(suites == null ? List.of() : suites);
         testPlans = List.copyOf(testPlans == null ? List.of() : testPlans);
@@ -75,6 +90,30 @@ public record LaunchConfig(
         if (rig.isEmpty() && !fakePos) {
             throw new IllegalArgumentException("a run needs a rig, or fakePos");
         }
+    }
+
+    /** A run with no Commander or Simulator Build chosen, as every caller before the Downloads fields was carried. */
+    public LaunchConfig(
+            String rig,
+            List<String> suites,
+            List<String> testPlans,
+            UpgradeMode upgradeMode,
+            boolean fakePos,
+            boolean fakePinpad,
+            boolean snapshotUpdate,
+            List<String> simulators,
+            RunScope scope,
+            boolean xrayReport,
+            boolean coverage,
+            boolean commanderConnect,
+            CommanderConnect commanderConnectSettings) {
+        this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope,
+                xrayReport, coverage, commanderConnect, commanderConnectSettings, "", "", "", "");
+    }
+
+    /** Whether the Downloads section names a Commander Build: a branch and a number. */
+    public boolean commanderBuildChosen() {
+        return !commanderBranch.isEmpty() && !commanderBuild.isEmpty();
     }
 
     /** A run with Commander Connect off, as every caller before that switch was carried. */
@@ -199,6 +238,10 @@ public record LaunchConfig(
         private boolean coverage;
         private boolean commanderConnect;
         private CommanderConnect commanderConnectSettings = NO_COMMANDER_CONNECT;
+        private String commanderBranch = "";
+        private String commanderBuild = "";
+        private String simBranch = "";
+        private String simBuild = "";
 
         public Builder(String rig) {
             this.rig = rig;
@@ -266,10 +309,34 @@ public record LaunchConfig(
             return this;
         }
 
+        /** The Downloads section's Commander Build branch. */
+        public Builder commanderBranch(String value) {
+            commanderBranch = value;
+            return this;
+        }
+
+        /** The Downloads section's Commander Build number. */
+        public Builder commanderBuild(String value) {
+            commanderBuild = value;
+            return this;
+        }
+
+        /** The Downloads section's Simulator Build branch. */
+        public Builder simBranch(String value) {
+            simBranch = value;
+            return this;
+        }
+
+        /** The Downloads section's Simulator Build number. */
+        public Builder simBuild(String value) {
+            simBuild = value;
+            return this;
+        }
+
         public LaunchConfig build() {
             return new LaunchConfig(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad,
                     snapshotUpdate, simulators, scope, xrayReport, coverage, commanderConnect,
-                    commanderConnectSettings);
+                    commanderConnectSettings, commanderBranch, commanderBuild, simBranch, simBuild);
         }
     }
 }

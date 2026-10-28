@@ -45,6 +45,10 @@ public final class RunContext {
     private LoadedRig rig;
     private RigLease runLock;
 
+    private volatile boolean commanderReached;
+    private volatile boolean commanderLoginReady = true;
+    private volatile String installedBuild = "";
+
     RunContext(LaunchConfig config, LaunchPaths paths, String runId, Path runFolder, RunEvents events,
             PauseGate pause, Clock clock) {
         this.config = config;
@@ -116,6 +120,40 @@ public final class RunContext {
 
     void rig(LoadedRig loaded) {
         rig = loaded;
+    }
+
+    /**
+     * Whether step 4 (Commander Configuration) started: until it does, this run has not touched the Commander's
+     * period, so Cleanup has no day of its own to close. The Python's {@code commander_reached}.
+     */
+    public boolean commanderReached() {
+        return commanderReached;
+    }
+
+    void commanderReached(boolean value) {
+        commanderReached = value;
+    }
+
+    /**
+     * Whether the Commander's {@code manager} account is known to hold the lab password: false from the moment a PSI
+     * install starts until psi-init has reset it. Cleanup's day close must not log in before then, or each attempt
+     * counts towards a lockout. The Python's {@code commander_login_ready}, true by default.
+     */
+    public boolean commanderLoginReady() {
+        return commanderLoginReady;
+    }
+
+    void commanderLoginReady(boolean value) {
+        commanderLoginReady = value;
+    }
+
+    /** The build step 4 identified on the Commander ({@code Solutions1082}), or "". The Python's {@code installed_build}. */
+    public String installedBuild() {
+        return installedBuild;
+    }
+
+    void installedBuild(String value) {
+        installedBuild = value == null ? "" : value;
     }
 
     /** The run lock this run holds, or {@code null}. Released by the launcher whatever happened. */

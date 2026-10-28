@@ -31,7 +31,8 @@ public final class LaunchCommand {
     public static final int EXIT_USAGE = 2;
 
     static final String USAGE = "usage: launch --rig <name|file.yaml> [--suite <node>]... [--plan <key>]..."
-            + " [--upgrade skip|classic|vhq|new_install] [--simulator <name>]... [--fake-pos] [--fake-pinpad]";
+            + " [--upgrade skip|classic|vhq|new_install] [--simulator <name>]... [--fake-pos] [--fake-pinpad]"
+            + " [--commander-branch <branch> --commander-build <n>] [--sim-branch <branch> --sim-build <n>]";
 
     /** The fake-POS banner, the same words the Python CAT's run log uses. */
     static final String FAKE_POS_BANNER = "[FAKE POS: evidence about CAT, not about a rig]";
@@ -77,6 +78,10 @@ public final class LaunchCommand {
         UpgradeMode upgrade = UpgradeMode.SKIP;
         boolean fakePos;
         boolean fakePinpad;
+        String commanderBranch = "";
+        String commanderBuild = "";
+        String simBranch = "";
+        String simBuild = "";
 
         static Options parse(String[] argv) {
             Options o = new Options();
@@ -91,6 +96,10 @@ public final class LaunchCommand {
                     case "--upgrade" -> o.upgrade = UpgradeMode.of(value(flag, args));
                     case "--fake-pos" -> o.fakePos = true;
                     case "--fake-pinpad" -> o.fakePinpad = true;
+                    case "--commander-branch" -> o.commanderBranch = value(flag, args);
+                    case "--commander-build" -> o.commanderBuild = value(flag, args);
+                    case "--sim-branch" -> o.simBranch = value(flag, args);
+                    case "--sim-build" -> o.simBuild = value(flag, args);
                     default -> throw new IllegalArgumentException("Unknown option " + flag + ".");
                 }
             }
@@ -104,7 +113,11 @@ public final class LaunchCommand {
             LaunchConfig.Builder builder = new LaunchConfig.Builder(rig == null ? "" : rig)
                     .upgradeMode(upgrade)
                     .fakePos(fakePos)
-                    .fakePinpad(fakePinpad);
+                    .fakePinpad(fakePinpad)
+                    .commanderBranch(commanderBranch)
+                    .commanderBuild(commanderBuild)
+                    .simBranch(simBranch)
+                    .simBuild(simBuild);
             suites.forEach(builder::suite);
             plans.forEach(builder::testPlan);
             simulators.forEach(builder::simulator);
