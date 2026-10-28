@@ -35,7 +35,8 @@ import com.verifone.cat.rig.Rig;
  * is never sent again.
  *
  * <p>The waits are bounded ({@link Timing}); none is {@code Thread.sleep}. The register pass is
- * {@link RegisterPass#NOT_PORTED} in production; see its Javadoc.
+ * {@link PosRegisterPass} in {@link #forRig}; it is best effort and never stops the close, and a close it did not
+ * clear the way for is still judged from the Commander's log, never assumed.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The Python's lab evidence (HANDOFF.md 1.37, 1.58, 1.60,
  * 1.122, 1.166) is quoted in its docstrings, not re-proven here.
@@ -136,9 +137,18 @@ public final class CloseDay {
         this.err = err;
     }
 
-    /** The production close for a rig: the Commander from the rig file, the SSH key from {@code env}. */
+    /**
+     * The production close for a rig: the Commander from the rig file, the SSH key from {@code env}, and the
+     * register pass through the POS ({@link PosRegisterPass#forRig}), as the Python's {@code close_day} always does.
+     */
     public static CloseDay forRig(Rig rig, Map<String, String> env, PrintStream out, PrintStream err) {
-        return new CloseDay(CommanderAccess.forRig(rig, env), RegisterPass.NOT_PORTED, baseConfigFolder(env),
+        return forRig(rig, env, PosRegisterPass.forRig(rig, env, out), out, err);
+    }
+
+    /** The production close for a rig with the caller's register pass. */
+    public static CloseDay forRig(Rig rig, Map<String, String> env, RegisterPass register, PrintStream out,
+            PrintStream err) {
+        return new CloseDay(CommanderAccess.forRig(rig, env), register, baseConfigFolder(env),
                 ReportPaths.resultsRoot(env), Timing.production(), out, err);
     }
 
