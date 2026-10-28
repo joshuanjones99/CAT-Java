@@ -384,19 +384,114 @@ class ProvisionRunnerTest {
         assertTrue(text.contains("  total ") && text.contains(" - OK"), text);
     }
 
+    /** A register checklist step that records each run and answers {@code status}. */
+    static final class FixedStep implements ChecklistStep {
+        int calls;
+        private final String name;
+        private final StepStatus status;
+        private final boolean required;
+
+        FixedStep(String name, StepStatus status, boolean required) {
+            this.name = name;
+            this.status = status;
+            this.required = required;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public boolean required() {
+            return required;
+        }
+
+        @Override
+        public StepResult apply(com.verifone.cat.provision.transport.Transport transport, String controllerHost,
+                Duration timeout) {
+            calls++;
+            return new StepResult(name, status, "said " + status.wire());
+        }
+    }
+
+    private static TargetReport named(ProvisionReport report, String prefix) {
+        return report.targets().stream().filter(t -> t.target().startsWith(prefix)).findFirst().orElseThrow();
+    }
+
     @Test
-    void aBrowserOverrideRegisterGetsItsRegisterChecklistAndNotPortedIsSaidOut() {
+    void theRegisterChecklistRunsOnlyOnTheOptedInRegisterAndOnTheFastPathToo() {
+        Harness harness = new Harness(RigFixture.TWO_REGISTERS);
+        FixedStep step = new FixedStep("recording_step", StepStatus.DONE, true);
+        ProvisionOptions options = harness.options().registerChecklist(List.of(step));
+
+        ProvisionReport first = harness.run(options);
+
+        assertTrue(first.ok(), first.render());
+        assertEquals(List.of("recording_step"), stepNames(named(first, "topaz102")));
+        assertEquals(List.of(), named(first, "topaz101").checklist());
+        assertEquals(1, step.calls);
+
+        ProvisionReport second = harness.run(options);
+
+        assertTrue(second.ok(), second.render());
+        assertEquals(TargetReport.Decision.UP_TO_DATE, named(second, "topaz102").decision());
+        assertEquals(2, step.calls);
+    }
+
+    @Test
+    void aRequiredStepThatWasSkippedFailsTheTargetAndTheReport() {
+        // Run ac22943e6604 (2026-10-28): the override step was SKIPPED and provision still said PASS.
         Harness harness = new Harness(RigFixture.TWO_REGISTERS);
         ProvisionOptions options = harness.options()
-                .registerChecklist(List.of(new Checklist.BrowserOverrideNotPorted()));
+                .registerChecklist(List.of(new FixedStep("enable_browser_override", StepStatus.SKIPPED, true)));
 
         ProvisionReport report = harness.run(options);
 
-        TargetReport override = report.targets().stream().filter(t -> t.target().startsWith("topaz102"))
-                .findFirst().orElseThrow();
-        assertEquals(List.of("browser_override"), stepNames(override));
-        TargetReport plain = report.targets().stream().filter(t -> t.target().startsWith("topaz101"))
-                .findFirst().orElseThrow();
-        assertEquals(List.of(), plain.checklist());
+        assertFalse(report.ok(), report.render());
+        TargetReport override = named(report, "topaz102");
+        assertEquals(TargetReport.Decision.FAILED, override.decision());
+        assertTrue(override.error().contains("required checklist step enable_browser_override was skipped"),
+                override.error());
+        assertEquals(TargetReport.Decision.PROVISIONED, named(report, "topaz101").decision());
+        assertTrue(report.render().endsWith("FAILED"), report.render());
+    }
+
+    @Test
+    void aRequiredStepSkippedOnTheFastPathFailsTheTargetToo() {
+        Harness harness = new Harness(RigFixture.TWO_REGISTERS);
+        assertTrue(harness.run(harness.options()).ok());
+
+        ProvisionReport second = harness.run(harness.options()
+                .registerChecklist(List.of(new FixedStep("enable_browser_override", StepStatus.SKIPPED, true))));
+
+        assertEquals(TargetReport.Decision.FAILED, named(second, "topaz102").decision());
+        assertFalse(second.ok());
+    }
+
+    @Test
+    void aSkipThatIsNotRequiredStillPassesAsInPython() {
+        Harness harness = new Harness(RigFixture.TWO_REGISTERS);
+        ProvisionOptions options = harness.options()
+                .registerChecklist(List.of(new FixedStep("optional", StepStatus.SKIPPED, false)));
+
+        ProvisionReport report = harness.run(options);
+
+        assertTrue(report.ok(), report.render());
+    }
+
+    @Test
+    void aFailingStepOnTheFastPathStillFailsTheTarget() {
+        Harness harness = new Harness(RigFixture.TWO_REGISTERS);
+        ProvisionOptions failing = harness.options()
+                .registerChecklist(List.of(new FixedStep("failing_step", StepStatus.FAILED, false)));
+        harness.run(failing);
+        assertTrue(harness.run(harness.options()).ok(), "seeds the stamp");
+
+        ProvisionReport second = harness.run(failing);
+
+        TargetReport override = named(second, "topaz102");
+        assertEquals(TargetReport.Decision.FAILED, override.decision());
+        assertTrue(override.error().contains("said failed"), override.error());
     }
 }
