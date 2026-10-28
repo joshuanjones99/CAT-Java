@@ -51,7 +51,8 @@ import com.verifone.cat.sims.SimEntry;
  * {@link RunScope} holds one mode), and the launcher refuses a partial run until that port lands;
  * {@code --solutions-build} is not accepted; {@code --dist} is accepted (the Python reads the dist only from the
  * saved file); the saved {@code config-xray} is read (see {@link LastConfig}). The Downloads flags
- * ({@code --commander-branch/--commander-build/--sim-branch/--sim-build}) are another slice's.
+ * ({@code --commander-branch/--commander-build/--sim-branch/--sim-build}) default to the saved Config's Downloads
+ * section, a flag's branch taking no saved foundation, as {@code run_plan._config} does.
  *
  * <p>Exit codes: 0 the run completed, 1 a step failed or was unavailable, 2 a usage error.
  *
@@ -66,6 +67,7 @@ public final class LaunchCommand {
     static final String USAGE = """
             usage: launch --rig <name|file.yaml> [--plan <key>...]... [--suite <node>]...
                           [--upgrade skip|classic|vhq|new_install] [--exec dev|BDD] [--dist <name>] [--branch <name>]
+                          [--commander-branch <branch> --commander-build <n>] [--sim-branch <branch> --sim-build <n>]
                           [--fep <name>]... [--simulator <name>]... [--no-xray] [--coverage | --no-coverage]
                           [--cc-onboard] [--waive-cc-requirement] [--capture-snapshot] [--snapshot-update]
                           [--buypass-host] [--cache-only] [--tags <expr> | --only <key>... | --from <key>]
@@ -221,6 +223,10 @@ public final class LaunchCommand {
         boolean snapshotUpdate;
         boolean cacheOnly;
         boolean buypassHost;
+        String commanderBranch = "";
+        String commanderBuild = "";
+        String simBranch = "";
+        String simBuild = "";
 
         static Options parse(String[] argv) {
             Options o = new Options();
@@ -259,6 +265,10 @@ public final class LaunchCommand {
                     case "--buypass-host" -> o.buypassHost = true;
                     case "--fake-pos" -> o.fakePos = true;
                     case "--fake-pinpad" -> o.fakePinpad = true;
+                    case "--commander-branch" -> o.commanderBranch = value(flag, args);
+                    case "--commander-build" -> o.commanderBuild = value(flag, args);
+                    case "--sim-branch" -> o.simBranch = value(flag, args);
+                    case "--sim-build" -> o.simBuild = value(flag, args);
                     default -> throw new IllegalArgumentException("Unknown option " + flag + ".");
                 }
             }
@@ -311,6 +321,12 @@ public final class LaunchCommand {
                     .commanderConnect(saved.commanderConnect(env))
                     .ccRequirementWaived(waiveCcRequirement)
                     .scope(scope());
+            // The Downloads section: a flag's branch takes no saved foundation (run_plan._config).
+            LastConfig.Downloads downloads = saved.downloads(commanderBranch, commanderBuild, simBranch, simBuild);
+            builder.commanderBranch(downloads.commanderBranch())
+                    .commanderBuild(downloads.commanderBuild())
+                    .simBranch(downloads.simBranch())
+                    .simBuild(downloads.simBuild());
             suites.forEach(builder::suite);
             plans.forEach(builder::testPlan);
             simulators.forEach(builder::simulator);

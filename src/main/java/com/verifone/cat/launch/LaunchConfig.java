@@ -61,6 +61,13 @@ import com.verifone.cat.runconfig.RunScope;
  *                     install (the Python's {@code capture_snapshot}, {@code run_plan --capture-snapshot})
  * @param ccRequirementWaived a plan's "Commander Connect Required? Yes" is a warning, not a stop (the Python's
  *                     {@code cc_requirement_waived}, {@code run_plan --waive-cc-requirement}); for diagnosis only
+ * @param commanderBranch the Downloads section's Commander Build branch ({@code Solutions}, {@code master}, ...); ""
+ *                     downloads nothing, and a PSI install then installs the newest build under the builds root.
+ *                     Read by step 4 ({@link InstallCommanderBuild})
+ * @param commanderBuild the Commander Build's number on {@code commanderBranch}; "" downloads nothing
+ * @param simBranch    the Simulator Build's branch (the Python's {@code sim_branch}); carried, not read yet: the
+ *                     Python's System Checks replaces the staged simulators with it ({@code cat/sims/fetch.py})
+ * @param simBuild     the Simulator Build's number; carried, not read yet
  */
 public record LaunchConfig(
         String rig,
@@ -83,7 +90,11 @@ public record LaunchConfig(
         List<String> connections,
         boolean buypassHost,
         boolean captureSnapshot,
-        boolean ccRequirementWaived) {
+        boolean ccRequirementWaived,
+        String commanderBranch,
+        String commanderBuild,
+        String simBranch,
+        String simBuild) {
 
     /** The Config tab's Commander Connect defaults: lab Prod, everything else empty. */
     public static final CommanderConnect NO_COMMANDER_CONNECT = new CommanderConnect("Prod", "", "", "");
@@ -102,6 +113,10 @@ public record LaunchConfig(
 
     public LaunchConfig {
         rig = rig == null ? "" : rig.strip();
+        commanderBranch = commanderBranch == null ? "" : commanderBranch.strip();
+        commanderBuild = commanderBuild == null ? "" : commanderBuild.strip();
+        simBranch = simBranch == null ? "" : simBranch.strip();
+        simBuild = simBuild == null ? "" : simBuild.strip();
         commanderConnectSettings = commanderConnectSettings == null ? NO_COMMANDER_CONNECT : commanderConnectSettings;
         suites = List.copyOf(suites == null ? List.of() : suites);
         testPlans = List.copyOf(testPlans == null ? List.of() : testPlans);
@@ -120,7 +135,7 @@ public record LaunchConfig(
         }
     }
 
-    /** A run with every field after the Commander Connect settings at the Python's defaults. */
+    /** A run with every field after the Commander Connect settings at the Python's defaults, no build chosen. */
     public LaunchConfig(
             String rig,
             List<String> suites,
@@ -137,7 +152,13 @@ public record LaunchConfig(
             CommanderConnect commanderConnectSettings) {
         this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope,
                 xrayReport, coverage, commanderConnect, commanderConnectSettings, DEFAULT_DIST,
-                DEFAULT_TEST_PLAN_BRANCH, DEFAULT_EXECUTION_MODE, List.of(), List.of(), false, false, false);
+                DEFAULT_TEST_PLAN_BRANCH, DEFAULT_EXECUTION_MODE, List.of(), List.of(), false, false, false,
+                "", "", "", "");
+    }
+
+    /** Whether the Downloads section names a Commander Build: a branch and a number. */
+    public boolean commanderBuildChosen() {
+        return !commanderBranch.isEmpty() && !commanderBuild.isEmpty();
     }
 
     /** A run with Commander Connect off, as every caller before that switch was carried. */
@@ -270,6 +291,10 @@ public record LaunchConfig(
         private boolean buypassHost;
         private boolean captureSnapshot;
         private boolean ccRequirementWaived;
+        private String commanderBranch = "";
+        private String commanderBuild = "";
+        private String simBranch = "";
+        private String simBuild = "";
 
         public Builder(String rig) {
             this.rig = rig;
@@ -383,11 +408,36 @@ public record LaunchConfig(
             return this;
         }
 
+        /** The Downloads section's Commander Build branch. */
+        public Builder commanderBranch(String value) {
+            commanderBranch = value;
+            return this;
+        }
+
+        /** The Downloads section's Commander Build number. */
+        public Builder commanderBuild(String value) {
+            commanderBuild = value;
+            return this;
+        }
+
+        /** The Downloads section's Simulator Build branch. */
+        public Builder simBranch(String value) {
+            simBranch = value;
+            return this;
+        }
+
+        /** The Downloads section's Simulator Build number. */
+        public Builder simBuild(String value) {
+            simBuild = value;
+            return this;
+        }
+
         public LaunchConfig build() {
             return new LaunchConfig(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad,
                     snapshotUpdate, simulators, scope, xrayReport, coverage, commanderConnect,
                     commanderConnectSettings, dist, testPlanBranch, executionMode, secondaryFeps, connections,
-                    buypassHost, captureSnapshot, ccRequirementWaived);
+                    buypassHost, captureSnapshot, ccRequirementWaived, commanderBranch, commanderBuild, simBranch,
+                    simBuild);
         }
     }
 }
