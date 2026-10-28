@@ -24,6 +24,7 @@
     <playwright.version>1.49.0</playwright.version>
     <jsch.version>0.2.20</jsch.version>
     <jserialcomm.version>2.11.0</jserialcomm.version>
+    <jna.version>5.14.0</jna.version>
   </properties>
 
   <dependencies>
@@ -67,6 +68,20 @@
       <groupId>com.fazecast</groupId>
       <artifactId>jSerialComm</artifactId>
       <version>${jserialcomm.version}</version>
+    </dependency>
+
+    <dependency>
+      <!-- The Java Access Bridge (WindowsAccessBridge-64.dll) and user32, for pressing the
+           PATS simulators' Swing buttons, in place of the Python CAT's pyjab and ctypes.
+           Orchestrator's decision, 2026-10-28 (wave 15). -->
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+      <version>${jna.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna-platform</artifactId>
+      <version>${jna.version}</version>
     </dependency>
 
     <dependency>

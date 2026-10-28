@@ -27,8 +27,9 @@ import com.verifone.cat.sims.ToolsRoot;
  * step's own rule on top of it: a row the supervisor reports {@code failed} or {@code needs attention}
  * fails the step, and a row that is not ready is never a pass. The Python CAT lets a row in
  * {@code needs attention} through as a warning; CAT-Java does not, because a run would then go on
- * against a simulator nobody has confirmed is up. The rows that need their Swing buttons pressed stay
- * {@code needs attention} until the Access Bridge is ported, so a run that selects one stops here.
+ * against a simulator nobody has confirmed is up. The rows that need their Swing buttons pressed are
+ * {@code ready} once the supervisor has pressed them through the Java Access Bridge, and
+ * {@code needs attention} (so the run stops here) when it could not.
  *
  * <p>Not carried, so a rig run that needs one of them is unavailable before anything is started:
  * the BTT card server for a {@code pinpad: vats} rig, and for Petro Simulator Suite the port holds,

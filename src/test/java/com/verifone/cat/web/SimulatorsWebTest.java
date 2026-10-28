@@ -159,8 +159,10 @@ class SimulatorsWebTest {
 
         assertTrue(response.body().contains("needs attention"), response.body());
         // The row's detail is the operator's line, escaped the way the page writes it.
-        assertTrue(response.body().contains(Html.esc("Clicked needs attention: press \"Start Host\" in its window "
-                + "(Access Bridge not ported).")), response.body());
+        // No JDK is staged under the temp tools root, so the row is refused before anything is spawned.
+        assertTrue(response.body().contains(Html.esc("Clicked needs attention: not started, because CAT cannot press "
+                + "\"Start Host\" in its window: no javaw.exe under " + tools.resolve("Java17") + ".")),
+                response.body());
     }
 
     @Test

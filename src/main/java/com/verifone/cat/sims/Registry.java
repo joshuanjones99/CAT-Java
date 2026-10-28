@@ -12,9 +12,10 @@ import java.util.Optional;
  * <ul>
  *   <li>{@code BUYPASS Host}: adopted when its 41107 listener is up; otherwise REFUSED, because
  *       Python builds a CAPK-re-dated jar from PATS's and this port does not (SimEntry.capkFrom).
- *       Its {@code windowed} minimising is not ported.</li>
- *   <li>The three LoySim rows and the MPPA row: Swing buttons (Access Bridge). Not started; the
- *       status is {@code needs attention}.</li>
+ *       Its {@code windowed} minimising is ported but unreached, since the row is never launched.</li>
+ *   <li>The three LoySim rows and the MPPA row: started, then their Swing buttons pressed through
+ *       the Java Access Bridge ({@link AccessBridgeClicker}); {@code ready} once pressed,
+ *       {@code needs attention} otherwise.</li>
  *   <li>{@code Petro Simulator Suite}: started with its argv, the JAXB fallback on the
  *       {@code javax/xml/bind/JAXBException} line, D9 adoption on 9001 and {@code replace_stale}.
  *       Its tank-level, SSLUtil and well-formedness pre-steps are not ported.</li>
