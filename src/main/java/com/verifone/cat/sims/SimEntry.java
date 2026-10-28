@@ -14,7 +14,7 @@ import java.util.Objects;
  * Python's; only the names are camelCase.
  *
  * <p>Fields this port does not act on are left out and named in the port's HANDOFF: the
- * artifactory source and match_base flag (kept in {@link SimSources}), the TLS and CAPK pre-steps (except {@code capkFrom}, which refuses),
+ * artifactory source and match_base flag (kept in {@link SimSources}), the TLS pre-step,
  * {@code superseded_by}, {@code well_formed}, and the Swing minimising of {@code windowed}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
@@ -37,8 +37,8 @@ import java.util.Objects;
  * @param adoptOnlyMatch adopt a listener on {@code readyTcp} only if its command line matches
  * @param replaceStale a running but not listening process is killed and CAT starts its own
  * @param stagedOnly the row is staged but never launched by CAT
- * @param capkFrom the jar this row's {@code -jar} is built from, with CAPK expiries re-dated;
- *     non-empty means the row cannot be launched by this port
+ * @param capkFrom the jar this row's {@code -jar} is built from, with CAPK expiries re-dated
+ *     ({@link Capk}), before each launch; empty for none
  * @param olderBaseForm this row's form for a Commander on base 56 or earlier, or null
  */
 public record SimEntry(

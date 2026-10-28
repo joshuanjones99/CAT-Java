@@ -3,6 +3,7 @@ package com.verifone.cat.sims;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -236,8 +237,17 @@ public final class Supervisor {
         }
 
         if (!entry.capkFrom().isEmpty()) {
-            return fail(entry, ev, SimStatus.Owner.CAT, "CAPK re-dating is not ported (cat.sims.capk): "
-                    + "CAT will not launch PATS's " + entry.capkFrom() + " with its expired CAPK keys");
+            // CAT's jar, built from PATS's with CAPK expiries re-dated and the cut time moved
+            // (Capk), before every launch; an up-to-date one is left as it is.
+            try {
+                Path target = ctx.jarFor(entry).orElseThrow(
+                        () -> new IllegalArgumentException("capk_from: needs a -jar in argv"));
+                Capk.build(ctx.cwdFor(entry).resolve(entry.capkFrom()), target);
+            } catch (IOException | RuntimeException e) {
+                String cause = e instanceof NoSuchFileException ? "no such file: " + e.getMessage()
+                        : e.getMessage() == null ? e.toString() : e.getMessage();
+                return fail(entry, ev, SimStatus.Owner.CAT, "cannot build its jar: " + cause);
+            }
         }
         if (!entry.click().isEmpty()) {
             Optional<String> cannot;

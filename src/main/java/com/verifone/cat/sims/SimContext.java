@@ -162,6 +162,24 @@ public record SimContext(Path toolsRoot, String controllerHost, String javaDir, 
     }
 
     /**
+     * The jar after {@code -jar}, under {@link #cwdFor} unless absolute; empty if there is none.
+     * The first token after {@code -jar} that is not an option: the Petro Simulator Suite's argv
+     * puts {@code -agentlib:jdwp=...} between {@code -jar} and the jar (Python
+     * {@code SimContext.jar_for}).
+     */
+    public Optional<Path> jarFor(SimEntry entry) {
+        List<String> argv = substitutedArgv(entry);
+        int jar = argv.indexOf("-jar");
+        if (jar < 0 || jar >= argv.size() - 1) {
+            return Optional.empty();
+        }
+        return argv.subList(jar + 1, argv.size()).stream()
+                .filter(arg -> !arg.startsWith("-"))
+                .findFirst()
+                .map(arg -> cwdFor(entry).resolve(arg));
+    }
+
+    /**
      * The substring that identifies a running instance in a command line: the explicit
      * {@code match}, else the token after {@code -jar}, else the last argv element, else the name.
      */
