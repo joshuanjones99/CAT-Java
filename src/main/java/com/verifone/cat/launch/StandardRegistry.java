@@ -175,7 +175,7 @@ public final class StandardRegistry implements RegistryFactory {
                 saleRmi(services, driver, shim),
                 services.printer(),
                 services.rig() == null ? null : services.rig().rig().cashier(),
-                services.rig() == null || services.config().fakePos() ? null
+                services.rig() == null || (services.config() != null && services.config().fakePos()) ? null
                         : StandardHandlers.packetFolders(tools, null));
     }
 

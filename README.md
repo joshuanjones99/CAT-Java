@@ -36,11 +36,13 @@ controller (Java 17)                        register 192.168.x.101
 
 ## What has been proven, and what has not
 
-See HANDOFF.md §4. In short: 3,111 tests pass off-rig, and the Java port matches the Python
+See HANDOFF.md §4. In short: the full suite passes off-rig (the count is in HANDOFF.md), the Java port matches the Python
 on real data where that could be checked (locator catalogue, `.feature` reading, PATS field
 table, summary.html, canonical TLog, snapshot diffing). On the lab rig, only read-only
 paths have run (pos-shim reads, preflight without repair, the Results and Config pages).
-No key press, case, install, provision, day close or simulator start has run from Java.
+Since 2026-10-28 both Charity-Indoor and Cadence run to a verdict for every case on the fake POS from
+the CLI (evidence about this repository only). No key press, case, install, provision, day close or
+simulator start has run from Java on a rig.
 
 Fake-backed tests are evidence about this repository, not about a rig.
 
