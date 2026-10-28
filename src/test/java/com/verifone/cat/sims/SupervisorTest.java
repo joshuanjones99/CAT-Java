@@ -1,5 +1,6 @@
 package com.verifone.cat.sims;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -474,15 +475,64 @@ class SupervisorTest {
         assertTrue(proc.status().detail().contains("could not launch"), proc.status().detail());
     }
 
+    /** A jar holding a {@code PktTemplates.class} in the real key file's shape (CapkTest's data). */
+    private static byte[] capkSourceJar() {
+        String klass = "Êþº¾<FBData>CA_KEYS,011712312024,01,01,A000000025,C9,B362,03,8E8D"
+                + "</FBData>\u0000CA_KEYS,011712312024,01,01,A000000025,C9,B362,03,8E8D"
+                + "12312020,01,01,A000000277,02,E0FF,010001,BAF3\u0000\t<TTCutTime>1330</TTCutTime>\r";
+        return Zips.zip("META-INF/MANIFEST.MF", "Main-Class: ArbitraryHostSim\n",
+                Capk.CLASS, klass.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1),
+                "Other.class", "untouched");
+    }
+
+    /** The Python's {@code _python_row}: a real child (FakeSimulator) whose argv names a {@code -jar}. */
+    private static SimEntry capkRow(int port, String token, String capkFrom) {
+        List<String> argv = new java.util.ArrayList<>(SimTestSupport.fakeArgs(port, token, "ready"));
+        argv.add("-jar");
+        argv.add("cat.jar");
+        return SimEntry.exeRow("Child").exe(testJava().toString()).argv(argv.toArray(String[]::new))
+                .match(token).tcp(port).capkFrom(capkFrom).build();
+    }
+
     @Test
-    void aCapkRowIsRefusedRatherThanLaunchedWithItsExpiredKeys() {
-        SimEntry buypass = SimEntry.javaw("BUYPASS Host").cwd("BUYPASS")
-                .argv("-jar", "ArbitraryHostSim_v5.00-cat.jar").capkFrom("ArbitraryHostSim_v5.00.jar")
-                .tcp(SimTestSupport.freePort()).build();
-        SimProcess proc = supervisor(new FakeProcessOps())
-                .startAll(List.of(buypass), ctx(), Events.NONE, BUDGET, null).get(0);
+    void theCapkJarIsBuiltBeforeTheChildStarts() throws IOException {
+        Files.write(tools.resolve("src.jar"), capkSourceJar());
+        int port = SimTestSupport.freePort();
+        Supervisor sup = supervisor(new FakeProcessOps());
+        List<SimProcess> procs = sup.startAll(List.of(capkRow(port, token(), "src.jar")), ctx(),
+                Events.NONE, BUDGET, null);
+        try {
+            assertEquals(SimStatus.State.READY, procs.get(0).status().state(), procs.get(0).status().detail());
+            assertTrue(procs.get(0).spawned());
+            assertArrayEquals(Capk.patched(tools.resolve("src.jar")), Files.readAllBytes(tools.resolve("cat.jar")));
+        } finally {
+            sup.stop(procs, Duration.ofSeconds(5));
+        }
+    }
+
+    @Test
+    void aMissingCapkSourceIsAFailedRowAndNothingStarts() {
+        SimProcess proc = supervisor(new FakeProcessOps()).startAll(
+                List.of(capkRow(SimTestSupport.freePort(), token(), "absent.jar")), ctx(),
+                Events.NONE, BUDGET, null).get(0);
         assertEquals(SimStatus.State.FAILED, proc.status().state());
-        assertTrue(proc.status().detail().contains("CAPK re-dating is not ported"), proc.status().detail());
+        assertEquals(SimStatus.Owner.CAT, proc.status().owner());
+        assertTrue(proc.status().detail().startsWith("cannot build its jar: "), proc.status().detail());
+        assertTrue(proc.status().detail().contains("absent.jar"), proc.status().detail());
+        assertFalse(proc.spawned());
+        assertFalse(Files.exists(tools.resolve("cat.jar")));
+    }
+
+    @Test
+    void aCapkRowWithoutDashJarIsAFailedRow() throws IOException {
+        Files.write(tools.resolve("src.jar"), capkSourceJar());
+        SimEntry row = SimEntry.exeRow("Child").exe(testJava().toString())
+                .argv(SimTestSupport.fakeArgs(SimTestSupport.freePort(), token(), "ready").toArray(String[]::new))
+                .capkFrom("src.jar").build();
+        SimProcess proc = supervisor(new FakeProcessOps())
+                .startAll(List.of(row), ctx(), Events.NONE, BUDGET, null).get(0);
+        assertEquals(SimStatus.State.FAILED, proc.status().state());
+        assertEquals("cannot build its jar: capk_from: needs a -jar in argv", proc.status().detail());
         assertFalse(proc.spawned());
     }
 

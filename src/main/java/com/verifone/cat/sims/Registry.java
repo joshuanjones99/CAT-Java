@@ -10,9 +10,10 @@ import java.util.Optional;
  *
  * <p>What this port does with each row:
  * <ul>
- *   <li>{@code BUYPASS Host}: adopted when its 41107 listener is up; otherwise REFUSED, because
- *       Python builds a CAPK-re-dated jar from PATS's and this port does not (SimEntry.capkFrom).
- *       Its {@code windowed} minimising is ported but unreached, since the row is never launched.</li>
+ *   <li>{@code BUYPASS Host}: adopted when its 41107 listener is CAT's {@code -cat} jar
+ *       ({@code adoptOnlyMatch}); otherwise CAT's jar is built from PATS's
+ *       ({@code capkFrom}, {@link Capk}: CAPK expiries re-dated, cut time moved) and started,
+ *       its windows minimised as they appear ({@code windowed}).</li>
  *   <li>The three LoySim rows and the MPPA row: started, then their Swing buttons pressed through
  *       the Java Access Bridge ({@link AccessBridgeClicker}); {@code ready} once pressed,
  *       {@code needs attention} otherwise.</li>
