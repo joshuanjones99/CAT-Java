@@ -18,6 +18,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
+import com.verifone.cat.devices.printer.SerialPorts;
+
 /**
  * Asks whether each endpoint is answering, every probe bounded by a timeout.
  *
@@ -43,6 +45,7 @@ public final class ConnectionProbe {
 
     private final ExecutorService executor;
     private final Function<Target, ProbeResult> xray;
+    private final SerialPorts serial;
 
     /**
      * @param executor runs the probes; it should have a thread per target a sweep may
@@ -59,8 +62,18 @@ public final class ConnectionProbe {
      *                 {@code unknown}, since nothing here can sign in to Xray
      */
     public ConnectionProbe(ExecutorService executor, Function<Target, ProbeResult> xray) {
+        this(executor, xray, SerialPorts.SYSTEM);
+    }
+
+    /**
+     * @param executor runs the probes, as above
+     * @param xray     answers an {@link Target.Kind#XRAY} row, as above
+     * @param serial   lists this PC's serial ports, for a {@link Target.Kind#SERIAL} row; a test passes a fake
+     */
+    public ConnectionProbe(ExecutorService executor, Function<Target, ProbeResult> xray, SerialPorts serial) {
         this.executor = Objects.requireNonNull(executor, "executor");
         this.xray = xray;
+        this.serial = Objects.requireNonNull(serial, "serial");
     }
 
     /** A cached pool of daemon threads, sized to whatever a sweep needs. */
@@ -140,6 +153,9 @@ public final class ConnectionProbe {
                     ? unknown(target, "no Xray probe is wired into this run")
                     : xray.apply(target);
         }
+        if (target.kind() == Target.Kind.SERIAL) {
+            return probeSerial(target);
+        }
         if (target.port() == null) {
             return unknown(target, "no address declared in the rig file");
         }
@@ -163,7 +179,31 @@ public final class ConnectionProbe {
         }
     }
 
+    /**
+     * Is the target's port one Windows lists right now? The Python CAT's {@code _probe_serial}. Listing never opens
+     * the port, so it reads the same whoever holds it. A listing that cannot be taken is {@code unknown}.
+     */
+    private ProbeResult probeSerial(Target target) {
+        List<String> listed;
+        try {
+            listed = serial.listed();
+        } catch (RuntimeException | LinkageError e) {
+            return unknown(target, "the serial port listing could not be taken: " + message(e));
+        }
+        String port = target.host() == null ? "" : target.host();
+        boolean present = listed.stream().anyMatch(name -> name.equalsIgnoreCase(port));
+        if (present) {
+            return new ProbeResult(target.name(), ProbeState.UP, port + " is listed by Windows", Target.Kind.SERIAL);
+        }
+        return new ProbeResult(target.name(), ProbeState.DOWN,
+                port + " is not listed by Windows — " + RigReadiness.SERIAL_HINT, Target.Kind.SERIAL);
+    }
+
     private static ProbeResult timedOut(Target target, Duration timeout) {
+        if (target.kind() == Target.Kind.SERIAL) {
+            return new ProbeResult(target.name(), ProbeState.UNKNOWN,
+                    "the port listing took over " + seconds(timeout) + "s", Target.Kind.SERIAL);
+        }
         if (target.kind() == Target.Kind.XRAY) {
             return new ProbeResult(target.name(), ProbeState.DOWN,
                     "Atlassian did not answer in " + seconds(XrayProbe.PROBE_TIMEOUT) + "s", Target.Kind.XRAY);

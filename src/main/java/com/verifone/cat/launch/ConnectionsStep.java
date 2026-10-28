@@ -40,10 +40,11 @@ import com.verifone.cat.rig.Rig;
  * <p>With the run reporting to Xray ({@link LaunchConfig#xrayReport()}, never under fake POS) the Xray row
  * is added after the fixed rows. It is never fixed, so a red Xray row is a warning, not a failed step.
  *
- * <p>One part is still unavailable, so a rig whose primary register declares a {@code printer_port}
- * fails the step after the checks: the Receipt Printer row is a serial listing, which needs the printer
- * slice. A fake-POS run needs none of the SSH or printer checks (the Python CAT skips them there), so it
- * completes and starts the connection watch.
+ * <p>On a rig run whose primary register declares a {@code printer_port}, the Receipt Printer row
+ * ({@link Endpoints#printerTarget}) is added last: fixed, and up when Windows lists the port
+ * ({@link com.verifone.cat.devices.printer.SerialPorts}), so a port that has dropped off fails the step, and
+ * the watch turns the row down mid-run. A fake-POS run needs none of the SSH or printer checks (the Python CAT
+ * skips them there), so it completes and starts the connection watch.
  *
  * <p>The watch re-probes every {@link #WATCH_INTERVAL} and emits only the changes. It is stopped by
  * {@link RunContext#stopWatching}, which the launcher calls when the run ends.
@@ -62,8 +63,6 @@ final class ConnectionsStep implements LaunchStep {
 
     /** The Xray row's label, as the Python CAT's {@code XRAY_TARGET_NAME}. */
     static final String XRAY_ROW = "Xray";
-
-    private static final String PRINTER_PYTHON_MODULE = "src/cat/launch/steps/connections.py";
 
     private final ConnectionChecks checks;
 
@@ -95,11 +94,15 @@ final class ConnectionsStep implements LaunchStep {
         if (config.xrayReport() && !config.fakePos()) {
             targets.add(Target.xray(XRAY_ROW, AtlassianClient.XRAY_API.getHost()));
         }
+        if (!config.fakePos()) {
+            // The register's printer cable: a fake-POS run has no printer in play.
+            Endpoints.printerTarget(rig).ifPresent(targets::add);
+        }
 
         ExecutorService pool = ConnectionProbe.newProbePool();
         boolean watching = false;
         try {
-            ConnectionProbe probe = new ConnectionProbe(pool, checks.xray());
+            ConnectionProbe probe = new ConnectionProbe(pool, checks.xray(), checks.serial());
             List<ProbeResult> results = probe.probeAll(targets, PROBE_TIMEOUT);
             List<String> down = new ArrayList<>();
             for (int i = 0; i < targets.size(); i++) {
@@ -120,9 +123,6 @@ final class ConnectionsStep implements LaunchStep {
                 List<String> refused = sshLogins(rig, pool, step);
                 if (!refused.isEmpty()) {
                     return step.fail("SSH login failed — " + String.join("; ", refused));
-                }
-                if (printerRowPresent(rig)) {
-                    return step.unavailable(PRINTER_PYTHON_MODULE, printerMissing());
                 }
             }
             startWatch(ctx, probe, targets, pool);
@@ -173,17 +173,6 @@ final class ConnectionsStep implements LaunchStep {
             return Optional.of(new SshLogin.Problem(
                     "SSH to " + spec.name() + " (" + spec.host() + ") failed: " + e.getMessage(), false));
         }
-    }
-
-    /** Whether the primary register declares a printer port, which this port cannot probe yet. */
-    static boolean printerRowPresent(Rig rig) {
-        String port = rig.primaryRegister().printerPort();
-        return port != null && !port.isEmpty();
-    }
-
-    /** The part of step 2 this port does not have, for a rig run, named in words. */
-    static String printerMissing() {
-        return "the Receipt Printer row (a serial listing, the printer slice)";
     }
 
     /** Starts the re-probe, and registers its stop with the run. */

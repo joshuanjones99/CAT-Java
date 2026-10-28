@@ -7,7 +7,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+
+import com.verifone.cat.devices.printer.SerialPorts;
+import com.verifone.cat.rig.Rig;
 
 /**
  * The rig network lines of the Python CAT's System Checks: the controller's rig adapter, the
@@ -17,11 +24,10 @@ import java.util.List;
  * and {@code commander_answers} are the specification, and the rig-verified run of 2026-09-14
  * (HANDOFF.md §1.34, §1.35) was the Python's, not this port's.
  *
- * <p>Not ported, and so not checked here: the VATS lines for {@code pinpad: vats}, and the
- * receipt-printer lines (each register's {@code printer_port} must be listed by Windows and must
- * open). A serial listing and a COM open are Windows-specific and belong with the printer
- * slice, and the VATS checks belong with the VATS slice. The rig model is ported, so the step that
- * runs these lines (System Checks) names each missing group as unavailable.
+ * <p>The receipt-printer lines are {@link #printerLines}: each register's {@code printer_port} must be
+ * listed by Windows and must open, asked through a {@link SerialPorts} seam. Not ported, and so not
+ * checked here: the VATS lines for {@code pinpad: vats}, which belong with the VATS slice; System
+ * Checks names them as unavailable on a VATS rig.
  *
  * <p>{@link #commanderAnswers} never repairs anything. A Commander with a dead RMI tier is named
  * and left for a person to fix; a run that silently rebuilt the Commander would not be evidence
@@ -34,6 +40,10 @@ public final class RigReadiness {
 
     /** The line's hint when the Commander does not answer. */
     public static final String COMMANDER_HINT = "check that the Commander is up and cabled to the rig switch";
+
+    /** The printer line's hint when its port is not listed or will not open: the Python CAT's {@code SERIAL_HINT}. */
+    public static final String SERIAL_HINT = "the printer's USB-serial adapter is not plugged in or has dropped off "
+            + "Windows: unplug and replug it (a PC's own built-in COM port does not count)";
 
     /** What the Commander answers every CGILink command with when its RMI layer is down (HANDOFF.md §1.63, §1.73). */
     public static final String AAA_DOWN_FAULT = "AAA service unavailable";
@@ -95,7 +105,47 @@ public final class RigReadiness {
             Duration answerTimeout = timeout.compareTo(COMMANDER_ANSWER_FLOOR) > 0 ? timeout : COMMANDER_ANSWER_FLOOR;
             lines.add(commanderAnswers(endpoints.commanderHost(), commanderPort, answerTimeout));
         }
-        // Not ported: the VATS lines (pinpad: vats) and the printer-port lines, see the class Javadoc.
+        // Not ported: the VATS lines (pinpad: vats), see the class Javadoc. The printer lines are printerLines.
+        return lines;
+    }
+
+    /**
+     * One line per register with a {@code printer_port}, in rig order: the port must be listed by Windows and must
+     * open (a half-dropped adapter stays in the list and refuses to open). The Python CAT's printer half of
+     * {@code check_rig}. A listing that cannot be taken is one failed line. No register with a port, no line.
+     */
+    public static List<Readiness> printerLines(Rig rig, SerialPorts serial) {
+        List<Rig.Register> wanted = rig.registers().stream()
+                .filter(r -> r.printerPort() != null && !r.printerPort().isEmpty()).toList();
+        List<Readiness> lines = new ArrayList<>();
+        if (wanted.isEmpty()) {
+            return lines;
+        }
+        Set<String> visible = new HashSet<>();
+        try {
+            for (String port : serial.listed()) {
+                visible.add(port.toUpperCase(Locale.ROOT));
+            }
+        } catch (RuntimeException | LinkageError e) {
+            lines.add(new Readiness(false, "printer serial port",
+                    "the serial port listing could not be taken: " + e.getMessage(), true));
+            return lines;
+        }
+        for (Rig.Register register : wanted) {
+            String port = register.printerPort();
+            String label = "printer port for " + register.id();
+            if (!visible.contains(port.toUpperCase(Locale.ROOT))) {
+                lines.add(new Readiness(false, label, port + " is not listed — " + SERIAL_HINT, true));
+                continue;
+            }
+            Optional<String> error = serial.openProblem(port);
+            if (error.isEmpty()) {
+                lines.add(new Readiness(true, label, port + " is listed and opens", true));
+            } else {
+                lines.add(new Readiness(false, label, port + " is listed but " + error.get() + " — " + SERIAL_HINT,
+                        true));
+            }
+        }
         return lines;
     }
 

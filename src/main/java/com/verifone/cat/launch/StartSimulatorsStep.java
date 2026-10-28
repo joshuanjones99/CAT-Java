@@ -43,8 +43,8 @@ import com.verifone.cat.sims.ToolsRoot;
  * and is not carried.
  *
  * <p>Not carried, so a rig run that needs it is unavailable before anything is started: the BTT card
- * server for a {@code pinpad: vats} rig. A fake-POS run needs none of the above. The Java 17 set
- * is the default {@code Java17} (base 57 and later), since the Python's base-picking is not carried.
+ * server for a {@code pinpad: vats} rig. A fake-POS run needs none of the above. The rows and the Java 17
+ * set follow the Commander base step 1 read ({@link RunContext#simsBase}): v1.1 and the older rows below 57.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: the supervisor has never run against the real simulators from this
  * port (HANDOFF.md §5). Its tests use a fake process layer and fake simulators.
@@ -99,7 +99,7 @@ final class StartSimulatorsStep implements LaunchStep {
         }
 
         List<SimEntry> entries = new ArrayList<>();
-        for (SimEntry entry : Registry.launchable(false)) {
+        for (SimEntry entry : Registry.launchable(com.verifone.cat.sims.base.JavaSets.olderBase(ctx.simsBase()))) {
             if (selected.contains(entry.name())) {
                 entries.add(entry);
             }
@@ -113,7 +113,9 @@ final class StartSimulatorsStep implements LaunchStep {
             return step.fail("none of the selected simulators are in the registry");
         }
 
-        SimContext sims = SimContext.of(ToolsRoot.resolve(null), rig == null ? "" : rig.controller().host());
+        // The Commander base step 1 read picks the Java 17 set (rig owner, 2026-10-09): v1.1 below base 57.
+        SimContext sims = new SimContext(ToolsRoot.resolve(null), rig == null ? "" : rig.controller().host(),
+                com.verifone.cat.sims.base.JavaSets.javaForRun(ctx.simsBase()).target(), null, null);
         Map<String, SimStatus> latest = new LinkedHashMap<>();
         List<String> reached = new ArrayList<>();
         Events events = new Events() {

@@ -19,9 +19,8 @@ import com.verifone.cat.rig.Rig;
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). {@link #of} and {@link #targetsFor} are
  * {@code targets_for} and {@code optional_target_names}; the Python module is the specification.
  *
- * <p>Still not derived, so not probed here: the Xray row (the Python run adds it when the run reports
- * to Xray, which CAT-Java does not carry yet), the Receipt Printer row (its {@code printer_port} is a
- * serial listing, which needs the printer slice), and the VATS checks for {@code pinpad: vats}.
+ * <p>The Receipt Printer row is {@link #printerTarget}, which Connections adds on a rig run; the Xray
+ * row is {@link Target#xray}. Not derived here: the VATS checks for {@code pinpad: vats}.
  *
  * <p>The two ports are the platform's, not rig fields, as in the Python CAT: CGILink on
  * port 80 ({@code docs/commander-config-surface.md}), and SSH on port 22, which
@@ -56,6 +55,19 @@ public record Endpoints(String commanderHost, String registerId, String register
                 Target.tcp("Commander", commanderHost, COMMANDER_SERVICE_PORT).asFixed(),
                 Target.tcp(REGISTER_PREFIX + registerId, registerHost, REGISTER_SERVICE_PORT).asFixed(),
                 Target.local("Host PC", controllerHost).asFixed());
+    }
+
+    /**
+     * The primary register's printer port as a row, {@code Receipt Printer (COM1)}, or empty when it declares none:
+     * the Python CAT's {@code printer_target}. Fixed, so a port gone at step 2 fails the step as System Checks' line
+     * would have; it is the port CAT answers the register's printer on.
+     */
+    public static java.util.Optional<Target> printerTarget(Rig rig) {
+        String port = rig == null ? null : rig.primaryRegister().printerPort();
+        if (port == null || port.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(Target.serial("Receipt Printer (" + port + ")", port));
     }
 
     /**

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,9 +21,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.connections.ConnectionProbe;
+import com.verifone.cat.connections.Endpoints;
 import com.verifone.cat.connections.ProbeResult;
 import com.verifone.cat.connections.ProbeState;
+import com.verifone.cat.connections.RigReadiness;
 import com.verifone.cat.connections.Target;
+import com.verifone.cat.devices.printer.SerialPorts;
 import com.verifone.cat.provision.transport.SshLogin;
 import com.verifone.cat.provision.transport.SshTarget;
 import com.verifone.cat.rig.Rig;
@@ -160,11 +164,8 @@ class ConnectionsStepTest {
         }
     }
 
-    @Test
-    void thePrinterRowIsWhatAnUnportedRigRunNames() throws IOException {
-        Rig bench = RigLoader.loadResolved(LaunchFixtures.RIG, LaunchFixtures.paths(dir).rigsDir()).rig();
-        assertFalse(ConnectionsStep.printerRowPresent(bench));
-
+    /** A rig like the bench, whose primary register answers its printer on COM3. */
+    private Rig printerRig() throws IOException {
         Path printer = dir.resolve("printer.yaml");
         Files.writeString(printer, """
                 name: printer
@@ -182,8 +183,94 @@ class ConnectionsStepTest {
                 build:
                   expected_version: "057.02"
                 """);
-        Rig withPrinter = RigLoader.loadFile(printer).rig();
-        assertTrue(ConnectionsStep.printerRowPresent(withPrinter));
-        assertTrue(ConnectionsStep.printerMissing().contains("the Receipt Printer row"));
+        return RigLoader.loadFile(printer).rig();
+    }
+
+    /** A serial listing that answers {@code ports}, and opens nothing. */
+    private static SerialPorts listing(String... ports) {
+        return new SerialPorts() {
+            @Override
+            public List<String> listed() {
+                return List.of(ports);
+            }
+
+            @Override
+            public Optional<String> openProblem(String port) {
+                throw new AssertionError("Connections never opens a port, only lists them");
+            }
+        };
+    }
+
+    @Test
+    void theReceiptPrinterRowIsThePrimaryRegistersPortAndFixed() throws IOException {
+        Rig bench = RigLoader.loadResolved(LaunchFixtures.RIG, LaunchFixtures.paths(dir).rigsDir()).rig();
+        assertTrue(Endpoints.printerTarget(bench).isEmpty());
+
+        Target row = Endpoints.printerTarget(printerRig()).orElseThrow();
+        assertEquals("Receipt Printer (COM3)", row.name());
+        assertEquals("COM3", row.host());
+        assertEquals(Target.Kind.SERIAL, row.kind());
+        assertTrue(row.fixed());
+    }
+
+    @Test
+    void theReceiptPrinterRowIsUpWhenWindowsListsThePortAndDownWithTheHintWhenNot() {
+        Target row = Target.serial("Receipt Printer (COM3)", "COM3");
+        ExecutorService pool = ConnectionProbe.newProbePool();
+        try {
+            ProbeResult up = new ConnectionProbe(pool, null, listing("com1", "com3")).probe(row, Duration.ofSeconds(3));
+            assertEquals(ProbeState.UP, up.state());
+            assertEquals("COM3 is listed by Windows", up.detail());
+
+            ProbeResult down = new ConnectionProbe(pool, null, listing("COM1")).probe(row, Duration.ofSeconds(3));
+            assertEquals(ProbeState.DOWN, down.state());
+            assertEquals("COM3 is not listed by Windows — " + RigReadiness.SERIAL_HINT, down.detail());
+
+            SerialPorts broken = new SerialPorts() {
+                @Override
+                public List<String> listed() {
+                    throw new IllegalStateException("no listing");
+                }
+
+                @Override
+                public Optional<String> openProblem(String port) {
+                    return Optional.empty();
+                }
+            };
+            ProbeResult unknown = new ConnectionProbe(pool, null, broken).probe(row, Duration.ofSeconds(3));
+            assertEquals(ProbeState.UNKNOWN, unknown.state());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void aRigWithAPrinterIsProbedNotReportedUnavailable() throws IOException {
+        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), "ffffffffffff");
+        ctx.rig(new com.verifone.cat.rig.LoadedRig(printerRig(), dir.resolve("printer.yaml")));
+        StepEmitter step = new StepEmitter(ctx, LaunchStepNames.CONNECTIONS);
+
+        assertFalse(new ConnectionsStep(new ConnectionChecks(NO_SSH, XRAY_UP, listing())).run(ctx, step));
+
+        assertEquals(StepResult.FAILED, step.state());
+        assertEquals("not reachable: Commander, Register topaz101, Receipt Printer (COM3)", step.detail());
+
+        RunContext listed = context(LaunchConfig.forRig(LaunchFixtures.RIG), "abababababab");
+        listed.rig(new com.verifone.cat.rig.LoadedRig(printerRig(), dir.resolve("printer.yaml")));
+        StepEmitter again = new StepEmitter(listed, LaunchStepNames.CONNECTIONS);
+        new ConnectionsStep(new ConnectionChecks(NO_SSH, XRAY_UP, listing("COM3"))).run(listed, again);
+        // The printer row is up, so only the unreachable fixed rows are named.
+        assertEquals("not reachable: Commander, Register topaz101", again.detail());
+    }
+
+    @Test
+    void theReceiptPrinterRowIsLeftOutOfAFakePosRun() throws IOException {
+        RunContext ctx = context(new LaunchConfig.Builder(LaunchFixtures.RIG).fakePos(true).build(), "acacacacacac");
+        ctx.rig(new com.verifone.cat.rig.LoadedRig(printerRig(), dir.resolve("printer.yaml")));
+        StepEmitter step = new StepEmitter(ctx, LaunchStepNames.CONNECTIONS);
+
+        new ConnectionsStep(new ConnectionChecks(NO_SSH, XRAY_UP, listing())).run(ctx, step);
+
+        assertFalse(step.detail().contains("Receipt Printer"), step.detail());
     }
 }
