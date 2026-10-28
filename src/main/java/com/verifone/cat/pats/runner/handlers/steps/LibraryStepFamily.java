@@ -313,7 +313,7 @@ public final class LibraryStepFamily {
             SnapshotSession snapshot = snapshot(c.run());
             String name = snapshot.path(ReceiptAssertions.RECEIPT_SUFFIX, null).getFileName().toString();
             try {
-                ReceiptAssertions.Verdict verdict = ReceiptAssertions.assertReceipt(receipt, snapshot);
+                ReceiptAssertions.Verdict verdict = ReceiptAssertions.assertReceipt(receipt.text(), snapshot);
                 c.run().record().recordValidation("receipt", name, true, "", verdict.expected(), verdict.compared(),
                         c.run().kase().key());
                 c.run().record().markNewestReceipt(true);

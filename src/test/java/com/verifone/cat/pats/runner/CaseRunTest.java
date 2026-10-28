@@ -40,6 +40,9 @@ class CaseRunTest {
         registry.register("HARD", (run, action) -> {
             throw new IllegalStateException("the button is not there");
         });
+        registry.register("ASSERT", (run, action) -> {
+            throw new AssertionError("Locator expected to be visible");
+        });
         registry.register("VALIDATE_OVERLAY", (run, action) -> { });
         registry.register("VALIDATE_RECEIPT", (run, action) -> {
             run.setCompared("the baseline", "the capture");
@@ -89,6 +92,19 @@ class CaseRunTest {
                 steps.stream().map(CaseRecord.StepRecord::outcome).toList());
         assertEquals("not reached", steps.get(2).detail());
         assertTrue(steps.get(1).detail().contains("the button is not there"));
+    }
+
+    @Test
+    void anAssertionErrorFromPlaywrightIsAStepFailureNotACrash() {
+        CaseRecord record = record("PETROCORE-9");
+        TestCase kase = TestCase.of("PETROCORE-9", TestAction.of(0, "ASSERT"), TestAction.of(1, "NOOP"));
+        RunState state = new RunState();
+
+        PatsStepError raised = assertThrows(PatsStepError.class, () -> run(kase, record, state, Set.of()).run());
+
+        assertTrue(raised.getMessage().contains("AssertionError: Locator expected to be visible"), raised.getMessage());
+        assertEquals(List.of("failed", "skipped"), record.steps().stream().map(CaseRecord.StepRecord::outcome).toList());
+        assertTrue(state.beginCase(), "the next case knows this one failed");
     }
 
     @Test

@@ -193,7 +193,9 @@ public final class CaseRun {
             String message = kase.key() + " " + text + ": " + stop.getMessage();
             record.failStep(message);
             throw new PatsStepError(message, stop);
-        } catch (Exception failure) {
+        } catch (Exception | AssertionError failure) {
+            // AssertionError too: Playwright's own assertions (expect(...).isVisible()) throw opentest4j's
+            // AssertionFailedError, an Error in Java but an Exception in the Python, whose `except Exception` takes it.
             state.markCaseFailed();
             String cause = failure.getClass().getSimpleName() + ": " + failure.getMessage();
             validated(action, verdictsBefore, false, "could not validate: " + cause);
