@@ -66,6 +66,7 @@ against a rig from Java. Every path wave 15 added is fake-tested only.
 | Builds and tests on the CICD Java 17 | `build.cmd test`, 3,427 tests, 0 failures, 0 errors, 2026-10-28. Four lint gates run as tests |
 | **Charity-Indoor 70960 on the fake POS, from the CLI** | run `fb8382bade89`, 2026-10-28: 39 cases, every one to a verdict (0 passed; the 12 POS+pinpad-only cases stop exactly where the Python's `pytest tests/suites/charity --fake-pos` stops them; the 27 others need devices a fake run has not). Evidence about the repository only |
 | **Cadence 118517 on the fake POS, from the CLI** | run `81eeb3d11883`, 2026-10-28: 264 cases, every one to a verdict in 1 h 51 m, no internal error (0 passed: RMI, pumps, DCR, Commander and most Cadence elements are absent from the fake). Evidence about the repository only |
+| **First rig run from Java: steps 1 and 2 complete live, step 3 started four of five simulators** | run `e272450ee561`, 2026-10-28 15:01 (lab rig, `launch --plan PETROCORE-118517 --upgrade new_install ...`): System Checks complete (rig lines, printer COM1 held, Commander Base_Level 057.02.00 read over SSH, the five staged simulators matched master 129 by their markers, lease taken), Connections complete; **PCATS01/02/03 Loyalty started and their "Start Host" buttons pressed through the Access Bridge, confirmed in each `LoySim_Debug.log` ("Loyalty FEP Simulator is ready. Port: 9010/9020/9030 ... Started VCMG Host")**; Petro Simulator Suite started and listening. BUYPASS Host failed: CAPK re-dating not ported (then ported, §8). Cleanup stopped the four and freed the lease; nothing reached the Commander |
 | Java Access Bridge clicks against a real Swing window | 2026-10-28, a throwaway JFrame on this controller through the real `AccessBridgeClicker`: "clicked Load Data, Load Servers" in 5.3 s; a miss lists the available buttons. Says nothing about the LoySim/MPPA windows |
 | pos-shim health/screen/keys **read** from the lab register (Reg101) | live, 2026-10-24 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 |
@@ -73,7 +74,7 @@ against a rig from Java. Every path wave 15 added is fake-tested only.
 | Results page over the real `C:\CICD\Results\CAT` | live 2026-10-24 |
 | Config tab over the real plan cache | live 2026-10-24 (GET only) |
 | summary.html, canonical TLog, locator catalogue (852), `.feature` reading (337 actions), PATS field table (71), snapshot logic, receipt key, CGILink `?` | parity against the Python's own data, 2026-10-24 (unchanged) |
-| **Not yet exercised from Java** | any key press, any case on a rig, any install/provision/psi-init/close-day/restore/emv-keys, any simulator start by the supervisor, any Xray send |
+| **Not yet exercised from Java** | any key press, any case on a rig, any install/provision/psi-init/close-day/restore/emv-keys, step 4 onward on a rig, any Xray send |
 
 ## 5. Port map
 
