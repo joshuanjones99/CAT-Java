@@ -45,6 +45,33 @@ public final class RunContext {
     private LoadedRig rig;
     private RigLease runLock;
 
+    private volatile boolean commanderReached;
+    private volatile boolean commanderLoginReady = true;
+    private volatile boolean testsStarted;
+    private volatile Long epsLogMark;
+    private volatile CommanderOptions commanderOptions = CommanderOptions.NONE;
+
+    /**
+     * What step 4 reads that {@link LaunchConfig} does not carry yet: the Config tab's Secondary FEPs (the Python's
+     * {@code secondary_feps}), its "capture a Commander snapshot" switch ({@code capture_snapshot}), and the chosen
+     * Commander build's label ({@code commander_branch + commander_build}) the capture is keyed by. Until a caller sets
+     * them, none of the three is asked for: {@code --fep none}, no capture beyond a fresh install's, no label.
+     *
+     * @param secondaryFeps   the FEPs to switch on; empty means {@code none}
+     * @param captureSnapshot capture the Commander snapshot after step 4 even without a fresh install
+     * @param buildLabel      e.g. {@code Solutions134}, or ""
+     */
+    public record CommanderOptions(List<String> secondaryFeps, boolean captureSnapshot, String buildLabel) {
+
+        /** Nothing asked for. */
+        public static final CommanderOptions NONE = new CommanderOptions(List.of(), false, "");
+
+        public CommanderOptions {
+            secondaryFeps = List.copyOf(secondaryFeps == null ? List.of() : secondaryFeps);
+            buildLabel = buildLabel == null ? "" : buildLabel.strip();
+        }
+    }
+
     RunContext(LaunchConfig config, LaunchPaths paths, String runId, Path runFolder, RunEvents events,
             PauseGate pause, Clock clock) {
         this.config = config;
@@ -153,18 +180,95 @@ public final class RunContext {
         }
     }
 
+    /**
+     * Replaces the CAT-started processes {@code old} with {@code fresh}, as the Python's restart does
+     * ({@code ctx.sim_procs = [p for p in ctx.sim_procs if p not in owned] + [proc]}).
+     */
+    void replaceSimulators(List<SimProcess> old, SimProcess fresh) {
+        simulators.removeAll(old);
+        if (fresh != null) {
+            addSimulator(fresh);
+        }
+    }
+
+    /** Forgets every process this run started: Cleanup has stopped them. */
+    void clearSimulators() {
+        simulators.clear();
+    }
+
     /** Registers the stop for the connection watch step 2 started. Called once, by step 2. */
     void watching(Runnable stop) {
         stopWatching = stop;
     }
 
-    /** Ends the connection watch, if one is running. The launcher calls it when the run ends. */
-    void stopWatching() {
+    /**
+     * Ends the connection watch, if one is running. Cleanup calls it, and the launcher again when the run ends.
+     *
+     * @return whether a watch was running
+     */
+    boolean stopWatching() {
         Runnable stop = stopWatching;
         stopWatching = null;
         if (stop != null) {
             stop.run();
+            return true;
         }
+        return false;
+    }
+
+    /**
+     * Whether the run reached step 4 (the Python's {@code commander_reached}): the day close is skipped when nothing
+     * this run did reached the Commander. Set at the top of step 4.
+     */
+    public boolean commanderReached() {
+        return commanderReached;
+    }
+
+    void commanderReached(boolean value) {
+        commanderReached = value;
+    }
+
+    /**
+     * Whether a {@code manager} login with the lab password is safe (the Python's {@code commander_login_ready}, true
+     * by default): false from the start of a PSI install until {@code psi-init} has reset the password, so the day
+     * close does not count towards a lockout.
+     */
+    public boolean commanderLoginReady() {
+        return commanderLoginReady;
+    }
+
+    void commanderLoginReady(boolean value) {
+        commanderLoginReady = value;
+    }
+
+    /** Whether step 5 began (the Python's {@code tests_started}). Set by the Tests Run step. */
+    public boolean testsStarted() {
+        return testsStarted;
+    }
+
+    void testsStarted(boolean value) {
+        testsStarted = value;
+    }
+
+    /**
+     * The Petro Simulator Suite log's size when step 3 saw it ready (the Python's {@code eps_log_mark}), or null when
+     * step 3 did not mark it. Step 4's pinpad link reads the EPS's requests after it.
+     */
+    public Long epsLogMark() {
+        return epsLogMark;
+    }
+
+    void epsLogMark(Long value) {
+        epsLogMark = value;
+    }
+
+    /** What step 4 reads beyond the config; {@link CommanderOptions#NONE} until a caller sets it. */
+    public CommanderOptions commanderOptions() {
+        return commanderOptions;
+    }
+
+    void commanderOptions(CommanderOptions value) {
+        commanderOptions = value == null ? CommanderOptions.NONE : value;
     }
 
     /** Writes one event to {@code events.ndjson} and the run log. */

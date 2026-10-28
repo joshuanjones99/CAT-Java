@@ -35,7 +35,7 @@ class RunLauncherTest {
     Path dir;
 
     @Test
-    void aRunGoesThroughAllSevenStepsInOrderAndEndsUnavailable() throws IOException {
+    void aRunGoesThroughAllSevenStepsInOrderAndEndsFailed() throws IOException {
         LaunchResult result = new RunLauncher(LaunchFixtures.paths(dir))
                 .launch(LaunchConfig.forRig(LaunchFixtures.RIG));
 
@@ -51,9 +51,11 @@ class RunLauncherTest {
             assertEquals("not reached: System Checks failed", later.detail(), later.name());
         }
         // Steps 6 and 7 run whatever happened, as the Python CAT's do. Report writes from the run's
-        // events; Cleanup is unavailable here.
+        // events; Cleanup skips the day close (step 4 was never reached) and completes.
         assertEquals(StepResult.COMPLETE, result.steps().get(5).state());
-        assertEquals(StepResult.FAILED, result.steps().get(6).state());
+        assertEquals(StepResult.COMPLETE, result.steps().get(6).state());
+        assertTrue(result.steps().get(6).detail().startsWith("day not closed: run stopped before Commander "
+                + "Configuration"), result.steps().get(6).detail());
         for (String report : List.of("junit.xml", "summary.html", "index.json")) {
             assertTrue(Files.isRegularFile(result.runFolder().resolve(report)), report);
         }
@@ -138,8 +140,8 @@ class RunLauncherTest {
         assertEquals(StepResult.FAILED, systemChecks.state());
         assertEquals("rig no-such-rig did not load", systemChecks.detail());
         assertEquals("not reached: System Checks failed", result.steps().get(1).detail());
-        assertEquals(StepResult.FAILED, result.steps().get(6).state());
-        assertTrue(result.steps().get(6).detail().startsWith("unavailable in CAT-Java: needs "));
+        assertEquals(StepResult.COMPLETE, result.steps().get(6).state());
+        assertTrue(result.steps().get(6).detail().endsWith("rig lease free"), result.steps().get(6).detail());
     }
 
     @Test

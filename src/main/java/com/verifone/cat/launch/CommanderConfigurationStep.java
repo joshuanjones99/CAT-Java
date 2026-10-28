@@ -1,10 +1,15 @@
 package com.verifone.cat.launch;
 
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.verifone.cat.commander.CommanderInit;
 import com.verifone.cat.commander.Say;
+import com.verifone.cat.commander.connect.CommanderConnect;
+import com.verifone.cat.commander.links.CommanderLinks;
+import com.verifone.cat.devices.csite.CSiteClient;
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
 
@@ -22,22 +27,43 @@ import com.verifone.cat.rig.Rig;
  *       jar build (the Python CAT's, so a row says so); {@code provision} (ported, the {@code provision}
  *       package); the printer-port hold (unavailable, a warning, as the Python's hold is best effort);
  *       {@code commander-prep} (ported).</li>
+ *   <li>When the run onboards to Commander Connect ({@link LaunchConfig#commanderConnect}): the cloud tunnel, before
+ *       the inits. Its serve loop is not ported ({@code cloudtunnel}), and the lab Commander has no WAN link, so an
+ *       onboarding run ends unavailable here. Without onboarding (the default) the Commander Connect row is skipped
+ *       with the Python's reason.</li>
  *   <li>{@code commander-init} (ported, every run: CAT-Java has only the {@code dev} execution mode), with
- *       {@code --no-forecourt} when Petro Simulator Suite is not selected. The Commander snapshot restore it
- *       starts with is not ported: a warning row says so.</li>
- *   <li>Commander Connect, the cloud tunnel and C-Site: not carried by {@link LaunchConfig}, so not asked
- *       for, as in a Python run without {@code cc_onboard}.</li>
- *   <li>Then the Python runs, on every rig run, the Secondary FEPs, the pinpad clear, the payment links,
- *       the EMV tables and keys, the register app, the day close and the pinpad link. None is ported, so a
- *       rig run ends unavailable here ({@link #MISSING_AFTER_INIT}).</li>
- *   <li>{@code payment-ready} (ported; a WARN, never a failure, as in the Python), then the installed-build
- *       read (a warning: not ported). The snapshot capture follows only a fresh install, which is
- *       unavailable already.</li>
+ *       {@code --no-forecourt} when Petro Simulator Suite is not selected.</li>
+ *   <li>Onboarding only: {@code commander-connect} ({@code ConnectService.apply}), then, with a service id and a
+ *       C-Site account, {@code csite-reset} (a failure leaves its row failed, a WARN line, and the step going)
+ *       and {@code cloud-snapshot restore} (not ported: unavailable). Reached only once the tunnel is ported.</li>
+ *   <li>{@code secondary-fep} (the {@code fep} package), every rig run: the run's FEPs
+ *       ({@link RunContext.CommanderOptions#secondaryFeps}), or {@code none}.</li>
+ *   <li>{@code pinpad-clear}, on a {@code pinpad: vats} rig only (not ported: unavailable); else a skipped row.</li>
+ *   <li>{@code payment-links} ({@code commander.links}). A Buypass FEP drift it fixed
+ *       ({@link CommanderLinks#FEP_DRIFT_FIXED}) leaves a CAT-started BUYPASS Host deaf: it is restarted, and the
+ *       links checked again. An adopted BUYPASS Host is the operator's to restart (D9): a WARN line.</li>
+ *   <li>{@code emv-keys}, {@code --tables always} after a new install, else {@code auto} (the
+ *       {@code commander.emv} port is wired at merge; until then the stage is unavailable).</li>
+ *   <li>{@code register-app} ({@code commander.registerapp}), every rig run.</li>
+ *   <li>The day close ({@link DayClose}, shared with Cleanup); a day that did not close fails the step.</li>
+ *   <li>The pinpad link ({@link PinpadLink}) when Petro Simulator Suite is selected or the pinpad is vats (a vats
+ *       link is not ported: unavailable).</li>
+ *   <li>{@code payment-ready} (ported; a WARN, never a failure, as in the Python).</li>
+ *   <li>After a new install, or when asked ({@link RunContext.CommanderOptions#captureSnapshot}): the Commander
+ *       snapshot capture, {@code --if-missing --twice} with the build label. Its failure leaves its row failed and the
+ *       step going, with a WARN line, as the Python's.</li>
+ *   <li>The installed-build read (a warning: not ported).</li>
  * </ol>
  *
  * <p>A fake-POS run touches no device: everything is skipped, and the step is {@code skipped}, as the
  * Python's. Every non-fake run is treated as the Python's {@code provision_register=True}, which each of the
  * Python's real entry points (Config tab, web form, {@code run_plan}) sets.
+ *
+ * <p>Deviations from the Python: no FEP simulator supersedes BUYPASS Host in CAT-Java's step 3, so {@code emv-keys}
+ * never gets {@code --host-packets} and the drift restart never defers to one; a {@code csite-reset} failure is a WARN
+ * line (the Python's comment says "never fails the step", while its {@code run_petrotest} marks the step failed and
+ * goes on, so the Python step ends failed while returning success); a stage that is not ported throws
+ * {@link StageUnavailable}, which fails the step there.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): no stage has run against a rig from CAT-Java.
  */
@@ -45,25 +71,30 @@ final class CommanderConfigurationStep implements LaunchStep {
 
     static final String PYTHON_MODULE = "src/cat/launch/steps/commander.py";
 
-    /** What the Python step runs after the inits, on every rig run, that CAT-Java does not have. */
-    static final String MISSING_AFTER_INIT = "the Secondary FEPs (petrotest secondary-fep), the pinpad clear, the "
-            + "payment links (petrotest.commander_links), the EMV tables and keys (petrotest emv-keys), the "
-            + "register app, the day close (cat/launch/steps/cleanup.py _close_day) and the pinpad link "
-            + "(cat/launch/steps/simulators.py _link_pinpad_simulator), which step 4 runs after commander-init";
-
     /** The checklist rows, as the Python's {@code STAGE_LABELS}. */
-    static final Map<String, String> STAGE_LABELS = Map.of(
-            "build", "Download the Commander build",
-            "provision", "Provision the register (pos-shim, browser, CDP relay)",
-            "commander-prep", "Commander prep (licence dates, gemreg marker)",
-            "commander-init", "Commander init (base import, fuel and DCR inits)",
-            "payment-ready", "EPS ready for card sales",
-            "coverage", "JaCoCo coverage");
+    static final Map<String, String> STAGE_LABELS = Map.ofEntries(
+            Map.entry("build", "Download the Commander build"),
+            Map.entry("provision", "Provision the register (pos-shim, browser, CDP relay)"),
+            Map.entry("commander-prep", "Commander prep (licence dates, gemreg marker)"),
+            Map.entry("commander-init", "Commander init (base import, fuel and DCR inits)"),
+            Map.entry("commander-connect", "Commander Connect onboarding"),
+            Map.entry("secondary-fep", "Secondary FEPs"),
+            Map.entry("payment-links", "Payment links"),
+            Map.entry("emv-keys", "EMV tables and CA keys"),
+            Map.entry("close-day", DayClose.LABEL),
+            Map.entry("payment-ready", "EPS ready for card sales"),
+            Map.entry("coverage", "JaCoCo coverage"));
 
     static final String POS_SHIM_BUILD_ROW = "pos-shim build";
     static final String PRINTER_ROW = "Receipt printer port";
     static final String SNAPSHOT_ROW = "Commander snapshot restore";
     static final String INSTALLED_BUILD_ROW = "Installed build";
+
+    /** The simulator {@code payment-links}' drift fix leaves deaf: the Python's {@code PAYMENT_HOST}. */
+    static final String PAYMENT_HOST = "BUYPASS Host";
+
+    /** The skipped row when the run does not onboard, with the Python's reason for doing nothing. */
+    static final String NO_ONBOARDING = "not asked for: the run does not onboard to Commander Connect";
 
     private final CommanderStages stages;
     private final Map<String, String> environ;
@@ -90,6 +121,7 @@ final class CommanderConfigurationStep implements LaunchStep {
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
         LaunchConfig config = ctx.config();
+        ctx.commanderReached(true);
 
         // 1. The Commander build. CAT-Java has no Downloads section, so no build is ever chosen.
         if (config.upgradeMode() != UpgradeMode.SKIP) {
@@ -133,6 +165,13 @@ final class CommanderConfigurationStep implements LaunchStep {
             return false;
         }
 
+        // The cloud tunnel before the inits, not just before onboarding: crefreshcfg makes coresvcs push every
+        // changed dataset to the cloud, and a Commander with no WAN link floods its syslog (HANDOFF.md §1.104).
+        boolean onboard = config.commanderConnect();
+        if (onboard && !stage(step, "cloud-tunnel", say -> stages.cloudTunnel(rig, say))) {
+            return false;
+        }
+
         // 3. The base import and the inits, every run (dev is CAT-Java's only execution mode).
         boolean forecourt = config.simulators().contains(StartSimulatorsStep.PETRO_SIMULATOR);
         if (!forecourt) {
@@ -145,13 +184,96 @@ final class CommanderConfigurationStep implements LaunchStep {
             return false;
         }
 
-        // 4. What the Python runs next on every rig run, which CAT-Java does not have.
-        String missing = stages.missingAfterInit();
-        if (!missing.isEmpty()) {
-            return step.unavailable(PYTHON_MODULE, missing);
+        // 4. Commander Connect, after the inits, whose base import would otherwise overwrite it.
+        CommanderConnect cc = config.commanderConnectSettings();
+        if (onboard) {
+            if (!stage(step, "commander-connect", say -> stages.commanderConnect(rig, cc, say))) {
+                return false;
+            }
+        } else {
+            step.skip(label("commander-connect"), NO_ONBOARDING);
         }
 
-        // 5. The EPS ready for card sales: a WARN, never a failure.
+        // 5. The golden cloud dataset: only when this run onboards, with a C-Site account.
+        Map<String, String> csite = CSiteClient.accountEnv(cc.lab(), cc.email(), cc.password(), environ);
+        boolean onboarding = onboard && !cc.serviceId().isBlank();
+        String csiteUser = environ.getOrDefault(CSiteClient.ENV_VARS.get("csite.username"), "");
+        if (onboarding && (!csite.isEmpty() || !csiteUser.isEmpty())) {
+            warnOnly(step, "csite-reset", say -> stages.csiteReset(rig, cc.serviceId(), csite, say));
+            if (!stage(step, "cloud-snapshot", say -> stages.cloudSnapshotRestore(rig, cc.serviceId(), csite, say))) {
+                return false;
+            }
+        }
+
+        // 6. The Secondary FEPs, every rig run: the chosen ones on, every other one off ("none" is a choice too).
+        List<String> chosen = ctx.commanderOptions().secondaryFeps();
+        List<String> feps = chosen.isEmpty() ? List.of("none") : chosen;
+        if (!stage(step, "secondary-fep",
+                say -> stages.secondaryFep(rig, feps, cc.serviceId(), csite, say))) {
+            return false;
+        }
+
+        // 7. A simulated card left in the M400 holds every register login: out, on a vats rig only.
+        boolean vats = rig.pinpad() == Rig.Pinpad.VATS;
+        if (vats) {
+            if (!stage(step, "pinpad-clear", say -> stages.pinpadClear(rig, say))) {
+                return false;
+            }
+        } else {
+            step.skip("pinpad-clear", "the rig's pinpad is " + pinpadName(rig) + ", not vats");
+        }
+
+        // 8. The payment links; a drift fix leaves a CAT-started BUYPASS Host deaf, so it is restarted.
+        boolean[] driftFixed = {false};
+        Consumer<String> heard = line -> {
+            if (line.startsWith(CommanderLinks.FEP_DRIFT_FIXED)) {
+                driftFixed[0] = true;
+            }
+        };
+        if (!stage(step, "payment-links", heard, say -> stages.paymentLinks(rig, say))) {
+            return false;
+        }
+        if (driftFixed[0]) {
+            Boolean restarted = restartPaymentHost(ctx, step);
+            if (Boolean.FALSE.equals(restarted)) {
+                return false;
+            }
+            if (Boolean.TRUE.equals(restarted) && !stage(step, "payment-links", say -> stages.paymentLinks(rig, say))) {
+                return false;
+            }
+        }
+
+        // 9. PATS's table load after a new install, then the EMV CA keys, every run.
+        String tables = config.upgradeMode() == UpgradeMode.NEW_INSTALL ? "always" : "auto";
+        if (!stage(step, "emv-keys", say -> stages.emvKeys(rig, tables, say))) {
+            return false;
+        }
+
+        // 10. Every register in the cashier POS app.
+        if (!stage(step, "register-app", say -> stages.registerApp(rig, say))) {
+            return false;
+        }
+
+        // 11. A fresh period for the tests, whatever the last run left; the same clause as Cleanup's.
+        DayClose.Result day;
+        try {
+            day = DayClose.run(ctx, step, stages::closeDay, false, false);
+        } catch (StageUnavailable e) {
+            step.substep(DayClose.LABEL, SubstepOutcome.FAILED, e.getMessage(), 0.0);
+            return step.unavailable(e.pythonModule(), e.missing());
+        }
+        if (!day.closed()) {
+            return step.fail(day.clause());
+        }
+
+        // 12. The pinpad link: to Petro's ViperPay engine, or on a vats rig to the physical terminal.
+        if (forecourt || vats) {
+            if (!pinpadLink(ctx, step, rig, vats)) {
+                return false;
+            }
+        }
+
+        // 13. The EPS ready for card sales: a WARN, never a failure.
         StepSay ready = new StepSay(step);
         String label = label("payment-ready");
         step.substep(label, SubstepOutcome.RUNNING, "", 0.0);
@@ -171,52 +293,170 @@ final class CommanderConfigurationStep implements LaunchStep {
             step.log("WARN  the EPS was not ready for card sales; see payment-ready above", "WARNING");
         }
 
+        // 14. The snapshot every later run's commander-init restores to: after a fresh install, or when asked.
+        RunContext.CommanderOptions options = ctx.commanderOptions();
+        if (config.upgradeMode() == UpgradeMode.NEW_INSTALL || options.captureSnapshot()) {
+            boolean captured = rowOnly(step, "commander-snapshot",
+                    say -> stages.snapshotCapture(config.rig(), options.buildLabel(), say));
+            if (!captured) {
+                step.log("WARN  commander-snapshot capture failed; see its lines above", "WARNING");
+            }
+        }
+
         step.warn(INSTALLED_BUILD_ROW, "unknown — unavailable in CAT-Java (needs petrotest.build.installed); the "
                 + "Xray execution is titled with the rig's name");
         return true;
     }
 
+    private static String pinpadName(Rig rig) {
+        return rig.pinpad() == null ? "unset" : rig.pinpad().name().toLowerCase(java.util.Locale.ROOT);
+    }
+
     /**
-     * One ported stage as one timed checklist row, as the Python's {@code run_petrotest} makes each child one:
-     * a failure fails the step with the stage's last error line.
+     * The Python's {@code restart_payment_host}: null when there is nothing to restart (BUYPASS Host not started by
+     * CAT, which is said), else whether the restart brought it back (a failure fails the step).
+     */
+    private Boolean restartPaymentHost(RunContext ctx, StepEmitter step) {
+        boolean owned = ctx.simulators().stream()
+                .anyMatch(p -> p.entry().name().equals(PAYMENT_HOST) && p.spawned());
+        if (!owned) {
+            step.log("WARN  " + PAYMENT_HOST + " was not started by CAT; after the FEP drift fix it may answer nothing "
+                    + "until it is restarted by hand", "WARNING");
+            return null;
+        }
+        String why = stages.restartSimulator(ctx, PAYMENT_HOST, step);
+        if (!why.isEmpty()) {
+            step.fail(why);
+            return Boolean.FALSE;
+        }
+        return Boolean.TRUE;
+    }
+
+    /** The pinpad link as one timed row; its failure fails the step with the link's detail. */
+    private boolean pinpadLink(RunContext ctx, StepEmitter step, Rig rig, boolean vats) {
+        step.substep(PinpadLink.LABEL, SubstepOutcome.RUNNING, "", 0.0);
+        long started = System.nanoTime();
+        if (vats) {
+            step.substep(PinpadLink.LABEL, SubstepOutcome.FAILED, "unavailable in CAT-Java", 0.0);
+            return step.unavailable("src/cat/launch/steps/simulators.py", "the pinpad link to a pinpad: vats rig's "
+                    + "terminal (_link_vats_pinpad: a new Commander socket to the M400 after emv-keys)");
+        }
+        boolean started3 = ctx.simulators().stream()
+                .anyMatch(p -> p.entry().name().equals(StartSimulatorsStep.PETRO_SIMULATOR) && p.spawned());
+        PinpadLink link = new PinpadLink(stages.pauser(), stages.pinpadTiming());
+        PinpadLink.Result result;
+        try {
+            result = link.link(step, ctx.config().rig(), stages.pinpadLog(rig), ctx.epsLogMark(), started3,
+                    say -> stages.emvKeys(rig, null, say),
+                    simulator -> stages.restartSimulator(ctx, simulator, step));
+        } catch (StageUnavailable e) {
+            step.substep(PinpadLink.LABEL, SubstepOutcome.FAILED, e.getMessage(), elapsed(started));
+            return step.unavailable(e.pythonModule(), "the pinpad link, which runs " + e.missing());
+        } catch (RuntimeException e) {
+            result = new PinpadLink.Result(false, e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+        if (result.linked()) {
+            step.substep(PinpadLink.LABEL, SubstepOutcome.PASSED, "", elapsed(started));
+            return true;
+        }
+        step.substep(PinpadLink.LABEL, SubstepOutcome.FAILED, result.detail(), elapsed(started));
+        return step.fail(result.detail());
+    }
+
+    private static double elapsed(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000_000.0;
+    }
+
+    /**
+     * One stage as one timed checklist row, as the Python's {@code run_petrotest} makes each child one: a failure
+     * fails the step with the stage's last error line; a stage CAT-Java does not have fails it as unavailable.
      */
     private static boolean stage(StepEmitter step, String command, Function<Say, Boolean> body) {
+        return stage(step, command, null, body);
+    }
+
+    /** {@link #stage}, with {@code heard} told every out line (the Python's {@code on_line}). */
+    private static boolean stage(StepEmitter step, String command, Consumer<String> heard,
+            Function<Say, Boolean> body) {
+        Run run = runRow(step, command, heard, body);
+        if (run.unavailable() != null) {
+            return step.unavailable(run.unavailable().pythonModule(), run.unavailable().missing());
+        }
+        if (run.ok()) {
+            return true;
+        }
+        return step.fail(run.why());
+    }
+
+    /**
+     * One stage whose failure leaves its row failed and the step going (the Python's state-and-detail restore around
+     * {@code csite-reset}'s and the snapshot capture's {@code cli}). Returns whether it passed.
+     */
+    private static boolean rowOnly(StepEmitter step, String command, Function<Say, Boolean> body) {
+        return runRow(step, command, null, body).ok();
+    }
+
+    /** {@code csite-reset}: a failure leaves its row failed, adds a WARN line, and the step goes on. */
+    private static void warnOnly(StepEmitter step, String command, Function<Say, Boolean> body) {
+        Run run = runRow(step, command, null, body);
+        if (!run.ok()) {
+            step.log("WARN  " + command + " — " + run.why(), "WARNING");
+        }
+    }
+
+    private record Run(boolean ok, String why, StageUnavailable unavailable) {}
+
+    private static Run runRow(StepEmitter step, String command, Consumer<String> heard, Function<Say, Boolean> body) {
         String label = label(command);
         step.log("CAT-Java " + command, "INFO");
         step.substep(label, SubstepOutcome.RUNNING, "", 0.0);
-        StepSay say = new StepSay(step);
+        StepSay say = new StepSay(step, heard);
         long started = System.nanoTime();
         boolean ok;
+        StageUnavailable unavailable = null;
         try {
             ok = Boolean.TRUE.equals(body.apply(say));
+        } catch (StageUnavailable e) {
+            unavailable = e;
+            ok = false;
         } catch (RuntimeException e) {
             say.err(e.getClass().getSimpleName() + ": " + e.getMessage());
             ok = false;
         }
-        double elapsed = (System.nanoTime() - started) / 1_000_000_000.0;
+        double elapsed = elapsed(started);
         if (ok) {
             step.substep(label, SubstepOutcome.PASSED, "", elapsed);
-            return true;
+            return new Run(true, "", null);
         }
-        String why = say.lastErr().isEmpty() ? command + " failed" : say.lastErr();
+        String why = unavailable != null ? unavailable.getMessage()
+                : say.lastErr().isEmpty() ? command + " failed" : say.lastErr();
         step.substep(label, SubstepOutcome.FAILED, why, elapsed);
-        return step.fail(why);
+        return new Run(false, why, unavailable);
     }
 
     /** A stage's lines into the step's log; its last error line is kept for the step's reason. */
     static final class StepSay implements Say {
 
         private final StepEmitter step;
+        private final Consumer<String> heard;
         private String lastErr = "";
 
         StepSay(StepEmitter step) {
+            this(step, null);
+        }
+
+        StepSay(StepEmitter step, Consumer<String> heard) {
             this.step = step;
+            this.heard = heard;
         }
 
         @Override
         public void out(String line) {
             for (String one : line.split("\n", -1)) {
                 step.log(one, "INFO");
+                if (heard != null) {
+                    heard.accept(one);
+                }
             }
         }
 
