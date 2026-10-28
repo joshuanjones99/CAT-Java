@@ -39,6 +39,18 @@ public record Action(String name, List<RunnableAction.ActionField> fields, int i
         return new Action(name, fields, position);
     }
 
+    /**
+     * {@inheritDoc} A step-library step ({@code pats.feature.LibrarySteps}) is its own line, {@code #3 the cashier
+     * keys TOTAL}, as pytest-bdd names a step.
+     */
+    @Override
+    public String describe() {
+        if (com.verifone.cat.pats.feature.LibrarySteps.isStep(this)) {
+            return "#" + (index + 1) + " " + get(com.verifone.cat.pats.feature.LibrarySteps.LINE_FIELD);
+        }
+        return RunnableAction.super.describe();
+    }
+
     /** The action as the Python prints it: {@code #3 SLEEP(SLEEP='5000')}, without empty fields or the device. */
     @Override
     public String toString() {

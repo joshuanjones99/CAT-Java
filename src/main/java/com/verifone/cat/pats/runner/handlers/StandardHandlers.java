@@ -45,6 +45,7 @@ import com.verifone.cat.pats.runner.handlers.sale.SaleRmi;
 import com.verifone.cat.pats.runner.handlers.sale.SaleScreen;
 import com.verifone.cat.pats.runner.handlers.sale.ScannerData;
 import com.verifone.cat.pats.runner.handlers.sale.TouchPacer;
+import com.verifone.cat.pats.runner.handlers.steps.LibraryStepFamily;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationContext;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationFamily;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
@@ -163,6 +164,9 @@ public final class StandardHandlers {
         ActionHandler touch = registry.handlerFor("TOUCH_EVENT").orElseThrow(
                 () -> new IllegalStateException("the POS UI family registers TOUCH_EVENT before the BDD family"));
         BddFamily.register(registry, BddContext.of(touch, BddScreen.overPos(f.pos().driver())));
+
+        // The step library's own phrases, for a .feature written in them rather than in PATS action phrases.
+        LibraryStepFamily.register(registry, f);
 
         // The verdict: a failed case's dead-end OK is pressed, as the Python's finish does.
         registry.onFinish(run -> {
