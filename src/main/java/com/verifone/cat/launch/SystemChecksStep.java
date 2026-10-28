@@ -42,8 +42,9 @@ import com.verifone.cat.sims.SimEntry;
  * a plan has no case. The simulator staging lines are advisory (WARN), as the Python's are.
  *
  * <p>Not ported, so a run that needs them ends this step as unavailable rather than passing them: on a rig run, the
- * Commander's base and the Java 17 set and simulators for it, the receipt-printer and VATS lines, and the pump-state
- * port guard when the Petro Simulator Suite is in the run. Not ported on any run: the Commercial Fleet license check
+ * Commander's base and the Java 17 set and simulators for it, and the receipt-printer and VATS lines. When the Petro
+ * Simulator Suite is in a run that is not {@code --fake-pos}, Petro's pump-state ports 1072 and 9706 must be free for
+ * the run ({@link #checkPetroPorts}), or the step fails naming their holder. Not ported on any run: the Commercial Fleet license check
  * (the cases' licence tags), and the on-disk check of the tests (step 5 pulls them; the tests line says so).
  * {@code --fake-pos} skips what the Python skips: the rig, the rig's hardware lines, the run lock and the Commander's
  * base. A requirement that needs a base is a WARN on a fake-POS run, not a pass.
@@ -121,8 +122,8 @@ final class SystemChecksStep implements LaunchStep {
             checkRequirements(ctx, step, rig, failures, used, fakePos);
             nothingToRun = !checkTestsToRun(ctx, step, failures);
         }
-        if (rig != null && !fakePos && used.contains(PETRO_SIMULATOR)) {
-            missing.add("the pump-state port check (cat.launch.port_guard) for " + PETRO_SIMULATOR);
+        if (!fakePos && used.contains(PETRO_SIMULATOR)) {
+            failures.addAll(checkPetroPorts(ctx, step, PetroPorts::bindable, PetroPorts::portHolder));
         }
 
         checkStaging(paths, rig, step);
@@ -134,6 +135,29 @@ final class SystemChecksStep implements LaunchStep {
             return step.unavailable("src/cat/launch/steps/system_checks.py", String.join("; ", missing));
         }
         return true;
+    }
+
+    /**
+     * Required when Petro is in the run: its pump-state ports are this run's to take (the Python's
+     * {@code _check_petro_ports} and {@code cat.launch.port_guard}). Run ad24510d66f5 lost 83 fuel cases to a CAT
+     * window holding 1072, found an hour and a half in. A port this run already holds is its own. Returns the
+     * failures, empty when clear.
+     */
+    static List<String> checkPetroPorts(RunContext ctx, StepEmitter step, java.util.function.IntPredicate bindable,
+            java.util.function.IntFunction<String> holder) {
+        List<Integer> ports = PetroPorts.HELD_PORTS.stream().sorted().toList();
+        List<PetroPorts.Conflict> conflicts = PetroPorts.conflicts(ports, ctx.petroSinks(), bindable, holder);
+        String label = "Petro's pump-state ports free";
+        String names = ports.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "));
+        if (conflicts.isEmpty()) {
+            step.check(true, label, names + " are this run's to take", true);
+            return List.of();
+        }
+        String detail = conflicts.stream().map(c -> c.port() + " is held by " + c.who())
+                .collect(java.util.stream.Collectors.joining("; "))
+                + " — the pumps cannot be served, and every fuel case would fail";
+        step.check(false, label, detail, true);
+        return List.of(label + " — " + detail);
     }
 
     /**
