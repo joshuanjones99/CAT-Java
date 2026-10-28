@@ -217,7 +217,7 @@ final class CommanderConfigurationStep implements LaunchStep {
             return thread;
         });
         try {
-            Installed.Identification found = worker.submit(() -> stages.installedBuild(rig, PlanCases.DIST))
+            Installed.Identification found = worker.submit(() -> stages.installedBuild(rig, ctx.config().dist()))
                     .get(IDENTIFY_BUILD_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             name = found.name();
             why = found.why();

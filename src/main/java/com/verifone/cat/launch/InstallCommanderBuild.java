@@ -35,7 +35,7 @@ import com.verifone.cat.rig.Rig;
  *   <li>AU ({@code classic}) and VHQ installs are unavailable in CAT-Java ({@code petrotest/upgrade/classic.py},
  *       {@code vhq.py}): the step says so before anything is downloaded, where the Python downloads first.</li>
  *   <li>No {@code local_build}, foundation pick or Distribution field: {@link LaunchConfig} carries none, so the
- *       distribution is the Python's default ({@link PlanCases#DIST}) and a viper-only build (which the Python
+ *       distribution is the run.s ({@code config.dist()}) and a viper-only build (which the Python
  *       merges onto a foundation) fails its download with a reason.</li>
  *   <li>Under {@code --fake-pos} nothing is installed (a row says so), where the Python would run the upgrade; it
  *       never touches a device under fake POS.</li>
@@ -61,7 +61,7 @@ final class InstallCommanderBuild {
     static Result run(RunContext ctx, StepEmitter step, CommanderStages stages, Rig rig) {
         LaunchConfig config = ctx.config();
         UpgradeMode mode = config.upgradeMode();
-        String dist = PlanCases.DIST;
+        String dist = config.dist();
         boolean chosen = config.commanderBuildChosen();
         String label = config.commanderBranch() + " " + config.commanderBuild();
 

@@ -17,6 +17,8 @@ import com.verifone.cat.commander.snapshot.CommanderSnapshotCommand;
 import com.verifone.cat.launch.LaunchCommand;
 import com.verifone.cat.preflight.PreflightCommand;
 import com.verifone.cat.provision.ProvisionCommand;
+import com.verifone.cat.upgrade.PsiInitCommand;
+import com.verifone.cat.commander.emv.EmvKeysCommand;
 import com.verifone.cat.xray.XraySidecar;
 
 /** Main's dispatch table: each command word maps to its class. Nothing is run. */
@@ -33,6 +35,8 @@ class MainTest {
         expected.put("commander-snapshot", CommanderSnapshotCommand.class);
         expected.put("commander-connect", CommanderConnectCommand.class);
         expected.put("cloud-tunnel", CloudTunnelCommand.class);
+        expected.put("psi-init", PsiInitCommand.class);
+        expected.put("emv-keys", EmvKeysCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {

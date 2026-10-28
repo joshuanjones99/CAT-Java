@@ -21,6 +21,8 @@ import com.verifone.cat.provision.ProvisionCommand;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
 import com.verifone.cat.web.WebApp;
+import com.verifone.cat.upgrade.PsiInitCommand;
+import com.verifone.cat.commander.emv.EmvKeysCommand;
 import com.verifone.cat.xray.XraySidecar;
 
 /**
@@ -61,6 +63,8 @@ public final class Main {
         table.put("commander-connect",
                 new Command(CommanderConnectCommand.class, argv -> new CommanderConnectCommand().run(argv)));
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
+        table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
+        table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
