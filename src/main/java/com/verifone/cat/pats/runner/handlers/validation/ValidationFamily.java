@@ -5,6 +5,7 @@ import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.FixtureName;
 import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.ScratchKey;
+import com.verifone.cat.pats.runner.handlers.posui.PosUiCaseState;
 
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +47,12 @@ public final class ValidationFamily {
     /** The DCR's print count at the case's start, when the case prints at the DCR. */
     static final ScratchKey<Long> DCR_RECEIPT_MARK = ScratchKey.of("validation.dcr-receipt-mark", Long.class);
 
+    /**
+     * The POS printer's receipt count when the case's latest POS-driving action began (the Python's
+     * {@code CaseRun.print_mark}); absent before any such action, and -1 with no serial printer.
+     */
+    static final ScratchKey<Integer> PRINT_MARK = ScratchKey.of("validation.print-mark", Integer.class);
+
     private ValidationFamily() {
     }
 
@@ -80,6 +87,28 @@ public final class ValidationFamily {
         registry.register("RESET_PACKETS", packets::reset);
         registry.register("VALIDATE_PACKETS", packets::validate);
         registry.onBegin(run -> begin(run, context));
+        registry.beforeAction((run, action) -> markPrints(run, action, context));
+    }
+
+    /**
+     * The Python's {@code CaseRun.do} marks: before every action that can drive the POS (not {@link #passive}), in a
+     * case that declares the POS, the printer's receipt count and the sales closed so far. The receipt check then
+     * prefers a print made since that action began, and settles for a sale closed before it and not yet read.
+     */
+    static void markPrints(CaseRun run, RunnableAction action, ValidationContext context) {
+        if (!run.declares(FixtureName.POS) || passive(action.name())) {
+            return;
+        }
+        run.setScratch(PRINT_MARK, context.receipts().printCount());
+        PosUiCaseState state = PosUiCaseState.of(run);
+        state.setSalesAtMark(state.salesClosed());
+    }
+
+    /** The Python's {@code _passive}: an action that only reads or waits, so cannot finish a sale. */
+    static boolean passive(String name) {
+        String upper = name.toUpperCase(Locale.ROOT);
+        return upper.equals("SLEEP") || upper.contains("VALIDAT") || upper.startsWith("WAIT")
+                || upper.equals("RESET_PACKETS") || upper.equals("STORE_TRANS_MAP");
     }
 
     /**
