@@ -84,7 +84,10 @@ public final class FixtureRequirements {
         EnumSet<FixtureName> needed = EnumSet.noneOf(FixtureName.class);
         for (RunnableAction action : kase.actions()) {
             String name = action.name().toUpperCase(Locale.ROOT);
-            if ("INSERT_OR_SLIDE_CARD".equals(name)) {
+            if (com.verifone.cat.pats.feature.LibrarySteps.isStep(action)) {
+                needed.addAll(com.verifone.cat.pats.feature.LibrarySteps.fixturesOf(
+                        action.get(com.verifone.cat.pats.feature.LibrarySteps.LINE_FIELD)));
+            } else if ("INSERT_OR_SLIDE_CARD".equals(name)) {
                 needed.add(device(action).startsWith("DCR") ? FixtureName.DCR : FixtureName.PINPAD);
             } else if ("VALIDATE_TRANSACTION".equals(name) && action.get("DEVICEID").toUpperCase(Locale.ROOT).startsWith("DCR")) {
                 needed.add(FixtureName.COMMANDER_CONFIG);

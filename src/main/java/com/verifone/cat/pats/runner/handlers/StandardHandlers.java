@@ -45,9 +45,12 @@ import com.verifone.cat.pats.runner.handlers.sale.SaleRmi;
 import com.verifone.cat.pats.runner.handlers.sale.SaleScreen;
 import com.verifone.cat.pats.runner.handlers.sale.ScannerData;
 import com.verifone.cat.pats.runner.handlers.sale.TouchPacer;
+import com.verifone.cat.pats.runner.handlers.steps.LibraryStepFamily;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationContext;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationFamily;
+import com.verifone.cat.pats.runner.handlers.configuration.BuypassV2;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
+import com.verifone.cat.pos.pages.Pos;
 import com.verifone.cat.pos.receipt.Receipt;
 import com.verifone.cat.pos.receipt.ReceiptParser;
 import com.verifone.cat.pos.receipt.Source;
@@ -61,6 +64,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import org.w3c.dom.Element;
 
 /**
  * The one handler set a run registers: the eight action families (POS UI, sale, devices, HTTP, cloud settle,
@@ -144,8 +149,9 @@ public final class StandardHandlers {
                 folders.configurationFiles(), inits, Waits.production());
 
         ValidationContext validation = new ValidationContext(f.receipts(), dcrReceipts(f.dcr()),
-                FixtureRequirements::printsAtDcr, unavailablePosTransactions(),
-                CommanderSeams.reads(f.commander()), unavailablePackets(), folders.references(),
+                FixtureRequirements::printsAtDcr, posTransactions(f),
+                CommanderSeams.reads(f.commander()), f.packets() == null ? unavailablePackets() : f.packets(),
+                folders.references(),
                 f.environment()::get);
 
         // The eight families, in the Python's order.
@@ -163,6 +169,9 @@ public final class StandardHandlers {
         ActionHandler touch = registry.handlerFor("TOUCH_EVENT").orElseThrow(
                 () -> new IllegalStateException("the POS UI family registers TOUCH_EVENT before the BDD family"));
         BddFamily.register(registry, BddContext.of(touch, BddScreen.overPos(f.pos().driver())));
+
+        // The step library's own phrases, for a .feature written in them rather than in PATS action phrases.
+        LibraryStepFamily.register(registry, f);
 
         // The verdict: a failed case's dead-end OK is pressed, as the Python's finish does.
         registry.onFinish(run -> {
@@ -273,16 +282,78 @@ public final class StandardHandlers {
         };
     }
 
-    private static ValidationContext.PosTransactions unavailablePosTransactions() {
+    /**
+     * {@code VALIDATE_TRANSACTION}'s POS reads, as the Python's {@code pos} fixture wires them: the transaction numbers
+     * the Commander lists ({@code vtransnumlist}, newest first) and its TLog of one ({@code vtransdetails}), behind
+     * {@link Pos#newestTransaction} and {@link Pos#newestTlog}. PATS's {@code TransactionCommitNumber} is the last sale
+     * the Commander committed. The Python's {@code abort} (its dialog watch) is not passed: the wait runs its budget.
+     * A run without a Commander reads the stand-in, which fails by name.
+     */
+    static ValidationContext.PosTransactions posTransactions(HandlerFixtures f) {
+        Pos reads = new Pos(f.pos().driver(), f.receipts(), number -> f.commander().fetchTlog(number),
+                () -> f.commander().listTransactionNumbers());
         return new ValidationContext.PosTransactions() {
             @Override
             public String newestTransactionNumber() {
-                throw unavailable("read the POS's newest transaction number");
+                return reads.newestTransaction();
             }
 
             @Override
             public ValidationContext.PosTlog newestTlog(String after, double timeoutSeconds) {
-                throw unavailable("read the POS's newest TLog");
+                Element tlog = (Element) reads.newestTlog(after, Duration.ofMillis(Math.round(timeoutSeconds * 1000)),
+                        null);
+                return new ValidationContext.PosTlog(tlog, reads.newestRead());
+            }
+        };
+    }
+
+    /** The folder a simulator writes the packets PATS validates into: {@code <tools>/<DEVICE>/packetsForValidation}. */
+    public static final String PACKET_FOLDER = "packetsForValidation";
+
+    /**
+     * The simulators' captured packets, as the Python's {@code _packet_dir}, {@code _reset_packets} and
+     * {@code _validate_packets} read them: each device's {@code <tools root>/<DEVICE>/packetsForValidation} folder,
+     * listed, and emptied by a reset. FEPSIM v2 serving Buypass keeps its own folder, which this port does not reach
+     * ({@code devices.fepsim_legacy} is not bound at launch): with {@code buypassV2} given, BUYPASS's packets are
+     * unavailable rather than read from the wrong folder.
+     *
+     * <p>Not for a fake-POS run: a reset deletes the files in a lab simulator's folder.
+     *
+     * <p>UNVERIFIED AGAINST HARDWARE (Java port).
+     */
+    public static ValidationContext.PacketSource packetFolders(Path toolsRoot, BuypassV2 buypassV2) {
+        Objects.requireNonNull(toolsRoot, "toolsRoot");
+        return new ValidationContext.PacketSource() {
+            @Override
+            public List<Path> captured(String device) {
+                Path folder = folder(device);
+                if (!java.nio.file.Files.isDirectory(folder)) {
+                    return List.of();
+                }
+                try (java.util.stream.Stream<Path> files = java.nio.file.Files.list(folder)) {
+                    return files.filter(java.nio.file.Files::isRegularFile).toList();
+                } catch (IOException e) {
+                    throw new java.io.UncheckedIOException("could not list " + folder, e);
+                }
+            }
+
+            @Override
+            public void reset(String device) {
+                for (Path file : captured(device)) {
+                    try {
+                        java.nio.file.Files.deleteIfExists(file);
+                    } catch (IOException e) {
+                        throw new java.io.UncheckedIOException("could not delete " + file, e);
+                    }
+                }
+            }
+
+            private Path folder(String device) {
+                if (buypassV2 != null && "BUYPASS".equals(device)) {
+                    throw new DeviceUnavailable("FEPSIM v2's packets",
+                            "BUYPASS is served by FEPSIM v2 this run, whose packet folder is not ported");
+                }
+                return toolsRoot.resolve(device).resolve(PACKET_FOLDER);
             }
         };
     }

@@ -174,6 +174,22 @@ public final class StepDef {
         return pattern.matcher(line).matches();
     }
 
+    /**
+     * The arguments {@code line} (keyword stripped) gives this phrase, by name, as written (no type conversion), or
+     * empty when the line is not this phrase. The step runner ({@code pats.runner.handlers.steps}) converts them.
+     */
+    public java.util.Optional<Map<String, String>> arguments(String line) {
+        Matcher m = pattern.matcher(line);
+        if (!m.matches()) {
+            return java.util.Optional.empty();
+        }
+        Map<String, String> out = new LinkedHashMap<>();
+        for (int i = 0; i < params.size(); i++) {
+            out.put(params.get(i), m.group(i + 1));
+        }
+        return java.util.Optional.of(out);
+    }
+
     @Override
     public String toString() {
         return text;

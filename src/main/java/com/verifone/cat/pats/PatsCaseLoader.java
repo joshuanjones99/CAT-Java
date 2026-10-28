@@ -4,12 +4,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.verifone.cat.pats.feature.Gherkin;
+import com.verifone.cat.pats.feature.LibrarySteps;
 import com.verifone.cat.pats.feature.PatsFeature;
 import com.verifone.cat.pats.runner.RunnableCase;
 
@@ -64,7 +66,13 @@ public final class PatsCaseLoader {
             throw new IllegalArgumentException(file.getFileName() + ": expected one scenario, found "
                     + feature.scenarios().size());
         }
-        return new ParsedCase(feature.scenarios().get(0).name(), PatsFeature.actionsOf(file));
+        Gherkin.Scenario scenario = feature.scenarios().get(0);
+        boolean bdd = feature.tags().contains(PatsFeature.BDD_TAG) || scenario.tags().contains(PatsFeature.BDD_TAG);
+        // A scenario of PATS action phrases is a PATS case; one of the step library's phrases is run step by step
+        // (pats.feature.LibrarySteps), as the Python's authoring plugin binds every library phrase for pytest-bdd.
+        List<Action> actions = PatsFeature.scenarioActions(scenario.steps(), bdd)
+                .orElseGet(() -> LibrarySteps.actions(scenario.steps()));
+        return new ParsedCase(scenario.name(), actions);
     }
 
     /** The file's text as a {@code .scenario} is read: UTF-8, with a leading byte-order mark dropped. */

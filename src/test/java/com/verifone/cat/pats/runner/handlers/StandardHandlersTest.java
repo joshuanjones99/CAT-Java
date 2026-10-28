@@ -46,15 +46,22 @@ class StandardHandlersTest {
         return StandardHandlers.create(WiringFixtures.unbrowsed(root, new PinpadDouble("1", java.time.Duration.ofMillis(10))));
     }
 
+    /** The registry's names, less the step library's own carrier ({@code LibrarySteps.ACTION}), which is no PATS action. */
+    private Set<String> patsNames() throws Exception {
+        Set<String> names = new java.util.TreeSet<>(registry().supportedActions());
+        assertTrue(names.remove(com.verifone.cat.pats.feature.LibrarySteps.ACTION), "the step library is registered");
+        return names;
+    }
+
     @Test
     void everyPatsActionHasExactlyOneHandler() throws Exception {
         // ActionRegistry refuses a second handler for a name, so the set equal to PATS_ACTIONS is the exact-one proof.
-        assertEquals(PATS_ACTIONS, registry().supportedActions());
+        assertEquals(PATS_ACTIONS, patsNames());
     }
 
     @Test
     void theRegistryHoldsNoNameItDoesNotNeed() throws Exception {
-        assertTrue(PATS_ACTIONS.containsAll(registry().supportedActions()));
+        assertTrue(PATS_ACTIONS.containsAll(patsNames()));
     }
 
     @Test
