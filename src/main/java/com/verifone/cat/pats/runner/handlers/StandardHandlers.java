@@ -128,7 +128,7 @@ public final class StandardHandlers {
 
         // Sale: the screen over the page objects, the pumps, and the petroapps scanner data.
         SaleContext sale = new SaleContext(SaleScreen.of(f.pos()), f.saleRmi(), pumps,
-                scannerData(f.petroapps()), LastTlog.UNAVAILABLE, DevicePauses.REAL, pacer, f.saleTiming());
+                scannerData(f.petroapps()), LastTlog.VALIDATED, DevicePauses.REAL, pacer, f.saleTiming());
 
         DcrDevice dcr = f.dcr() == null ? DcrDevice.UNAVAILABLE : f.dcr();
         DevicesContext devices = new DevicesContext(f.pinpad(), dcr, pumps, DevicePauses.REAL, f.devicesTiming());

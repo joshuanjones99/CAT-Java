@@ -340,7 +340,7 @@ public final class HandlerFakes {
         public Optional<String> stan = Optional.empty();
 
         @Override
-        public Optional<String> stan() {
+        public Optional<String> stan(com.verifone.cat.pats.runner.CaseRun run) {
             return stan;
         }
     }

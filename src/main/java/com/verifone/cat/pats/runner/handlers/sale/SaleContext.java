@@ -16,7 +16,7 @@ import java.util.Objects;
  * @param rmi         the register's key and item calls, or {@link SaleRmi#UNAVAILABLE}
  * @param fuelPumps   the pumps, or {@link FuelPumps#UNAVAILABLE}
  * @param scannerData the scanner-data files, or {@link ScannerData#UNAVAILABLE}
- * @param lastTlog    the newest TLog's STAN, or {@link LastTlog#UNAVAILABLE}
+ * @param lastTlog    the case's last TLog ({@link LastTlog#VALIDATED} in production)
  * @param pauses      the fixed pauses; {@link DevicePauses#REAL} in production
  * @param pacer       the touch pacer, built over the same pauses
  * @param timing      the waits; {@link SaleTiming#DEFAULT} in production
@@ -43,11 +43,11 @@ public record SaleContext(
     }
 
     /**
-     * A context over the given screen and RMI, with the pumps, scanner data and TLog unwired, the real pauses, and
+     * A context over the given screen and RMI, with the pumps and scanner data unwired, the TLog the case validated, the real pauses, and
      * PATS's waits.
      */
     public static SaleContext of(SaleScreen screen, SaleRmi rmi) {
-        return new SaleContext(screen, rmi, FuelPumps.UNAVAILABLE, ScannerData.UNAVAILABLE, LastTlog.UNAVAILABLE,
+        return new SaleContext(screen, rmi, FuelPumps.UNAVAILABLE, ScannerData.UNAVAILABLE, LastTlog.VALIDATED,
                 DevicePauses.REAL, new TouchPacer(DevicePauses.REAL, SaleTiming.DEFAULT.touchSettle()),
                 SaleTiming.DEFAULT);
     }

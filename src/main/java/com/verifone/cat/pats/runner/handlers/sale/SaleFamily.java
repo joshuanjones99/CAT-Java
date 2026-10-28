@@ -384,7 +384,7 @@ public final class SaleFamily {
 
     /**
      * {@code POSDevice.reFundKey}: ENTER with the STAN or TRAN# the key stored. The STAN prompt is waited for while a
-     * STAN is stored; the Commander's newest TLog gives one when the receipt has none; with neither, VOID_TICKET, as PATS.
+     * STAN is stored; the TLog the case last validated gives one when the receipt has none; with neither, VOID_TICKET, as PATS.
      */
     static void refundWithTransMap(CaseRun run, RunnableAction action, SaleContext context) {
         String key = ActionFields.require(action, "REFUND_KEY");
@@ -395,7 +395,7 @@ public final class SaleFamily {
         String tran = entry == null ? null : entry.getKey();
         String stan = entry == null ? null : entry.getValue();
         if (!present(stan)) {
-            stan = context.lastTlog().stan().orElse(null);
+            stan = context.lastTlog().stan(run).orElse(null);
         }
         String[] line1 = {""};
         BooleanSupplier prompted = () -> {

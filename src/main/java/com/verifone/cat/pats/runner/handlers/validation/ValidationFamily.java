@@ -38,7 +38,7 @@ public final class ValidationFamily {
     static final ScratchKey<String> TLOG_MARK = ScratchKey.of("validation.tlog-mark", String.class);
 
     /** The TLog the last {@code VALIDATE_TRANSACTION} read, for a later action of the same case. */
-    static final ScratchKey<Element> LAST_TLOG = ScratchKey.of("validation.last-tlog", Element.class);
+    public static final ScratchKey<Element> LAST_TLOG = ScratchKey.of("validation.last-tlog", Element.class);
 
     /** The DCR registers' transaction marks, by their number series. */
     static final ScratchKey<DcrMarks> DCR_TLOG_MARKS = ScratchKey.of("validation.dcr-tlog-marks", DcrMarks.class);
