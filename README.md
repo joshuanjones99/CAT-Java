@@ -63,6 +63,10 @@ run.cmd preflight --rig lab --register topaz101 --no-repair
 run.cmd launch --rig lab --plan PETROCORE-135127   :: one run, headless, through the seven steps
 run.cmd provision --rig lab               :: push, verify and stamp the pos-shim payload; exit 0 when provisioned
 run.cmd xray --run <run-id> [--once] [--dry-run]    :: the Xray reporting sidecar for one run
+run.cmd close-day --rig lab               :: close the Commander's day (petrotest close-day)
+run.cmd commander-snapshot ACTION ...     :: capture, restore or check a Commander config snapshot
+run.cmd commander-connect --rig lab --lab Prod --email E --service-id ID   :: onboard to Commander Connect
+run.cmd cloud-tunnel --rig lab [--stop]   :: the Commander's cloud tunnel (petrotest cloud-tunnel)
 ```
 
 `web` is the default, so `run.cmd --rig lab` and `run.cmd web --rig lab` are the same. The web UI
@@ -70,7 +74,15 @@ knows the rig it was started with, so its Start run launches on it. `preflight`
 takes `--rig`, `--register`, `--shim-port` and `--no-repair`, and exits 0 when the rig is testable,
 1 when it is not, 2 for a usage or load error.
 
-`launch` takes `--rig`, `--plan`, `--suite`, `--simulator`, `--upgrade`, `--fake-pos` and `--fake-pinpad`.
+`launch` takes the Python `tools/rig/run_plan.py`'s flags: `--rig`, `--plan` (one or more keys, repeatable,
+run in the order given), `--suite`, `--simulator`, `--upgrade`, `--exec dev|BDD`, `--dist`, `--branch` (the
+petroapps test-plan branch), `--fep` (repeatable), `--no-xray`, `--coverage`/`--no-coverage`, `--cc-onboard`,
+`--waive-cc-requirement`, `--capture-snapshot`, `--snapshot-update`, `--buypass-host`, `--cache-only`,
+`--tags`/`--only KEY...`/`--from KEY` (one at a time; a partial run is still refused), `--fake-pos` and
+`--fake-pinpad`. A flag not given falls back to the Config tab's saved choices (`~/.cat/java/last-config.json`,
+then the Python CAT's `~/.cat/last-config.json`, read-only), then the Python's defaults. The plan's cases are
+read from Xray first, the cache only with `--cache-only`. A rig run's simulators and probed devices are the
+plan's Supported CAT Test Plans row, or else every launchable simulator and every device but the pinpad.
 It exits 0 only when every step completed, 1 when a step failed or is unavailable, and 2 for a usage
 error. Step 4 still reports parts unavailable on a rig (HANDOFF.md §6), so a rig run cannot complete yet. `xray` takes the run's id and exits 0
 whatever Xray did, and 2 for a usage error.

@@ -1,5 +1,15 @@
 @echo off
 rem Starts the CAT-Java web UI on the controller's Java 17: run.cmd --rig lab
+rem Or runs one command and exits with its code (Main's dispatch table):
+rem   run.cmd preflight --rig lab [--no-repair]
+rem   run.cmd launch --rig lab --plan PETROCORE-118517 [--upgrade new_install] [--exec dev] [--no-xray]
+rem               [--no-coverage] [--cc-onboard] [--fep NAME]... [--cache-only]   (run_plan.py's flags)
+rem   run.cmd provision --rig lab
+rem   run.cmd xray --run RUN_ID
+rem   run.cmd close-day --rig lab
+rem   run.cmd commander-snapshot ACTION ...
+rem   run.cmd commander-connect --rig lab --lab Prod --email E --service-id ID
+rem   run.cmd cloud-tunnel --rig lab [--stop]
 setlocal
 if "%CAT_TOOLS_ROOT%"=="" (set "TOOLS=C:\CICD\Tools") else (set "TOOLS=%CAT_TOOLS_ROOT%")
 set "JAVA=%TOOLS%\Java17\jdk-17.0.5+8\bin\java.exe"
