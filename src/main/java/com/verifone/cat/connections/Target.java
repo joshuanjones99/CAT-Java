@@ -23,7 +23,9 @@ public record Target(String name, String host, Integer port, Kind kind, boolean 
         /** Whether this machine holds the address; no port, no packet. */
         LOCAL,
         /** Signs in to Xray and Jira with the stored credentials (the Python CAT's {@code xray} probe). */
-        XRAY
+        XRAY,
+        /** Whether Windows lists a serial port; the host is the port's name (the Python CAT's {@code serial} probe). */
+        SERIAL
     }
 
     /** A target that is not fixed: present only when selected. */
@@ -52,5 +54,10 @@ public record Target(String name, String host, Integer port, Kind kind, boolean 
      */
     public static Target xray(String name, String host) {
         return new Target(name, host, 443, Kind.XRAY);
+    }
+
+    /** A serial port that must be listed by Windows, named by {@code port} ({@code COM3}); fixed. */
+    public static Target serial(String name, String port) {
+        return new Target(name, port, null, Kind.SERIAL, true);
     }
 }

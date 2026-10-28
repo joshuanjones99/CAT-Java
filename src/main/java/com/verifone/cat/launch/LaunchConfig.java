@@ -64,9 +64,9 @@ import com.verifone.cat.runconfig.RunScope;
  *                     downloads nothing, and a PSI install then installs the newest build under the builds root.
  *                     Read by step 4 ({@link InstallCommanderBuild})
  * @param commanderBuild the Commander Build's number on {@code commanderBranch}; "" downloads nothing
- * @param simBranch    the Simulator Build's branch (the Python's {@code sim_branch}); carried, not read yet: the
- *                     Python's System Checks replaces the staged simulators with it ({@code cat/sims/fetch.py})
- * @param simBuild     the Simulator Build's number; carried, not read yet
+ * @param simBranch    the Simulator Build's branch (the Python's {@code sim_branch}): System Checks replaces the
+ *                     staged simulators with it ({@link SimulatorBaseChecks#fetchSimulatorBuild}); "" replaces none
+ * @param simBuild     the Simulator Build's number on {@code simBranch}
  */
 public record LaunchConfig(
         String rig,

@@ -14,7 +14,7 @@ import java.util.Objects;
  * Python's; only the names are camelCase.
  *
  * <p>Fields this port does not act on are left out and named in the port's HANDOFF: the
- * artifactory fetch, the TLS and CAPK pre-steps (except {@code capkFrom}, which refuses),
+ * artifactory source and match_base flag (kept in {@link SimSources}), the TLS and CAPK pre-steps (except {@code capkFrom}, which refuses),
  * {@code superseded_by}, {@code well_formed}, and the Swing minimising of {@code windowed}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).

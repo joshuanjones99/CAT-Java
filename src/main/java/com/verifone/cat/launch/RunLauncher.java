@@ -203,7 +203,7 @@ public final class RunLauncher {
     /** Steps 1 to 4, in order. Returns the step that ended the run, or "" when all four let it go on. */
     String prepareRig(RunContext ctx, List<String> notReached) {
         List<LaunchStep> stages = List.of(
-                new SystemChecksStep(),
+                new SystemChecksStep(SystemCheckStages.real(processOps, System.getenv())),
                 new ConnectionsStep(checks),
                 new StartSimulatorsStep(),
                 new CommanderConfigurationStep());

@@ -48,6 +48,7 @@ public final class RunContext {
     private volatile boolean commanderReached;
     private volatile boolean commanderLoginReady = true;
     private volatile String installedBuild = "";
+    private volatile String simsBase = "";
     /** Petro's held pump-state ports, port to sink (the Python's {@code petro_sinks}); see {@link PetroPorts}. */
     private final Map<Integer, AutoCloseable> petroSinks = new ConcurrentHashMap<>();
     private volatile PetroPorts.Opener petroPortOpener = PetroPorts.Opener.PORT_SINK;
@@ -191,6 +192,20 @@ public final class RunContext {
 
     void installedBuild(String value) {
         installedBuild = value == null ? "" : value;
+    }
+
+    /**
+     * The Commander base this run's simulators face (the Python's {@code sims_base}): the build the run installs when
+     * its branch names one ({@code master055.02}), else the Commander's {@code Base_Level} ({@code 055.02.09}); ""
+     * when unknown or on a fake-POS run. Set by System Checks; the registry rows and the Java 17 set follow it
+     * ({@link com.verifone.cat.sims.base.JavaSets#olderBase}, {@link com.verifone.cat.sims.base.JavaSets#javaForRun}).
+     */
+    public String simsBase() {
+        return simsBase;
+    }
+
+    void simsBase(String value) {
+        simsBase = value == null ? "" : value;
     }
 
     /** The run lock this run holds, or {@code null}. Released by the launcher whatever happened. */
