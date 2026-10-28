@@ -45,6 +45,11 @@ public final class RunContext {
     private LoadedRig rig;
     private RigLease runLock;
 
+    /** Petro's held pump-state ports, port to sink (the Python's {@code petro_sinks}); see {@link PetroPorts}. */
+    private final Map<Integer, AutoCloseable> petroSinks = new ConcurrentHashMap<>();
+    private volatile PetroPorts.Opener petroPortOpener = PetroPorts.Opener.PORT_SINK;
+    private volatile boolean testsStarted;
+
     RunContext(LaunchConfig config, LaunchPaths paths, String runId, Path runFolder, RunEvents events,
             PauseGate pause, Clock clock) {
         this.config = config;
@@ -125,6 +130,38 @@ public final class RunContext {
 
     void runLock(RigLease lease) {
         runLock = lease;
+    }
+
+    /**
+     * Petro Simulator Suite's pump-state ports this run holds, port to sink, from before step 3 starts Petro until
+     * the run ends (the Python's {@code _RunContext.petro_sinks}). PATS's 1072 is lent to step 5's pump listener and
+     * to step 4's {@code commander-init}, and held again after; 9706 stays held. Read and changed through
+     * {@link PetroPorts}.
+     */
+    public Map<Integer, AutoCloseable> petroSinks() {
+        return petroSinks;
+    }
+
+    /** What {@link PetroPorts#hold} opens a port with: a {@code PortSink}, unless a test set a fake. */
+    PetroPorts.Opener petroPortOpener() {
+        return petroPortOpener;
+    }
+
+    /** Test seam: holds Petro's ports with {@code opener} instead of real listening sockets. */
+    void petroPortOpener(PetroPorts.Opener opener) {
+        petroPortOpener = opener;
+    }
+
+    /**
+     * Whether step 5 started its first case (the Python's {@code tests_started}): Cleanup leaves the register's day
+     * alone when no test ran.
+     */
+    public boolean testsStarted() {
+        return testsStarted;
+    }
+
+    void testsStarted(boolean started) {
+        testsStarted = started;
     }
 
     /** The supervisor step 3 drives. Set by the launcher; a PowerShell-backed one if nothing set it. */

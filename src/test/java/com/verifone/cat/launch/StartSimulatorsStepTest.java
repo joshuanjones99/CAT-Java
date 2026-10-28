@@ -92,17 +92,28 @@ class StartSimulatorsStepTest {
     }
 
     @Test
-    void petroOnARigIsUnavailableBeforeAnythingIsStarted() throws IOException {
+    void petroOnARigHoldsItsPortsFirstAndFailsWhenPatsPortIsTakenAndTheRunDrivesPumps() throws IOException {
         LaunchConfig config = new LaunchConfig.Builder(LaunchFixtures.RIG)
                 .simulator(StartSimulatorsStep.PETRO_SIMULATOR).build();
         RunContext ctx = context(config, "cccccccccccc");
+        List<Integer> opened = new java.util.ArrayList<>();
+        ctx.petroPortOpener(port -> {
+            if (port == 1072) {
+                throw new com.verifone.cat.devices.DeviceUnreachable("the Petro suite's port 1072", "already held");
+            }
+            opened.add(port);
+            return () -> { };
+        });
         StepEmitter step = new StepEmitter(ctx, LaunchStepNames.SIMULATORS);
 
-        assertFalse(new StartSimulatorsStep().run(ctx, step));
+        assertFalse(new StartSimulatorsStep(c -> java.util.Optional.of(true)).run(ctx, step));
 
+        assertEquals(List.of(9706), opened, "the UI's port is held before Petro starts");
+        assertEquals(java.util.Set.of(9706), ctx.petroSinks().keySet());
         assertEquals(StepResult.FAILED, step.state());
-        assertTrue(step.detail().startsWith("unavailable in CAT-Java: needs the Petro port holds"), step.detail());
-        assertTrue(ctx.simulators().isEmpty());
+        assertTrue(step.detail().startsWith("PATS's port 1072 is held by another process"), step.detail());
+        assertTrue(ctx.simulators().isEmpty(), "nothing is started");
+        PetroPorts.releaseAll(ctx);
     }
 
     @Test

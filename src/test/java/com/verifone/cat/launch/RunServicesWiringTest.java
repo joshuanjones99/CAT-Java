@@ -10,7 +10,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.microsoft.playwright.Page;
 import com.verifone.cat.devices.commander.PdkShim;
 import com.verifone.cat.devices.forecourt.DcrDeviceAdapter;
+import com.verifone.cat.devices.forecourt.ForecourtTimeouts;
 import com.verifone.cat.devices.forecourt.FuelPumpsAdapter;
+import com.verifone.cat.devices.forecourt.PetroDcr;
+import com.verifone.cat.devices.forecourt.PetroPumps;
+import com.verifone.cat.recovery.Timeouts;
+import com.verifone.cat.devices.DeviceUnavailable;
+import com.verifone.cat.pats.runner.FixtureName;
+import com.verifone.cat.pats.runner.FixtureSource;
+import com.verifone.cat.pats.runner.handlers.posui.FuelPumpsView;
+import java.util.EnumSet;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.verifone.cat.devices.legacyrmi.LegacySaleRmi;
 import com.verifone.cat.devices.printer.PrinterPort;
 import com.verifone.cat.devices.printer.PrinterReceipts;
@@ -92,10 +102,6 @@ class RunServicesWiringTest {
         assertEquals(9001, c.viperPay().simulatorPort());
         assertEquals(9002, c.viperPay().listenPort(), "unstarted: the port is the one asked for, not bound");
 
-        assertEquals("controller.invalid", c.pumps().simulatorHost());
-        assertEquals(9700, c.pumps().simulatorPort());
-        assertEquals("controller.invalid", c.dcr().simulatorHost());
-        assertEquals(1053, c.dcr().simulatorPort());
     }
 
     @Test
@@ -104,9 +110,19 @@ class RunServicesWiringTest {
         assertNull(BrowserConnector.clients(rig.rig(), false).viperPay(), "a run with a double keeps the double");
 
         BrowserConnector.Clients noForecourt = BrowserConnector.clients(load(RIG_NO_FORECOURT).rig(), true);
-        assertNull(noForecourt.pumps());
-        assertNull(noForecourt.dcr());
         assertNotNull(noForecourt.viperPay());
+    }
+
+    /** Petro's pumps on documentation names, built and not started: step 5's session starts the real ones. */
+    private static PetroPumps unstartedPumps() {
+        return new PetroPumps("controller.invalid", PetroPumps.PATS_FUEL_PORT, PetroPumps.PETRO_FUEL_PORT, null,
+                ForecourtTimeouts.of(Timeouts.defaults()));
+    }
+
+    /** Petro's DCR 1 on documentation names, built and not started. */
+    private static PetroDcr unstartedDcr() {
+        return new PetroDcr("controller.invalid", 1, PetroDcr.PATS_DCR_PORT, PetroDcr.PETRO_DCR_PORT,
+                ForecourtTimeouts.of(Timeouts.defaults()));
     }
 
     @Test
@@ -115,7 +131,7 @@ class RunServicesWiringTest {
         BrowserConnector.Clients c = BrowserConnector.clients(rig.rig(), true);
         TopazPrinter printer = new TopazPrinter(new SilentPort(), "COM7", () -> List.of("COM7"));
         RunServices services = services(rig, c.shim(), c.commander(), c.viperPay(), printer,
-                new DcrDeviceAdapter(c.dcr()), new FuelPumpsAdapter(c.pumps()));
+                new DcrDeviceAdapter(unstartedDcr()), new FuelPumpsAdapter(unstartedPumps()));
 
         HandlerFixtures f = StandardRegistry.fixtures(services, Map.of());
 
@@ -136,7 +152,7 @@ class RunServicesWiringTest {
         LoadedRig rig = load(RIG);
         BrowserConnector.Clients c = BrowserConnector.clients(rig.rig(), true);
         RunServices services = services(rig, c.shim(), c.commander(), c.viperPay(), null,
-                new DcrDeviceAdapter(c.dcr()), new FuelPumpsAdapter(c.pumps()));
+                new DcrDeviceAdapter(unstartedDcr()), new FuelPumpsAdapter(unstartedPumps()));
 
         ActionRegistry registry = new StandardRegistry().create(services);
 
@@ -155,6 +171,48 @@ class RunServicesWiringTest {
         assertNull(f.fuelPumps());
         assertNull(f.commanderAccess());
         assertNull(f.cloudSite());
+    }
+
+    @Test
+    void theFixturesACaseAsksForAreTheRunsDevicesThroughStandardHandlers() throws IOException {
+        LoadedRig rig = load(RIG);
+        BrowserConnector.Clients c = BrowserConnector.clients(rig.rig(), true);
+        DcrDevice dcr = new DcrDeviceAdapter(unstartedDcr());
+        RunServices services = services(rig, c.shim(), c.commander(), c.viperPay(), null, dcr,
+                new FuelPumpsAdapter(unstartedPumps()));
+
+        RegistryFactory.Built built = new StandardRegistry().build(services);
+        FixtureSource fixtures = built.fixtures();
+
+        assertNotNull(built.handlers(), "one HandlerFixtures for the registry and the fixtures");
+        assertSame(c.shim(), fixtures.fixture(FixtureName.LEGACY_RMI), "LEGACY_RMI is the pos-shim");
+        assertSame(dcr, fixtures.fixture(FixtureName.DCR), "DCR is the session's DCR 1");
+        assertInstanceOf(FuelPumpsView.class, fixtures.fixture(FixtureName.FUEL_PUMPS));
+        assertSame(c.commander(), fixtures.fixture(FixtureName.COMMANDER_CONFIG));
+        assertSame(built.handlers().pos(), fixtures.fixture(FixtureName.POS));
+        assertEquals(EnumSet.allOf(FixtureName.class), TestsRunStep.declaredFixtures(services));
+    }
+
+    @Test
+    void aSurfaceTheRunLacksFailsByNameRatherThanHandingOutAStandIn() throws IOException {
+        RunServices noDevices = services(null, null, null, null, null, null, null);
+        FixtureSource fixtures = new StandardRegistry().build(noDevices).fixtures();
+
+        assertThrows(DeviceUnavailable.class, () -> fixtures.fixture(FixtureName.LEGACY_RMI));
+        assertThrows(DeviceUnavailable.class, () -> fixtures.fixture(FixtureName.PINPAD));
+        assertThrows(DeviceUnavailable.class, () -> fixtures.fixture(FixtureName.COMMANDER_CONFIG));
+        DcrDevice dcr = (DcrDevice) fixtures.fixture(FixtureName.DCR);
+        assertThrows(DeviceUnavailable.class, () -> dcr.waitForPrompt("WELCOME", null));
+        assertEquals(EnumSet.of(FixtureName.POS, FixtureName.CONFIGURATIONS),
+                TestsRunStep.declaredFixtures(noDevices));
+
+        LoadedRig noShim = load(RIG.replace("pos_shim: true\n", ""));
+        BrowserConnector.Clients c = BrowserConnector.clients(noShim.rig(), true);
+        FixtureSource shimless = new StandardRegistry().build(services(noShim, c.shim(), c.commander(), null, null,
+                null, null)).fixtures();
+        DeviceUnavailable refused = assertThrows(DeviceUnavailable.class,
+                () -> shimless.fixture(FixtureName.LEGACY_RMI));
+        assertTrue(refused.getMessage().contains("no pos_shim"), refused.getMessage());
     }
 
     @Test

@@ -191,6 +191,8 @@ public final class RunLauncher {
         } finally {
             ctx.stopWatching();
             stopSimulators(ctx);
+            // After the simulators, so Petro never pushes to a closed port while it runs.
+            PetroPorts.releaseAll(ctx);
             releaseRig(ctx);
             events.close();
             RunEnded.mark(folder, clock.instant());

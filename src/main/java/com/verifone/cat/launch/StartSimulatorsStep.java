@@ -5,9 +5,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
@@ -30,9 +32,17 @@ import com.verifone.cat.sims.ToolsRoot;
  * against a simulator nobody has confirmed is up. The rows that need their Swing buttons pressed stay
  * {@code needs attention} until the Access Bridge is ported, so a run that selects one stops here.
  *
- * <p>Not carried, so a rig run that needs one of them is unavailable before anything is started:
- * the BTT card server for a {@code pinpad: vats} rig, and for Petro Simulator Suite the port holds,
- * the wrong-variant stop and the pump-port check. A fake-POS run needs none of them. The Java 17 set
+ * <p>Petro Simulator Suite on a rig: before anything starts, Petro's pump-state ports are held for the
+ * run ({@link PetroPorts#hold}) and the step fails when another process holds PATS's 1072 and the run
+ * drives pumps ({@link PetroPorts#patsPortFreeForPumps}). Deviation: the run's cases are collected in
+ * step 5 here, not before step 1 as the Python's suites are, so the production step does not know
+ * whether they drive pumps and goes on with a WARNING, as the Python does for unknown suites; step 1's
+ * port guard is what stops such a run. The Python's wrong-variant stop ({@code _stop_wrong_variants})
+ * acts only once the Commander's base is read, which CAT-Java does not do, so it is a no-op there too
+ * and is not carried.
+ *
+ * <p>Not carried, so a rig run that needs it is unavailable before anything is started: the BTT card
+ * server for a {@code pinpad: vats} rig. A fake-POS run needs none of the above. The Java 17 set
  * is the default {@code Java17} (base 57 and later), since the Python's base-picking is not carried.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: the supervisor has never run against the real simulators from this
@@ -45,6 +55,19 @@ final class StartSimulatorsStep implements LaunchStep {
 
     /** Per-simulator start budget: the Python CAT's {@code SIM_START_TIMEOUT}. */
     static final Duration START_TIMEOUT = Duration.ofSeconds(60);
+
+    /** Whether the run's cases drive a pump, or empty when that is not known yet (the Python's {@code _suites_drive_pumps}). */
+    private final Function<RunContext, Optional<Boolean>> drivesPumps;
+
+    /** The production step: the run's cases are collected in step 5, so whether they drive a pump is not known here. */
+    StartSimulatorsStep() {
+        this(ctx -> Optional.empty());
+    }
+
+    /** @param drivesPumps whether the run's cases drive a pump, or empty when unknown */
+    StartSimulatorsStep(Function<RunContext, Optional<Boolean>> drivesPumps) {
+        this.drivesPumps = drivesPumps;
+    }
 
     @Override
     public String name() {
@@ -67,10 +90,11 @@ final class StartSimulatorsStep implements LaunchStep {
             return step.skipStep("no simulators selected — nothing started");
         }
         if (!fakePos && selected.contains(PETRO_SIMULATOR)) {
-            return step.unavailable("src/cat/launch/steps/simulators.py",
-                    "the Petro port holds, the wrong-variant stop and the pump-port check "
-                            + "(_hold_petro_ports, _stop_wrong_variants, _pats_port_free_for_pumps), which "
-                            + "Petro Simulator Suite needs on a rig before it starts");
+            // Before Petro starts: every pump state it pushes must be heard (PetroPorts).
+            PetroPorts.hold(ctx, step);
+            if (!PetroPorts.patsPortFreeForPumps(ctx, step, drivesPumps.apply(ctx))) {
+                return false;
+            }
         }
 
         List<SimEntry> entries = new ArrayList<>();

@@ -15,8 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.verifone.cat.devices.DeviceUnavailable;
+import com.verifone.cat.devices.forecourt.PetroPumps;
+import com.verifone.cat.devices.printer.TopazPrinter;
 import com.verifone.cat.pats.PatsCaseLoader;
-import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.FixtureName;
 import com.verifone.cat.pats.runner.FixtureRequirements;
@@ -40,6 +41,7 @@ import com.verifone.cat.report.CaseLog;
 import com.verifone.cat.report.CaseRecord;
 import com.verifone.cat.report.events.CatEvent;
 import com.verifone.cat.report.events.Outcome;
+import com.verifone.cat.rig.Rig;
 
 /**
  * Step 5, Tests Run: the run's cases, one after another in plan order, each through {@link CaseRun} with
@@ -68,9 +70,31 @@ import com.verifone.cat.report.events.Outcome;
  * {@link PinpadDouble#fakePinpadSelected} says so, with its banner. The run's {@code RunStarted} already
  * carries {@code fake_pos=true}.
  *
- * <p>Not done here: the Python's printer lending and port handoffs around pytest, the DCR and fuel-pump
- * listeners, and failed-validation evidence capture (no {@link com.verifone.cat.pats.runner.EvidenceSink}
- * is given). A case that needs one of those fails with {@link DeviceUnavailable}; nothing reports success.
+ * <p>The fixtures a case's actions ask for are the {@link RegistryFactory}'s ({@link RegistryFactory#build}): for
+ * {@link StandardRegistry}, {@code StandardHandlers.fixtureSource} over the run's one {@code HandlerFixtures}, so
+ * {@code LEGACY_RMI} is the pos-shim and {@code DCR} and {@code FUEL_PUMPS} are the session's Petro devices.
+ *
+ * <p>What the Python's pytest session adds around the cases, done here as the session:
+ * <ul>
+ *   <li><b>The handoffs</b> ({@code _step_tests}): PATS's pump port 1072, held by the run since step 3
+ *       ({@link PetroPorts}), is released before the session's pump listener binds it and held again when the
+ *       step ends. The receipt printer's port is the session's while the tests run: the connector opens it at the
+ *       session's start (as the Python's {@code _topaz_printer_session} does) and closes it at the end, and its
+ *       Receipt Printer row says it is lent, then stopped ({@code cat.launch.printer.lend_to_tests},
+ *       {@code tests_ended}).</li>
+ *   <li><b>Petro's pumps and DCR 1</b> ({@link PetroSession}): one listener each for the whole step when a case of
+ *       the run declares them; the DCR link check and its once-per-session recovery at a DCR case's setup; and after a
+ *       case that failed in its actions, its pumps cleared and their due fills settled.</li>
+ *   <li><b>A fixture's setup failure</b> (a Petro fixture the rig cannot give, a listener that did not start, a DCR
+ *       link that would not come back) errors the case before its first action, as a pytest fixture error does, and
+ *       walks the recovery ladder as a {@code setup} failure.</li>
+ * </ul>
+ * {@link RunContext#testsStarted()} is set when the first case starts. Deviation: the Python sets
+ * {@code tests_started} on entering the step; the orchestrator asked for the first case.
+ *
+ * <p>Not done here: failed-validation evidence capture. No {@link com.verifone.cat.pats.runner.EvidenceSink} is
+ * given (TODO): {@code PosDriver.capture} writes nothing without an {@code ArtifactSink}, and the connector builds the
+ * driver with none, so a sink over it would only pretend. Nothing reports success for it either.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */
@@ -87,6 +111,7 @@ final class TestsRunStep implements LaunchStep {
     private final RegistryFactory registries;
     private final CaseSource cases;
     private final RunServices.Connector connector;
+    private final PetroSession.Devices forecourt;
 
     /**
      * @param registries the action registry factory, or {@code null} when none is wired (the step is then
@@ -95,14 +120,31 @@ final class TestsRunStep implements LaunchStep {
      * @param connector  adds the devices the run connects; {@code null} means {@link RunServices.Connector#NONE}
      */
     TestsRunStep(RegistryFactory registries, CaseSource cases, RunServices.Connector connector) {
+        this(registries, cases, connector, null);
+    }
+
+    /**
+     * @param forecourt Petro Simulator Suite's devices for the session, or {@code null} for the rig's own
+     *                  ({@link PetroSession.Devices#forRig}); a test passes loopback fakes
+     */
+    TestsRunStep(RegistryFactory registries, CaseSource cases, RunServices.Connector connector,
+            PetroSession.Devices forecourt) {
         this.registries = registries;
         this.cases = cases;
         this.connector = connector == null ? RunServices.Connector.NONE : connector;
+        this.forecourt = forecourt;
     }
 
     @Override
     public String name() {
         return LaunchStepNames.TESTS;
+    }
+
+    /** What the step lends and takes for the session, released whatever way the step ends. */
+    private static final class Session {
+        PetroSession petro;
+        boolean heldPumpPort;
+        boolean printerLent;
     }
 
     @Override
@@ -112,6 +154,7 @@ final class TestsRunStep implements LaunchStep {
                     + "is not wired with yet (pats.runner.handlers and the plan's collected cases)");
         }
         FakePos fake = null;
+        Session session = new Session();
         try {
             // The pinpad double first: the fake POS's MOP screens raise their prompts on it (FakePosPinpad.wire).
             PinpadDouble pinpad = null;
@@ -123,20 +166,36 @@ final class TestsRunStep implements LaunchStep {
                 fake = FakePos.open(pinpad == null ? FakePos.Hooks.NONE : FakePosPinpad.wire(pinpad));
                 banner(ctx, FakePosBanner.TITLE, FakePosBanner.LINES);
             }
-            return runCases(ctx, step, fake, pinpad);
+            return runCases(ctx, step, fake, pinpad, session);
         } catch (IOException e) {
             return step.fail("the step could not start: " + e.getMessage());
         } finally {
+            // The listeners first, so PATS's port is free before the run holds it again.
+            if (session.petro != null) {
+                session.petro.close();
+            }
             connector.close();
             if (fake != null) {
                 fake.close();
+            }
+            if (session.printerLent) {
+                // On a stopped run too: the connector has closed the port.
+                printerRow(ctx, "stopped", "the test session has ended; nothing holds it");
+            }
+            if (session.heldPumpPort) {
+                // Back from the session for the report and Cleanup's day close, while Petro still runs.
+                PetroPorts.hold(ctx, step);
             }
         }
     }
 
     // -- the cases -----------------------------------------------------------------------------
 
-    private boolean runCases(RunContext ctx, StepEmitter step, FakePos fake, PinpadDouble pinpad)
+    /** A case read before the session starts: its actions, or why it could not be read. */
+    private record Loaded(CaseEntry entry, RunnableCase kase, Exception error) {
+    }
+
+    private boolean runCases(RunContext ctx, StepEmitter step, FakePos fake, PinpadDouble pinpad, Session session)
             throws IOException {
         List<CaseEntry> toRun = new ArrayList<>();
         for (CaseEntry entry : cases.cases(ctx.config())) {
@@ -151,13 +210,32 @@ final class TestsRunStep implements LaunchStep {
             endSession(ctx, Outcome.FAILED, 0, 0);
             return true;
         }
+        // Every case is read up front, as pytest collects: the session's listeners start for what the cases declare.
+        List<Loaded> loaded = new ArrayList<>();
+        Set<FixtureName> wanted = EnumSet.noneOf(FixtureName.class);
+        for (CaseEntry entry : toRun) {
+            try {
+                RunnableCase kase = PatsCaseLoader.load(entry.file());
+                wanted.addAll(FixtureRequirements.fixturesFor(kase));
+                loaded.add(new Loaded(entry, kase, null));
+            } catch (IOException | RuntimeException e) {
+                loaded.add(new Loaded(entry, null, e));
+            }
+        }
+
+        // The handoffs: the printer's port and PATS's pump port are the session's from here.
+        session.printerLent = lendPrinter(ctx);
+        session.heldPumpPort = PetroPorts.release(ctx, PetroPumps.PATS_FUEL_PORT);
+        Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
+        session.petro = PetroSession.start(rig, ctx.config().fakePos(), wanted, forecourt,
+                (level, message) -> step.log(message, level));
 
         RunServices base = new RunServices(ctx.config(), ctx.paths(), ctx.runId(), ctx.runFolder(),
-                ctx.rig(), null, null, null, pinpad, fake == null ? null : fake.url(), null);
+                ctx.rig(), null, null, null, pinpad, fake == null ? null : fake.url(), null, null,
+                session.petro.dcr(), session.petro.fuelPumps());
         RunServices services = connector.connect(base);
-        ActionRegistry registry = registries.create(services);
-        FixtureSource fixtures = fixtureSource(services);
-        Set<FixtureName> declared = declaredFixtures(services);
+        RegistryFactory.Built built = registries.build(services);
+        step.log("fixtures this run provides: " + declaredFixtures(services), "INFO");
         RecoveryLadder ladder = services.recovery() == null ? null
                 : new RecoveryLadder(services.recovery(), new Capturer(), ctx.runId(),
                         new RunSummary(ctx.runId()), null);
@@ -168,9 +246,10 @@ final class TestsRunStep implements LaunchStep {
         int failed = 0;
         int finished = 0;
         String drained = "";
-        for (CaseEntry entry : toRun) {
+        for (Loaded one : loaded) {
+            CaseEntry entry = one.entry();
             pauseBeforeCase(ctx, entry.nodeid());
-            CaseVerdict verdict = runCase(ctx, entry, registry, fixtures, declared, state, ladder);
+            CaseVerdict verdict = runCase(ctx, one, built, session.petro, state, ladder);
             finished++;
             if (verdict.passed()) {
                 passed++;
@@ -195,16 +274,24 @@ final class TestsRunStep implements LaunchStep {
         return true;
     }
 
-    /** One case, from its start to its verdict, with its events, its folder and any recovery. */
-    private CaseVerdict runCase(RunContext ctx, CaseEntry entry, ActionRegistry registry, FixtureSource fixtures,
-            Set<FixtureName> declared, RunState state, RecoveryLadder ladder) {
+    /** One case, from its start to its verdict, with its events, its folder, any recovery and the pump teardown. */
+    private CaseVerdict runCase(RunContext ctx, Loaded one, RegistryFactory.Built built, PetroSession petro,
+            RunState state, RecoveryLadder ladder) {
+        CaseEntry entry = one.entry();
         String nodeid = entry.nodeid();
         Path folder = ctx.runFolder().resolve(entry.key());
         CaseRecord record = new CaseRecord(nodeid, entry.key(), folder, ctx.clock().instant());
+        ctx.testsStarted(true);
         ctx.emit(new CatEvent.TestStarted(nodeid));
         long started = System.nanoTime();
 
-        Attempt attempt = execute(ctx, record, entry, registry, fixtures, declared, state);
+        // The fixtures the case's test declares are the ones its actions need (the Python generates the test with
+        // them); a fixture the run cannot provide then fails the action that asks for it, by name.
+        Set<FixtureName> declared = EnumSet.noneOf(FixtureName.class);
+        if (one.kase() != null) {
+            declared.addAll(FixtureRequirements.fixturesFor(one.kase()));
+        }
+        Attempt attempt = execute(ctx, record, one, built, declared, petro, state);
         record.finish(attempt.outcome(), attempt.detail(), "", ctx.clock().instant());
         writeStepsLog(record, folder);
 
@@ -212,6 +299,10 @@ final class TestsRunStep implements LaunchStep {
         if (ladder != null && attempt.recoverable()) {
             drained = recover(ctx, ladder, nodeid, attempt);
         }
+        // The fuel_pumps fixture's teardown: after the ladder, as pytest tears fixtures down after its report hook.
+        PetroSession.DueFuel dueFuel = built.handlers() != null && declared.contains(FixtureName.POS)
+                ? PetroSession.DueFuel.over(built.handlers().pos()) : null;
+        petro.afterCase(declared, attempt.callFailed(), dueFuel);
         double seconds = (System.nanoTime() - started) / 1_000_000_000.0;
         ctx.emit(new CatEvent.TestFinished(nodeid, attempt.testOutcome(), seconds, 0, attempt.excType(),
                 truncate(attempt.detail())));
@@ -239,23 +330,29 @@ final class TestsRunStep implements LaunchStep {
      * Runs the case's actions in order, emitting each step as it starts and settles. Stops at the first
      * action that could not be done, recording the rest as not reached, as {@link CaseRun#run} does.
      */
-    private static Attempt execute(RunContext ctx, CaseRecord record, CaseEntry entry, ActionRegistry registry,
-            FixtureSource fixtures, Set<FixtureName> declared, RunState state) {
-        RunnableCase kase;
-        try {
-            kase = PatsCaseLoader.load(entry.file());
-        } catch (IOException | RuntimeException e) {
+    private static Attempt execute(RunContext ctx, CaseRecord record, Loaded one, RegistryFactory.Built built,
+            Set<FixtureName> declared, PetroSession petro, RunState state) {
+        CaseEntry entry = one.entry();
+        RunnableCase kase = one.kase();
+        if (kase == null) {
+            Exception e = one.error();
             return Attempt.error("could not read the case: " + e.getMessage(), e);
         }
         record.setTitle(kase.title());
-        // The fixtures the case's test declares are the ones its actions need (the Python generates the test with
-        // them); a fixture the run cannot provide then fails the action that asks for it, by name.
-        Set<FixtureName> caseDeclared = EnumSet.noneOf(FixtureName.class);
-        caseDeclared.addAll(FixtureRequirements.fixturesFor(kase));
-        CaseRun run = new CaseRun(kase, record, registry, fixtures, caseDeclared, state)
+        List<RunnableAction> actions = kase.actions();
+        // The session fixtures' setup, before the first action: a fixture that cannot be had errors the case.
+        try {
+            petro.beginCase(declared);
+        } catch (RuntimeException e) {
+            for (RunnableAction later : actions) {
+                record.addUnreachedStep(later.index() + 1, "", later.describe());
+            }
+            return Attempt.setupFailed(e);
+        }
+        // TODO(evidence): no EvidenceSink is given; see the class Javadoc.
+        CaseRun run = new CaseRun(kase, record, built.registry(), built.fixtures(), declared, state)
                 .withBaselineDir(entry.file().getParent())
                 .withUpdate(ctx.config().snapshotUpdate());
-        List<RunnableAction> actions = kase.actions();
         String nodeid = entry.nodeid();
         int validationsSent = 0;
         try {
@@ -336,7 +433,12 @@ final class TestsRunStep implements LaunchStep {
 
     // -- fixtures and banners --------------------------------------------------------------------
 
-    /** The fixtures a run can provide, each from the services; an absent one fails the action as unavailable. */
+    /**
+     * The fixtures a run provides when its registry factory built no handler fixtures ({@link RegistryFactory#build}'s
+     * default, and {@link StandardRegistry} with no POS driver): each from the services, an absent one failing the
+     * action as unavailable. {@code FUEL_PUMPS} is the POS UI family's view of the pumps, which only the handler
+     * fixtures build, so it is unavailable here.
+     */
     static FixtureSource fixtureSource(RunServices services) {
         return name -> switch (name) {
             case POS -> present(services.pos(), "pos", "no POS driver is connected to this run");
@@ -349,18 +451,17 @@ final class TestsRunStep implements LaunchStep {
             }
             case COMMANDER_CONFIG -> present(services.commander(), "commander_config",
                     "no Commander PDK shim is connected to this run");
-            case LEGACY_RMI -> throw new DeviceUnavailable("legacy_rmi",
-                    "PATS's RMI read is replaced by the pos-shim, which this run does not connect yet");
-            case DCR -> throw new DeviceUnavailable("dcr", "the DCR session listener is not ported to this run");
+            case LEGACY_RMI -> present(services.posShim(), "legacy_rmi", "no pos-shim is connected to this run");
+            case DCR -> present(services.dcr(), "dcr", "the session has no Petro DCR listener");
             case FUEL_PUMPS -> throw new DeviceUnavailable("fuel_pumps",
-                    "the fuel-pump listener is not connected to this run");
+                    "the run's handler fixtures are not built (no POS driver), so the pumps' view is not either");
             case CONFIGURATIONS -> PetroappsFiles.fromEnvironment(System.getenv()).configurations();
         };
     }
 
-    /** The fixtures a case's test is taken to declare: the ones this run can provide. */
+    /** The fixtures this run really provides, from what is wired into its services: logged at the session's start. */
     static Set<FixtureName> declaredFixtures(RunServices services) {
-        Set<FixtureName> declared = EnumSet.noneOf(FixtureName.class);
+        Set<FixtureName> declared = EnumSet.of(FixtureName.CONFIGURATIONS);
         if (services.pos() != null) {
             declared.add(FixtureName.POS);
         }
@@ -370,7 +471,46 @@ final class TestsRunStep implements LaunchStep {
         if (services.commander() != null) {
             declared.add(FixtureName.COMMANDER_CONFIG);
         }
+        if (services.posShim() != null && (services.rig() == null || services.rig().rig().posShim())) {
+            declared.add(FixtureName.LEGACY_RMI);
+        }
+        if (services.dcr() != null) {
+            declared.add(FixtureName.DCR);
+        }
+        if (services.fuelPumps() != null && services.pos() != null) {
+            declared.add(FixtureName.FUEL_PUMPS);
+        }
         return declared;
+    }
+
+    // -- the printer's port --------------------------------------------------------------------
+
+    /** The primary register's {@code printer_port}, or null: the one port the session holds for the register. */
+    static String printerPort(RunContext ctx) {
+        if (ctx.rig() == null) {
+            return null;
+        }
+        String port = ctx.rig().rig().primaryRegister().printerPort();
+        return port == null || port.isBlank() ? null : port;
+    }
+
+    /**
+     * Says the printer's port is now the session's (the Python's {@code lend_to_tests}). False, and no row, when the
+     * session holds no printer: under {@code --fake-pos}, or on a rig with no {@code printer_port}.
+     */
+    private static boolean lendPrinter(RunContext ctx) {
+        if (printerPort(ctx) == null || ctx.config().fakePos()) {
+            return false;
+        }
+        printerRow(ctx, "started", "lent to the test session, which opens it at its start");
+        return true;
+    }
+
+    /** The Receipt Printer's row: one {@code SimulatorState}, as step 3 sends for each simulator. */
+    private static void printerRow(RunContext ctx, String state, String detail) {
+        String port = printerPort(ctx);
+        ctx.emit(new CatEvent.SimulatorState(TopazPrinter.PRINTER_NAME, state, "supervised", "CAT",
+                port == null ? "" : port, detail));
     }
 
     private static Object present(Object value, String surface, String detail) {
@@ -426,30 +566,47 @@ final class TestsRunStep implements LaunchStep {
         private final String detail;
         private final String excType;
         private final boolean recoverable;
+        /** The pytest phase that failed, as the recovery reason names it: {@code call} or {@code setup}. */
+        private final String phase;
 
-        private Attempt(String outcome, String detail, String excType, boolean recoverable) {
+        private Attempt(String outcome, String detail, String excType, boolean recoverable, String phase) {
             this.outcome = outcome;
             this.detail = detail;
             this.excType = excType;
             this.recoverable = recoverable;
+            this.phase = phase;
         }
 
         static Attempt ok() {
-            return new Attempt("passed", "", "", false);
+            return new Attempt("passed", "", "", false, "call");
         }
 
         static Attempt validationsFailed(ValidationsFailed failed) {
-            return new Attempt("failed", failed.getMessage(), failed.getClass().getSimpleName(), false);
+            return new Attempt("failed", failed.getMessage(), failed.getClass().getSimpleName(), false, "call");
         }
 
         static Attempt stepFailed(RuntimeException cause) {
             String type = cause.getClass().getSimpleName();
             String message = cause instanceof PatsStepError ? cause.getMessage() : type + ": " + cause.getMessage();
-            return new Attempt("failed", message, type, true);
+            return new Attempt("failed", message, type, true, "call");
+        }
+
+        /** A fixture's setup failed before the first action: a pytest setup error, which the ladder walks. */
+        static Attempt setupFailed(RuntimeException cause) {
+            String type = cause.getClass().getSimpleName();
+            return new Attempt("error", type + ": " + cause.getMessage(), type, true, "setup");
         }
 
         static Attempt error(String message, Exception cause) {
-            return new Attempt("error", message, cause.getClass().getSimpleName(), false);
+            return new Attempt("error", message, cause.getClass().getSimpleName(), false, "collect");
+        }
+
+        /**
+         * Whether the case failed in its actions, before it finished them (the Python's {@code _CALL_FAILED}): not a
+         * pass, not a validation-only failure, not a setup or read error. The pump teardown runs only then.
+         */
+        boolean callFailed() {
+            return recoverable && "call".equals(phase);
         }
 
         String outcome() {
@@ -466,7 +623,7 @@ final class TestsRunStep implements LaunchStep {
 
         /** The reason a recovery walk is recorded with, as the Python's {@code "<when> raised <type>: <msg>"}. */
         String reason() {
-            return "call raised " + excType + ": " + detail;
+            return phase + " raised " + excType + ": " + detail;
         }
 
         String excType() {

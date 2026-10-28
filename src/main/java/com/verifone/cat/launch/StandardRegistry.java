@@ -9,6 +9,7 @@ import com.verifone.cat.devices.legacyrmi.LegacyRmi;
 import com.verifone.cat.devices.legacyrmi.LegacySaleRmi;
 import com.verifone.cat.devices.printer.PrinterReceipts;
 import com.verifone.cat.pats.runner.ActionRegistry;
+import com.verifone.cat.pats.runner.FixtureSource;
 import com.verifone.cat.pats.runner.handlers.HandlerFixtures;
 import com.verifone.cat.pats.runner.handlers.StandardHandlers;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
@@ -59,7 +60,8 @@ import org.slf4j.LoggerFactory;
  *       cloud settle's Commander log;</li>
  *   <li>the C-Site client when its settings are in the environment ({@code csite.username}).</li>
  * </ul>
- * The pinpad, DCR and pumps come from the connector ({@link RunServices}).
+ * The pinpad comes from the connector; the DCR and the pumps from step 5's Petro session ({@link PetroSession}), both
+ * through {@link RunServices}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: the wiring is tested on the fake POS and on documentation names only.
  */
@@ -81,9 +83,19 @@ public final class StandardRegistry implements RegistryFactory {
 
     @Override
     public ActionRegistry create(RunServices services) {
+        return build(services).registry();
+    }
+
+    /**
+     * One {@link HandlerFixtures} for the run, the registry over it, and {@link StandardHandlers#fixtureSource} over the
+     * same fixtures: {@code LEGACY_RMI} is the pos-shim, {@code DCR} and {@code FUEL_PUMPS} the session's Petro devices.
+     * A surface the run lacks still fails by name ({@link #fixtureSource(RunServices, HandlerFixtures)}).
+     */
+    @Override
+    public Built build(RunServices services) {
         if (services.pos() == null) {
             LOG.warn("no POS driver is connected to this run; no action has a handler");
-            return new ActionRegistry();
+            return new Built(new ActionRegistry(), TestsRunStep.fixtureSource(services), null);
         }
         HandlerFixtures fixtures = fixtures(services, System.getenv());
         ActionRegistry registry = StandardHandlers.create(fixtures);
@@ -91,7 +103,43 @@ public final class StandardRegistry implements RegistryFactory {
             // Each case's receipt is picked from the Commander's numbers as they stand when the case begins.
             registry.onBegin(run -> printed.begin());
         }
-        return registry;
+        return new Built(registry, fixtureSource(services, fixtures), fixtures);
+    }
+
+    /**
+     * {@link StandardHandlers#fixtureSource} over {@code fixtures}, except that a surface the run does not have throws
+     * {@link DeviceUnavailable} rather than handing out a stand-in: the pos-shim ({@code LEGACY_RMI}, as the Python's
+     * {@code legacy_rmi} fixture refuses a rig with no {@code pos_shim:} and the fake POS), the pinpad, and the
+     * Commander. The DCR and the pumps are the families' unwired defaults when the run has none, which throw too.
+     */
+    static FixtureSource fixtureSource(RunServices services, HandlerFixtures fixtures) {
+        FixtureSource standard = StandardHandlers.fixtureSource(fixtures);
+        return name -> switch (name) {
+            case LEGACY_RMI -> {
+                if (services.posShim() == null) {
+                    throw new DeviceUnavailable("legacy_rmi", "no pos-shim is connected to this run (the fake POS has "
+                            + "nothing listening on the RMI path)");
+                }
+                if (services.rig() != null && !services.rig().rig().posShim()) {
+                    throw new DeviceUnavailable("legacy_rmi", "rigs/" + services.rig().rig().name()
+                            + ".yaml has no pos_shim: block, so there is nothing at the register's 8801 to drive");
+                }
+                yield standard.fixture(name);
+            }
+            case PINPAD -> {
+                if (services.pinpad() == null) {
+                    throw new DeviceUnavailable("pinpad", "no pinpad is connected to this run");
+                }
+                yield standard.fixture(name);
+            }
+            case COMMANDER_CONFIG -> {
+                if (services.commander() == null) {
+                    throw new DeviceUnavailable("commander_config", "no Commander PDK shim is connected to this run");
+                }
+                yield standard.fixture(name);
+            }
+            default -> standard.fixture(name);
+        };
     }
 
     /** The handler fixtures a run's services give, with the stand-ins for the surfaces it lacks. */
