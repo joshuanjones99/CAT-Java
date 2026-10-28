@@ -3,6 +3,7 @@ package com.verifone.cat.devices.printer;
 import com.verifone.cat.pos.receipt.ReceiptCaptureException;
 import com.verifone.cat.pos.receipt.ReceiptPrinter;
 import com.verifone.cat.pos.receipt.ReceiptSource;
+import com.verifone.cat.pos.receipt.ReceiptWait;
 import com.verifone.cat.pos.receipt.Receipt;
 import com.verifone.cat.pos.receipt.SerialReceiptCapture;
 
@@ -65,11 +66,48 @@ public final class PrinterReceipts implements ReceiptSource {
 
     @Override
     public Receipt capture() {
+        return current().capture();
+    }
+
+    /**
+     * One capture tuned as the PATS runner's {@code _pos_receipt} tunes the Python's source: the wait's ceiling
+     * ({@code max} of this source's and the case's), whether a no-{@code TRAN#} print may be the receipt, the case's
+     * fresh-print mark and its grace, the settle for an unread sale, and the abort. Every setting is put back after
+     * it, as the Python's {@code finally} does.
+     */
+    @Override
+    public Receipt capture(ReceiptWait wait) {
+        SerialReceiptCapture capture = current();
+        capture.setTimeout(wait.timeout().compareTo(timeout) > 0 ? wait.timeout() : timeout);
+        capture.setReports(wait.reports());
+        capture.setFreshFrom(wait.freshFrom(), wait.freshGrace());
+        capture.setAbort(wait.abort());
+        capture.setSettleAll(wait.settleAll());
+        capture.setSettleOwed(wait.settleFrom(), wait.settleCount());
+        try {
+            return capture.capture();
+        } finally {
+            capture.setTimeout(timeout);
+            capture.setReports(true);
+            capture.setFreshFrom(-1, Duration.ZERO);
+            capture.setAbort(null);
+            capture.setSettleAll(false);
+            capture.setSettleOwed(-1, 0);
+        }
+    }
+
+    /** The printer's receipt count, for the case's print mark (the Python's {@code _print_count}). */
+    @Override
+    public int printCount() {
+        return printer.receiptCount();
+    }
+
+    private SerialReceiptCapture current() {
         SerialReceiptCapture capture = current;
         if (capture == null) {
             throw new ReceiptCaptureException("the printed receipt was not set up for this case ("
                     + beginFailure + ")");
         }
-        return capture.capture();
+        return capture;
     }
 }

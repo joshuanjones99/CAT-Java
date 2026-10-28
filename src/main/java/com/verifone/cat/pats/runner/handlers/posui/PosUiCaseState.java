@@ -123,12 +123,16 @@ public final class PosUiCaseState {
         return unreadFrom;
     }
 
-    /** The sale count at the last quick tender's mark. */
+    /**
+     * The sale count when the case's latest POS-driving action began (the Python's {@code CaseRun.sales_at_mark}),
+     * moved on by a quick tender's count when the sale it closed is counted during the press after it.
+     */
     public int salesAtMark() {
         return salesAtMark;
     }
 
-    void setSalesAtMark(int value) {
+    /** Set before each POS-driving action (the validation family's print mark) and by a quick tender's count. */
+    public void setSalesAtMark(int value) {
         salesAtMark = value;
     }
 
