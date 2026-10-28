@@ -282,11 +282,17 @@ final class SystemChecksStep implements LaunchStep {
                 step.warn(row.key() + " needs " + row.base(), "--fake-pos reads no Commander base, so it is not checked");
             }
             if (row.commanderConnect()) {
+                // The Python's cat.launch.requirements, per plan (the Python joins every plan that needs it).
                 String label = "Commander Connect onboarding";
-                String detail = plan + " needs it, and CAT-Java has no Commander Connect switch yet, so it cannot be "
-                        + "onboarded from here";
-                step.check(false, label, detail, true);
-                failures.add(label + " — " + detail);
+                if (ctx.config().commanderConnect()) {
+                    step.check(true, label, plan + " need it, and Onboard is on", true);
+                } else if (ctx.config().ccRequirementWaived()) {
+                    step.warn(label, plan + " need it; waived for this run, not onboarded");
+                } else {
+                    String detail = plan + " need it: turn on Commander Connect > Onboard";
+                    step.check(false, label, detail, true);
+                    failures.add(label + " — " + detail);
+                }
             }
             used.addAll(row.simulators());
             for (String simulator : row.simulators()) {

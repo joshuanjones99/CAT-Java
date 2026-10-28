@@ -52,6 +52,38 @@ public final class RunContext {
     private final Map<Integer, AutoCloseable> petroSinks = new ConcurrentHashMap<>();
     private volatile PetroPorts.Opener petroPortOpener = PetroPorts.Opener.PORT_SINK;
     private volatile boolean testsStarted;
+    private volatile Long epsLogMark;
+    private volatile CommanderOptions commanderOptions;
+
+    /**
+     * What step 4 reads from the run's {@link LaunchConfig} for its later stages: the Config tab's Secondary FEPs (the
+     * Python's {@code secondary_feps}), its "capture a Commander snapshot" switch ({@code capture_snapshot}), and the
+     * chosen Commander build's label the capture is keyed by (the Python's {@code f"{commander_branch}{commander_build}"},
+     * "" unless both are set). The context fills it from the config ({@link #of}); a test may set its own.
+     *
+     * @param secondaryFeps   the FEPs to switch on; empty means {@code none}
+     * @param captureSnapshot capture the Commander snapshot after step 4 even without a fresh install
+     * @param buildLabel      e.g. {@code Solutions134}, or ""
+     */
+    public record CommanderOptions(List<String> secondaryFeps, boolean captureSnapshot, String buildLabel) {
+
+        /** Nothing asked for. */
+        public static final CommanderOptions NONE = new CommanderOptions(List.of(), false, "");
+
+        public CommanderOptions {
+            secondaryFeps = List.copyOf(secondaryFeps == null ? List.of() : secondaryFeps);
+            buildLabel = buildLabel == null ? "" : buildLabel.strip();
+        }
+
+        /** The options {@code config} asks for; {@link #NONE} for a null config. */
+        public static CommanderOptions of(LaunchConfig config) {
+            if (config == null) {
+                return NONE;
+            }
+            String label = config.commanderBuildChosen() ? config.commanderBranch() + config.commanderBuild() : "";
+            return new CommanderOptions(config.secondaryFeps(), config.captureSnapshot(), label);
+        }
+    }
 
     RunContext(LaunchConfig config, LaunchPaths paths, String runId, Path runFolder, RunEvents events,
             PauseGate pause, Clock clock) {
@@ -63,6 +95,7 @@ public final class RunContext {
         this.pause = pause;
         this.clock = clock;
         this.startedAt = clock.instant();
+        this.commanderOptions = CommanderOptions.of(config);
     }
 
     public LaunchConfig config() {
@@ -227,18 +260,61 @@ public final class RunContext {
         }
     }
 
+    /**
+     * Replaces the CAT-started processes {@code old} with {@code fresh}, as the Python's restart does
+     * ({@code ctx.sim_procs = [p for p in ctx.sim_procs if p not in owned] + [proc]}).
+     */
+    void replaceSimulators(List<SimProcess> old, SimProcess fresh) {
+        simulators.removeAll(old);
+        if (fresh != null) {
+            addSimulator(fresh);
+        }
+    }
+
+    /** Forgets every process this run started: Cleanup has stopped them. */
+    void clearSimulators() {
+        simulators.clear();
+    }
+
     /** Registers the stop for the connection watch step 2 started. Called once, by step 2. */
     void watching(Runnable stop) {
         stopWatching = stop;
     }
 
-    /** Ends the connection watch, if one is running. The launcher calls it when the run ends. */
-    void stopWatching() {
+    /**
+     * Ends the connection watch, if one is running. Cleanup calls it, and the launcher again when the run ends.
+     *
+     * @return whether a watch was running
+     */
+    boolean stopWatching() {
         Runnable stop = stopWatching;
         stopWatching = null;
         if (stop != null) {
             stop.run();
+            return true;
         }
+        return false;
+    }
+
+    /**
+     * The Petro Simulator Suite log's size before step 3 spawned it (the Python's {@code eps_log_mark}), or null when
+     * step 3 did not mark it. Step 4's pinpad link reads the EPS's requests after it.
+     */
+    public Long epsLogMark() {
+        return epsLogMark;
+    }
+
+    void epsLogMark(Long value) {
+        epsLogMark = value;
+    }
+
+    /** What step 4 reads from the config ({@link CommanderOptions#of}), unless a caller set its own. */
+    public CommanderOptions commanderOptions() {
+        return commanderOptions;
+    }
+
+    void commanderOptions(CommanderOptions value) {
+        commanderOptions = value == null ? CommanderOptions.NONE : value;
     }
 
     /** Writes one event to {@code events.ndjson} and the run log. */

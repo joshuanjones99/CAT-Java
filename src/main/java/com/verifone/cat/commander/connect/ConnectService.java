@@ -26,8 +26,9 @@ import com.verifone.cat.provision.transport.Transport;
  * <p>Transports and clients come from suppliers, one per use, closed by this class, so the production wiring can
  * connect them and the tests can hand in fakes.
  *
- * <p>UNVERIFIED AGAINST HARDWARE (Java port). Run it once against the lab Commander before trusting it. This is not
- * yet called from the launch steps; the Python's step 4 ({@code cat.launch.steps}) is where it goes.
+ * <p>UNVERIFIED AGAINST HARDWARE (Java port). Run it once against the lab Commander before trusting it. Step 4 calls
+ * it ({@code launch.CommanderStages.Real#commanderConnect}) after the inits when the run onboards; an onboarding run
+ * stops before that, at the cloud tunnel, whose serve loop is not ported.
  */
 public final class ConnectService {
 

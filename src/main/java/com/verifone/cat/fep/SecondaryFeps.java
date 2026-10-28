@@ -62,10 +62,10 @@ import com.verifone.cat.provision.transport.Transport;
  * <p>No EPS restart, deliberately: {@code ufepcfg} stages a FEP-table update that the EPS applies. Unverified: the
  * Python never ran this against a Commander either.
  *
- * <p>Not ported here (the step 4 caller's wiring, not this class): the {@code secondary-fep} command line itself, and
- * the Commander Connect cloud sender, which needs a C-Site account. {@code TODO(launch step 4): call
- * SecondaryFeps.select with FepClient.of(access.pdkShim()), Context.route = fleetRoute over access.transport(),
- * Context.trust = Trust.viaCommander(access, say), and a CloudSend over CSiteClient when $CAT_CSITE_* is set}.
+ * <p>Step 4's caller is {@code launch.CommanderStages.Real#secondaryFep}, the Python's {@code secondary_fep_cli}: it
+ * calls {@link #select} with {@code FepClient.of(access.pdkShim())}, the route read over the Commander's SSH and
+ * {@code Trust.viaCommander}. Not ported: the Commander Connect cloud sender (the Python's {@code _cloud_sender}),
+ * which needs a C-Site account; a chosen Commercial Fleet FEP is pointed at directly, with this class's warning.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */

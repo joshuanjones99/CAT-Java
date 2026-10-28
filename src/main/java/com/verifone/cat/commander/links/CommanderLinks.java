@@ -34,8 +34,7 @@ import com.verifone.cat.rig.Rig;
  * ({@link #PMC_RESTART}): restarting the one service replaces a reboot (rig owner, 2026-09-21).
  *
  * <p>The payment-link flow behind {@code petrotest payment-links} (step 4's call, Python
- * {@code payment_links_cli}) is {@link PaymentLinks}. The step 4 caller is not ported yet: it belongs to
- * the Commander configuration launch step, which this slice does not edit.
+ * {@code payment_links_cli}) is {@link PaymentLinks}, which the Commander configuration launch step calls.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The observations behind the parsing are real (Python
  * {@code commander_links}, 2026-09-21 and 2026-10-07); the parsing is tested only against rows copied from them.

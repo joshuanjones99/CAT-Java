@@ -1,5 +1,8 @@
 package com.verifone.cat.launch;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -60,6 +63,9 @@ final class StartSimulatorsStep implements LaunchStep {
     /** Whether the run's cases drive a pump, or empty when that is not known yet (the Python's {@code _suites_drive_pumps}). */
     private final Function<RunContext, Optional<Boolean>> drivesPumps;
 
+    /** Where Petro Simulator Suite logs, for the EPS mark; null when it names no log. */
+    private final Function<SimContext, Path> petroLog;
+
     /** The production step: the run's cases are collected in step 5, so whether they drive a pump is not known here. */
     StartSimulatorsStep() {
         this(ctx -> Optional.empty());
@@ -67,7 +73,13 @@ final class StartSimulatorsStep implements LaunchStep {
 
     /** @param drivesPumps whether the run's cases drive a pump, or empty when unknown */
     StartSimulatorsStep(Function<RunContext, Optional<Boolean>> drivesPumps) {
+        this(drivesPumps, StartSimulatorsStep::petroLog);
+    }
+
+    /** @param petroLog Petro's log for the EPS mark (a test passes a temp file) */
+    StartSimulatorsStep(Function<RunContext, Optional<Boolean>> drivesPumps, Function<SimContext, Path> petroLog) {
         this.drivesPumps = drivesPumps;
+        this.petroLog = petroLog;
     }
 
     @Override
@@ -89,6 +101,15 @@ final class StartSimulatorsStep implements LaunchStep {
         if (selected.isEmpty()) {
             step.skip("simulators", "the run selected no simulators");
             return step.skipStep("no simulators selected — nothing started");
+        }
+        SimContext sims = SimContext.of(ToolsRoot.resolve(null), rig == null ? "" : rig.controller().host());
+        if (selected.contains(PETRO_SIMULATOR)) {
+            // Before the spawn: on 2026-09-14 the EPS reached a freshly started Petro 2 s after it listened, before
+            // step 4 could start watching (the Python's eps_log_mark). Step 4's pinpad link reads after this mark.
+            Path log = petroLog.apply(sims);
+            if (log != null) {
+                ctx.epsLogMark(sizeOf(log));
+            }
         }
         if (!fakePos && selected.contains(PETRO_SIMULATOR)) {
             // Before Petro starts: every pump state it pushes must be heard (PetroPorts).
@@ -113,7 +134,6 @@ final class StartSimulatorsStep implements LaunchStep {
             return step.fail("none of the selected simulators are in the registry");
         }
 
-        SimContext sims = SimContext.of(ToolsRoot.resolve(null), rig == null ? "" : rig.controller().host());
         Map<String, SimStatus> latest = new LinkedHashMap<>();
         List<String> reached = new ArrayList<>();
         Events events = new Events() {
@@ -177,6 +197,24 @@ final class StartSimulatorsStep implements LaunchStep {
                 .append(count).append(' ').append(label));
         step.setDetail(detail.toString());
         return true;
+    }
+
+    /** Petro Simulator Suite's log from its registry row (the Python's {@code _pinpad_log}), or null without one. */
+    static Path petroLog(SimContext sims) {
+        Optional<SimEntry> entry = Registry.byName(PETRO_SIMULATOR);
+        if (entry.isEmpty() || entry.get().log() == null || entry.get().log().isBlank()) {
+            return null;
+        }
+        return sims.cwdFor(entry.get()).resolve(entry.get().log());
+    }
+
+    /** A file's size, 0 when it cannot be read (the Python's {@code _size_of}). */
+    static long sizeOf(Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException | RuntimeException e) {
+            return 0L;
+        }
     }
 
     /** The checklist outcome for a row, as the Python CAT's {@code SIM_ROW_OUTCOMES}. */

@@ -28,9 +28,8 @@ import com.verifone.cat.rig.Rig;
  * call, repeated, brought the link up. Each round restarts PMC at most once. POP 1 is checked as configuration
  * (it is not a held socket), and the Buypass FEP's protocol is checked too ({@link CommanderLinks#FEP_LINK_FIELDS}).
  *
- * <p>Step 4's caller is not ported: the Python calls this from the Commander configuration launch step, before
- * {@code emv-keys}. {@code TODO(launch step 4): call PaymentLinks.run before the EMV keys, as the Python does}. This
- * class does not edit the launch steps.
+ * <p>Step 4 calls this ({@code launch.CommanderStages.Real#paymentLinks}) before {@code emv-keys}, as the Python's
+ * Commander configuration step does; a fixed FEP drift restarts a CAT-started BUYPASS Host there.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */

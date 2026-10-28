@@ -27,8 +27,11 @@ import java.util.stream.Stream;
 import com.verifone.cat.commander.snapshot.Restore;
 import com.verifone.cat.commander.snapshot.SnapshotRestore;
 import com.verifone.cat.devices.DeviceError;
+import com.verifone.cat.devices.forecourt.ForecourtTimeouts;
+import com.verifone.cat.devices.forecourt.PetroPumps;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
+import com.verifone.cat.recovery.Timeouts;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.sims.ToolsRoot;
 
@@ -63,9 +66,9 @@ import com.verifone.cat.sims.ToolsRoot;
  * base's files have the last word. Inert until a snapshot is captured; {@code snapshot=false} and
  * {@code $CAT_NO_SNAPSHOT} skip it. An area left different is a {@code WARNING} line, never a failed init.
  *
- * <p>Not ported, and said so in the run's lines rather than passed over: the pump release through Petro
- * ({@code PetroPumps.clear}), whose absence the Python already treats as "not released", so the FCC
- * restart follows.
+ * <p>The pump release through Petro ({@link #releaseThroughPetro}, {@code PetroPumps.clear}) needs PATS's port
+ * 1072, which the launch's step 4 lends to the init; when it cannot drive the pump it says so and reports
+ * "not released", as the Python's does, so the FCC restart follows.
  *
  * <p>Every seam (the CGILink client, the Commander's and the registers' SSH, Petro's log, the pump
  * release, the waits and their budgets) is injected through {@link Builder}, so the tests drive the
@@ -84,13 +87,6 @@ public final class CommanderInit {
 
     /** {@code $CAT_NO_SNAPSHOT}: skips the snapshot restore, as the Python reads it. */
     public static final String NO_SNAPSHOT_ENV = "CAT_NO_SNAPSHOT";
-
-    /**
-     * What the launch's Commander step still reports for the snapshot row. The init itself restores the snapshot
-     * now ({@link SnapshotRestore}); the launch step's row is the launch's to update.
-     */
-    public static final String SNAPSHOT_UNAVAILABLE = "unavailable in CAT-Java: needs the Commander snapshot "
-            + "restore (petrotest.commander_snapshot.restore_for_rig, docs/commander-snapshot.md)";
 
     /**
      * {@code configurations/} folders imported after {@code base/} on every run: a setting a plan turns
@@ -147,6 +143,33 @@ public final class CommanderInit {
     @FunctionalInterface
     public interface PumpRelease {
         String release(int pump);
+    }
+
+    /**
+     * The production release, the Python's {@code release_pump}: a {@link PetroPumps} client on PATS's port
+     * {@value PetroPumps#PATS_FUEL_PORT} (which the launch lends to the init), the pump's reported state, then
+     * {@link PetroPumps#clear}. Null, with a line saying why, when the port is held, Petro does not answer, or the
+     * pump does not reach IDLEOFF. UNVERIFIED AGAINST HARDWARE (Java port).
+     */
+    static String releaseThroughPetro(Rig rig, int pump, Say say) {
+        ForecourtTimeouts timeouts = ForecourtTimeouts.of(Timeouts.of(rig.timeouts()));
+        PetroPumps pumps;
+        try {
+            pumps = PetroPumps.started(rig.controller().host(), timeouts);
+        } catch (RuntimeException e) {
+            say.out("pump " + pump + ": not released through Petro (" + e.getMessage() + ")");
+            return null;
+        }
+        try {
+            // clear reads the last state reported, and Petro answers the login with them.
+            pumps.reported(pump, timeouts.http());
+            return pumps.clear(pump);
+        } catch (RuntimeException e) {
+            say.out("pump " + pump + ": not released through Petro (" + e.getMessage() + ")");
+            return null;
+        } finally {
+            pumps.close();
+        }
     }
 
     /**
@@ -598,7 +621,7 @@ public final class CommanderInit {
 
     /**
      * Puts {@code pump} back to IDLEOFF through Petro; the state it was in, or {@code null}. Not a PATS
-     * step. The production release is not ported ({@code PetroPumps}), so it reports nothing released.
+     * step. The production release is {@link #releaseThroughPetro}.
      */
     public String releasePump(int pump) {
         return pumps.release(pump);
@@ -792,11 +815,7 @@ public final class CommanderInit {
             this.registerSsh = access::registerTransport;
             this.registerName = register -> register.id() + " (" + register.host() + ")";
             this.petroLog = () -> CommanderInit.petroLog(ToolsRoot.resolve(access.environ().get(ToolsRoot.ENV), null));
-            this.pumps = pump -> {
-                say.out("pump " + pump + ": not released through Petro (unavailable in CAT-Java: needs "
-                        + "petrotest.devices.petro_forecourt.PetroPumps)");
-                return null;
-            };
+            this.pumps = pump -> releaseThroughPetro(rig, pump, say);
             this.say = Say.to(System.out, System.err);
             this.sshTimeout = access.sshTimeout();
             this.environ = access.environ();

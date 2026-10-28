@@ -435,11 +435,12 @@ class CommanderInitTest {
     }
 
     @Test
-    void theProductionPumpReleaseSaysItIsUnavailableAndReleasesNothing() {
+    void theProductionPumpReleaseThatCannotReachPetroSaysSoAndReleasesNothing() {
+        // The fixture's controller is controller.invalid: Petro cannot be reached, so nothing is released.
         CommanderInit init = CommanderInit.builder(CommanderFixtures.access(rig, new CommanderSsh(""), registers))
                 .say(say).build();
         assertNull(init.releasePump(3));
-        assertTrue(say.outText().contains("pump 3: not released through Petro (unavailable in CAT-Java"), say.outText());
+        assertTrue(say.outText().contains("pump 3: not released through Petro ("), say.outText());
     }
 
     // -- an init the FCC never answered ------------------------------------------------------------

@@ -27,8 +27,8 @@ import com.verifone.cat.rig.Rig;
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The Python's switch was seen on Reg101 on 2026-10-20 (the files and the
  * login-shell restart); pressing the switcher has not been seen to work on a register.
  *
- * <p>Step 4's caller is not ported: {@code TODO(launch step 4): call RegisterApp.run before the day close, as the
- * Python's Commander Configuration step does}.
+ * <p>Step 4 calls this ({@code launch.CommanderStages.Real#registerApp}) before the day close, as the Python's
+ * Commander Configuration step does.
  */
 public final class RegisterApp {
 

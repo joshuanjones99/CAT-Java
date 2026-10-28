@@ -1,44 +1,64 @@
 package com.verifone.cat.launch;
 
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-import java.util.function.Consumer;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
-import com.verifone.cat.closeday.CloseDay;
-import com.verifone.cat.report.events.SubstepOutcome;
-import com.verifone.cat.rig.LoadedRig;
+import com.verifone.cat.rig.RigBusyException;
+import com.verifone.cat.rig.RigLease;
+import com.verifone.cat.sims.SimProcess;
+import com.verifone.cat.sims.Supervisor;
 
 /**
- * Step 7, Cleanup: close the day, stop the simulators CAT started, end the connection watch, check the
- * rig lease.
+ * Step 7, Cleanup: close the day, end the connection watch, stop the simulators CAT started, check the rig lease.
+ * The Python CAT's {@code cat.launch.steps.cleanup._step_cleanup}, in its order.
  *
- * <p>The day close is wired: {@link CloseDay} closes the period on the rig's Commander, and its progress
- * lines go to this step's log. It is skipped, as in the Python, when the run had no rig, ran against the
- * fake POS, or never reached Commander Configuration or Tests Run. The rest is not ported (the simulator
- * stop, the connection watch and the lease check), so the step still ends {@code failed} as unavailable
- * once the day close has been tried. The run lock is released by the launcher after this step whether or
- * not it ran, and the {@code run.ended} marker is written by the launcher too.
+ * <ol>
+ *   <li>The day close, {@link DayClose} with {@code forced_aeod_warns} and {@code after_tests}: first, while the
+ *       simulators are still up (PATS's {@code cclosepdnow} names the fuel and DCR devices). A day that did not close
+ *       fails the step, as the next run's period reports would be wrong; the rest still runs.</li>
+ *   <li>The connection watch step 2 started, when one runs: stopped, a PASS row.</li>
+ *   <li>The simulators this run spawned, and no others (D9): stopped, a PASS row naming them; none, a skipped row.</li>
+ *   <li>Petro's pump-state ports the run holds ({@link PetroPorts#releaseAll}): released after the simulators, so
+ *       Petro never pushes to a closed port while it runs.</li>
+ *   <li>The rig lease: taken for a moment and given back, to prove no stray worker outlived the run. CAT holds no
+ *       lease of its own (its run lock is a separate file, released by the launcher after this step); one still held
+ *       is a WARN.</li>
+ * </ol>
+ * The detail lists every clause, so a Cleanup row never reads "all done" behind a caveat. The {@code run.ended} marker
+ * is written by the launcher once the stream is closed, as the Python's {@code launch_run} does.
  *
- * <p>The Python's {@code commander_reached}, {@code commander_login_ready} and {@code tests_started} flags
- * are not carried by {@link RunContext}. The step results stand in for them: Commander Configuration must
- * be complete, and Tests Run complete or failed (a step that began). Only a run that completed step 4 can
- * reach the close, and no step 4 is ported yet, so the close is not reached by any run today.
+ * <p>Not ported, so not here: a continuous run's {@code keep_simulators} (CAT-Java's {@link LaunchConfig} has none, so
+ * every CAT-started simulator is stopped), and with it {@code keeps_petro_ports}: the run's Petro ports are always
+ * released here. The launcher still stops the simulators and the watch and releases the ports after this step,
+ * whatever happened; after this step there is nothing left for it to do.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
 final class CleanupStep implements LaunchStep {
 
-    /** The Python step this one ports, for the unavailable message. */
-    static final String PYTHON_MODULE = "src/cat/launch/steps/cleanup.py";
-
     /** The checklist row of the day close, as the Python's {@code stage_label("close-day")}. */
-    static final String DAY_LABEL = "Close the day";
+    static final String DAY_LABEL = DayClose.LABEL;
 
-    /** What the step still lacks, named for the operator. */
-    static final String MISSING = "the simulator stop (cat.sims.supervisor), the connection watch from step 2 "
-            + "and the rig lease check";
+    /** How long Cleanup waits to prove the rig lease is free: the Python's {@code RIG_LEASE_CHECK_TIMEOUT}. */
+    static final Duration RIG_LEASE_CHECK_TIMEOUT = Duration.ofSeconds(5);
+
+    private final DayClose.Closer closer;
+    private final Duration leaseTimeout;
+
+    /** The production step: the real day close. */
+    CleanupStep() {
+        this(DayClose.real(System.getenv()));
+    }
+
+    CleanupStep(DayClose.Closer closer) {
+        this(closer, RIG_LEASE_CHECK_TIMEOUT);
+    }
+
+    CleanupStep(DayClose.Closer closer, Duration leaseTimeout) {
+        this.closer = closer;
+        this.leaseTimeout = leaseTimeout;
+    }
 
     @Override
     public String name() {
@@ -47,124 +67,77 @@ final class CleanupStep implements LaunchStep {
 
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
-        String failure = closeTheDay(ctx, step);
-        if (failure != null) {
-            return step.fail(failure);
-        }
-        return step.unavailable(PYTHON_MODULE, MISSING);
-    }
+        List<String> parts = new ArrayList<>();
 
-    /** The day close. Returns the failure clause, or null when the day is closed, warned or not needed. */
-    private static String closeTheDay(RunContext ctx, StepEmitter step) {
-        if (ctx.config().rig().isEmpty() || ctx.config().fakePos()) {
-            step.log("no rig: day not closed", "INFO");
-            return null;
-        }
-        if (!isOneOf(stateOf(ctx, LaunchStepNames.COMMANDER), StepResult.COMPLETE)) {
-            step.skip(DAY_LABEL, "the run stopped before Commander Configuration");
-            return null;
-        }
-        if (!isOneOf(stateOf(ctx, LaunchStepNames.TESTS), StepResult.COMPLETE, StepResult.FAILED)) {
-            // The close's register pass signs a cashier on; with no case run there is nothing to clear.
-            step.skip(DAY_LABEL, "no test ran, so the register is left alone");
-            return null;
-        }
-        LoadedRig loaded = ctx.rig();
-        if (loaded == null) {
-            return "close day FAILED (the rig was not loaded in System Checks)";
+        DayClose.Result day = DayClose.run(ctx, step, closer, true, true);
+        parts.add(day.clause());
+
+        if (ctx.stopWatching()) {
+            step.check(true, "connection watch", "stopped", true);
+            parts.add("connection watch stopped");
         }
 
-        step.substep(DAY_LABEL, SubstepOutcome.RUNNING, "", 0.0);
-        long started = System.nanoTime();
-        CloseDay.Outcome outcome;
-        PrintStream out = linesTo(step, "INFO");
-        PrintStream err = linesTo(step, "WARNING");
-        try {
-            outcome = CloseDay.forRig(loaded.rig(), System.getenv(), out, err).close();
-        } catch (RuntimeException e) {
-            String clause = "close day FAILED (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")";
-            step.substep(DAY_LABEL, SubstepOutcome.FAILED, clause, elapsed(started));
-            return clause;
-        } finally {
-            out.close();
-            err.close();
-        }
-
-        double elapsed = elapsed(started);
-        if (outcome == CloseDay.Outcome.CLOSED) {
-            step.substep(DAY_LABEL, SubstepOutcome.PASSED, "day closed", elapsed);
-            return null;
-        }
-        if (outcome == CloseDay.Outcome.FORCED_AEOD) {
-            step.log("WARN  close-day — the Commander forces automatic end of day and refused a manual close; "
-                    + "the next run's Commander Configuration closes it", "WARNING");
-            step.substep(DAY_LABEL, SubstepOutcome.WARNED, "the Commander forces automatic end of day", elapsed);
-            return null;
-        }
-        String clause = "close day FAILED (exit " + outcome.exitCode() + ")";
-        step.substep(DAY_LABEL, SubstepOutcome.FAILED, clause, elapsed);
-        return clause;
-    }
-
-    /** The state a step ended in, or pending when the run never reached it. */
-    private static String stateOf(RunContext ctx, String name) {
-        return ctx.stepResults().stream()
-                .filter(result -> result.name().equals(name))
-                .map(StepResult::state)
-                .findFirst()
-                .orElse(StepResult.PENDING);
-    }
-
-    private static boolean isOneOf(String state, String... allowed) {
-        for (String candidate : allowed) {
-            if (candidate.equals(state)) {
-                return true;
+        List<SimProcess> procs = ctx.simulators();
+        if (procs.isEmpty()) {
+            step.skip("stop simulators", "none was started by CAT");
+            parts.add("no CAT-started simulators");
+        } else {
+            List<String> stopped;
+            try {
+                stopped = ctx.supervisor().stop(procs, Supervisor.STOP_WAIT);
+            } catch (RuntimeException e) {
+                step.check(false, "stop simulators", e.getClass().getSimpleName() + ": " + e.getMessage(), false);
+                stopped = null;
             }
-        }
-        return false;
-    }
-
-    private static double elapsed(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000_000.0;
-    }
-
-    /** A stream whose each line is one line of this step's log, at {@code level}. */
-    private static PrintStream linesTo(StepEmitter step, String level) {
-        return new PrintStream(new LineOutputStream(line -> step.log(line, level)), true, StandardCharsets.UTF_8);
-    }
-
-    /** Splits written bytes into lines, dropping blank ones, and hands each to {@code sink}. */
-    private static final class LineOutputStream extends OutputStream {
-
-        private final Consumer<String> sink;
-        private final ByteArrayOutputStream pending = new ByteArrayOutputStream();
-
-        LineOutputStream(Consumer<String> sink) {
-            this.sink = sink;
-        }
-
-        @Override
-        public void write(int b) {
-            if (b == '\n') {
-                emit();
+            if (stopped != null) {
+                step.check(true, "stop simulators", "stopped " + stopped.size() + " CAT-started simulator(s): "
+                        + String.join(", ", stopped), true);
+                ctx.clearSimulators();
+                parts.add(stopped.size() + " simulator(s) stopped");
             } else {
-                pending.write(b);
+                parts.add("simulators not stopped");
             }
         }
 
-        @Override
-        public void close() {
-            if (pending.size() > 0) {
-                emit();
-            }
-        }
+        // After the simulators, so Petro never pushes to a closed port while it runs.
+        PetroPorts.releaseAll(ctx);
 
-        private void emit() {
-            String line = pending.toString(StandardCharsets.UTF_8).strip();
-            pending.reset();
-            if (!line.isEmpty()) {
-                sink.accept(line);
-            }
+        parts.add(checkRigLease(ctx, step, leaseTimeout));
+
+        String detail = String.join("; ", parts);
+        if (!day.closed()) {
+            return step.fail(detail);
         }
+        step.setDetail(detail);
+        return true;
+    }
+
+    /**
+     * Proves the rig is not still leased, and says so: the Python's {@code _check_rig_lease}. Deliberately not a
+     * release: CAT holds no rig lease; taking it briefly and giving it straight back is the check.
+     */
+    static String checkRigLease(RunContext ctx, StepEmitter step, Duration timeout) {
+        String rigName = ctx.rig() != null ? ctx.rig().rig().name() : ctx.config().rig();
+        if (ctx.config().fakePos()) {
+            return "no rig lease (fake POS)";
+        }
+        if (rigName == null || rigName.isBlank()) {
+            return "no rig lease (no rig named)";
+        }
+        RigLease lease = new RigLease(rigName, ctx.paths().leaseDir(), "cat-cleanup/run" + ctx.runId());
+        try {
+            lease.acquire(timeout);
+            lease.release();
+        } catch (RigBusyException e) {
+            step.warn("rig lease", "rig '" + rigName + "' is still leased after this run — " + e.getMessage());
+            return "rig lease STILL HELD (" + rigName + ")";
+        } catch (RuntimeException e) {
+            lease.release();
+            step.warn("rig lease", "could not check the lease on rig '" + rigName + "': "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return "rig lease unknown";
+        }
+        step.check(true, "rig lease", "rig '" + rigName + "' is free (CAT holds no lease of its own)", true);
+        return "rig lease free";
     }
 }

@@ -123,6 +123,27 @@ class SystemChecksStepTest {
     }
 
     @Test
+    void aPlanThatNeedsCommanderConnectPassesWithOnboardWarnsWhenWaivedAndFailsOtherwise() throws IOException {
+        // PETROCORE-135480 needs Commander Connect (the seed's row). The second, unknown plan stops every run at
+        // step 1, so no case runs.
+        String plans = "PETROCORE-135480";
+        String failed = log(run(LaunchFixtures.paths(dir), new LaunchConfig.Builder("").fakePos(true).testPlan(plans)
+                .testPlan("PETROCORE-0000000").build()));
+        assertTrue(failed.contains("FAIL  Commander Connect onboarding — PETROCORE-135480 need it: turn on Commander "
+                + "Connect > Onboard"), failed);
+
+        String onboard = log(run(LaunchFixtures.paths(dir), new LaunchConfig.Builder("").fakePos(true).testPlan(plans)
+                .testPlan("PETROCORE-0000000").commanderConnect(true).build()));
+        assertTrue(onboard.contains("PASS  Commander Connect onboarding — PETROCORE-135480 need it, and Onboard is on"),
+                onboard);
+
+        String waived = log(run(LaunchFixtures.paths(dir), new LaunchConfig.Builder("").fakePos(true).testPlan(plans)
+                .testPlan("PETROCORE-0000000").ccRequirementWaived(true).build()));
+        assertTrue(waived.contains("WARN  Commander Connect onboarding — PETROCORE-135480 need it; waived for this "
+                + "run, not onboarded"), waived);
+    }
+
+    @Test
     void aPlanWithCasesPassesTheTestsToRunLine() throws IOException {
         LaunchResult result = run(LaunchFixtures.paths(dir), fakePos("PETROCORE-70960"));
 

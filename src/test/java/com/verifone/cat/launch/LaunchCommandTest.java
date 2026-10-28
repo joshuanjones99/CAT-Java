@@ -53,7 +53,7 @@ class LaunchCommandTest {
         assertEquals(LaunchCommand.EXIT_FAILED, code, text);
         assertTrue(text.contains("run "), text);
         assertTrue(text.contains("System Checks"), text);
-        assertTrue(text.contains("unavailable in CAT-Java: needs"), text);
+        assertTrue(text.contains("rig hardware not ready"), text);
         assertTrue(text.contains("Cleanup"), text);
     }
 

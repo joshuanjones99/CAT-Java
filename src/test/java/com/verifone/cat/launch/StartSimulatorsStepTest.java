@@ -135,15 +135,33 @@ class StartSimulatorsStepTest {
             return () -> { };
         });
         StepEmitter step = new StepEmitter(ctx, LaunchStepNames.SIMULATORS);
+        Path petroLog = dir.resolve("log4j-application.log");
+        java.nio.file.Files.writeString(petroLog, "INFO DeviceRequest Receieved from EPS\n");
 
-        assertFalse(new StartSimulatorsStep(c -> java.util.Optional.of(true)).run(ctx, step));
+        assertFalse(new StartSimulatorsStep(c -> java.util.Optional.of(true), sims -> petroLog).run(ctx, step));
 
+        assertEquals(java.nio.file.Files.size(petroLog), ctx.epsLogMark(),
+                "Petro's log is marked before the spawn, for step 4's pinpad link");
         assertEquals(List.of(9706), opened, "the UI's port is held before Petro starts");
         assertEquals(java.util.Set.of(9706), ctx.petroSinks().keySet());
         assertEquals(StepResult.FAILED, step.state());
         assertTrue(step.detail().startsWith("PATS's port 1072 is held by another process"), step.detail());
         assertTrue(ctx.simulators().isEmpty(), "nothing is started");
         PetroPorts.releaseAll(ctx);
+    }
+
+    @Test
+    void aPetroLogNotWrittenYetMarksZeroAndOneWithNoLogLeavesNoMark() throws IOException {
+        assertEquals(0L, StartSimulatorsStep.sizeOf(dir.resolve("absent.log")));
+        LaunchConfig config = new LaunchConfig.Builder(LaunchFixtures.RIG)
+                .simulator(StartSimulatorsStep.PETRO_SIMULATOR).build();
+        RunContext ctx = context(config, "ffffffffffff");
+        ctx.petroPortOpener(port -> {
+            throw new com.verifone.cat.devices.DeviceUnreachable("the Petro suite's port " + port, "already held");
+        });
+        StepEmitter step = new StepEmitter(ctx, LaunchStepNames.SIMULATORS);
+        assertFalse(new StartSimulatorsStep(c -> java.util.Optional.of(true), sims -> null).run(ctx, step));
+        assertEquals(null, ctx.epsLogMark());
     }
 
     @Test

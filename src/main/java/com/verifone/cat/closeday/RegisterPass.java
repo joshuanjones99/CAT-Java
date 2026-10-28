@@ -20,5 +20,5 @@ public interface RegisterPass {
 
     /** A pass that does not touch the register: reports that it did not run, and closes. */
     RegisterPass NOT_PORTED = err -> err.println("could not check the register for a blocking nag before closing "
-            + "the day (the register pass is not ported to CAT-Java); closing anyway");
+            + "the day (this close does not drive the register); closing anyway");
 }

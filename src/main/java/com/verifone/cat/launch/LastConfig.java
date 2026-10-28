@@ -165,7 +165,7 @@ public final class LastConfig {
      * The Downloads section the way {@code run_plan._config} resolves it: a Commander branch given on the
      * command line ({@code flagBranch}) takes the flag's build and no foundation; with none given, the saved
      * Commander branch, build and foundation. The simulator build is the flag's, else the saved one, per field.
-     * Not wired into {@link LaunchConfig} on this branch: its build fields are added by another slice.
+     * {@link LaunchCommand} sets {@link LaunchConfig}'s build fields from it.
      */
     public Downloads downloads(String flagBranch, String flagBuild, String flagSimBranch, String flagSimBuild) {
         String branch = blankToEmpty(flagBranch);
