@@ -591,11 +591,17 @@ final class CommanderConfigurationStep implements LaunchStep {
 
         @Override
         public void err(String line) {
+            // A multi-line message (Playwright's "Error {\n message=...\n}") is one error: its first non-blank line
+            // is the one worth the row's detail, not its closing brace (run 1a158f28d9cd read "}").
+            String first = "";
             for (String one : line.split("\n", -1)) {
                 step.log(one, "WARNING");
-                if (!one.isBlank()) {
-                    lastErr = one;
+                if (first.isEmpty() && !one.isBlank()) {
+                    first = one;
                 }
+            }
+            if (!first.isEmpty()) {
+                lastErr = first;
             }
         }
 

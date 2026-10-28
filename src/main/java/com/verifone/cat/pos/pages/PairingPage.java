@@ -2,7 +2,10 @@ package com.verifone.cat.pos.pages;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.locks.LockSupport;
 
+import com.microsoft.playwright.PlaywrightException;
+import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
 import com.verifone.cat.pos.driver.PosDriver;
 
@@ -11,9 +14,37 @@ import com.verifone.cat.pos.driver.PosDriver;
  * Python {@code petrotest.pos.pages.pairing.PairingScreen}, step for step as PATS's
  * {@code RegisterPairingUtil}. No test case pairs a register, so no corpus case uses these.
  *
- * <p>UNVERIFIED AGAINST HARDWARE (Java port).
+ * <p>The three snapshot queries ({@link #isShowing}, {@link #isRefused}, {@link #awaitingCode}) tolerate the one
+ * fault the live register raised on 2026-10-28 (run 1a158f28d9cd): right after the Commander's pairing service
+ * started, the register's page navigated while the count ran, and Playwright threw "Execution context was
+ * destroyed, most likely because of a navigation". The Python's {@code is_present} would throw the same; here
+ * the count is retried a few times over about two seconds before the fault is rethrown. Deviation, recorded.
+ *
+ * <p>UNVERIFIED AGAINST HARDWARE (Java port): the pairing itself has not completed from Java yet.
  */
 public class PairingPage extends BasePage {
+
+    /** How many times a snapshot query is retried across a navigation, and the pause between tries. */
+    static final int NAVIGATION_RETRIES = 4;
+    static final Duration NAVIGATION_PAUSE = Duration.ofMillis(500);
+    static final String CONTEXT_DESTROYED = "Execution context was destroyed";
+
+    /** {@code isPresent} across a page navigation: "not yet" rather than a fault, for a bounded moment. */
+    private boolean present(Locator locator) {
+        PlaywrightException last = null;
+        for (int attempt = 0; attempt <= NAVIGATION_RETRIES; attempt++) {
+            try {
+                return element(locator).isPresent();
+            } catch (PlaywrightException e) {
+                if (e.getMessage() == null || !e.getMessage().contains(CONTEXT_DESTROYED)) {
+                    throw e;
+                }
+                last = e;
+                LockSupport.parkNanos(NAVIGATION_PAUSE.toNanos());
+            }
+        }
+        throw last;
+    }
 
     public PairingPage(PosDriver driver) {
         super(driver);
@@ -21,12 +52,12 @@ public class PairingPage extends BasePage {
 
     /** Unpaired: "Pair device", or the page a refused tap leads to. */
     public boolean isShowing() {
-        return element(Locators.PAIRING_PAIR_DEVICE).isPresent() || isRefused();
+        return present(Locators.PAIRING_PAIR_DEVICE) || isRefused();
     }
 
     /** The pairingrefused page: a tap came before the pairing service was up. */
     public boolean isRefused() {
-        return element(Locators.PAIRING_REFUSED_OK).isPresent();
+        return present(Locators.PAIRING_REFUSED_OK);
     }
 
     /** The refused page's OK, back to "Pair device". */
@@ -37,7 +68,7 @@ public class PairingPage extends BasePage {
 
     /** The code keypad is up: the tap was accepted. */
     public boolean awaitingCode() {
-        return element(Locators.PAIRING_KEYPAD_OK).isPresent();
+        return present(Locators.PAIRING_KEYPAD_OK);
     }
 
     /** clickPairPOSButton: the POS then waits for a code. */
