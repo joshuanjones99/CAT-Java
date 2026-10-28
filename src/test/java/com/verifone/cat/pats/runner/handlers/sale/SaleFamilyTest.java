@@ -304,6 +304,48 @@ class SaleFamilyTest {
         assertEquals(List.of("enter:9988"), rmi.calls);
     }
 
+    /**
+     * PETROCORE-36853's shape (run f6b5c0596966): the receipt gives a TRAN# and no STAN, and the case validated no TLog
+     * before its refund. The Python's {@code run.last_tlog} is then None and the TRAN# is entered.
+     */
+    @Test
+    void aRefundInACaseThatValidatedNoTlogEntersTheTranNumber() {
+        ActionRegistry production = registryWith(new SaleContext(screen, rmi, pumps, scanner,
+                LastTlog.VALIDATED, pauses::add, new TouchPacer(pauses::add, FAST.touchSettle()), FAST));
+        screen.receipt = "TRAN# 1234";
+        screen.overlay = Map.of("TITLE", "", "LINE1", "", "LINE2", "", "LINE3", "");
+
+        caseRun(production, folder, Set.of(),
+                act(0, "STORE_TRANS_MAP", "REFUND_KEY", "REF"),
+                act(1, "REFUND_WITH_TRANS_MAP", "REFUND_KEY", "REF")).run();
+
+        assertEquals(List.of("enter:1234"), rmi.calls);
+    }
+
+    /** The TLog a VALIDATE_TRANSACTION left on the case gives the STAN, as the Python's {@code run.last_tlog}. */
+    @Test
+    void aRefundTakesItsStanFromTheTlogTheCaseValidated() throws Exception {
+        ActionRegistry production = registryWith(new SaleContext(screen, rmi, pumps, scanner,
+                LastTlog.VALIDATED, pauses::add, new TouchPacer(pauses::add, FAST.touchSettle()), FAST));
+        org.w3c.dom.Element tlog = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+                .parse(new java.io.ByteArrayInputStream(("<trans><trPaylines><trPayline><trpCardInfo>"
+                        + "<trpcBatchNr>0042</trpcBatchNr><trpcSeqNr>117</trpcSeqNr>"
+                        + "</trpCardInfo></trPayline></trPaylines></trans>").getBytes(
+                                java.nio.charset.StandardCharsets.UTF_8)))
+                .getDocumentElement();
+        production.register("SET_LAST_TLOG", (run, action) -> run.setScratch(
+                com.verifone.cat.pats.runner.handlers.validation.ValidationFamily.LAST_TLOG, tlog));
+        screen.receipt = "TRAN# 1234";
+        screen.overlay = Map.of("TITLE", "", "LINE1", "ENTER STAN", "LINE2", "", "LINE3", "");
+
+        caseRun(production, folder, Set.of(),
+                act(0, "SET_LAST_TLOG"),
+                act(1, "STORE_TRANS_MAP", "REFUND_KEY", "REF"),
+                act(2, "REFUND_WITH_TRANS_MAP", "REFUND_KEY", "REF")).run();
+
+        assertEquals(List.of("enter:0042117"), rmi.calls);
+    }
+
     @Test
     void aRefundWithNoTlogSourceFailsRatherThanVoidingOnAGuess() {
         ActionRegistry unwired = registryWith(new SaleContext(screen, rmi, pumps, scanner,

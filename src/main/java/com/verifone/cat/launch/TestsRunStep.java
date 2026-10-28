@@ -53,7 +53,9 @@ import com.verifone.cat.rig.Rig;
  * emits {@code test.started}, one {@code test.step} per action (running, then settled), one
  * {@code test.validation} per validation verdict, and {@code test.finished}, as the Python's plugin does.
  * It writes the case's {@code steps.log} into {@code <run>/<KEY>/}. After a failed case it walks the
- * {@link RecoveryLadder} when the run has a recovery target, emitting {@code recovery.rung}; a walk that
+ * {@link RecoveryLadder} when the run has a recovery target (on a rig run, {@link BrowserConnector} gives the rig's,
+ * {@code recovery.RigRecovery}; a fake-POS run has none, as the Python walks only with {@code --rig}), emitting
+ * {@code recovery.rung}; a walk that
  * ends in rung 6 (DRAIN) stops the remaining cases, as the Python's {@code shouldstop} does. A case that
  * failed only on its validations ran every action as PATS does, so it is not walked, as in the Python.
  *

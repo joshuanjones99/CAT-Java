@@ -2,6 +2,9 @@ package com.verifone.cat.recovery;
 
 import java.util.function.Consumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.preflight.DefaultChecks;
 import com.verifone.cat.preflight.PreflightReport;
@@ -16,14 +19,16 @@ import com.verifone.cat.preflight.Surfaces;
  * {@code petrotest.recovery.plugin}.
  *
  * <ul>
- *   <li><b>SOFT</b> (rung 1): the shim's cancel ladder. The Python also closes CSR menus over CDP
- *       ({@code petrotest.pos.driver}, not ported), so this rung is the shim half only. TODO: port
- *       the CDP half from {@code petrotest/recovery/plugin.py} {@code _live_soft_cancel}. The rung
- *       counts as performed once the shim has been asked, and the rig decides with
- *       {@link #isTestable()}; a shim that did not clear the screen is not treated as success.</li>
- *   <li><b>VOID</b> (rung 2): the shim's void of the open ticket. The Python tries the sales screen's
- *       Void Ticket button over CDP first and falls back to the shim (not ported). TODO: port the
- *       CDP half from {@code _live_void}, including the pinpad abort for {@code pinpad: vats} rigs.</li>
+ *   <li><b>Testability</b>: with a {@link PosScreen}, the register's DOM, as the Python's
+ *       {@code _testable(live_pos_idle, live_at_login)}: the idle sales screen (or an SCO lane's welcome
+ *       screen), else the login screen. Without one, the shim's status surface (stale on the lab rig:
+ *       HANDOFF.md 1.37), and the login screen is not testable.</li>
+ *   <li><b>SOFT</b> (rung 1): the shim's cancel ladder (a raise is logged, and the DOM half still
+ *       runs), then, with a {@link PosScreen}, its {@link PosScreen#softCancel()} (an OK-only message,
+ *       an SCO overlay, the CSR menus), as {@code _live_soft_cancel}. The rung counts as performed once
+ *       both were tried, and the rig decides with {@link #isTestable()}.</li>
+ *   <li><b>VOID</b> (rung 2): with a {@link PosScreen}, its {@link PosScreen#voidOpenSale()}, falling
+ *       back to the shim's void when that raises, as {@code _live_void}; without one, the shim's void.</li>
  *   <li><b>RESET</b> (rung 3): unavailable. simhub was its only reset and was removed (HANDOFF.md
  *       1.120), so the ladder escalates past it, as the Python does on every rig.</li>
  *   <li><b>PREFLIGHT</b> (rung 4): {@link PreflightRunner} with repair, mid-run, as the Python's
@@ -41,12 +46,15 @@ import com.verifone.cat.preflight.Surfaces;
  */
 public final class LiveRecoveryTarget implements RecoveryTarget {
 
+    private static final Logger LOG = LoggerFactory.getLogger(LiveRecoveryTarget.class);
+
     private final String rigName;
     private final RigContext rig;
     private final Surfaces.PosStatus status;
     private final Surfaces.PosControl control;
     private final RunSummary summary;
     private final Consumer<String> drainHook;
+    private final PosScreen screen;
 
     /**
      * @param rig       the preflight view of the rig, used by rung 4
@@ -57,6 +65,15 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
      */
     public LiveRecoveryTarget(String rigName, RigContext rig, Surfaces.PosStatus status,
             Surfaces.PosControl control, RunSummary summary, Consumer<String> drainHook) {
+        this(rigName, rig, status, control, null, summary, drainHook);
+    }
+
+    /**
+     * @param screen the register's DOM ({@link LivePosScreen#forRig}), or {@code null} for the shim alone
+     */
+    public LiveRecoveryTarget(String rigName, RigContext rig, Surfaces.PosStatus status,
+            Surfaces.PosControl control, PosScreen screen, RunSummary summary, Consumer<String> drainHook) {
+        this.screen = screen;
         this.rigName = rigName;
         this.rig = rig;
         this.status = status;
@@ -71,12 +88,14 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
     }
 
     /**
-     * The idle sales screen with no open ticket. TODO: the Python also accepts the login screen
-     * ({@code live_at_login}); this port has no signed-on probe, so a register at its login screen is
-     * not testable here.
+     * With a {@link PosScreen}: the idle sales screen, else the login screen, asked only when the first
+     * says no (the Python's {@code _testable}). Without one: the shim's idle screen with no open ticket.
      */
     @Override
     public boolean isTestable() {
+        if (screen != null) {
+            return screen.idle() || screen.atLogin();
+        }
         return !status.transactionActive() && status.idleScreenPresent();
     }
 
@@ -84,13 +103,31 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
     public boolean softCancel() {
         // The shim's success is its own re-read of the screen, and may be stale (the Python's note at
         // _live_soft_cancel). The performed rung is judged by isTestable(), not by this answer.
-        control.cancelLadder();
+        if (screen == null) {
+            control.cancelLadder();
+            return true;
+        }
+        try {
+            control.cancelLadder();
+        } catch (RuntimeException e) { // the CDP half still runs
+            LOG.warn("recovery SOFT: shim cancel raised {}: {}", e.getClass().getSimpleName(), e.getMessage());
+        }
+        screen.softCancel();
         return true;
     }
 
     @Override
     public boolean voidOpenTicket() {
-        return control.voidOpenTicket();
+        if (screen == null) {
+            return control.voidOpenTicket();
+        }
+        try {
+            screen.voidOpenSale();
+            return true;
+        } catch (RuntimeException e) {
+            LOG.warn("recovery VOID: CDP void raised {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            return control.voidOpenTicket();
+        }
     }
 
     @Override
