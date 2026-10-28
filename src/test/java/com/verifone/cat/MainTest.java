@@ -1,0 +1,57 @@
+package com.verifone.cat;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+import com.verifone.cat.closeday.CloseDayCommand;
+import com.verifone.cat.cloudtunnel.CloudTunnelCommand;
+import com.verifone.cat.commander.connect.CommanderConnectCommand;
+import com.verifone.cat.commander.snapshot.CommanderSnapshotCommand;
+import com.verifone.cat.launch.LaunchCommand;
+import com.verifone.cat.preflight.PreflightCommand;
+import com.verifone.cat.provision.ProvisionCommand;
+import com.verifone.cat.xray.XraySidecar;
+
+/** Main's dispatch table: each command word maps to its class. Nothing is run. */
+class MainTest {
+
+    @Test
+    void eachWordMapsToItsCommandClass() {
+        Map<String, Class<?>> expected = new LinkedHashMap<>();
+        expected.put("preflight", PreflightCommand.class);
+        expected.put("launch", LaunchCommand.class);
+        expected.put("provision", ProvisionCommand.class);
+        expected.put("xray", XraySidecar.class);
+        expected.put("close-day", CloseDayCommand.class);
+        expected.put("commander-snapshot", CommanderSnapshotCommand.class);
+        expected.put("commander-connect", CommanderConnectCommand.class);
+        expected.put("cloud-tunnel", CloudTunnelCommand.class);
+
+        assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
+        expected.forEach((word, type) -> {
+            Main.Command command = Main.COMMANDS.get(word);
+            assertEquals(type, command.type(), word);
+            assertNotNull(command.run(), word);
+        });
+    }
+
+    @Test
+    void everyCommandClassHasARunOfStringArray() throws NoSuchMethodException {
+        for (Main.Command command : Main.COMMANDS.values()) {
+            assertEquals(int.class, command.type().getMethod("run", String[].class).getReturnType(),
+                    command.type().getName());
+        }
+    }
+
+    @Test
+    void webIsNotACommandWordSoItReachesTheWebUi() {
+        assertTrue(!Main.COMMANDS.containsKey("web"));
+    }
+}

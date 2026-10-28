@@ -22,10 +22,10 @@ import java.util.List;
  */
 final class PlanCases {
 
-    /** The branch of petroapps the tests are read from (the Python's default). */
+    /** The branch of petroapps the tests are read from by default ({@link LaunchConfig#testPlanBranch} is used). */
     static final String REVISION = "master";
 
-    /** The dist folder that wins for tests (the Python's default). */
+    /** The dist folder that wins for tests by default ({@link LaunchConfig#dist} is used). */
     static final String DIST = "buypass";
 
     private PlanCases() {
@@ -38,25 +38,26 @@ final class PlanCases {
                 return List.of();
             }
             try {
-                return collect(config.testPlans(), paths).cases(config);
+                return collect(config, paths).cases(config);
             } catch (RuntimeException e) {
                 throw new IOException("the plan's cases could not be collected: " + e.getMessage(), e);
             }
         };
     }
 
-    private static CaseSource collect(List<String> plans, LaunchPaths paths) {
+    private static CaseSource collect(LaunchConfig config, LaunchPaths paths) {
         Path repoRoot = paths.repoRoot();
         PlanCatalogue catalogue = paths.catalogue();
         List<String> keys = new ArrayList<>();
-        for (String plan : plans) {
+        for (String plan : config.testPlans()) {
             for (PlanCase c : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_FIRST).rows()) {
                 if (!keys.contains(c.key())) {
                     keys.add(c.key());
                 }
             }
         }
-        CollectOptions options = new CollectOptions(REVISION, DIST, repoRoot.resolve(Collect.PULLED_DIR), repoRoot,
+        CollectOptions options = new CollectOptions(config.testPlanBranch(), config.dist(),
+                repoRoot.resolve(Collect.PULLED_DIR), repoRoot,
                 false);
         CollectResult collected = Collect.collect(keys, paths.petroappsRoot(), options);
         return CaseSource.collected(collected, repoRoot);

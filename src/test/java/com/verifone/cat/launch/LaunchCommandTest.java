@@ -35,8 +35,8 @@ class LaunchCommandTest {
 
     @Test
     void anUnknownOptionIsAUsageError() throws IOException {
-        assertEquals(LaunchCommand.EXIT_USAGE, run("--rig", "bench", "--tags", "@smoke"));
-        assertTrue(errBytes.toString(StandardCharsets.UTF_8).contains("Unknown option --tags."));
+        assertEquals(LaunchCommand.EXIT_USAGE, run("--rig", "bench", "--bogus", "@smoke"));
+        assertTrue(errBytes.toString(StandardCharsets.UTF_8).contains("Unknown option --bogus."));
     }
 
     @Test

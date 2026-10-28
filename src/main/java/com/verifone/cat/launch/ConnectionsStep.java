@@ -30,7 +30,8 @@ import com.verifone.cat.rig.Rig;
  * re-probe for the rest of the run. The Python CAT's {@code cat.launch.steps.connections}.
  *
  * <p>The probe targets are {@link Endpoints#targetsFor}: the Commander (CGILink, port 80), the primary
- * register (SSH, port 22) and the Host PC, all fixed. A fixed row that is not up fails the step, and
+ * register (SSH, port 22) and the Host PC, all fixed, then the optional devices in {@link LaunchConfig#connections()}
+ * (never fixed, so one that is down is a warning). A fixed row that is not up fails the step, and
  * then no SSH login is tried (a box known to be down is not signed in to; the Python tries, and reports
  * the failure). With the rig reachable, each provisioning target is signed in to, the Commander first,
  * all at once: a <em>refused</em> login fails the step and ends the run, because step 4 cannot provision
@@ -90,7 +91,7 @@ final class ConnectionsStep implements LaunchStep {
         }
         Rig rig = loaded.rig();
         LaunchConfig config = ctx.config();
-        List<Target> targets = new ArrayList<>(Endpoints.targetsFor(rig, List.of()));
+        List<Target> targets = new ArrayList<>(Endpoints.targetsFor(rig, config.connections()));
         if (config.xrayReport() && !config.fakePos()) {
             targets.add(Target.xray(XRAY_ROW, AtlassianClient.XRAY_API.getHost()));
         }
