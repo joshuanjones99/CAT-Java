@@ -173,7 +173,10 @@ public final class StandardRegistry implements RegistryFactory {
                 SaleTiming.DEFAULT,
                 DevicesTiming.DEFAULT,
                 saleRmi(services, driver, shim),
-                services.printer());
+                services.printer(),
+                services.rig() == null ? null : services.rig().rig().cashier(),
+                services.rig() == null || services.config().fakePos() ? null
+                        : StandardHandlers.packetFolders(tools, null));
     }
 
     /** {@code CAT_TOOLS_ROOT}, else PATS's {@code C:\CICD\Tools}. */

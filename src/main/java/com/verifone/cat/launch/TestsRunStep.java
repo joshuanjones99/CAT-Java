@@ -369,6 +369,9 @@ final class TestsRunStep implements LaunchStep {
                     run.perform(action);
                 } catch (RuntimeException e) {
                     stop = e;
+                } catch (AssertionError e) {
+                    // Playwright's expect() fails with an Error; the Python's except Exception catches its counterpart.
+                    stop = new PatsStepError(e.getMessage(), e);
                 }
                 validationsSent = emitSettled(ctx, nodeid, record, validationsSent);
                 if (stop != null) {
@@ -385,6 +388,8 @@ final class TestsRunStep implements LaunchStep {
             return Attempt.validationsFailed(failed);
         } catch (RuntimeException e) {
             return Attempt.stepFailed(e);
+        } catch (AssertionError e) {
+            return Attempt.stepFailed(new PatsStepError(e.getMessage(), e));
         }
     }
 
