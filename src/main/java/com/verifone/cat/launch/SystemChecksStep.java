@@ -49,11 +49,16 @@ import com.verifone.cat.sims.base.JavaSets;
  * Simulator Suite is in a run that is not {@code --fake-pos}, Petro's pump-state ports 1072 and 9706 must be free
  * for the run ({@link #checkPetroPorts}), or the step fails naming their holder.
  *
+ * <p>When the rig's lines and its printer lines pass, the register's printer port is held from here
+ * ({@link PrinterHold#hold}, the Python's {@code _hold_printer_port} from step 1) until step 5's session takes it.
+ *
  * <p>Not ported: the VATS lines for a {@code pinpad: vats} rig (that rig ends this step as unavailable), the
- * Commercial Fleet license check (the cases' licence tags), the on-disk check of the tests (step 5 pulls them; the
- * tests line says so), and the Python's printer-port hold from step 1 ({@code _hold_printer_port}; the port is
- * held when the run's printer connects). Deviation: with a required rig hardware line failed the step already fails,
- * so the Commander's base is not read and nothing is fetched (the Python goes on to read and fetch).
+ * Commercial Fleet license check (the cases' licence tags), and the on-disk check of the tests (step 5 pulls them; the
+ * tests line says so). Deviations: with a required rig hardware line failed the step already fails, so the
+ * Commander's base is not read and nothing is fetched (the Python goes on to read and fetch). A rig run that asks for
+ * what step 4 cannot do in CAT-Java ({@link CommanderConfigurationStep#unported}: JaCoCo coverage, the cloud tunnel
+ * of a Commander Connect onboarding) fails here, one FAIL line each, so it stops before step 3 starts simulators and
+ * step 4 installs a build; the Python has no such line (it can do both).
  * {@code --fake-pos} skips what the Python skips: the rig, the rig's hardware lines, the run lock and the Commander's
  * base. A requirement that needs a base is a WARN on a fake-POS run, not a pass.
  *
@@ -124,15 +129,30 @@ final class SystemChecksStep implements LaunchStep {
         // One CAT run per rig, before anything below touches it.
         String busy = rigOk ? takeRunLock(ctx, step, rig, fakePos) : "";
 
-        checkPetroapps(paths, step, failures);
+        checkPetroapps(paths, config.testPlanBranch(), step, failures);
+
+        // What step 4 cannot do in CAT-Java (coverage, the cloud tunnel), here so a mistyped launch stops before step 3
+        // starts simulators and step 4 installs a build.
+        for (CommanderConfigurationStep.Gap gap : CommanderConfigurationStep.unported(config,
+                stages.cloudTunnelPorted())) {
+            step.check(false, gap.row(), gap.detail(), true);
+            failures.add(gap.row() + " — " + gap.detail());
+        }
 
         List<String> hardwareFailures = new ArrayList<>();
         Snapshot<PlanRequirements> requirements = config.testPlans().isEmpty() ? null
                 : ctx.paths().catalogue().requirements(PlanCatalogue.Mode.CACHE_FIRST);
         Path toolsRoot = SetupItems.toolsRoot(paths.setupEnv());
         if (rig != null && !fakePos && busy.isEmpty()) {
-            hardwareFailures.addAll(rigHardwareReady(step, rig, needsPrinter(config, requirements)));
+            boolean[] printerOk = {true};
+            hardwareFailures.addAll(rigHardwareReady(step, rig, needsPrinter(config, requirements), printerOk));
             missing.addAll(rigOnlyGaps(rig));
+            if (hardwareFailures.isEmpty() && printerOk[0]) {
+                // Answer the register's printer from here, not from step 4: it retests a printer that failed with a
+                // growing back-off, and after a port left unanswered between launches the first cases' receipts never
+                // printed (the Python's runs 38b931774e45, aaa86ab51eb2; HANDOFF §1.106). Step 4's hold is idempotent.
+                PrinterHold.hold(ctx, step, stages.printerOpener());
+            }
             if (hardwareFailures.isEmpty()) {
                 // The Commander's base first: the registry rows the run uses depend on it. Then the chosen Simulator
                 // Build, then the simulators and Java 17 set this base wants, so step 3 starts a matching pair.
@@ -234,13 +254,18 @@ final class SystemChecksStep implements LaunchStep {
     }
 
     /**
-     * Petroapps must be current with {@code origin/master}: its working tree supplies the TLog rules and the
-     * configurations the tests import. Behind is brought current (checkout, then fast-forward), as the Python does.
+     * Petroapps must be current with {@code origin/<test plan branch>} (the run's {@link LaunchConfig#testPlanBranch},
+     * the Python's {@code ctx.config.test_plan_branch}): its working tree supplies the TLog rules and the configurations
+     * the tests import. Behind is brought current (checkout, then {@code merge --ff-only}), as the Python does; git
+     * carries uncommitted changes across or refuses, and nothing is stashed, reset or forced ({@link Freshness#check}).
      * No checkout at all is no line here, as the Python's {@code freshness} returns none.
+     *
+     * <p>Deviation: the Python passes the outcome of the fetch its run-start collection already made
+     * ({@code petroapps_fetch_error}); CAT-Java collects in step 5, so this check fetches itself.
      */
-    private static void checkPetroapps(LaunchPaths paths, StepEmitter step, List<String> failures) {
+    private static void checkPetroapps(LaunchPaths paths, String branch, StepEmitter step, List<String> failures) {
         try {
-            Optional<Freshness> fresh = Freshness.check(paths.petroappsRoot(), PlanCases.REVISION, null, true);
+            Optional<Freshness> fresh = Freshness.check(paths.petroappsRoot(), branch, null, true);
             if (fresh.isPresent()) {
                 step.check(fresh.get().ok(), "petroapps current", fresh.get().detail(), true);
                 if (!fresh.get().ok()) {
@@ -258,7 +283,7 @@ final class SystemChecksStep implements LaunchStep {
      * needs the printer (a plan whose Devices column leaves the printer out does not, 2026-10-21). Returns the required
      * lines that are not ok, each as {@code label — detail}.
      */
-    private List<String> rigHardwareReady(StepEmitter step, Rig rig, boolean needsPrinter) {
+    private List<String> rigHardwareReady(StepEmitter step, Rig rig, boolean needsPrinter, boolean[] printerOk) {
         List<Readiness> lines = new ArrayList<>(stages.rigNetwork(rig));
         lines.addAll(RigReadiness.printerLines(rig, stages.serialPorts()));
         List<String> failures = new ArrayList<>();
@@ -268,6 +293,9 @@ final class SystemChecksStep implements LaunchStep {
             step.check(line.ok(), line.label(), line.detail(), required);
             if (!line.ok() && required) {
                 failures.add(line.label() + " — " + line.detail());
+            }
+            if (!line.ok() && printer) {
+                printerOk[0] = false;
             }
         }
         return failures;

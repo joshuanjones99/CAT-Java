@@ -100,6 +100,42 @@ class SystemChecksStepTest {
     }
 
     @Test
+    void petroappsIsCheckedAgainstTheRunsTestPlanBranchAndItsUncommittedChangesAreKept() throws Exception {
+        // The lab's checkout is on a ticket branch with uncommitted deletions: step 1 must check that branch (the
+        // Python's test_plan_branch), not switch the checkout to master.
+        Assumptions.assumeTrue(PetroappsRepo.gitAvailable(), "git is not on PATH");
+        Path petroapps = PetroappsRepo.withOneCase(dir);
+        Path work = dir.resolve("work");
+        String branch = "PETROCORE-141728";
+        PetroappsRepo.git(work, "checkout", "-q", "-b", branch);
+        Files.writeString(work.resolve("AutomationTests").resolve("ticket.txt"), "ticket", StandardCharsets.UTF_8);
+        PetroappsRepo.git(work, "add", "-A");
+        PetroappsRepo.commit(work, "the ticket's commit");
+        PetroappsRepo.git(work, "push", "-q", "origin", branch);
+        PetroappsRepo.git(work, "checkout", "-q", "master");
+        Files.writeString(work.resolve("AutomationTests").resolve("rulefiles.txt"), "newer", StandardCharsets.UTF_8);
+        PetroappsRepo.git(work, "add", "-A");
+        PetroappsRepo.commit(work, "master moves on");
+        PetroappsRepo.git(work, "push", "-q", "origin", "master");
+        PetroappsRepo.git(petroapps, "fetch", "-q", "origin");
+        PetroappsRepo.git(petroapps, "checkout", "-q", "-b", branch, "origin/" + branch);
+        Path deleted = petroapps.resolve("AutomationTests").resolve("ticket.txt");
+        Files.delete(deleted);
+
+        LaunchResult result = run(LaunchFixtures.paths(dir, petroapps),
+                new LaunchConfig.Builder("").fakePos(true).testPlanBranch(branch).build());
+
+        assertEquals(StepResult.COMPLETE, result.steps().get(0).state(), result.steps().get(0).detail());
+        String text = log(result);
+        assertTrue(text.contains("PASS  petroapps current — " + branch + " at "), text);
+        assertTrue(text.contains("up to date with origin/" + branch), text);
+        assertEquals(branch, PetroappsRepo.git(petroapps, "rev-parse", "--abbrev-ref", "HEAD"));
+        assertFalse(Files.exists(deleted), "the uncommitted deletion must be kept");
+        assertFalse(Files.exists(petroapps.resolve("AutomationTests").resolve("rulefiles.txt")),
+                "master's commit must not reach the ticket branch's working tree");
+    }
+
+    @Test
     void aPetroappsCheckoutThatCannotBeFetchedFailsSystemChecks() throws Exception {
         Assumptions.assumeTrue(PetroappsRepo.gitAvailable(), "git is not on PATH");
         Path petroapps = PetroappsRepo.withOneCase(dir);

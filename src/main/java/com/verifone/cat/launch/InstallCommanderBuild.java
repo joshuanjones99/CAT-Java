@@ -1,11 +1,13 @@
 package com.verifone.cat.launch;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 import com.verifone.cat.build.BuildDiscovery;
 import com.verifone.cat.build.BuildException;
+import com.verifone.cat.build.CommanderBuildFetch;
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
@@ -39,6 +41,9 @@ import com.verifone.cat.rig.Rig;
  *       merges onto a foundation) fails its download with a reason.</li>
  *   <li>Under {@code --fake-pos} nothing is installed (a row says so), where the Python would run the upgrade; it
  *       never touches a device under fake POS.</li>
+ *   <li>A chosen build whose {@code overlay.zip} and PSI jars are already under the builds root is not downloaded,
+ *       and Artifactory is not asked (its row says "already downloaded"); the Python lists the build and asks each
+ *       file's size first, so needs a login even then ({@link CommanderBuildFetch#missingFiles}).</li>
  *   <li>No {@code on_stage} callback: the web page's Install Upgrade has its own sequence.</li>
  * </ul>
  *
@@ -92,7 +97,14 @@ final class InstallCommanderBuild {
                 return new Result(false, false);
             }
             ran = true;
-            if (!stage(step, "build", say -> stages.downloadCommanderBuild(config.commanderBranch(),
+            List<String> missing = CommanderBuildFetch.missingFiles(buildDir, CommanderBuildFetch.PSI_FILES);
+            if (missing.isEmpty()) {
+                // Everything the install needs is on disk: no Artifactory login is needed, and none is asked for.
+                String held = "already downloaded: " + buildDir + " holds " + BuildDiscovery.OVERLAY + ", "
+                        + String.join(", ", CommanderBuildFetch.PSI_FILES) + "; Artifactory not asked";
+                step.log(held, "INFO");
+                step.substep(label("build"), SubstepOutcome.PASSED, held, 0.0);
+            } else if (!stage(step, "build", say -> stages.downloadCommanderBuild(config.commanderBranch(),
                     config.commanderBuild(), dist, say))) {
                 return new Result(false, ran);
             }

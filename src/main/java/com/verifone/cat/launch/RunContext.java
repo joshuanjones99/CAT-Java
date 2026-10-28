@@ -53,6 +53,7 @@ public final class RunContext {
     private final Map<Integer, AutoCloseable> petroSinks = new ConcurrentHashMap<>();
     private volatile PetroPorts.Opener petroPortOpener = PetroPorts.Opener.PORT_SINK;
     private volatile boolean testsStarted;
+    private volatile AutoCloseable heldPrinter;
     private volatile Long epsLogMark;
     private volatile CommanderOptions commanderOptions;
 
@@ -238,8 +239,21 @@ public final class RunContext {
     }
 
     /**
-     * Whether step 5 started its first case (the Python's {@code tests_started}): Cleanup leaves the register's day
-     * alone when no test ran.
+     * The register's receipt printer port CAT holds during setup, or null (the Python's {@code _RunContext.printer}):
+     * taken in System Checks and after step 4's {@code provision}, released before step 5's session opens the port.
+     * Read and changed through {@link PrinterHold}.
+     */
+    AutoCloseable heldPrinter() {
+        return heldPrinter;
+    }
+
+    void heldPrinter(AutoCloseable printer) {
+        heldPrinter = printer;
+    }
+
+    /**
+     * Whether step 5 was entered (the Python's {@code tests_started}, set on entering its tests step): Cleanup leaves
+     * the register's day alone when no test step ran.
      */
     public boolean testsStarted() {
         return testsStarted;

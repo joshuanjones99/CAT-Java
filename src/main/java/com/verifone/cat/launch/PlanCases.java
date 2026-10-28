@@ -22,9 +22,6 @@ import java.util.List;
  */
 final class PlanCases {
 
-    /** The branch of petroapps the tests are read from by default ({@link LaunchConfig#testPlanBranch} is used). */
-    static final String REVISION = "master";
-
     /** The dist folder that wins for tests by default ({@link LaunchConfig#dist} is used). */
     static final String DIST = "buypass";
 
@@ -56,9 +53,11 @@ final class PlanCases {
                 }
             }
         }
+        // fetch=true, as the Python's _collect_suite (cat/launch/plan.py): the tests come from origin/<branch> as the
+        // remote has it now; a failed fetch falls back to the local ref with a WARNING line.
         CollectOptions options = new CollectOptions(config.testPlanBranch(), config.dist(),
                 repoRoot.resolve(Collect.PULLED_DIR), repoRoot,
-                false);
+                true);
         CollectResult collected = Collect.collect(keys, paths.petroappsRoot(), options);
         return CaseSource.collected(collected, repoRoot);
     }

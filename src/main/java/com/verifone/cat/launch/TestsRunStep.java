@@ -78,9 +78,10 @@ import com.verifone.cat.rig.Rig;
  * <ul>
  *   <li><b>The handoffs</b> ({@code _step_tests}): PATS's pump port 1072, held by the run since step 3
  *       ({@link PetroPorts}), is released before the session's pump listener binds it and held again when the
- *       step ends. The receipt printer's port is the session's while the tests run: the connector opens it at the
- *       session's start (as the Python's {@code _topaz_printer_session} does) and closes it at the end, and its
- *       Receipt Printer row says it is lent, then stopped ({@code cat.launch.printer.lend_to_tests},
+ *       step ends. The receipt printer's port is the session's while the tests run: CAT's setup hold
+ *       ({@link PrinterHold}) is released, then the connector opens it at the session's start (as the Python's
+ *       {@code _topaz_printer_session} does) and closes it at the end, and its Receipt Printer row says it is lent,
+ *       then stopped ({@code _release_printer_port(lent=True)}, {@code cat.launch.printer.lend_to_tests},
  *       {@code tests_ended}).</li>
  *   <li><b>Petro's pumps and DCR 1</b> ({@link PetroSession}): one listener each for the whole step when a case of
  *       the run declares them; the DCR link check and its once-per-session recovery at a DCR case's setup; and after a
@@ -89,8 +90,9 @@ import com.verifone.cat.rig.Rig;
  *       link that would not come back) errors the case before its first action, as a pytest fixture error does, and
  *       walks the recovery ladder as a {@code setup} failure.</li>
  * </ul>
- * {@link RunContext#testsStarted()} is set when the first case starts. Deviation: the Python sets
- * {@code tests_started} on entering the step; the orchestrator asked for the first case.
+ * {@link RunContext#testsStarted()} is set on entering the step, as the Python's {@code tests_started} (its
+ * {@code _step_tests} sets it first), so Cleanup's day close runs even when the step fails before its first case. Only
+ * an unwired step (no registry or case source, which the Python cannot be) leaves it unset.
  *
  * <p>Not done here: failed-validation evidence capture. No {@link com.verifone.cat.pats.runner.EvidenceSink} is
  * given (TODO): {@code PosDriver.capture} writes nothing without an {@code ArtifactSink}, and the connector builds the
@@ -153,6 +155,7 @@ final class TestsRunStep implements LaunchStep {
             return step.unavailable(PYTHON_MODULE, "the action registry and the plan's case source, which this run "
                     + "is not wired with yet (pats.runner.handlers and the plan's collected cases)");
         }
+        ctx.testsStarted(true);
         FakePos fake = null;
         Session session = new Session();
         try {
@@ -223,7 +226,9 @@ final class TestsRunStep implements LaunchStep {
             }
         }
 
-        // The handoffs: the printer's port and PATS's pump port are the session's from here.
+        // The handoffs: the printer's port and PATS's pump port are the session's from here. CAT's setup hold of the
+        // printer first, so the connector can open the port.
+        PrinterHold.release(ctx, true);
         session.printerLent = lendPrinter(ctx);
         session.heldPumpPort = PetroPorts.release(ctx, PetroPumps.PATS_FUEL_PORT);
         Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
@@ -281,7 +286,6 @@ final class TestsRunStep implements LaunchStep {
         String nodeid = entry.nodeid();
         Path folder = ctx.runFolder().resolve(entry.key());
         CaseRecord record = new CaseRecord(nodeid, entry.key(), folder, ctx.clock().instant());
-        ctx.testsStarted(true);
         ctx.emit(new CatEvent.TestStarted(nodeid));
         long started = System.nanoTime();
 

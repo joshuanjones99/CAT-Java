@@ -28,18 +28,22 @@ import com.verifone.cat.rig.Rig;
  *
  * <p>The order, and what each part is here:
  * <ol>
+ *   <li>Before anything is installed, on a rig run: what the run asks for that CAT-Java does not have
+ *       ({@link #unported}: JaCoCo coverage's launch wiring; the cloud tunnel of a run onboarding to Commander
+ *       Connect) fails the step as unavailable, one failed row each. Deviation: the Python reaches these after the
+ *       install; CAT-Java cannot do them, so it stops before a PSI install wipes both devices for a run that would
+ *       end there anyway. System Checks fails the same run first.</li>
  *   <li>The Commander build download and install ({@link InstallCommanderBuild}, the Python's
  *       {@code install_commander_build}): the chosen build downloaded, the PSI install, and {@code psi-init
  *       --no-pairing}. AU and VHQ are unavailable.</li>
- *   <li>On a rig: JaCoCo coverage when asked (unavailable: its launch wiring is not ported); the pos-shim
- *       jar build (the Python CAT's, so a row says so); {@code provision} (ported, the {@code provision}
- *       package); the printer-port hold (unavailable, a warning, as the Python's hold is best effort); after a
- *       PSI install, {@code psi-init} with pairing, then {@link RunContext#commanderLoginReady()} and
- *       {@code provision} again (pairing reboots the register); {@code commander-prep} (ported).</li>
+ *   <li>On a rig: the pos-shim jar build (the Python CAT's, so a row says so); {@code provision} (ported, the
+ *       {@code provision} package); the printer-port hold ({@link PrinterHold#hold}, the Python's
+ *       {@code _hold_printer_port}: idempotent when System Checks already holds it); after a PSI install,
+ *       {@code psi-init} with pairing, then {@link RunContext#commanderLoginReady()} and {@code provision} again
+ *       (pairing reboots the register); {@code commander-prep} (ported).</li>
  *   <li>When the run onboards to Commander Connect ({@link LaunchConfig#commanderConnect}): the cloud tunnel, before
- *       the inits. Its serve loop is not ported ({@code cloudtunnel}), and the lab Commander has no WAN link, so an
- *       onboarding run ends unavailable here. Without onboarding (the default) the Commander Connect row is skipped
- *       with the Python's reason.</li>
+ *       the inits (reached only once it is ported; see the first item). Without onboarding (the default) the
+ *       Commander Connect row is skipped with the Python's reason.</li>
  *   <li>{@code commander-init} (ported, every run: CAT-Java has only the {@code dev} execution mode), with
  *       {@code --no-forecourt} when Petro Simulator Suite is not selected. The init restores the Commander snapshot
  *       first ({@code commander.snapshot.SnapshotRestore}; {@code $CAT_NO_SNAPSHOT} switches it off), its lines in
@@ -103,7 +107,6 @@ final class CommanderConfigurationStep implements LaunchStep {
             Map.entry("coverage", "JaCoCo coverage"));
 
     static final String POS_SHIM_BUILD_ROW = "pos-shim build";
-    static final String PRINTER_ROW = "Receipt printer port";
     static final String INSTALLED_BUILD_ROW = "Installed build";
 
     /** The simulator {@code payment-links}' drift fix leaves deaf: the Python's {@code PAYMENT_HOST}. */
@@ -134,9 +137,52 @@ final class CommanderConfigurationStep implements LaunchStep {
         return STAGE_LABELS.getOrDefault(command, command);
     }
 
+    /** What JaCoCo coverage needs that CAT-Java does not have. */
+    static final String COVERAGE_MISSING = "JaCoCo coverage's launch wiring (cat.launch.coverage.prepare_coverage), "
+            + "which runs before provision when the Config tab asks for coverage";
+
+    /**
+     * Something a rig run asks for that CAT-Java does not have: its row, and what {@link StepEmitter#unavailable} says.
+     */
+    record Gap(String row, String pythonModule, String missing) {
+
+        /** The row's detail and the step's failure: the {@link StageUnavailable} wording. */
+        String detail() {
+            return "unavailable in CAT-Java: needs " + missing + " (Python: " + pythonModule + ")";
+        }
+    }
+
+    /**
+     * What a rig run of {@code config} asks for that CAT-Java does not have, in step 4's order: JaCoCo coverage, then
+     * the cloud tunnel of a run onboarding to Commander Connect (unless {@code tunnelPorted}). Empty under
+     * {@code --fake-pos}, which touches no device. Step 1 and step 4 both check it, before anything is installed.
+     */
+    static List<Gap> unported(LaunchConfig config, boolean tunnelPorted) {
+        if (config.fakePos()) {
+            return List.of();
+        }
+        List<Gap> gaps = new java.util.ArrayList<>();
+        if (config.coverage()) {
+            gaps.add(new Gap(label("coverage"), PYTHON_MODULE, COVERAGE_MISSING));
+        }
+        if (config.commanderConnect() && !tunnelPorted) {
+            gaps.add(new Gap("cloud-tunnel", CommanderStages.CLOUD_TUNNEL_MODULE, CommanderStages.CLOUD_TUNNEL_MISSING));
+        }
+        return List.copyOf(gaps);
+    }
+
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
         LaunchConfig config = ctx.config();
+        // 0. Before anything destructive: a run that would end unavailable after the PSI install ends here instead.
+        List<Gap> gaps = unported(config, stages.cloudTunnelPorted());
+        if (!gaps.isEmpty()) {
+            for (Gap gap : gaps) {
+                step.substep(gap.row(), SubstepOutcome.FAILED, gap.detail(), 0.0);
+            }
+            Gap first = gaps.get(0);
+            return step.unavailable(first.pythonModule(), first.missing());
+        }
         ctx.commanderReached(true);
         Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
 
@@ -163,22 +209,15 @@ final class CommanderConfigurationStep implements LaunchStep {
             return step.fail("the rig file did not load, so the Commander cannot be configured");
         }
 
-        // 2. The register, then the Commander's license nags.
-        if (config.coverage()) {
-            return step.unavailable(PYTHON_MODULE, "JaCoCo coverage's launch wiring (cat.launch.coverage."
-                    + "prepare_coverage), which runs before provision when the Config tab asks for coverage");
-        }
+        // 2. The register, then the Commander's license nags. (Coverage, when asked, ended the step above.)
         step.skip(POS_SHIM_BUILD_ROW, "built by the Python CAT (tools/build_pos_shim.py); provision reports a "
                 + "missing or partial payload");
         if (!stage(step, "provision", say -> stages.provision(rig, say))) {
             return false;
         }
-        Rig.Register primary = rig.primaryRegister();
-        if (primary != null && primary.printerPort() != null && !primary.printerPort().isBlank()) {
-            step.warn(PRINTER_ROW, primary.printerPort() + " not held during setup: unavailable in CAT-Java (needs "
-                    + "step 4's printer-port hold, the Python's _hold_printer_port, around devices.printer."
-                    + "TopazPrinter); the register's first receipt after a POS restart may be dropped");
-        }
+        // From here to the test session, be the register's printer (PATS's emulator holds the port for its whole
+        // run): the register connects on its next probe, and the first sale's receipt then prints.
+        PrinterHold.hold(ctx, step, stages.printerOpener());
         // PATS's -newinstall tasks: the Commander password PSI generated, and pairing. Nothing may log in as
         // manager with the lab password before this reset (2026-09-21). Pairing reboots the register, so
         // provision runs again (a stamp match) to bring the shim up on it.

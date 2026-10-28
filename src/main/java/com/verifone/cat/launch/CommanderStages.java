@@ -18,7 +18,7 @@ import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.BuildDiscovery;
 import com.verifone.cat.build.BuildException;
 import com.verifone.cat.build.CommanderBuildFetch;
-import com.verifone.cat.build.EnvArtifactoryCredentials;
+import com.verifone.cat.build.StoredArtifactoryCredentials;
 import com.verifone.cat.build.Installed;
 import com.verifone.cat.closeday.CloseDay;
 import com.verifone.cat.collect.Collect;
@@ -124,11 +124,24 @@ interface CommanderStages {
     /** {@code petrotest payment-ready}: the EPS ready for card sales. */
     boolean paymentReady(Rig rig, Say say);
 
+    /** The Python module the cloud tunnel lives in. */
+    String CLOUD_TUNNEL_MODULE = "src/cat/launch/tunnel.py";
+
+    /** What the cloud tunnel needs that CAT-Java does not have. */
+    String CLOUD_TUNNEL_MISSING = "the cloud tunnel's serve loop (cloudtunnel: SSH reverse forwards in Transport), "
+            + "which a run onboarding to Commander Connect starts before the inits; the lab Commander has no WAN link";
+
     /** The cloud tunnel, started before the inits when the run onboards to Commander Connect. */
     default boolean cloudTunnel(Rig rig, Say say) {
-        throw new StageUnavailable("src/cat/launch/tunnel.py",
-                "the cloud tunnel's serve loop (cloudtunnel: SSH reverse forwards in Transport), which a run "
-                        + "onboarding to Commander Connect starts before the inits; the lab Commander has no WAN link");
+        throw new StageUnavailable(CLOUD_TUNNEL_MODULE, CLOUD_TUNNEL_MISSING);
+    }
+
+    /**
+     * Whether {@link #cloudTunnel} is there to run. Asked before step 4 installs anything, so a run onboarding to
+     * Commander Connect stops before a PSI install wipes the devices, not after. False until the tunnel is ported.
+     */
+    default boolean cloudTunnelPorted() {
+        return false;
     }
 
     /** {@code petrotest commander-connect}: onboards the Commander. */
@@ -216,6 +229,14 @@ interface CommanderStages {
         return Pauser.REAL;
     }
 
+    /**
+     * How step 4 opens the register's printer port for its hold ({@link PrinterHold}). None by default, so a test's
+     * recorder never opens a real serial port; {@link Real} opens {@link com.verifone.cat.devices.printer.TopazPrinter}.
+     */
+    default PrinterHold.Opener printerOpener() {
+        return PrinterHold.Opener.NONE;
+    }
+
     /** The Artifactory client's per-request budget for a build download, the web Downloads page's. */
     Duration ARTIFACTORY_TIMEOUT = Duration.ofMinutes(10);
 
@@ -242,9 +263,14 @@ interface CommanderStages {
         }
 
         @Override
+        public PrinterHold.Opener printerOpener() {
+            return PrinterHold.Opener.TOPAZ;
+        }
+
+        @Override
         public boolean downloadCommanderBuild(String branch, String build, String dist, Say say) {
             ArtifactoryClient client = new ArtifactoryClient(URI.create(ArtifactoryClient.DEFAULT_BASE_URL),
-                    new EnvArtifactoryCredentials(environ), ARTIFACTORY_TIMEOUT);
+                    StoredArtifactoryCredentials.forEnvironment(environ), ARTIFACTORY_TIMEOUT);
             try {
                 CommanderBuildFetch.fetch(client, branch, build, dist, CommanderBuildFetch.PSI_FILES,
                         buildsRoot(), say::out);

@@ -1,5 +1,7 @@
 package com.verifone.cat.build;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,33 @@ public final class CommanderBuildFetch {
     public static final List<String> PSI_FILES = List.of("Petro_Suite_Installer.jar", "Auto_Upgrade.jar");
 
     private CommanderBuildFetch() {}
+
+    /**
+     * The files of an install ({@code overlay.zip} and {@code jars}) that {@code dest} does not hold, each by name, in
+     * that order; empty when the build is already downloaded. A file counts when it is a non-empty regular file: a
+     * download is written to {@code .part} and moved into place only once whole ({@link ArtifactoryClient}).
+     *
+     * <p>Deviation (CAT-Java, 2026-10-28): the launch skips Artifactory altogether when this is empty, so a controller
+     * with no Artifactory login installs a build already on disk. The Python lists the folder and asks each file's size
+     * first ({@code petrotest.build.nightly}), so it needs a login even then.
+     */
+    public static List<String> missingFiles(Path dest, List<String> jars) {
+        List<String> names = new ArrayList<>();
+        names.add(BuildDiscovery.OVERLAY);
+        names.addAll(jars);
+        List<String> missing = new ArrayList<>();
+        for (String name : names) {
+            Path file = dest.resolve(name);
+            try {
+                if (!Files.isRegularFile(file) || Files.size(file) == 0) {
+                    missing.add(name);
+                }
+            } catch (IOException e) {
+                missing.add(name);
+            }
+        }
+        return missing;
+    }
 
     /**
      * Fetches {@code overlay.zip} and {@code jars} of {@code branch} build {@code build}'s {@code dist} folder.

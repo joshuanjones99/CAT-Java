@@ -28,7 +28,7 @@ import com.verifone.cat.build.BuildCatalogue;
 import com.verifone.cat.build.BuildDiscovery;
 import com.verifone.cat.build.BuildDownloads;
 import com.verifone.cat.build.BuildException;
-import com.verifone.cat.build.EnvArtifactoryCredentials;
+import com.verifone.cat.build.StoredArtifactoryCredentials;
 import com.verifone.cat.launch.UpgradeMode;
 
 /**
@@ -120,7 +120,7 @@ final class DownloadsService {
     /** The real service: the Artifactory login from the environment, and {@code CAT_BUILDS_ROOT}. */
     static DownloadsService standard(Map<String, String> env) {
         return new DownloadsService(() -> new ArtifactoryClient(URI.create(ArtifactoryClient.DEFAULT_BASE_URL),
-                new EnvArtifactoryCredentials(env), Duration.ofMinutes(LISTING_TIMEOUT_MINUTES)),
+                StoredArtifactoryCredentials.forEnvironment(env), Duration.ofMinutes(LISTING_TIMEOUT_MINUTES)),
                 BuildDiscovery.buildsRoot(env));
     }
 
