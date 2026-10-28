@@ -61,19 +61,39 @@ public record SimStatus(String name, State state, Owner owner, String bind, Stri
     }
 
     /**
-     * The warning for a clicked row this port does not start: one line that names the simulator and
-     * says what the operator does by hand. This is the one place that wording lives. The step's
-     * failure detail, the run's Overview and the Launch Simulators row all show this line.
+     * The warning for a clicked row CAT started but could not press: one line that names the simulator,
+     * says what the operator does by hand, and why CAT could not. This and {@link #cannotPressButtons}
+     * are the one place that wording lives. The step's failure detail, the run's Overview and the
+     * Launch Simulators row all show this line.
      *
      * @param name the registry row's name
      * @param buttons the Swing buttons to press, in order
+     * @param reason what the click sequence reported
      * @return a {@code needs attention} status whose detail is that line
      */
-    public static SimStatus awaitingButtons(String name, List<String> buttons) {
-        String presses = buttons.isEmpty() ? "the buttons"
-                : buttons.stream().map(button -> "\"" + button + "\"").collect(Collectors.joining(", then "));
+    public static SimStatus awaitingButtons(String name, List<String> buttons, String reason) {
         return new SimStatus(name, State.NEEDS_ATTENTION, Owner.CAT, "",
-                name + " needs attention: press " + presses + " in its window (Access Bridge not ported).");
+                name + " needs attention: press " + presses(buttons) + " in its window (" + reason + ").");
+    }
+
+    /**
+     * The warning for a clicked row CAT did not start, because nothing here could press its buttons:
+     * one line naming the simulator and the fix.
+     *
+     * @param name the registry row's name
+     * @param buttons the Swing buttons it needs pressed, in order
+     * @param reason why they cannot be pressed, with the line that fixes it
+     * @return a {@code needs attention} status whose detail is that line
+     */
+    public static SimStatus cannotPressButtons(String name, List<String> buttons, String reason) {
+        return new SimStatus(name, State.NEEDS_ATTENTION, Owner.CAT, "",
+                name + " needs attention: not started, because CAT cannot press " + presses(buttons)
+                        + " in its window: " + reason + ".");
+    }
+
+    private static String presses(List<String> buttons) {
+        return buttons.isEmpty() ? "the buttons"
+                : buttons.stream().map(button -> "\"" + button + "\"").collect(Collectors.joining(", then "));
     }
 
     /**

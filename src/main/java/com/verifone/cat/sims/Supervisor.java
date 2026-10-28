@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
@@ -33,10 +34,17 @@ import java.util.stream.Collectors;
  * not start: the Simulators tab's Stop, the operator's explicit "close them all", reached by a
  * run only for a stale {@code replaceStale} process.
  *
- * <p>A row that needs its Swing buttons pressed ({@code click:}) is never started by this port.
- * It is reported {@code needs attention} with the operator's line ({@link SimStatus#awaitingButtons})
- * and no process is spawned, so nothing is left running that the operator must click by hand from an
- * unknown state.
+ * <p>A row that needs its Swing buttons pressed ({@code click:}) is launched, its main window found by
+ * PID within the start budget, its buttons pressed through the Java Access Bridge and the window
+ * minimised ({@link Clicker}, the Python's {@code _do_clicks}); a {@code ready: clicked} row is then
+ * {@code ready} with the clicked buttons as its detail. A click that fails leaves the process running
+ * (CAT's own, so {@link #stop} still stops it) and the row {@code needs attention}
+ * ({@link SimStatus#awaitingButtons}), never {@code ready}. When the controller cannot press buttons
+ * at all ({@link Clicker#unavailable}: no bridge DLL, the bridge not switched on), the row is
+ * {@code needs attention} with the fix ({@link SimStatus#cannotPressButtons}) and nothing is spawned;
+ * the Python spawns first and finds out after. A {@code windowed:} row without buttons has its
+ * windows minimised as they appear, best effort, on a thread of its own
+ * ({@link Clicker#minimiseWhenShown}).
  *
  * <p>Every wait is bounded. A timeout is a {@code FAILED} row naming the timeout.
  *
@@ -99,15 +107,23 @@ public final class Supervisor {
 
     private final ProcessOps ops;
     private final Duration staleBindWait;
+    private final Clicker clicker;
 
+    /** A supervisor that presses buttons through this controller's Access Bridge. */
     public Supervisor(ProcessOps ops) {
         this(ops, STALE_BIND_WAIT);
     }
 
     /** For tests, which cannot wait twenty seconds for a stale process. */
     public Supervisor(ProcessOps ops, Duration staleBindWait) {
+        this(ops, staleBindWait, AccessBridgeClicker.forThisController());
+    }
+
+    /** For tests, which press buttons through fake bindings. */
+    public Supervisor(ProcessOps ops, Duration staleBindWait, Clicker clicker) {
         this.ops = Objects.requireNonNull(ops, "ops");
         this.staleBindWait = Objects.requireNonNull(staleBindWait, "staleBindWait");
+        this.clicker = Objects.requireNonNull(clicker, "clicker");
     }
 
     /**
@@ -223,10 +239,18 @@ public final class Supervisor {
             return fail(entry, ev, SimStatus.Owner.CAT, "CAPK re-dating is not ported (cat.sims.capk): "
                     + "CAT will not launch PATS's " + entry.capkFrom() + " with its expired CAPK keys");
         }
-        if (entry.needsClicks()) {
-            SimStatus status = SimStatus.awaitingButtons(entry.name(), entry.click());
-            ev.status(status);
-            return new SimProcess(entry, status, null, null);
+        if (!entry.click().isEmpty()) {
+            Optional<String> cannot;
+            try {
+                cannot = clicker.unavailable(ctx);
+            } catch (RuntimeException e) {
+                cannot = Optional.of("could not check the Access Bridge: " + e.getMessage());
+            }
+            if (cannot.isPresent()) {
+                SimStatus status = SimStatus.cannotPressButtons(entry.name(), entry.click(), cannot.get());
+                ev.status(status);
+                return new SimProcess(entry, status, null, null);
+            }
         }
 
         String caveat = error.isEmpty() ? ""
@@ -450,12 +474,32 @@ public final class Supervisor {
         SimLogs.pump(process, entry.name(), ev, entry.fallbackWhen(), tripped);
         Runnable stopLog = startTail(entry, ctx, ev);
         ev.started(new SimProcess(entry, spawning, process, stopLog));
-        SimStatus outcome = awaitReady(entry, ctx, process, deadline, tripped);
+
+        if (entry.windowed() && entry.click().isEmpty()) {
+            try {
+                clicker.minimiseWhenShown(process, deadline + AccessBridgeClicker.WINDOW_BUDGET.toNanos());
+            } catch (RuntimeException ignored) {
+                // Cosmetic: a window left up is never a row.
+            }
+        }
+        Clicker.Clicked clicked = new Clicker.Clicked(true, "");
+        if (!entry.click().isEmpty()) {
+            ev.status(new SimStatus(entry.name(), SimStatus.State.STARTING, SimStatus.Owner.CAT, "",
+                    "pressing " + String.join(", then ", entry.click()) + " through the Java Access Bridge"));
+            try {
+                clicked = clicker.click(entry, process, ctx, deadline);
+            } catch (RuntimeException | LinkageError e) {
+                // A click must degrade to a row, never end the pass.
+                clicked = new Clicker.Clicked(false, "clicking raised " + e.getClass().getSimpleName() + ": "
+                        + e.getMessage());
+            }
+        }
+        SimStatus outcome = awaitReady(entry, ctx, process, deadline, tripped, clicked);
         return new SimProcess(entry, outcome, process, stopLog);
     }
 
     private static SimStatus awaitReady(SimEntry entry, SimContext ctx, Process process, long deadline,
-                                        AtomicBoolean tripped) {
+                                        AtomicBoolean tripped, Clicker.Clicked clicked) {
         if (entry.hasTcpReady()) {
             int port = entry.readyTcp();
             List<String> hosts = hosts(ctx);
@@ -485,6 +529,13 @@ public final class Supervisor {
             }
             return new SimStatus(entry.name(), SimStatus.State.FAILED, SimStatus.Owner.CAT, bind,
                     "no listener on port " + port + " within " + budget + "s");
+        }
+        if (entry.readyClicked()) {
+            if (clicked.clicked()) {
+                return new SimStatus(entry.name(), SimStatus.State.READY, SimStatus.Owner.CAT, "", clicked.detail());
+            }
+            // Never a row claiming ready, and never a silent skip.
+            return SimStatus.awaitingButtons(entry.name(), entry.click(), clicked.detail());
         }
         return new SimStatus(entry.name(), SimStatus.State.STARTED, SimStatus.Owner.CAT, "",
                 "readiness unknown — this entry declares no ready probe");

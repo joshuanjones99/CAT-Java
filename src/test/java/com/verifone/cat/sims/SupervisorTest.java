@@ -309,17 +309,160 @@ class SupervisorTest {
     }
 
     @Test
-    void aClickRowIsNeedsAttentionAndNothingIsSpawned() {
+    void aClickRowThatCannotBeClickedHereIsNeedsAttentionAndNothingIsSpawned() {
         SimEntry loysim = SimEntry.javaw("PCATS01 Loyalty").cwd("PCATS01")
                 .argv("-jar", "{cwd}/LoySim9.1.jar").click("Start Host").clicked()
                 .log("LoySim_Debug.log").build();
         Recorder rec = new Recorder();
-        SimProcess proc = supervisor(new FakeProcessOps())
+        SimProcess proc = clicking(new FakeWindowOps(), new FakeAccessBridge(1, FakeAccessBridge.Node.panel()))
                 .startAll(List.of(loysim), ctx(), rec, BUDGET, null).get(0);
         assertEquals(SimStatus.State.NEEDS_ATTENTION, proc.status().state());
-        assertEquals("PCATS01 Loyalty needs attention: press \"Start Host\" in its window (Access Bridge not ported).",
-                proc.status().detail());
-        assertFalse(proc.spawned(), "a click row is never started half-way");
+        assertEquals("PCATS01 Loyalty needs attention: not started, because CAT cannot press \"Start Host\" in its "
+                + "window: no javaw.exe under " + tools.resolve("Java17") + ".", proc.status().detail());
+        assertFalse(proc.spawned(), "a row that cannot be clicked is never started half-way");
+    }
+
+    @Test
+    void aClickRowIsSpawnedItsButtonsPressedItsWindowMinimisedAndItIsReady() throws IOException {
+        assumeTrue(SimTestSupport.testJava().isPresent());
+        stageAccessBridge();
+        long hwnd = 0x7777;
+        FakeWindowOps windows = new FakeWindowOps();
+        windows.anyPid = List.of(new WindowOps.TopWindow(hwnd, false));
+        FakeAccessBridge bridge = new FakeAccessBridge(hwnd, FakeAccessBridge.Node.panel(
+                FakeAccessBridge.Node.button("Load Data"), FakeAccessBridge.Node.button("Load Servers")));
+        Recorder rec = new Recorder();
+        Supervisor sup = clicking(windows, bridge);
+
+        List<SimProcess> procs = sup.startAll(List.of(clickRow("Load Data", "Load Servers")), ctx(), rec, BUDGET, null);
+        try {
+            SimProcess proc = procs.get(0);
+            assertEquals(new SimStatus("Clicked Sim", SimStatus.State.READY, SimStatus.Owner.CAT, "",
+                    "clicked Load Data, Load Servers"), proc.status());
+            assertTrue(proc.spawned());
+            assertEquals(List.of("Load Data", "Load Servers"), bridge.clicked);
+            assertEquals(List.of(hwnd), windows.minimised);
+            assertTrue(rec.statuses.stream().anyMatch(s -> s.detail().equals(
+                    "pressing Load Data, then Load Servers through the Java Access Bridge")), rec.statuses.toString());
+        } finally {
+            assertEquals(List.of("Clicked Sim"), sup.stop(procs, Duration.ofSeconds(5)), "CAT's own is stopped");
+        }
+    }
+
+    @Test
+    void aClickThatFailsLeavesItsProcessRunningAndTheRowNeedsAttentionNeverReady() throws IOException {
+        assumeTrue(SimTestSupport.testJava().isPresent());
+        stageAccessBridge();
+        long hwnd = 0x7778;
+        FakeWindowOps windows = new FakeWindowOps();
+        windows.anyPid = List.of(new WindowOps.TopWindow(hwnd, false));
+        FakeAccessBridge bridge = new FakeAccessBridge(hwnd,
+                FakeAccessBridge.Node.panel(FakeAccessBridge.Node.button("Stop Host")));
+        Supervisor sup = clicking(windows, bridge);
+
+        List<SimProcess> procs = sup.startAll(List.of(clickRow("Start Host")), ctx(), Events.NONE, BUDGET, null);
+        try {
+            SimProcess proc = procs.get(0);
+            assertEquals(SimStatus.State.NEEDS_ATTENTION, proc.status().state());
+            assertEquals("Clicked Sim needs attention: press \"Start Host\" in its window (clicked nothing; "
+                    + "'Start Host' not found (available: Stop Host)).", proc.status().detail());
+            assertTrue(proc.spawned() && proc.process().isAlive(), "left running for the operator, and owned");
+            assertEquals(List.of(hwnd), windows.minimised);
+        } finally {
+            assertEquals(List.of("Clicked Sim"), sup.stop(procs, Duration.ofSeconds(5)));
+        }
+    }
+
+    @Test
+    void aClickerThatThrowsIsANeedsAttentionRowNotAnEndedPass() {
+        assumeTrue(SimTestSupport.testJava().isPresent());
+        RecordingClicker clicker = new RecordingClicker();
+        clicker.clickError = new IllegalStateException("boom");
+        Supervisor sup = new Supervisor(new FakeProcessOps(), Duration.ofMillis(300), clicker);
+
+        List<SimProcess> procs = sup.startAll(List.of(clickRow("Start Host")), ctx(), Events.NONE, BUDGET, null);
+        try {
+            assertEquals("Clicked Sim needs attention: press \"Start Host\" in its window (clicking raised "
+                    + "IllegalStateException: boom).", procs.get(0).status().detail());
+        } finally {
+            sup.stop(procs, Duration.ofSeconds(5));
+        }
+    }
+
+    @Test
+    void aWindowedRowHasItsWindowsMinimisedPastItsStartBudgetAndIsNotClicked() {
+        assumeTrue(SimTestSupport.testJava().isPresent());
+        String token = token();
+        SimEntry entry = SimEntry.exeRow("Windowed").exe(testJava().toString())
+                .argv(SimTestSupport.fakeArgs(0, token, "idle").toArray(String[]::new))
+                .match(token).windowed().build();
+        RecordingClicker clicker = new RecordingClicker();
+        Supervisor sup = new Supervisor(new FakeProcessOps(), Duration.ofMillis(300), clicker);
+
+        long before = System.nanoTime();
+        List<SimProcess> procs = sup.startAll(List.of(entry), ctx(), Events.NONE, BUDGET, null);
+        try {
+            assertEquals(SimStatus.State.STARTED, procs.get(0).status().state());
+            assertEquals(List.of(procs.get(0).process()), clicker.minimised);
+            assertTrue(clicker.minimiseDeadline - before >= BUDGET.plus(AccessBridgeClicker.WINDOW_BUDGET).toNanos(),
+                    "watched for the window budget past the start budget");
+            assertEquals(0, clicker.clicks);
+        } finally {
+            sup.stop(procs, Duration.ofSeconds(5));
+        }
+    }
+
+    /** A {@link Clicker} that records, and can be made to throw. */
+    private static final class RecordingClicker implements Clicker {
+        RuntimeException clickError;
+        final List<Process> minimised = new CopyOnWriteArrayList<>();
+        volatile long minimiseDeadline;
+        volatile int clicks;
+
+        @Override
+        public Optional<String> unavailable(SimContext ctx) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Clicked click(SimEntry entry, Process process, SimContext ctx, long deadline) {
+            clicks++;
+            if (clickError != null) {
+                throw clickError;
+            }
+            return new Clicked(true, "clicked");
+        }
+
+        @Override
+        public void minimiseWhenShown(Process process, long deadline) {
+            minimised.add(process);
+            minimiseDeadline = deadline;
+        }
+    }
+
+    /** A supervisor whose clicker runs over fake windows and a fake bridge, reading a staged properties file. */
+    private Supervisor clicking(FakeWindowOps windows, FakeAccessBridge bridge) {
+        AccessBridgeClicker clicker = new AccessBridgeClicker(windows, dll -> bridge,
+                tools.resolve(".accessibility.properties"), true, Duration.ofMillis(10),
+                d -> Park.park(Duration.ofMillis(1)));
+        return new Supervisor(new FakeProcessOps(), Duration.ofMillis(300), clicker);
+    }
+
+    /** A JDK with the bridge DLL, and the switch on, all under the temp tools root. */
+    private void stageAccessBridge() throws IOException {
+        Path bin = Files.createDirectories(tools.resolve("Java17").resolve("jdk-17.0.5+8").resolve("bin"));
+        Files.createFile(bin.resolve("javaw.exe"));
+        Files.createFile(bin.resolve("windowsaccessbridge-64.dll"));
+        Files.writeString(tools.resolve(".accessibility.properties"),
+                "assistive_technologies=com.sun.java.accessibility.AccessBridge\n");
+    }
+
+    /** The test JVM running FakeSimulator silently, as a row ready once {@code buttons} are pressed. */
+    private static SimEntry clickRow(String... buttons) {
+        String token = token();
+        return SimEntry.exeRow("Clicked Sim").exe(testJava().toString())
+                .argv(SimTestSupport.fakeArgs(0, token, "silent").toArray(String[]::new))
+                .match(token).click(buttons).clicked().build();
     }
 
     @Test
