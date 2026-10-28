@@ -57,8 +57,12 @@ public final class BrowserConnector implements RunServices.Connector {
     /** The pos-shim's timeout on a rig, the PATS request timeout's order of magnitude. */
     static final Duration SHIM_TIMEOUT = Duration.ofSeconds(30);
 
-    /** The client name the pos-shim and the Commander see. */
-    static final String CLIENT = "CAT";
+    /**
+     * The pos-shim client to drive: none named, as the Python's {@code PosShimClient(rig.primary_register.host)} names
+     * none, so the shim answers for its one drivable register. Run b34a01ad8176 (2026-10-28) named "CAT" here and every
+     * key press failed: "POS 'CAT' has not registered a token service" while the shim's health listed {@code topaz101}.
+     */
+    static final String CLIENT = null;
 
     /** The register id a fake POS run's driver is named by (the Python's fake-POS register). */
     static final String FAKE_REGISTER = "local";

@@ -59,16 +59,42 @@ final class CaseFolders {
         current.set(kase);
     }
 
-    /** The folder the current case was loaded from, or empty when there is no case or no folder to read. */
+    /**
+     * The current case's folder: petroapps' {@code AutomationTests/TestCases/<key>/} when the checkout holds it (where
+     * PATS keeps the case's Receipt, Tlog and rule references, and where the Python's {@code CaseStore} reads them),
+     * else the folder the case was loaded from; empty when there is no case or no folder to read. On a run the loaded
+     * folder is the flat pulled copy, which holds no reference (run b34a01ad8176, 2026-10-28: every
+     * {@code -Receipt.txt} and {@code -Tlog.xml} "does not exist" while the checkout had them).
+     */
     Optional<Path> folder() {
         RunnableCase kase = current.get();
-        if (kase == null || kase.source() == null || kase.source().isBlank()) {
+        if (kase == null) {
+            return Optional.empty();
+        }
+        Path own = caseFolder(kase);
+        if (own != null) {
+            return Optional.of(own);
+        }
+        if (kase.source() == null || kase.source().isBlank()) {
             return Optional.empty();
         }
         try {
             return Optional.ofNullable(Path.of(kase.source()).getParent());
         } catch (InvalidPathException e) {
             return Optional.empty();
+        }
+    }
+
+    /** {@code <petroapps>/AutomationTests/TestCases/<key>} when it is a folder, else null. */
+    private Path caseFolder(RunnableCase kase) {
+        if (kase.key() == null || kase.key().isBlank() || petroapps == null) {
+            return null;
+        }
+        try {
+            Path folder = petroapps.root().resolve(TESTCASES).resolve(kase.key());
+            return Files.isDirectory(folder) ? folder : null;
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
@@ -184,8 +210,12 @@ final class CaseFolders {
         }
     }
 
-    /** {@code folder} as the case's, or the one the case was loaded from when none is given. */
+    /** The case's petroapps folder, else the one it was loaded from, else the working directory. */
     private Path folderOf(RunnableCase kase) {
+        Path own = kase == null ? null : caseFolder(kase);
+        if (own != null) {
+            return own;
+        }
         try {
             Path parent = kase == null || kase.source() == null ? null : Path.of(kase.source()).getParent();
             return parent == null ? Path.of("") : parent;

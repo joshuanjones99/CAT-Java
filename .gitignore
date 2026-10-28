@@ -5,3 +5,6 @@ target/
 .secrets/
 *.jar
 !.mvn/wrapper/*.jar
+
+# Tests pulled from petroapps at run start (collect); never committed here
+tests/suites/pulled/
