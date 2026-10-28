@@ -63,6 +63,17 @@ class SystemChecksRigRunTest {
         Map<String, String> running = Map.of();
         final List<String> suiteinfoReads = new CopyOnWriteArrayList<>();
         final List<String> stopped = new CopyOnWriteArrayList<>();
+        final List<String> opened = new CopyOnWriteArrayList<>();
+        final List<String> closed = new CopyOnWriteArrayList<>();
+        PrinterHold.Opener opener = port -> {
+            opened.add(port);
+            return () -> closed.add(port);
+        };
+
+        @Override
+        public PrinterHold.Opener printerOpener() {
+            return opener;
+        }
 
         @Override
         public List<Readiness> rigNetwork(Rig rig) {
@@ -233,6 +244,67 @@ class SystemChecksRigRunTest {
         assertTrue(out.step().detail().startsWith("rig hardware not ready: printer port for topaz101 — COM3 is not "
                 + "listed"), out.step().detail());
         assertEquals(List.of(), stages.suiteinfoReads);
+        assertEquals(List.of(), stages.opened, "a printer line that failed holds nothing");
+    }
+
+    @Test
+    void aRigWhosePrinterLinesPassHoldsThePrinterPortFromStepOne() throws IOException {
+        stageLoySim91();
+
+        Outcome out = run(loysim());
+
+        assertTrue(out.keepGoing(), out.step().detail());
+        assertEquals(List.of("COM3"), stages.opened);
+        assertTrue(out.log().contains("holding COM3 as the register's printer until the tests start"), out.log());
+        assertTrue(ctx.heldPrinter() != null);
+        assertEquals(List.of("ready COM3 CAT holds it for the register until the tests start"), printerRows());
+    }
+
+    @Test
+    void aPrinterPortThatWillNotOpenIsReportedAsNotHeldAndTheStepGoesOn() throws IOException {
+        stageLoySim91();
+        stages.opener = port -> {
+            throw new com.verifone.cat.devices.DeviceUnreachable(port, "Access is denied (PATS holds it?)");
+        };
+
+        Outcome out = run(loysim());
+
+        assertTrue(out.keepGoing(), out.step().detail());
+        assertTrue(out.log().contains("printer port COM3 not held during setup ("), out.log());
+        assertEquals(null, ctx.heldPrinter());
+        List<String> rows = printerRows();
+        assertEquals(1, rows.size(), rows.toString());
+        assertTrue(rows.get(0).startsWith("failed COM3 "), rows.toString());
+    }
+
+    @Test
+    void coverageOrAnOnboardingOnARigFailStepOneBeforeAnythingIsStarted() throws IOException {
+        stageLoySim91();
+
+        Outcome covered = run(loysim().coverage(true));
+        assertFalse(covered.keepGoing());
+        assertTrue(covered.log().contains("FAIL  JaCoCo coverage — unavailable in CAT-Java: needs JaCoCo coverage's "
+                + "launch wiring"), covered.log());
+        ctx.runLock().release();
+
+        Outcome onboarding = run(loysim().commanderConnect(true));
+        assertFalse(onboarding.keepGoing());
+        assertTrue(onboarding.log().contains("FAIL  cloud-tunnel — unavailable in CAT-Java: needs the cloud tunnel's "
+                + "serve loop"), onboarding.log());
+        assertTrue(onboarding.step().detail().contains("cloud-tunnel — "), onboarding.step().detail());
+    }
+
+    /** The Receipt Printer's {@code simulator.state} rows of the last run: state, bind, detail. */
+    private List<String> printerRows() throws IOException {
+        List<String> rows = new ArrayList<>();
+        for (JsonNode event : LaunchFixtures.events(dir.resolve("run"))) {
+            if (event.get("type").asText().equals("simulator.state")
+                    && event.get("name").asText().equals("Receipt Printer")) {
+                rows.add(event.get("state").asText() + " " + event.get("bind").asText() + " "
+                        + event.get("detail").asText());
+            }
+        }
+        return rows;
     }
 
     @Test

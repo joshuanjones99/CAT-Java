@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import com.verifone.cat.build.ArtifactoryClient;
-import com.verifone.cat.build.EnvArtifactoryCredentials;
+import com.verifone.cat.build.StoredArtifactoryCredentials;
 import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.connections.ConnectionProbe;
 import com.verifone.cat.connections.Endpoints;
@@ -57,9 +57,27 @@ interface SystemCheckStages {
     /** Stops every running instance of {@code entries} (only what the supervisor would adopt, never by image name). */
     Map<String, Supervisor.StopRow> stopRunning(RunContext ctx, List<SimEntry> entries, SimContext sims);
 
+    /**
+     * How step 1 opens the register's printer port for its hold ({@link PrinterHold}). None by default, so a test's
+     * fake never opens a real serial port; {@link #real} opens {@link com.verifone.cat.devices.printer.TopazPrinter}.
+     */
+    default PrinterHold.Opener printerOpener() {
+        return PrinterHold.Opener.NONE;
+    }
+
+    /** Whether step 4's cloud tunnel is ported: the production stages' answer ({@link CommanderStages#cloudTunnelPorted}). */
+    default boolean cloudTunnelPorted() {
+        return CommanderStages.real(Map.of()).cloudTunnelPorted();
+    }
+
     /** The real stages: the rig's addresses, jSerialComm, SSH to the Commander, the environment's Artifactory login. */
     static SystemCheckStages real(ProcessOps ops, Map<String, String> environ) {
         return new SystemCheckStages() {
+            @Override
+            public PrinterHold.Opener printerOpener() {
+                return PrinterHold.Opener.TOPAZ;
+            }
+
             @Override
             public List<Readiness> rigNetwork(Rig rig) {
                 ExecutorService pool = ConnectionProbe.newProbePool();
@@ -85,7 +103,7 @@ interface SystemCheckStages {
             @Override
             public ArtifactoryClient artifactory() {
                 return new ArtifactoryClient(URI.create(ArtifactoryClient.DEFAULT_BASE_URL),
-                        new EnvArtifactoryCredentials(environ), ARTIFACTORY_TIMEOUT);
+                        StoredArtifactoryCredentials.forEnvironment(environ), ARTIFACTORY_TIMEOUT);
             }
 
             @Override

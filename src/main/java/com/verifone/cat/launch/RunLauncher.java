@@ -189,6 +189,8 @@ public final class RunLauncher {
             cancelled = true;
             ctx.emit(runFinished(ctx, Outcome.SKIPPED, true));
         } finally {
+            // The Python's release_rig: the printer CAT held during setup first, if a run ended before step 5 took it.
+            PrinterHold.release(ctx, false);
             ctx.stopWatching();
             stopSimulators(ctx);
             // After the simulators, so Petro never pushes to a closed port while it runs.

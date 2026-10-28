@@ -103,6 +103,11 @@ class CommanderConfigurationStepTest {
         }
 
         @Override
+        public boolean cloudTunnelPorted() {
+            return tunnelPorted;
+        }
+
+        @Override
         public boolean cloudTunnel(Rig rig, Say say) {
             if (!tunnelPorted) {
                 return CommanderStages.super.cloudTunnel(rig, say);
@@ -514,13 +519,14 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void onboardingAskedForStopsUnavailableAtTheTunnelBeforeTheInits() throws IOException {
+    void onboardingAskedForStopsUnavailableAtTheTunnelBeforeAnythingRuns() throws IOException {
         Stages stages = new Stages();
         stages.tunnelPorted = false;
         Outcome out = run(onboarding(new CommanderConnect("QAT", "lab@example.com", "1234567", "pw")), stages);
 
         assertFalse(out.keepGoing());
-        assertEquals(List.of("provision", "commander-prep"), stages.ran);
+        assertEquals(List.of(), stages.ran);
+        assertFalse(out.ctx().commanderReached(), "nothing touched the Commander");
         assertEquals(StepResult.FAILED, out.step().state());
         assertTrue(out.step().detail().startsWith("unavailable in CAT-Java: needs the cloud tunnel's serve loop"),
                 out.step().detail());
@@ -816,6 +822,77 @@ class CommanderConfigurationStepTest {
         assertEquals("Download the Commander build", label("build"));
         assertEquals("Install the Commander build", label("upgrade"));
         assertEquals("PSI init (Commander password, register pairing)", label("psi-init"));
+    }
+
+    @Test
+    void aNewInstallAskingForWhatCatJavaCannotDoStopsBeforeTheDownloadAndTheInstall() throws IOException {
+        // Coverage and the onboarding's cloud tunnel would end the step after the PSI install wiped both devices.
+        LaunchConfig.Builder base = new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.NEW_INSTALL)
+                .commanderBranch("Solutions").commanderBuild("134");
+        Stages coverage = new Stages();
+        coverage.root = dir.resolve("builds");
+        Outcome covered = run(base.coverage(true).build(), coverage);
+        assertFalse(covered.keepGoing());
+        assertEquals(List.of(), coverage.ran);
+        assertEquals(SubstepOutcome.FAILED, covered.rows().get(label("coverage")));
+        assertTrue(covered.step().detail().contains("JaCoCo coverage's launch wiring"), covered.step().detail());
+        assertFalse(covered.rows().containsKey(label("build")));
+
+        Stages tunnel = new Stages();
+        tunnel.root = dir.resolve("builds");
+        tunnel.tunnelPorted = false;
+        Outcome onboarded = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.NEW_INSTALL)
+                .commanderBranch("Solutions").commanderBuild("134").commanderConnect(true).build(), tunnel);
+        assertFalse(onboarded.keepGoing());
+        assertEquals(List.of(), tunnel.ran);
+        assertEquals(SubstepOutcome.FAILED, onboarded.rows().get("cloud-tunnel"));
+        assertTrue(onboarded.ctx().commanderLoginReady(), "no install started");
+    }
+
+    @Test
+    void theProductionTunnelIsNotPortedSoTheGapIsCheckedUpFront() {
+        assertFalse(CommanderStages.real(Map.of()).cloudTunnelPorted());
+        LaunchConfig onboarding = new LaunchConfig.Builder(LaunchFixtures.RIG).commanderConnect(true).coverage(true)
+                .build();
+        assertEquals(List.of(label("coverage"), "cloud-tunnel"), CommanderConfigurationStep.unported(onboarding, false)
+                .stream().map(CommanderConfigurationStep.Gap::row).toList());
+        assertEquals(List.of(label("coverage")), CommanderConfigurationStep.unported(onboarding, true).stream()
+                .map(CommanderConfigurationStep.Gap::row).toList());
+        assertEquals(List.of(), CommanderConfigurationStep.unported(new LaunchConfig.Builder("").fakePos(true)
+                .commanderConnect(true).coverage(true).build(), false));
+    }
+
+    @Test
+    void aBuildAlreadyDownloadedIsInstalledWithoutAskingArtifactory() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        Path buypass = Files.createDirectories(stages.root.resolve("Solutions134").resolve("buypass"));
+        for (String name : List.of("overlay.zip", "Petro_Suite_Installer.jar", "Auto_Upgrade.jar")) {
+            Files.writeString(buypass.resolve(name), "x", StandardCharsets.UTF_8);
+        }
+        Outcome out = run(psi("Solutions", "134"), stages);
+
+        assertTrue(out.keepGoing(), out.step().detail());
+        assertEquals("upgrade Solutions134/buypass", stages.ran.get(0), stages.ran.toString());
+        assertFalse(stages.ran.stream().anyMatch(s -> s.startsWith("build ")), stages.ran.toString());
+        assertEquals(SubstepOutcome.PASSED, out.rows().get(label("build")));
+        assertTrue(out.details().get(label("build")).startsWith("already downloaded: "),
+                out.details().get(label("build")));
+        assertTrue(out.details().get(label("build")).endsWith("Artifactory not asked"),
+                out.details().get(label("build")));
+    }
+
+    @Test
+    void aBuildMissingOneFileIsDownloaded() throws IOException {
+        Stages stages = new Stages();
+        stages.root = dir.resolve("builds");
+        Path buypass = Files.createDirectories(stages.root.resolve("Solutions134").resolve("buypass"));
+        Files.writeString(buypass.resolve("overlay.zip"), "x", StandardCharsets.UTF_8);
+        Files.writeString(buypass.resolve("Petro_Suite_Installer.jar"), "x", StandardCharsets.UTF_8);
+        Files.write(buypass.resolve("Auto_Upgrade.jar"), new byte[0]); // empty is not downloaded
+        run(psi("Solutions", "134"), stages);
+
+        assertEquals("build Solutions 134 buypass", stages.ran.get(0), stages.ran.toString());
     }
 
     @Test

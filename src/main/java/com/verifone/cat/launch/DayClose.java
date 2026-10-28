@@ -30,7 +30,7 @@ import com.verifone.cat.rig.Rig;
  * <p>As the Python's, PATS's pump port {@value PetroPumps#PATS_FUEL_PORT} is lent to the close and held again after
  * (when the run held it): the close's register pass ({@link com.verifone.cat.closeday.PosRegisterPass}, which
  * {@link CloseDay#forRig} builds) lifts a pump holding a prepay nobody fuelled through Petro on that port. "Tests
- * started" is {@link RunContext#testsStarted}, which the Tests Run step sets when its first case starts.
+ * started" is {@link RunContext#testsStarted}, which the Tests Run step sets on entry.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */

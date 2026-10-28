@@ -342,6 +342,21 @@ class TestsRunStepTest {
     }
 
     @Test
+    void enteringTheStepIsTestsStartedEvenWhenItFailsBeforeItsFirstCase() throws IOException {
+        // The Python's _step_tests sets tests_started first, so Cleanup's day close still runs.
+        RunContext ctx = context("nocases", rigRun());
+        TestsRunStep step = new TestsRunStep(touching(new ArrayList<>()), config -> {
+            throw new IOException("petroapps could not be read");
+        }, null);
+
+        assertFalse(ctx.testsStarted());
+        StepRunner.runLocal(ctx, step);
+
+        assertEquals("failed", stepState(ctx, "Tests Run"));
+        assertTrue(ctx.testsStarted());
+    }
+
+    @Test
     void anUnwiredStepIsUnavailableNotPassed() throws IOException {
         RunContext ctx = context("unwired", rigRun());
         TestsRunStep step = new TestsRunStep(null, null, null);
