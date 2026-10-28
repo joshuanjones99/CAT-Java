@@ -11,6 +11,7 @@ import com.verifone.cat.pats.runner.handlers.inits.InitsState;
 import com.verifone.cat.pats.runner.handlers.posui.PosUiTimings;
 import com.verifone.cat.pats.runner.handlers.sale.SaleRmi;
 import com.verifone.cat.pats.runner.handlers.sale.SaleTiming;
+import com.verifone.cat.pats.runner.handlers.validation.ValidationContext;
 import com.verifone.cat.devices.commander.PdkShim;
 import com.verifone.cat.pos.pages.Pos;
 import com.verifone.cat.pos.pinpad.PinpadDevice;
@@ -64,6 +65,8 @@ import java.util.function.Function;
  * @param saleTiming     the sale family's waits
  * @param devicesTiming  the devices family's waits
  * @param saleRmi       the register's RMI calls, or {@code null} for {@link SaleRmi#UNAVAILABLE}
+ * @param packets       the simulators' captured packets ({@link StandardHandlers#packetFolders}), or {@code null}
+ *                      when the run must not touch them (a fake-POS run): the packet actions are then unavailable
  * @param cashier       the rig's cashier, for the step library's sign-on steps, or {@code null} when the run gives none
  * @param printer       the register's receipt printer (its receipt count is the POS UI family's print count), or
  *                      {@code null} when the run has none
@@ -90,7 +93,37 @@ public record HandlerFixtures(
         DevicesTiming devicesTiming,
         SaleRmi saleRmi,
         ReceiptPrinter printer,
-        Rig.Cashier cashier) {
+        Rig.Cashier cashier,
+        ValidationContext.PacketSource packets) {
+
+    /** The fixtures before {@code packets} was added: the packet actions are unavailable. */
+    public HandlerFixtures(
+            Pos pos,
+            PosShimClient posShim,
+            ReceiptSource receipts,
+            PinpadDevice pinpad,
+            PdkShim commander,
+            CommanderAccess commanderAccess,
+            PetroappsFiles petroapps,
+            Path toolsRoot,
+            Path resultsDir,
+            Map<String, String> environment,
+            InitsState inits,
+            DcrDevice dcr,
+            FuelPumps fuelPumps,
+            CloudSite cloudSite,
+            BuypassV2 buypassV2,
+            Function<String, String> widgetText,
+            PosUiTimings posUiTimings,
+            SaleTiming saleTiming,
+            DevicesTiming devicesTiming,
+            SaleRmi saleRmi,
+            ReceiptPrinter printer,
+            Rig.Cashier cashier) {
+        this(pos, posShim, receipts, pinpad, commander, commanderAccess, petroapps, toolsRoot, resultsDir,
+                environment, inits, dcr, fuelPumps, cloudSite, buypassV2, widgetText, posUiTimings, saleTiming,
+                devicesTiming, saleRmi, printer, cashier, null);
+    }
 
     /** The fixtures before {@code cashier} was added: the step library's sign-on steps have no cashier. */
     public HandlerFixtures(

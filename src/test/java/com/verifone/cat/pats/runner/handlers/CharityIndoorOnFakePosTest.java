@@ -93,7 +93,7 @@ class CharityIndoorOnFakePosTest {
                 new DomReceiptCapture(new PosDomDriver(f.pos().driver()), PosDomDriver.itemFamilies()), f.pinpad(),
                 f.commander(), f.commanderAccess(), f.petroapps(), f.toolsRoot(), f.resultsDir(), f.environment(),
                 f.inits(), f.dcr(), f.fuelPumps(), f.cloudSite(), f.buypassV2(), f.widgetText(), f.posUiTimings(),
-                f.saleTiming(), f.devicesTiming(), f.saleRmi(), f.printer(), f.cashier());
+                f.saleTiming(), f.devicesTiming(), f.saleRmi(), f.printer(), f.cashier(), f.packets());
     }
 
     private static int closedPort() throws IOException {
