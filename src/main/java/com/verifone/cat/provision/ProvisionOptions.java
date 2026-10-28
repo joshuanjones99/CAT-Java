@@ -46,12 +46,15 @@ public final class ProvisionOptions {
     private Duration poll = POS_APP_POLL;
     private Map<String, String> environ = System.getenv();
 
-    /** The defaults {@code provision --rig} uses: the register checklists the Python CLI passes. */
+    /**
+     * The defaults {@code provision --rig} uses: the register checklists the Python CLI passes
+     * ({@code default_register_checklists}). The claim runs first: the steps after it run as {@code topaz}.
+     */
     public static ProvisionOptions defaults() {
         return new ProvisionOptions()
                 .registerChecklist(List.of(
                         new Checklist.ClaimPushedDirectory("/home/topaz/browser", "topaz:vfi"),
-                        new Checklist.BrowserOverrideNotPorted()))
+                        new BrowserOverride.EnableBrowserOverride(BrowserOverride.TOPAZ_RESTART)))
                 .posShimChecklist(List.of(
                         new Checklist.ClaimPushedDirectory("/home/topaz/automation", "topaz:vfi"),
                         new RegisterBringup.EnsurePosShimCurrent(),

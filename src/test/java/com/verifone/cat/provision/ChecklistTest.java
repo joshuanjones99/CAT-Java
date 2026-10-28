@@ -94,11 +94,20 @@ class ChecklistTest {
     }
 
     @Test
-    void anOverrideThatIsNotPortedIsReportedNotPassedSilently() {
-        StepResult result = new Checklist.BrowserOverrideNotPorted().apply(new InMemoryTransport("r"), CONTROLLER,
-                TIMEOUT);
+    void theDefaultRegisterChecklistClaimsTheBrowserDirectoryThenEnablesTheOverrideWithTheTopazRestart() {
+        List<ChecklistStep> steps = ProvisionOptions.defaults().registerChecklist();
 
-        assertEquals(StepStatus.SKIPPED, result.status());
-        assertTrue(result.detail().contains("not ported"), result.detail());
+        assertEquals(List.of("claim_browser", "enable_browser_override"), steps.stream().map(ChecklistStep::name)
+                .toList());
+        BrowserOverride.EnableBrowserOverride enable = (BrowserOverride.EnableBrowserOverride) steps.get(1);
+        assertTrue(enable.required());
+        assertEquals(BrowserOverride.TOPAZ_RESTART, enable.restart());
+        assertEquals(Integer.valueOf(BrowserOverride.DEFAULT_RELAY_PORT), enable.relayPort());
+        assertEquals(BrowserOverride.DEFAULT_CDP_PORT, enable.cdpPort());
+    }
+
+    @Test
+    void theCommanderStubsAreNotRequiredSoTheirSkipStaysAManualItem() {
+        assertFalse(Checklist.CHECKLIST_STEPS.stream().anyMatch(ChecklistStep::required));
     }
 }

@@ -80,9 +80,10 @@ public final class ProvisionRunner {
                 for (ChecklistStep step : checklist) {
                     StepResult result = step.apply(transport, controllerHost, ssh);
                     report.checklist(result);
-                    if (!result.ok()) {
+                    String failure = failure(step, result);
+                    if (failure != null) {
                         report.decision(TargetReport.Decision.FAILED);
-                        report.error("checklist step " + result.step() + " failed: " + result.detail());
+                        report.error(failure);
                     }
                 }
                 StepResult settled = null;
@@ -125,8 +126,9 @@ public final class ProvisionRunner {
             for (ChecklistStep step : checklist) {
                 StepResult result = step.apply(transport, controllerHost, ssh);
                 report.checklist(result);
-                if (!result.ok()) {
-                    verification.fail("checklist step " + result.step() + " failed: " + result.detail());
+                String failure = failure(step, result);
+                if (failure != null) {
+                    verification.fail(failure);
                 }
             }
             if (registerUnpaired(spec, transport, ssh)) {
@@ -214,6 +216,20 @@ public final class ProvisionRunner {
         }
         report.elapsedSeconds((System.nanoTime() - started) / 1e9);
         return report;
+    }
+
+    /**
+     * Why a checklist result fails its target, or null when it does not: a FAILED step, or a SKIPPED one the box
+     * {@linkplain ChecklistStep#required() requires}. The Python fails only on FAILED.
+     */
+    static String failure(ChecklistStep step, StepResult result) {
+        if (!result.ok()) {
+            return "checklist step " + result.step() + " failed: " + result.detail();
+        }
+        if (step.required() && result.status() == StepStatus.SKIPPED) {
+            return "required checklist step " + result.step() + " was skipped: " + result.detail();
+        }
+        return null;
     }
 
     /** {@code petrotest-pos-shim.sh}'s restart and the POS restart, when the checklist started the shim (not found it). */

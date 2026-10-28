@@ -118,22 +118,4 @@ public final class Checklist {
             return new StepResult(name, StepStatus.DONE, path + " -> " + owner);
         }
     }
-
-    /**
-     * A register that opted into a browser override. The override itself (the Python CAT's
-     * {@code provision.browser_override}) is not ported, so this reports that rather than passing silently.
-     * The Chromium files are still pushed, and they stay inert until something enables them.
-     */
-    public record BrowserOverrideNotPorted(String name) implements ChecklistStep {
-
-        public BrowserOverrideNotPorted() {
-            this("browser_override");
-        }
-
-        @Override
-        public StepResult apply(Transport transport, String controllerHost, Duration timeout) {
-            return new StepResult(name, StepStatus.SKIPPED, "not ported to CAT-Java: the browser override is still"
-                    + " the Python CAT's (BROWSER_STRATEGY.md 5.3). The pushed Chromium files stay inert.");
-        }
-    }
 }

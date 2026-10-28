@@ -20,6 +20,16 @@ public interface ChecklistStep {
 
     StepResult apply(Transport transport, String controllerHost, Duration timeout);
 
+    /**
+     * True when the box cannot work without this step, so a SKIPPED result fails the target as FAILED does. Not in
+     * the Python, where SKIPPED always passes: added after run {@code ac22943e6604} (2026-10-28), where a skipped
+     * browser override left a wiped register with no CDP and {@code provision} still PASS. The Commander's stubs are
+     * not required: they are manual checklist items until ported.
+     */
+    default boolean required() {
+        return false;
+    }
+
     default ChecklistStep forTarget(TargetSpec spec, Path payloadRoot) {
         return this;
     }
