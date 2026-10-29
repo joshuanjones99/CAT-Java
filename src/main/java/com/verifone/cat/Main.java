@@ -29,7 +29,8 @@ import com.verifone.cat.xray.XraySidecar;
  * {@code java -jar cat-java.jar --rig lab [--register topaz101] [--port 8090]} starts the web UI;
  * {@code cat-java web --rig lab ...} is the same. Any word in {@link #COMMANDS} ({@code preflight},
  * {@code launch}, {@code provision}, {@code xray}, {@code close-day}, {@code commander-snapshot},
- * {@code commander-connect}, {@code cloud-tunnel}) runs that command instead and exits with its code.
+ * {@code commander-connect}, {@code cloud-tunnel}, {@code coverage}, {@code xray-attach}) runs that command instead
+ * and exits with its code.
  *
  * <p>Reads the rig, points a {@link PosShimClient} at the register's shim, and serves
  * the web UI on localhost. The web UI is told the rig's name, as typed, so its Start run launches on it.
@@ -66,11 +67,14 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("coverage", new Command(com.verifone.cat.coverage.CoverageCommand.class, com.verifone.cat.coverage.CoverageCommand::run));
+        table.put("xray-attach", new Command(com.verifone.cat.xray.Attach.class, com.verifone.cat.xray.Attach::run));
         table.put("upgrade", new Command(com.verifone.cat.upgrade.UpgradeCommand.class, argv -> new com.verifone.cat.upgrade.UpgradeCommand().run(argv)));
         table.put("build", new Command(com.verifone.cat.build.BuildCommand.class, argv -> new com.verifone.cat.build.BuildCommand().run(argv)));
         table.put("builds", new Command(com.verifone.cat.build.BuildsCommand.class, argv -> new com.verifone.cat.build.BuildsCommand().run(argv)));
         table.put("artifactory-login", new Command(com.verifone.cat.build.ArtifactoryLogin.class, argv -> new com.verifone.cat.build.ArtifactoryLogin().run(argv)));
         table.put("render-payload", new Command(ProvisionCommand.class, argv -> new ProvisionCommand().run(java.util.stream.Stream.concat(java.util.stream.Stream.of("render-payload"), Arrays.stream(argv)).toArray(String[]::new))));
+        table.put("fetch-sims", new Command(com.verifone.cat.sims.FetchSimsCommand.class, argv -> new com.verifone.cat.sims.FetchSimsCommand().run(argv)));
         table.put("pinpad-clear", new Command(com.verifone.cat.devices.vats.PinpadClearCommand.class, argv -> new com.verifone.cat.devices.vats.PinpadClearCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
@@ -97,6 +101,7 @@ public final class Main {
               commander-snapshot  capture, restore or check a Commander config snapshot (petrotest commander-snapshot)
               commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
               cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
+              fetch-sims          stage the Java 17 sets and every simulator not yet staged (cat-term fetch-sims)
               --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
               --register   which register's shim to use; default the rig's first
               --port       the web UI's port on 127.0.0.1; default 8090
