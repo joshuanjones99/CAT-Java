@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.verifone.cat.authoring.Check.Analysis;
 import com.verifone.cat.collect.Selection;
+import com.verifone.cat.recorder.Recording;
+import com.verifone.cat.recorder.RecordingException;
 import com.verifone.cat.validate.PyRepr;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,12 +35,17 @@ import java.util.stream.Stream;
 
 /**
  * An Authoring session: the cases an author is writing, in order, as {@code .feature} drafts. Port of
- * {@code cat.authoring.session}, without the recorder and the replay gate (see {@link #importCapture} and {@link CaseReview}).
+ * {@code cat.authoring.session}.
  *
  * <p>One session is one directory: {@code session.json} (the cases in order, the story and spec tickets, the baselines'
- * approval, and the replay's record, carried through unread), and each case's {@code case-<id>.feature} draft. Its
- * baselines sit in {@code baselines/<id>/}, as {@code CASE-CATReceipt.txt} and {@code CASE-Tlog.xml}, unapproved until
- * {@link #approveBaselines}.
+ * approval, and the last {@link Replay}), each case's {@code case-<id>.feature} draft, its recording
+ * ({@code case-<id>.ndjson}, when it was recorded: {@link #adoptRecording}), the ingested {@code spec-<KEY>.md}, and
+ * {@code drafts/} (what the drafting model was asked and answered). Its baselines sit in {@code baselines/<id>/}, as
+ * {@code CASE-CATReceipt.txt} and {@code CASE-Tlog.xml}, unapproved until {@link #approveBaselines}.
+ *
+ * <p><b>Where a case comes from does not matter after it exists.</b> A recording becomes a draft ({@link Recorded}), a
+ * model's answer becomes a draft ({@link Draft}), a person types one; from then on the draft is edited, checked and
+ * replayed the same way.
  *
  * <p><b>Numbering.</b> A case is {@code PETROCORE-<n>} where {@code n} is its place in the session, and {@link #rendered}
  * writes that tag, so the checker's tag and file-name rules hold whatever the author typed.
@@ -75,10 +82,13 @@ public final class Session {
     private String specTicket;
     private final List<Case> cases;
     private final Map<String, Map<String, Object>> baselines;
-    private JsonNode replay;
+    private Replay replay;
+
+    /** A stored baseline as its {@code -CATReceipt.txt}-style tail and its path. */
+    public record Tail(String tail, Path path) {}
 
     private Session(Path directory, String createdAt, String ticket, String specTicket, List<Case> cases,
-            Map<String, Map<String, Object>> baselines, JsonNode replay) {
+            Map<String, Map<String, Object>> baselines, Replay replay) {
         this.directory = directory;
         this.createdAt = createdAt;
         this.ticket = ticket;
@@ -217,7 +227,12 @@ public final class Session {
                 baselines.put(entry.getKey(), record);
             });
         }
-        JsonNode replay = data.hasNonNull("replay") ? data.get("replay") : null;
+        Replay replay;
+        try {
+            replay = data.hasNonNull("replay") ? Replay.fromJson(data.get("replay")) : null;
+        } catch (SessionException e) {
+            throw new SessionException(path + ": " + e.getMessage(), e);
+        }
         return new Session(directory, data.path("created_at").asText(""), nullableText(data, "story_ticket"),
                 nullableText(data, "spec_ticket"), cases, baselines, replay);
     }
@@ -270,9 +285,15 @@ public final class Session {
         return cases;
     }
 
-    /** The replay record the session carries, unread (the replay gate is not ported); null when there is none. */
-    public JsonNode replay() {
+    /** The last replay (or capture) the session launched, or null when there is none. */
+    public Replay replay() {
         return replay;
+    }
+
+    /** Records the replay a run made (or null to clear it), and saves. */
+    public void replay(Replay value) {
+        replay = value;
+        save();
     }
 
     /** Saves {@code session.json} atomically. Every mutation calls it before returning. */
@@ -301,7 +322,7 @@ public final class Session {
         if (replay == null) {
             data.putNull("replay");
         } else {
-            data.set("replay", replay);
+            data.set("replay", JSON.valueToTree(replay.toJson()));
         }
         try {
             String text = JSON.writer(new DefaultPrettyPrinter()).writeValueAsString(data) + "\n";
@@ -314,6 +335,26 @@ public final class Session {
     /** The draft's path. */
     public Path featurePath(Case c) {
         return directory.resolve(c.feature());
+    }
+
+    /** The case's recording: its {@code recording} file, else {@code <id>.ndjson}. */
+    public Path recordingPath(Case c) {
+        return directory.resolve(c.recording() != null ? c.recording() : c.id() + ".ndjson");
+    }
+
+    /**
+     * Makes a finished recording the case's draft ({@link Recorded#recordingFeature}): the case becomes {@code recorded}.
+     *
+     * @throws IOException        when the recording cannot be read
+     * @throws com.verifone.cat.recorder.RecordingException when it is not a recording
+     */
+    public void adoptRecording(Case c, String filename) throws IOException {
+        Recording recording = Recording.read(directory.resolve(filename));
+        c.recording(filename);
+        c.source("recorded");
+        String text = Recorded.recordingFeature(recording, c.title(), featureName(), "PETROCORE-" + number(c));
+        writeText(c, text);
+        save();
     }
 
     /** The case's baseline folder: {@code baselines/<id>}. */
@@ -435,8 +476,18 @@ public final class Session {
         Map<String, Object> record = baselines.getOrDefault(c.id(), Map.of());
         boolean approved = Boolean.TRUE.equals(record.get("approved"));
         Object capturedIn = record.get("captured_in");
+        Recording recording = null;
+        String recordingError = null;
+        if (c.recording() != null && !c.recording().isEmpty()) {
+            try {
+                recording = Recording.read(recordingPath(c));
+            } catch (IOException | RecordingException e) {
+                recordingError = e instanceof IOException && e.getMessage() != null
+                        ? recordingPath(c) + ": " + e.getMessage() : e.getMessage();
+            }
+        }
         return new CaseReview(c, number, text, analysis, files, approved,
-                capturedIn == null ? "" : capturedIn.toString());
+                capturedIn == null ? "" : capturedIn.toString(), recording, recordingError);
     }
 
     /** What stops the session being replayed: every case's blockers, or {@code no case yet}. */
@@ -486,6 +537,29 @@ public final class Session {
         }
         out.sort(Comparator.comparing((Path p) -> p.getFileName().toString()));
         return out;
+    }
+
+    /** Each stored baseline as ({@code -CATReceipt.txt}-style tail, path). */
+    public List<Tail> baselineTails(Case c) {
+        List<Tail> out = new ArrayList<>();
+        for (Path path : baselineFiles(c)) {
+            out.add(new Tail(path.getFileName().toString().substring(BASE.length()), path));
+        }
+        return out;
+    }
+
+    /**
+     * Copies what capture run {@code replay} wrote beside each case into the session, unapproved; {@code root} is the
+     * folder its {@link Replay#directory} is under. A case whose capture wrote nothing keeps whatever it had.
+     *
+     * @return how many files were taken
+     */
+    public int importCapture(Path root, Replay replay) {
+        List<CaptureEntry> entries = new ArrayList<>();
+        for (Replay.ReplayCase entry : replay.cases()) {
+            entries.add(new CaptureEntry(entry.caseId(), entry.number()));
+        }
+        return importCapture(root, replay.directory(), replay.runId(), entries);
     }
 
     /**
@@ -557,7 +631,7 @@ public final class Session {
     public int approveBaselines(Case c) {
         List<Path> files = baselineFiles(c);
         if (files.isEmpty()) {
-            throw new SessionException(c.title() + ": no captured baseline to approve - run Capture on a rig");
+            throw new SessionException(c.title() + ": no captured baseline to approve — run ◉ Capture");
         }
         baselines.computeIfAbsent(c.id(), k -> new LinkedHashMap<>()).put("approved", true);
         save();
