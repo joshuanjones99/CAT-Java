@@ -20,14 +20,16 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
 
 /**
  * Carrying a Commander's outbound TCP through the controller: endpoint discovery, route planning, and the commands
- * that run on the Commander. A port of the Python {@code petrotest.cloud_tunnel} minus its serve loop (see the
- * class's TODO below).
+ * that run on the Commander. A port of the Python {@code petrotest.cloud_tunnel}; its serve loop is
+ * {@link CloudTunnelServer}, its relay {@link CloudTunnelRelay}, its command line {@link CloudTunnelCommand}, and what
+ * {@code cat.launch.tunnel} needs to adopt or start one {@link CloudTunnelProcess}.
  *
  * <p>What is here: the endpoint files and bridge parameters read off the Commander, the loopback aliases and
  * host/redirect rules (the hosts lines, the iptables DNAT pairs, the host routes), the sshd forwarding rule written
@@ -35,10 +37,9 @@ import com.verifone.cat.provision.transport.Transport;
  * started on the Commander, and the Commander's {@code resolv.conf}). Every Commander-side step takes a
  * {@link Transport}, so a fake can answer it.
  *
- * <p>TODO (not ported): the serve loop, Python's {@code cloud_tunnel.serve}. It needs the SSH session's remote
- * (reverse) port forwards, which {@link Transport} does not expose; JSch's {@code setPortForwardingR} would have to
- * sit behind it. Until then {@link CloudTunnelCommand} can stop a tunnel, and report whether the Commander needs one,
- * but cannot start one. The step-4 caller ({@code cat.launch.tunnel}) is not ported.
+ * <p>The relay pushed to the Commander, {@code CatNetRelay.java}, ships as this package's resource
+ * ({@link #relaySource()}), a byte-for-byte copy of the Python CAT's {@code bridge/net-relay/CatNetRelay.java}: both
+ * CATs then see the same file on the Commander and neither restarts the other's relay.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The Commander-side command strings are the Python's, read off the lab
  * Commander in 2026-10; none has run from this port.
@@ -132,12 +133,14 @@ public final class CloudTunnel {
         return profile.isEmpty() ? "prod" : profile;
     }
 
+    /** Not {@code localhost}/{@code sitecontroller}, and not a loopback IP literal (a name is always cloud). */
     static boolean isCloudHost(String host) {
         String lower = host.toLowerCase(Locale.ROOT);
         if (NOT_CLOUD.contains(lower)) {
             return false;
         }
-        return !(lower.startsWith("127.") || lower.equals("::1"));
+        boolean loopbackIp = (IPV4.matcher(lower).matches() && lower.startsWith("127.")) || lower.equals("::1");
+        return !loopbackIp;
     }
 
     /**
@@ -644,6 +647,48 @@ public final class CloudTunnel {
                     + "; } && printf '" + body + "' > " + RESOLV), timeout, "writing " + RESOLV);
         }
         return true;
+    }
+
+    /** The resource path of the relay source, beside this class. */
+    static final String RELAY_RESOURCE = "CatNetRelay.java";
+
+    /**
+     * The bytes of {@code CatNetRelay.java}, the Python's {@code RELAY_SOURCE}, as shipped in this jar.
+     *
+     * @throws DeviceError when the jar lacks it (a broken build)
+     */
+    public static byte[] relaySource() {
+        try (var in = CloudTunnel.class.getResourceAsStream(RELAY_RESOURCE)) {
+            if (in == null) {
+                throw new DeviceError("CatNetRelay.java is missing from this build (resource "
+                        + CloudTunnel.class.getPackageName().replace('.', '/') + "/" + RELAY_RESOURCE + ")");
+            }
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new DeviceError("CatNetRelay.java could not be read from this build: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The Python's {@code refresh_gateway(rig)}: for a tunnel CAT adopts rather than starts, applies this build's
+     * gateway rules when the Commander's NAT table hooks the gateway chain (a tunnel in gateway mode). A running tunnel
+     * keeps the code it started with and re-applies its own rules after the Commander reboots, so an adopted older
+     * tunnel would otherwise lack a later rule (run 8387971e1983, 2026-10-20: the controller's :443 carry). Connects
+     * with the rig's SSH budget and closes again.
+     *
+     * <p>UNVERIFIED AGAINST HARDWARE (Java port); the Python wrapper has not run on a rig either.
+     *
+     * @param say where a relay that did not listen is reported ({@code gateway: CatNetRelay did not listen; ...})
+     * @return what it did, for step 4's log
+     */
+    public static String refreshGateway(CommanderAccess commander, Consumer<String> say) {
+        Duration timeout = commander.sshTimeout();
+        Transport transport = commander.connectedTransport();
+        try {
+            return refreshGateway(transport, controllerDns(), relaySource(), timeout, say);
+        } finally {
+            transport.close();
+        }
     }
 
     /**
