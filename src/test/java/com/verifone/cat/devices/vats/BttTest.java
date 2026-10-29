@@ -358,7 +358,8 @@ class BttTest {
         Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless(), "needs a desktop to show a Swing dialog");
         javax.tools.JavaCompiler javac = javax.tools.ToolProvider.getSystemJavaCompiler();
         Assumptions.assumeTrue(javac != null, "needs a JDK");
-        Path jar = BttMenuAgent.build(dir, null);
+        // The child JVM holds the jar it loads until well after it exits on Windows: it gets a copy, deleted below.
+        Path jar = Files.copy(BttMenuAgent.build(dir.resolve("cache"), null), dir.resolve("child-agent.jar"));
         Path source = dir.resolve("Unlicensed.java");
         Files.writeString(source, UNLICENSED_BTT);
         assertEquals(0, javac.run(null, null, null, "-d", dir.toString(), source.toString()));
@@ -377,6 +378,14 @@ class BttTest {
         } finally {
             process.destroyForcibly();
             process.waitFor(10, TimeUnit.SECONDS);
+            Pauser.REAL.until(() -> {
+                try {
+                    Files.deleteIfExists(jar);
+                    return true;
+                } catch (IOException stillHeld) {
+                    return false;
+                }
+            }, Duration.ofSeconds(15), Duration.ofMillis(250));
         }
         assertEquals(List.of("blocked: 'Invalid License': No valid license has been found for this product."),
                 reader.agentStates().stream().filter(s -> s.startsWith("blocked")).toList());

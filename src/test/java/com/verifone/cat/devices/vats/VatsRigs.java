@@ -27,6 +27,7 @@ public final class VatsRigs {
                 "commander:",
                 "  host: commander.invalid",
                 "  ssh_user: root",
+                "  eps_port: 41107",
                 "registers:",
                 "  - id: topaz101",
                 "    host: register.invalid",
@@ -35,6 +36,8 @@ public final class VatsRigs {
                 "  host: 127.0.0.1",
                 "pinpad: " + pinpad,
                 "pos_shim: true",
+                "build:",
+                "  expected_version: \"057.02\"",
                 vatsBody == null ? "" : "vats:\n" + vatsBody,
                 "");
         Path file = dir.resolve("vatsbench.yaml");
