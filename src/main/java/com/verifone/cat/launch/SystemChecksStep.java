@@ -36,7 +36,7 @@ import com.verifone.cat.sims.base.JavaSets;
  *
  * <p>Fails the step, as the Python does, when a required audit item is not PASS, the rig will not load, the rig is
  * busy, petroapps cannot be shown current, a required rig network line is not ok, a plan requirement is not met, or
- * a plan has no case. The simulator staging lines are advisory (WARN), as the Python's are.
+ * a plan has no case. A simulator staging line fails the step only when its check is required, as the Python's.
  *
  * <p>On a rig run: the rig's network lines and one printer line per register with a {@code printer_port} (listed by
  * Windows, and opens; required unless the plans name their devices and not the printer); then the Commander's base
@@ -57,9 +57,9 @@ import com.verifone.cat.sims.base.JavaSets;
  * <p>Not ported: the VATS lines for a {@code pinpad: vats} rig (that rig ends this step as unavailable; the vats
  * slice's hook). Deviations: with a required rig hardware line failed the step already fails, so the
  * Commander's base is not read and nothing is fetched (the Python goes on to read and fetch). A rig run that asks for
- * what step 4 cannot do in CAT-Java ({@link CommanderConfigurationStep#unported}: JaCoCo coverage, the cloud tunnel
- * of a Commander Connect onboarding) fails here, one FAIL line each, so it stops before step 3 starts simulators and
- * step 4 installs a build; the Python has no such line (it can do both).
+ * what step 4 cannot do in CAT-Java ({@link CommanderConfigurationStep#unported}: the cloud tunnel of a Commander
+ * Connect onboarding) fails here, one FAIL line, so it stops before step 3 starts simulators and step 4 installs a
+ * build; the Python has no such line (it can). JaCoCo coverage is wired ({@link CoverageLaunch}) and is no gap.
  * {@code --fake-pos} skips what the Python skips: the rig, the rig's hardware lines, the run lock, the Commander's
  * base and the plans' requirements (run start reads none for a fake-POS run).
  *
@@ -132,8 +132,8 @@ final class SystemChecksStep implements LaunchStep {
 
         checkPetroapps(paths, config.testPlanBranch(), ctx.petroappsFetchError(), step, failures);
 
-        // What step 4 cannot do in CAT-Java (coverage, the cloud tunnel), here so a mistyped launch stops before step 3
-        // starts simulators and step 4 installs a build.
+        // What step 4 cannot do in CAT-Java (the cloud tunnel's serve loop of a Commander Connect onboarding), here so a
+        // mistyped launch stops before step 3 starts simulators and step 4 installs a build.
         for (CommanderConfigurationStep.Gap gap : CommanderConfigurationStep.unported(config,
                 stages.cloudTunnelPorted())) {
             step.check(false, gap.row(), gap.detail(), true);
@@ -174,12 +174,12 @@ final class SystemChecksStep implements LaunchStep {
         // What the ticked plans need of this machine (Supported CAT Test Plans), now the Commander's base is known.
         failures.addAll(checkRequirements(ctx, step, requirements, rig));
 
-        // HOOK (sims slice): the Python's staging check covers config.all_simulators() (the Secondary FEPs' simulators
-        // too) and each row's well_formed XML files (cat.sims.config.verify); both are SimulatorStaging's.
-        checkStaging(toolsRoot, rig, ctx.simsBase(), step);
+        // Simulator staging, after the requirements as the Python's: a secondary FEP's own simulator only when one of
+        // this run's Secondary FEPs needs it; each row's well_formed files are SimulatorStaging's lines.
+        failures.addAll(checkStaging(ctx, toolsRoot, rig, step));
 
-        // HOOK (sims slice): the Python's guard reads config.all_simulators(), which adds the Secondary FEPs'.
-        Set<String> used = new LinkedHashSet<>(config.simulators());
+        // The Python's guard reads config.all_simulators(), which adds the Secondary FEPs'.
+        Set<String> used = SimulatorBaseChecks.usedSimulators(ctx);
         if (!fakePos && used.contains(PETRO_SIMULATOR)) {
             failures.addAll(checkPetroPorts(ctx, step, PetroPorts::bindable, PetroPorts::portHolder));
         }
@@ -428,15 +428,24 @@ final class SystemChecksStep implements LaunchStep {
     }
 
     /**
-     * The simulator staging lines, advisory, as the Python's {@code verify}: the tools folder, the Java 17 set, and each
-     * registry row's folder and placeholders. Never ends the step; step 3 names the simulator that cannot start.
+     * The simulator staging lines, as the Python's {@code verify}: the tools folder, the Java 17 set, and each registry
+     * row this run uses ({@link SimulatorStaging#rowsFor}): its folder, placeholders and well-formed files. Returns the
+     * required lines that are not ok, each {@code name — detail}; the rest are WARN rows, and step 3 names the
+     * simulator that cannot start.
      */
-    private static void checkStaging(Path toolsRoot, Rig rig, String base, StepEmitter step) {
+    private static List<String> checkStaging(RunContext ctx, Path toolsRoot, Rig rig, StepEmitter step) {
+        String base = ctx.simsBase();
         SimContext sims = SimulatorBaseChecks.simContext(toolsRoot, rig, base);
-        List<SimEntry> rows = Registry.forBase(JavaSets.olderBase(base));
+        List<SimEntry> rows = SimulatorStaging.rowsFor(Registry.forBase(JavaSets.olderBase(base)),
+                SimulatorBaseChecks.usedSimulators(ctx));
+        List<String> failures = new ArrayList<>();
         for (SimulatorStaging.Check check : SimulatorStaging.verify(sims, rows)) {
-            step.check(check.ok(), check.name(), check.detail(), false);
+            step.check(check.ok(), check.name(), check.detail(), check.required());
+            if (!check.ok() && check.required()) {
+                failures.add(check.name() + " — " + check.detail());
+            }
         }
+        return failures;
     }
 
     /** The message the failed step reports: the first failure in the Python's order. */

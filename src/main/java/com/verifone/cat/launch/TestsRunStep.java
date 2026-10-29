@@ -123,9 +123,10 @@ import com.verifone.cat.rig.Rig;
  * {@code _step_tests} sets it first), so Cleanup's day close runs even when the step fails before its first case. Only
  * an unwired step (no registry or case source, which the Python cannot be) leaves it unset.
  *
- * <p>Hooks left for other slices: the Python's {@code fep_exchange_lines} after the session (what each Secondary
- * FEP's FEPSIM listener heard) and {@code fepsim_buypass_env} (the FEPSIM v2 Buypass environment) are the sims
- * slice's.
+ * <p>FEPSIM v2: when it serves Buypass this run, its listener is the {@link StandardRegistry}'s {@code buypassV2}
+ * fixture and packet source ({@code StartSimulatorsStep.fepsimBuypass}, the Python's {@code fepsim_buypass_env}); after
+ * the session, what each Secondary FEP's FEPSIM listener heard is one line each ({@code fep_exchange_lines}), WARNING
+ * when it starts {@code WARN}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */
@@ -198,7 +199,9 @@ final class TestsRunStep implements LaunchStep {
                 fake = FakePos.open(pinpad == null ? FakePos.Hooks.NONE : FakePosPinpad.wire(pinpad));
                 banner(ctx, FakePosBanner.TITLE, FakePosBanner.LINES);
             }
-            return runCases(ctx, step, fake, pinpad, session);
+            boolean keepGoing = runCases(ctx, step, fake, pinpad, session);
+            fepExchanges(ctx, step);
+            return keepGoing;
         } catch (IOException e) {
             return step.fail("the step could not start: " + e.getMessage());
         } finally {
@@ -297,6 +300,10 @@ final class TestsRunStep implements LaunchStep {
                 ctx.rig(), null, null, null, pinpad, fake == null ? null : fake.url(), null, null,
                 session.petro.dcr(), session.petro.fuelPumps());
         RunServices services = connector.connect(base);
+        if (registries instanceof StandardRegistry standard) {
+            // The Python's fepsim_buypass_env: FEPSIM v2's Buypass listener, when it serves Buypass this run.
+            standard.buypassV2(StartSimulatorsStep.fepsimBuypass(ctx).orElse(null));
+        }
         RegistryFactory.Built built = registries.build(services);
         step.log("fixtures this run provides: " + declaredFixtures(services), "INFO");
         RecoveryLadder ladder = services.recovery() == null ? null
@@ -570,6 +577,24 @@ final class TestsRunStep implements LaunchStep {
             throw new StepRunner.Cancelled();
         }
         ctx.emit(new CatEvent.LogLine("INFO", "cat.pause", "CONTINUED: running " + nodeid, LaunchStepNames.TESTS));
+    }
+
+    /**
+     * What each Secondary FEP's FEPSIM listener heard during the session, one line each (the Python's
+     * {@code fep_exchange_lines}): a passing fleet sale whose card went to Buypass instead would otherwise look the same.
+     * Never fails the step.
+     */
+    private static void fepExchanges(RunContext ctx, StepEmitter step) {
+        List<String> lines;
+        try {
+            lines = StartSimulatorsStep.fepExchangeLines(ctx);
+        } catch (RuntimeException e) {
+            LOG.warn("the Secondary FEPs' exchanges could not be read: {}", e.getMessage());
+            return;
+        }
+        for (String line : lines) {
+            step.log(line, line.startsWith("WARN") ? "WARNING" : "INFO");
+        }
     }
 
     /** The run's own {@code RunFinished}, with the counts of the cases this step ran. */

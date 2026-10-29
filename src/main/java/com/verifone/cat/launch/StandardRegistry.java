@@ -81,6 +81,18 @@ public final class StandardRegistry implements RegistryFactory {
     /** The C-Site settings' key: present, with a value, when the run has C-Site settings. */
     static final String CSITE_USER_ENV = "csite.username";
 
+    /** FEPSIM v2 serving Buypass this run, or null: set by step 5 before it builds the registry. */
+    private volatile com.verifone.cat.pats.runner.handlers.configuration.BuypassV2 buypassV2;
+
+    /**
+     * FEPSIM v2's Buypass listener this run ({@code StartSimulatorsStep.fepsimBuypass}, the Python's
+     * {@code fepsim_buypass_env}), or null when BUYPASS Host serves Buypass: the {@code buypassV2} fixture and the
+     * packet folders' source. Step 5 sets it before {@link #build}.
+     */
+    void buypassV2(com.verifone.cat.pats.runner.handlers.configuration.BuypassV2 listener) {
+        buypassV2 = listener;
+    }
+
     @Override
     public ActionRegistry create(RunServices services) {
         return build(services).registry();
@@ -97,7 +109,7 @@ public final class StandardRegistry implements RegistryFactory {
             LOG.warn("no POS driver is connected to this run; no action has a handler");
             return new Built(new ActionRegistry(), TestsRunStep.fixtureSource(services), null);
         }
-        HandlerFixtures fixtures = fixtures(services, System.getenv());
+        HandlerFixtures fixtures = fixtures(services, System.getenv(), buypassV2);
         ActionRegistry registry = StandardHandlers.create(fixtures);
         if (fixtures.receipts() instanceof PrinterReceipts printed) {
             // Each case's receipt is picked from the Commander's numbers as they stand when the case begins.
@@ -144,6 +156,12 @@ public final class StandardRegistry implements RegistryFactory {
 
     /** The handler fixtures a run's services give, with the stand-ins for the surfaces it lacks. */
     static HandlerFixtures fixtures(RunServices services, Map<String, String> env) {
+        return fixtures(services, env, null);
+    }
+
+    /** As {@link #fixtures(RunServices, Map)}, with FEPSIM v2's Buypass listener when it serves Buypass this run. */
+    static HandlerFixtures fixtures(RunServices services, Map<String, String> env,
+            com.verifone.cat.pats.runner.handlers.configuration.BuypassV2 buypassV2) {
         PosDriver driver = services.pos();
         Path tools = toolsRoot(env);
         Map<String, String> environment = Map.copyOf(env);
@@ -167,7 +185,7 @@ public final class StandardRegistry implements RegistryFactory {
                 services.dcr(),
                 services.fuelPumps(),
                 cloudSite(environment),
-                null,
+                buypassV2,
                 null,
                 PosUiTimings.defaults(),
                 SaleTiming.DEFAULT,
@@ -176,7 +194,7 @@ public final class StandardRegistry implements RegistryFactory {
                 services.printer(),
                 services.rig() == null ? null : services.rig().rig().cashier(),
                 services.rig() == null || (services.config() != null && services.config().fakePos()) ? null
-                        : StandardHandlers.packetFolders(tools, null));
+                        : StandardHandlers.packetFolders(tools, buypassV2));
     }
 
     /** {@code CAT_TOOLS_ROOT}, else PATS's {@code C:\CICD\Tools}. */
