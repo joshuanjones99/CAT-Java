@@ -8,9 +8,9 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -51,11 +51,18 @@ public final class CloudTunnelRelay {
     static final int HEADER_MAX = 512;
 
     /** Closes a channel whose header is late. One daemon thread for every forward. */
-    private static final ScheduledExecutorService DEADLINES = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread thread = new Thread(r, "cloud-tunnel-deadline");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private static final ScheduledExecutorService DEADLINES = deadlines();
+
+    /** A cancelled deadline leaves the queue at once, so it holds no channel for its 15 s. */
+    private static ScheduledExecutorService deadlines() {
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, r -> {
+            Thread thread = new Thread(r, "cloud-tunnel-deadline");
+            thread.setDaemon(true);
+            return thread;
+        });
+        executor.setRemoveOnCancelPolicy(true);
+        return executor;
+    }
 
     private CloudTunnelRelay() {}
 
