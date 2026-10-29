@@ -87,4 +87,32 @@ class StandardHandlersTest {
         }
         assertFalse(registry.handlerFor("NO_SUCH_ACTION").isPresent());
     }
+
+    /**
+     * Run dec5794107fa: 18 report cases failed with "the report actions have no register bound". The report family now
+     * gets the run's register, so 37028's NETWORK_REPORT reaches the POS (here a page that refuses every call).
+     */
+    @Test
+    void theReportActionsReachTheRunsPos() throws Exception {
+        Files.createDirectories(root.resolve("petroapps"));
+        HandlerFixtures fixtures = WiringFixtures.unbrowsed(root, new PinpadDouble("1", java.time.Duration.ofMillis(10)));
+        ActionRegistry registry = StandardHandlers.create(fixtures);
+        assertTrue(StandardHandlers.reportRegister(fixtures, com.verifone.cat.pats.WidgetKeys.standard())
+                instanceof com.verifone.cat.pats.runner.handlers.configuration.LegacyRegister);
+        com.verifone.cat.pats.runner.CaseRun run = com.verifone.cat.pats.runner.handlers.inits.TestActions.run(
+                com.verifone.cat.pats.runner.handlers.inits.TestActions.kase("PETROCORE-37028",
+                        com.verifone.cat.pats.runner.handlers.inits.TestActions.act(0, "NETWORK_REPORT",
+                                "MAIN_MENU_NO", "2", "NETWORK_MENU_NO", "4", "REPORT_NO", "1", "IS_SECURE_REPORT", "N",
+                                "SECURE_USER", "1", "DAY_SEQUENCE", "0")),
+                registry, StandardHandlers.fixtureSource(fixtures), Set.of());
+
+        Throwable error = org.junit.jupiter.api.Assertions.assertThrows(Throwable.class, run::run);
+
+        StringBuilder chain = new StringBuilder();
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            chain.append(t).append('\n');
+        }
+        assertFalse(chain.toString().contains("no register bound"), chain.toString());
+        assertTrue(chain.toString().contains("no browser in this test"), chain.toString());
+    }
 }
