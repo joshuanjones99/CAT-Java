@@ -5,11 +5,12 @@ is built, what is proven, and what comes next. Update it whenever work lands.
 
 If this document disagrees with the tree, the tree is right.
 
-State as of **2026-10-28, end of wave 15** (orchestrated session). `main` builds clean:
-**3,568 tests, 0 failures, 0 errors, 0 skipped** (2026-10-29 01:12) on the CICD Java 17. The eleven wave-15
-branches are merged; their worktrees under `C:\gitrepos\CAT-Java-wt\` can be removed
-(`git worktree remove`). The GitHub repo exists (`origin`, joshuanjones99/CAT-Java); main is
-not yet pushed from this session.
+State as of **2026-10-29 09:00** (the wave-15 session, paused at the rig owner's request). `main`
+builds clean: **3,568 tests, 0 failures, 0 errors, 0 skipped**, plus the `RootAccess` retry fix
+(05534e2, its tests green). No worktrees or side branches remain; every `wave15/*` branch is merged.
+**The lab Commander is down** (§4's last row and §6 item 1): its AAA service never came back after
+the final proof run's PSI install, so the clean-install proof is not yet recorded; the best Cadence
+run from Java is 258/264 (run `a4eda2bf8602`), the Python's own count.
 
 ## 1. What this is
 
@@ -123,7 +124,10 @@ Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
 
 ## 6. Open items (priority order)
 
-1. **Run Cadence from a clean install on the lab rig** (the command in §1, from
+1. **Record the clean-install proof run.** The Commander must first come back (power cycle or console; §4's
+   last row), then either build item 1a and resume, or rerun the whole clean install once it is healthy.
+   Steps 1-7 have each run live from Java; what is missing is one uninterrupted clean-install run with
+   every fix, recorded here. Run it with the command in §1, from
    `C:\gitrepos\CAT-Java` as the working directory: pulled tests land under `<cwd>\tests\suites\pulled`).
    Preconditions checked 2026-10-28: Access Bridge enabled (`~/.accessibility.properties`),
    `C:\CICD\Builds\Solutions134\buypass\` complete (so no Artifactory login is needed), the
