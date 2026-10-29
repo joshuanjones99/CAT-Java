@@ -1,0 +1,2 @@
+TAG_NAMES=begin;end;insideGrand;insideSales;outsideGrand;outsideSales;overallGrand;overallSales;max;avg;dateTime;seqNum;ticketRange;
+ATTRIBUTE_NAMES=periodBeginDate;periodSeqNum;openDateTime;terminalBatchNumber;batchNum;sysid;

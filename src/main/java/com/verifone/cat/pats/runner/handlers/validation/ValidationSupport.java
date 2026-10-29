@@ -185,9 +185,14 @@ final class ValidationSupport {
      * {@code PETROCORE-36862}).
      */
     static String xmlDiff(Object reference, Object actual, TlogOptions options) {
+        return xmlDiff(reference, actual, options, "TLog", "TLOG-RULE.txt");
+    }
+
+    /** {@link #xmlDiff(Object, Object, TlogOptions)}, its difference naming {@code kind} and {@code rule}. */
+    static String xmlDiff(Object reference, Object actual, TlogOptions options, String kind, String rule) {
         try {
             Tlog.Diff diff = Tlog.compare(reference, actual, options);
-            return diff.ok() ? "" : diff.describe();
+            return diff.ok() ? "" : diff.describe(25, kind, rule);
         } catch (TlogParseException e) {
             throw new ValidationFailure("the reference is not well-formed XML: " + e.getMessage());
         }

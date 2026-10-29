@@ -99,12 +99,20 @@ public final class Tlog {
 
         /** A report naming the paths that differed, at most {@code limit} of them. */
         public String describe(int limit) {
+            return describe(limit, "TLog", "TLOG-RULE.txt");
+        }
+
+        /**
+         * The Python's {@code describe(limit=, kind=, rule=)}: {@code kind} and {@code rule} name what was compared
+         * and the rule file that set the ignore lists, since the same comparison checks reports and packets too.
+         */
+        public String describe(int limit, String kind, String rule) {
             if (differences.isEmpty()) {
-                return "TLogs match (" + compared + " paths compared)";
+                return kind + "s match (" + compared + " paths compared)";
             }
-            StringBuilder text = new StringBuilder(differences.size() + " TLog difference(s) over " + compared
-                    + " compared paths (DESIGN.md 5.4; " + ignoredTags.size() + " ignored tags, "
-                    + ignoredAttributes.size() + " ignored attributes from TLOG-RULE.txt):");
+            StringBuilder text = new StringBuilder(differences.size() + " " + kind + " difference(s) over " + compared
+                    + " compared paths (DESIGN.md §5.4; " + ignoredTags.size() + " ignored tags, "
+                    + ignoredAttributes.size() + " ignored attributes from " + rule + "):");
             for (Difference d : differences.subList(0, Math.min(limit, differences.size()))) {
                 text.append("\n  ").append(d);
             }
