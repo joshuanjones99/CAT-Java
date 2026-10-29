@@ -15,14 +15,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * The Artifactory login as the Python CAT finds it ({@code petrotest.build.credentials.load_credentials}): first
  * {@value EnvArtifactoryCredentials#USER_ENV} and {@value EnvArtifactoryCredentials#PASSWORD_ENV}, else the first of
- * the stored files that reads and decrypts: the Python CAT's {@code .secrets/artifactory.credentials} (written by
- * {@code petrotest artifactory-login}), then Monarch's own {@code .credentials}.
+ * the stored files that reads and decrypts: CAT-Java's {@code ~/.cat/java/artifactory.credentials} (written by
+ * {@code cat-java artifactory-login}, {@link ArtifactoryLogin}), the Python CAT's {@code .secrets/artifactory.credentials}
+ * (written by {@code petrotest artifactory-login}), then Monarch's own {@code .credentials}.
+ *
+ * <p>Deviation: the Python has no CAT-Java file. CAT-Java writes only under {@code ~/.cat/java/}, never into the
+ * Python checkout's {@code .secrets/}, so its login lives there, and is read first: what the operator last typed into
+ * CAT-Java wins over an older save of the Python CAT's.
  *
  * <p>The files are Monarch's format: {@code {"Username": ..., "Password": <hex>}}, where the hex is PowerShell's keyless
  * {@code ConvertFrom-SecureString} output, a DPAPI blob of the UTF-16LE password, tied to the Windows account that
  * wrote it. A file that is missing, malformed or will not decrypt is skipped, not fatal, as the Python's
  * {@code _read_file}. The user is normalised as the Python's {@code normalise_username} (everything from the first
- * {@code @} dropped). CAT-Java only reads these files; it never writes one.
+ * {@code @} dropped). CAT-Java writes only its own file, and only from {@link ArtifactoryLogin}.
  *
  * <p>The files are read only for the process's own environment, as the Python's {@code ArtifactoryClient._auth}
  * falls back to them only when its {@code environ is os.environ}: {@link #forEnvironment} with any other map (a
@@ -78,12 +83,29 @@ public final class StoredArtifactoryCredentials implements ArtifactoryCredential
         return new EnvArtifactoryCredentials(env == null ? Map.of() : env);
     }
 
-    /** The Python CAT's {@code .secrets/artifactory.credentials}, then Monarch's files. */
+    /** The file {@code cat-java artifactory-login} writes: {@code <home>\.cat\java\artifactory.credentials}. */
+    public static Path catJavaFile(String userHome) {
+        return Path.of(userHome, ".cat", "java", CREDENTIALS_FILE_NAME);
+    }
+
+    /** The name both CATs give their saved login. */
+    public static final String CREDENTIALS_FILE_NAME = "artifactory.credentials";
+
+    /**
+     * CAT-Java's own file ({@link #catJavaFile}), then the Python CAT's {@code .secrets/artifactory.credentials}, then
+     * Monarch's files.
+     */
     public static List<Path> defaultFiles(Map<String, String> env) {
+        return defaultFiles(env, System.getProperty("user.home"));
+    }
+
+    /** {@link #defaultFiles(Map)} for the given home folder. */
+    public static List<Path> defaultFiles(Map<String, String> env, String userHome) {
         String root = env == null ? null : env.get("CAT_PYTHON_ROOT");
         Path python = root == null || root.isBlank() ? DEFAULT_PYTHON_ROOT : Path.of(root);
         List<Path> all = new java.util.ArrayList<>();
-        all.add(python.resolve(".secrets").resolve("artifactory.credentials"));
+        all.add(catJavaFile(userHome));
+        all.add(python.resolve(".secrets").resolve(CREDENTIALS_FILE_NAME));
         all.addAll(MONARCH_FILES);
         return List.copyOf(all);
     }

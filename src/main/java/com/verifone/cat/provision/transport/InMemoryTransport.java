@@ -36,8 +36,11 @@ public final class InMemoryTransport implements Transport {
     private final Set<String> failWrites = new HashSet<>();
     private final Set<String> failReads = new HashSet<>();
     private final Set<String> dropped = new HashSet<>();
+    private final InMemoryForwards forwards = new InMemoryForwards();
     private RuntimeException runFailure;
     private boolean closed;
+    private boolean sessionDropped;
+    private Duration keepalive;
 
     public InMemoryTransport() {
         this("fake-target");
@@ -128,8 +131,42 @@ public final class InMemoryTransport implements Transport {
     }
 
     @Override
+    public void requestReverseForward(String bindAddress, int port, ForwardHandler handler, Duration timeout) {
+        forwards.request(bindAddress, port, handler);
+    }
+
+    @Override
+    public void keepalive(Duration interval) {
+        keepalive = interval;
+    }
+
+    /** Up until closed or {@link #dropSession dropped}. */
+    @Override
+    public boolean isActive() {
+        return !closed && !sessionDropped;
+    }
+
+    /** The session goes away, as a rebooting box's does: {@link #isActive} turns false and the forwards end. */
+    public InMemoryTransport dropSession() {
+        sessionDropped = true;
+        forwards.clear();
+        return this;
+    }
+
+    /** The reverse forwards asked for on this transport; {@link InMemoryForwards#connect} dials one. */
+    public InMemoryForwards forwards() {
+        return forwards;
+    }
+
+    /** The keepalive interval last set, or empty. */
+    public Optional<Duration> keepaliveInterval() {
+        return Optional.ofNullable(keepalive);
+    }
+
+    @Override
     public void close() {
         closed = true;
+        forwards.clear();
     }
 
     /** The mode a file was last written with, or empty if it was never written. */
