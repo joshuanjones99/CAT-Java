@@ -1,0 +1,37 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+B  PLU-AF                  1       19.50
++A Tax on Rebate of  $2.50
+                              ----------
+                   Subtotal        19.50
+                        Tax         0.72
+TOTAL     20.22 
+         NON-TAXABLE-COUPON  $      9.00
+                       CASH  $     10.00
+                       CASH  $      5.00
+                 Tax Credit         0.50
+                     Change  $     -3.78
+
+Tax Type  Purchase Rebate  Taxable   Tax
+A(5.0000%)   19.50   2.50     2.50  0.13
+B(5.6000%)   19.50   0.00    10.50  0.59
+
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#CL120     TILL XXXX DR#1 TRAN#1010010
+CSH: 1                1/15/20 6:12:10 AM
