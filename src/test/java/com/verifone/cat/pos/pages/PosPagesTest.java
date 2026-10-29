@@ -12,7 +12,6 @@ import java.util.List;
 
 import com.microsoft.playwright.Page;
 import com.verifone.cat.pos.Locators;
-import com.verifone.cat.pos.driver.DriverError;
 import com.verifone.cat.pos.driver.PosDriver;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
@@ -141,13 +140,19 @@ class PosPagesTest {
     }
 
     @Test
-    void newestTlogAbortsWhenTheCommanderGivesAReason() {
+    void newestTlogStopsWaitingWhenTheAbortGivesAReasonAndReadsTheNewest() {
+        // test_run_time_levers.py::test_a_tlog_wait_held_by_an_ok_only_message_ends_early: fetched == [None].
         try (Page page = browsers.newPage()) {
             page.setContent("<html><body></body></html>");
-            Pos pos = new Pos(PagesBrowser.driverOn(page), null, new RecordingSource(), () -> List.of("100"));
+            RecordingSource source = new RecordingSource();
+            Pos pos = new Pos(PagesBrowser.driverOn(page), null, source, () -> List.of("100"));
 
-            assertThrows(DriverError.class, () -> pos.newestTlog("100", Duration.ofSeconds(5),
-                    () -> "the Commander is unreachable"));
+            long started = System.nanoTime();
+            Object tlog = pos.newestTlog("100", Duration.ofSeconds(5), () -> "the POS has shown [OK] for 20s");
+
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(2)) < 0);
+            assertEquals("tlog:null", tlog);
+            assertEquals(java.util.Arrays.asList((String) null), source.asked);
         }
     }
 

@@ -6,6 +6,7 @@ import com.verifone.cat.pos.pages.BaseElement;
 import com.verifone.cat.pos.pages.Overlay;
 import com.verifone.cat.pos.pages.Pos;
 import com.verifone.cat.pos.driver.PosDriver;
+import com.verifone.cat.pos.receipt.ReceiptSource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,21 +47,41 @@ public interface SaleScreen {
     /** Clears any overlay that blocks the POS, a nag included (PATS's sweep; the Python's {@code _clear_nag}). */
     void clearBlockingOverlays();
 
-    /** The text of the receipt just printed. */
+    /**
+     * The text of the receipt just printed: the Python's {@code run.pos.receipt().text}, which reads the run's
+     * {@code receipt_source} (the serial printer on a rig), not the ticket on screen.
+     */
     String receiptText();
 
-    /** The production reader, over the Pos page objects. */
+    /** The reader over the Pos page objects, its receipt read from the Pos's own source (the DOM for a bare Pos). */
     static SaleScreen of(Pos pos) {
-        return new PosSaleScreen(pos);
+        return new PosSaleScreen(pos, null);
+    }
+
+    /**
+     * The production reader: the screen through the Pos page objects, the receipt through the run's receipt source,
+     * as the Python's {@code pos} fixture builds its {@code Pos} with the run's {@code receipt_source}.
+     *
+     * <p>Run dec5794107fa (2026-10-28): the sale family read its receipt through a bare {@code Pos}, whose DOM capture
+     * is the on-screen ticket. PETROCORE-36853's REFUND_WITH_TRANS_MAP read the refund still being rung up, found no
+     * {@code TRAN#} or {@code Stan:}, keyed VOID_TICKET instead of the STAN, and left the refund open: the receipt and
+     * TLog checks then read the sale before it, and 36854 found "Error Correct" on the express panel.
+     *
+     * @param receipts the run's receipt source; null reads the Pos's own
+     */
+    static SaleScreen of(Pos pos, ReceiptSource receipts) {
+        return new PosSaleScreen(pos, receipts);
     }
 
     /** Reads the screen through the Pos page objects and the driver. */
     final class PosSaleScreen implements SaleScreen {
 
         private final Pos pos;
+        private final ReceiptSource receipts;
 
-        PosSaleScreen(Pos pos) {
+        PosSaleScreen(Pos pos, ReceiptSource receipts) {
             this.pos = java.util.Objects.requireNonNull(pos, "pos");
+            this.receipts = receipts;
         }
 
         private PosDriver driver() {
@@ -112,7 +133,7 @@ public interface SaleScreen {
 
         @Override
         public String receiptText() {
-            return pos.receipt().text();
+            return receipts == null ? pos.receipt().text() : receipts.capture().text();
         }
     }
 }

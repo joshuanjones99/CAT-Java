@@ -93,10 +93,15 @@ public final class ValidationFamily {
     /**
      * The Python's {@code CaseRun.do} marks: before every action that can drive the POS (not {@link #passive}), in a
      * case that declares the POS, the printer's receipt count and the sales closed so far. The receipt check then
-     * prefers a print made since that action began, and settles for a sale closed before it and not yet read.
+     * prefers a print made since that action began, and settles for a sale closed before it and not yet read. Any
+     * case's non-passive action also forgets the message a dialog watch was timing ({@code dialog_seen = None}).
      */
     static void markPrints(CaseRun run, RunnableAction action, ValidationContext context) {
-        if (!run.declares(FixtureName.POS) || passive(action.name())) {
+        if (passive(action.name())) {
+            return;
+        }
+        PosUiCaseState.of(run).forgetDialogSeen();
+        if (!run.declares(FixtureName.POS)) {
             return;
         }
         run.setScratch(PRINT_MARK, context.receipts().printCount());

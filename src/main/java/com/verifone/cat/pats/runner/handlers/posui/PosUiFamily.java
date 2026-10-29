@@ -72,6 +72,20 @@ public final class PosUiFamily {
     }
 
     /**
+     * A fresh {@code DialogWatch(run)} for one wait outside this family (the receipt and TLog validations): asked on
+     * each look, it gives the reason the wait cannot finish, or null. Giving up records the dead end
+     * {@link #clearDeadEnd} presses OK on when the case fails. A case that does not declare the POS has no POS to
+     * watch: its watch never gives up.
+     */
+    public static java.util.function.Supplier<String> dialogWatch(CaseRun run, PosUiContext ctx) {
+        if (!run.declares(FixtureName.POS)) {
+            return () -> null;
+        }
+        DialogWatch watch = new DialogWatch(new PosUi(ctx), run);
+        return watch::check;
+    }
+
+    /**
      * {@code _clear_dead_end}: after a failed case, OK the OK-only message a wait gave up on, if it is still up and
      * the same message. Only that message is pressed. Called by the recovery path, not by an action.
      */

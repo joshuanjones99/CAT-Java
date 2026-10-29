@@ -84,6 +84,41 @@ class NormalisersTest {
         assertEquals("padding_after_mask", order.get(order.size() - 1), "padding collapse must see masked text");
     }
 
+    /**
+     * The Python's lists, name for name and in order ({@code petrotest.validate.normalise.RECEIPT_NORMALISERS} and
+     * {@code CARD_IDENTITY_NORMALISERS}, read from the Python tree 2026-10-28).
+     */
+    @Test
+    void theNormalisersAreThePythonsInThePythonsOrder() {
+        assertEquals(List.of("datetime_stamp", "date", "time", "tran_no", "auth_code", "stan", "invoice", "trace",
+                "carwash_code", "carwash_good_thru_day", "carwash_code_spaced", "approve_no", "card_bal", "ctl",
+                "batch", "emv_cryptogram", "ref_num", "seq", "daypart", "store_st", "cashier", "register", "shift_no",
+                "station_no", "site_number", "centred_batch_padding", "padding_after_mask"),
+                names(Normalisers.RECEIPT_NORMALISERS));
+        assertEquals(List.of("pan_masked", "aid", "authnet", "emv_terminal_flags"),
+                names(Normalisers.CARD_IDENTITY_NORMALISERS));
+    }
+
+    /**
+     * A tender or cash-back line keeps its {@code $}: no Python normaliser strips it. The Python's
+     * {@code normalise_receipt} of PETROCORE-36916's capture (run dec5794107fa) gives
+     * {@code "                  Cash Back  $      5.00"}; a baseline reading {@code "Cash Back         5.00"} is an older
+     * build's print (the Python's {@code tests/suites/cadence_55_02} baseline), not a normalised one.
+     */
+    @Test
+    void aTenderOrCashBackAmountKeepsItsDollarSignAsThePythonsDoes() {
+        String receipt = "                   Subtotal        24.70\n"
+                + "TOTAL     24.70 \n"
+                + "                  Cash Back  $      5.00\n"
+                + "                     CREDIT  $     29.70\n"
+                + "                     Change  $     -5.00\n";
+
+        String normalised = Normalisers.normaliseReceipt(receipt);
+
+        assertTrue(normalised.contains("                  Cash Back  $      5.00"), normalised);
+        assertTrue(normalised.contains("                     CREDIT  $     29.70"), normalised);
+    }
+
     @Test
     void design54SketchesDoNotMatchTheRealCorpus() {
         String text = text(LOYALTY_RECEIPT);

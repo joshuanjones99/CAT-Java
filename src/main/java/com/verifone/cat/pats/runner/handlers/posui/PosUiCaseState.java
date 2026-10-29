@@ -161,6 +161,15 @@ public final class PosUiCaseState {
         dialogSeen = seen;
     }
 
+    /**
+     * Forgets the OK-only message a dialog watch has been timing: the Python's {@code CaseRun.do} sets
+     * {@code dialog_seen = None} before every action that can drive the POS, so a message seen by an earlier wait
+     * does not cut a later action's wait short.
+     */
+    public void forgetDialogSeen() {
+        dialogSeen = null;
+    }
+
     /** The OK-only message a wait gave up on, which the next case may press OK on; empty when none. */
     public Optional<List<String>> deadEnd() {
         return Optional.ofNullable(deadEnd);
