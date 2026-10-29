@@ -172,6 +172,24 @@ class ReceiptValidationTest {
         assertTrue(message.contains("receipt differs"), message);
     }
 
+    /**
+     * PETROCORE-36878 (CAT-Java run 5285e78aa370): the register printed the merchant copy as a job of its own (receipt
+     * 35, 52 lines, TRAN#1010211) and never printed the customer copy; the next print was 36879's sale. The Python's
+     * {@code without_merchant_copy} strips a merchant copy only when a second copy follows it, so a merchant copy
+     * alone fails against a customer-copy baseline there too: the Java's verdict is the Python's.
+     */
+    @Test
+    void aMerchantCopyAloneIsNotTheCustomerCopyItsBaselineHolds() throws IOException {
+        String merchant = "WELCOME TO\nSALE Receipt\nMERCHANT COPY\n\n";
+        String customer = "WELCOME TO\n <CUSTOMER COPY>\n\nSALE Receipt\nCUSTOMER COPY\n";
+        Files.writeString(folder.resolve(BASELINE), customer);
+
+        String message = verdict(receiptCase(contextWith(merchant, new ValidationKit.FakeReferences(), noEnv()), false, RECEIPT));
+        assertTrue(message.contains("receipt differs"), message);
+        assertEquals("", verdict(receiptCase(contextWith(merchant + customer, new ValidationKit.FakeReferences(),
+                noEnv()), false, RECEIPT)));
+    }
+
     @Test
     void aReceiptThatNeverPrintsIsAFailedValidationNotAStop() {
         ValidationContext context = context(() -> {
