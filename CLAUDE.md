@@ -84,7 +84,8 @@ src/main/java/com/verifone/cat/
                    handlers/* families, StandardHandlers)
   launch/          the seven run steps, RunLauncher, LaunchCommand, StandardRegistry
   devices/         commander (CGILink), forecourt, legacyrmi, viperpay, printer, csite,
-                   eps, suspended, fep
+                   eps, suspended, fep, vats (physical pinpad: BTT, KM4 relay, agent.py shipped
+                   as a resource and spawned under the staged Python 3.9)
   commander/       init, prep, trust, links, snapshot, connect, registerapp
   preflight/ recovery/ provision/ upgrade/ build/ collect/ closeday/ coverage/
   plans/ runconfig/ runservice/ report/ results/ validate/ xray/ atlassian/
