@@ -65,6 +65,8 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
     private final Supplier<ProvisionReport> provision;
     private final Duration posRestartWait;
     private final Duration posPoll;
+    /** A test's stand-in for preflight; null is the real {@link PreflightRunner}. */
+    private java.util.function.BooleanSupplier preflightOverride;
 
     /** The Python's {@code wiring.POS_RESTART_WAIT}: how long rung 5 waits for a restarted POS to draw. */
     public static final Duration POS_RESTART_WAIT = Duration.ofSeconds(300);
@@ -171,7 +173,16 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
         return preflight();
     }
 
+    /** For a test: preflight's answer without a rig context. */
+    LiveRecoveryTarget withPreflight(java.util.function.BooleanSupplier answer) {
+        this.preflightOverride = answer;
+        return this;
+    }
+
     private boolean preflight() {
+        if (preflightOverride != null) {
+            return preflightOverride.getAsBoolean();
+        }
         PreflightReport report = PreflightRunner.run(rig, DefaultChecks.defaults().checks(),
                 new PreflightRunner.RunOptions(true, null, true));
         if (summary != null) {
