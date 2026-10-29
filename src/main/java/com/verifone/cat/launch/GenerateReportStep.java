@@ -32,10 +32,9 @@ import com.verifone.cat.report.html.HtmlReport;
  * execution ({@link XrayReporter#statusLines}), or a WARNING when the sidecar has written none yet: how the operator
  * finds the execution without leaving CAT. The sidecar is still running here; it closes the execution after Cleanup.
  *
- * <p>Not carried: the event tee's dropped-event count (CAT-Java has no socket tee). HOOK (coverage slice): the
- * Python collects JaCoCo coverage first, before the writers, so the index lists it ({@code collect_coverage}), and a
- * coverage that was asked for and not delivered fails this step after the reports are written; that call belongs at
- * the top of {@link #run}.
+ * <p>Not carried: the event tee's dropped-event count (CAT-Java has no socket tee).
+ * The JaCoCo coverage report runs first when coverage is on ({@link CoverageLaunch#collect}); asked for and
+ * not delivered, it leaves this step failed with {@link CoverageLaunch#FAILED_DETAIL}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: the report is built from fake-backed run events only. The Python
  * CAT's summary and JUnit output were checked against a real run's events (HANDOFF.md §4).
@@ -56,6 +55,9 @@ final class GenerateReportStep implements LaunchStep {
 
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
+        // [coverage slice, wave 16] JaCoCo coverage first, when asked (launch.CoverageLaunch): before the writers, so
+        // the index lists it. It reboots the Commander and waits for it, which is why it is here, before Cleanup.
+        boolean coverageOk = CoverageLaunch.collect(ctx, step);
         Path folder = ctx.runFolder();
         Path events = folder.resolve(ReportPaths.EVENTS_FILE);
         if (!Files.isRegularFile(events)) {
@@ -116,6 +118,11 @@ final class GenerateReportStep implements LaunchStep {
             }
         }
         step.setDetail(folder.toString());
+        if (!coverageOk) {
+            // [coverage slice, wave 16] Asked for and not delivered: the reports stand, but a complete step would say
+            // the coverage did too. The run still goes on to Cleanup, as the Python's.
+            step.fail(folder + CoverageLaunch.FAILED_DETAIL);
+        }
         return true;
     }
 

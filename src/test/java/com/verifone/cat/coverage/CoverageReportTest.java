@@ -11,36 +11,45 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
- * The report and bundle step, with a stub {@code jacococli} that writes JaCoCo's XML. The real CLI is never run.
+ * The report, summary, running total and bundle, with a stub {@code jacococli} that writes JaCoCo's XML (and a merged
+ * exec for {@code merge}). The real CLI is never run. The Python's {@code TestReport}, and the earlier Java tests.
  */
 class CoverageReportTest {
 
     private static final JacocoTools TOOLS = new JacocoTools(Path.of("java.exe"), Path.of("jacococli.jar"), null);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @TempDir
     Path tmp;
 
-    /** The counters a stub report carries, by JVM name: {@code {covered, missed}} for the LINE counter. */
+    /** The stub CLI: {@code {covered, missed}} for the LINE counter by report name; {@code failing} names refuse. */
     private static Jacoco.CliRunner stub(Map<String, long[]> lines, List<List<String>> calls, Set<String> failing) {
         return (tools, args, timeout) -> {
             calls.add(args);
-            String name = args.get(args.indexOf("--name") + 1);
-            if (failing.contains(name)) {
-                return new Jacoco.CliResult(false, "Can't add different class with same name: A");
-            }
-            long[] counts = lines.getOrDefault(name, new long[] {0, 0});
-            Path xml = Path.of(args.get(args.indexOf("--xml") + 1));
             try {
+                if (args.get(0).equals("merge")) {
+                    Files.writeString(Path.of(args.get(args.indexOf("--destfile") + 1)), "merged");
+                    return new Jacoco.CliResult(true, "");
+                }
+                String name = args.get(args.indexOf("--name") + 1);
+                if (failing.contains(name)) {
+                    return new Jacoco.CliResult(false, "Can't add different class with same name: A");
+                }
+                long[] counts = lines.getOrDefault(name, new long[] {0, 10});
+                Path xml = Path.of(args.get(args.indexOf("--xml") + 1));
                 Files.createDirectories(xml.getParent());
                 Files.writeString(xml, xmlReport(name, counts[0], counts[1]), StandardCharsets.UTF_8);
             } catch (IOException e) {
@@ -50,32 +59,52 @@ class CoverageReportTest {
         };
     }
 
+    private static Jacoco.CliRunner stub(Map<String, long[]> lines, List<List<String>> calls) {
+        return stub(lines, calls, Set.of());
+    }
+
     private static String xmlReport(String name, long covered, long missed) {
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<report name=\"" + name + "\">"
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<!DOCTYPE report PUBLIC \"-/" + "/JACOCO/" + "/DTD Report 1.1/" + "/EN\" \"report.dtd\">"
+                + "<report name=\"" + name + "\">"
                 + "<package name=\"x\"><counter type=\"LINE\" missed=\"0\" covered=\"1\"/></package>"
                 + "<counter type=\"INSTRUCTION\" missed=\"0\" covered=\"9\"/>"
                 + "<counter type=\"LINE\" missed=\"" + missed + "\" covered=\"" + covered + "\"/>"
+                + "<counter type=\"BRANCH\" missed=\"1\" covered=\"1\"/>"
                 + "</report>";
     }
 
-    private Path exec(Path coverage, String name) throws IOException {
-        Path file = coverage.resolve("exec").resolve(name);
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, name, StandardCharsets.UTF_8);
-        return file;
+    /** The Python's {@code _run}: a run folder under {@code results/} with these exec files. */
+    private Path run(String runId, String... execs) throws IOException {
+        Path coverage = tmp.resolve("results").resolve(runId).resolve("coverage");
+        Files.createDirectories(coverage.resolve("exec"));
+        for (String name : execs) {
+            Files.writeString(coverage.resolve("exec").resolve(name), "data");
+        }
+        return coverage;
     }
 
-    private static CoverageReport.ClassFiles classes(String... names) {
-        Map<String, List<Path>> found = new HashMap<>();
+    /** The Python's {@code _classfiles}: every component's class files are one jar. */
+    private ClassFiles allClasses() throws IOException {
+        Path jar = tmp.resolve("classes").resolve("x.jar");
+        Files.createDirectories(jar.getParent());
+        Files.writeString(jar, "jar");
+        Map<String, List<Path>> found = new LinkedHashMap<>();
+        Components.COMPONENTS.forEach(c -> found.put(c.name(), List.of(jar)));
+        return new ClassFiles(tmp.resolve("classes"), found, Map.of());
+    }
+
+    private static ClassFiles classes(String... names) {
+        Map<String, List<Path>> found = new LinkedHashMap<>();
         for (String name : names) {
             found.put(name, List.of(Path.of(name + ".jar")));
         }
-        return new CoverageReport.ClassFiles(found, Map.of());
+        return new ClassFiles(Path.of("."), found, Map.of());
     }
 
-    private static CoverageReport.ReportInputs inputs(Path coverage) {
-        return new CoverageReport.ReportInputs(coverage, "Buypass", "20261024T153000Z", "Solutions90",
-                List.of("PETROCORE-135127"));
+    private CoverageReport.ReportInputs inputs(Path coverage, String runId, String build, List<String> plans) {
+        return new CoverageReport.ReportInputs(coverage, tmp.resolve("overlay.zip"), "buypass", runId, build, plans,
+                null, "", tmp.resolve("results"));
     }
 
     private static List<String> zipEntries(Path zip) throws IOException {
@@ -88,119 +117,192 @@ class CoverageReportTest {
 
     @Test
     void eachExecFileIsReportedSummarisedAndBundled() throws IOException {
-        Path coverage = tmp.resolve("coverage");
-        exec(coverage, "fcc.exec");
-        exec(coverage, "pmc.exec");
+        Path coverage = run("run1", "fcc.exec", "pos-tomcat-topaz101.exec", "odd.exec");
         List<List<String>> calls = new ArrayList<>();
-        List<String> log = new ArrayList<>();
 
-        CoverageReport.Summary summary = CoverageReport.buildReport(inputs(coverage),
-                classes("fcc", "pmc"), TOOLS,
-                stub(Map.of("fcc", new long[] {3, 1}), calls, Set.of()), log::add);
+        CoverageSummary result = CoverageReport.buildReport(inputs(coverage, "run1", "Solutions1082",
+                List.of("PETROCORE-1")), TOOLS, stub(Map.of("fcc", new long[] {30, 70}), calls), allClasses(),
+                line -> { });
 
-        assertEquals(2, calls.size());
-        assertEquals(75.0, summary.components().get("fcc"), 0.001);
-        assertNull(summary.components().get("pmc"), "a JVM with no lines in the stub has no percentage");
-        assertTrue(Files.isRegularFile(coverage.resolve("summary.json")));
-        List<String> entries = zipEntries(coverage.resolve(CoverageReport.zipName("20261024T153000Z")));
-        assertTrue(entries.contains("exec/fcc.exec"), entries.toString());
-        assertTrue(entries.contains("summary.json"), entries.toString());
-        assertFalse(entries.stream().anyMatch(e -> e.startsWith("xml/")), "the XML stays out of the bundle");
+        assertEquals(Set.of("fcc", "pos-tomcat-topaz101"), result.components.keySet());
+        assertEquals(30.0, result.components.get("fcc").percent("LINE"), 1e-9);
+        assertTrue(result.notes.stream().anyMatch(n -> n.contains("odd.exec")), result.notes.toString());
+        assertTrue(result.notes.stream().anyMatch(n -> n.contains("no petroapps checkout")), result.notes.toString());
+        // The bundle: HTML, exec files and the summary; not the XML.
+        List<String> names = zipEntries(coverage.resolve("coverage-run1.zip"));
+        assertTrue(names.contains("summary.md") && names.contains("exec/fcc.exec"), names.toString());
+        assertFalse(names.stream().anyMatch(n -> n.startsWith("xml/")), names.toString());
+        // The build's running total: one merge per JVM, and the run recorded once.
+        Path store = tmp.resolve("results").resolve("coverage").resolve("Solutions1082").resolve("buypass");
+        assertEquals(Map.of("fcc", List.of("run1"), "pos-tomcat", List.of("run1")),
+                JSON.readValue(store.resolve("runs.json").toFile(), Map.class));
+        assertEquals(30.0, result.cumulativeLine.get("fcc"), 1e-9);
+        try (Stream<Path> files = Files.list(store)) {
+            assertFalse(files.anyMatch(p -> p.toString().endsWith(".xml")), "read for its totals, then removed");
+        }
     }
 
     @Test
-    void aJvmReportIsNamedByItsExecStem() throws IOException {
-        Path coverage = tmp.resolve("coverage");
-        exec(coverage, "pos-tomcat-topaz101.exec");
+    void reportingARunTwiceDoesNotCountItTwice() throws IOException {
+        Path coverage = run("run1", "fcc.exec");
         List<List<String>> calls = new ArrayList<>();
-
-        CoverageReport.Summary summary = CoverageReport.buildReport(inputs(coverage),
-                classes("pos-tomcat"), TOOLS, stub(Map.of("pos-tomcat-topaz101", new long[] {1, 1}), calls,
-                        Set.of()), line -> { });
-
-        assertTrue(summary.components().containsKey("pos-tomcat-topaz101"));
-        assertTrue(Files.isRegularFile(coverage.resolve("xml").resolve("pos-tomcat-topaz101.xml")));
+        for (int i = 0; i < 2; i++) {
+            calls.clear();
+            CoverageReport.buildReport(inputs(coverage, "run1", "Solutions1082", List.of()), TOOLS,
+                    stub(Map.of(), calls), allClasses(), line -> { });
+        }
+        assertFalse(calls.stream().anyMatch(args -> args.get(0).equals("merge")), "the second time");
     }
 
     @Test
-    void noExecFilesIsSaidNotHiddenAndStillBundled() throws IOException {
-        Path coverage = tmp.resolve("coverage");
-        Files.createDirectories(coverage);
+    void aJvmsFilesThatArriveLaterStillJoinTheTotal() throws IOException {
+        // Run da4bfa334bd9: its Tomcats were merged, its Commander files recovered later.
+        Path coverage = run("run1", "commander-tomcat.exec");
+        assertEquals(1, merges(coverage).size());
+        Files.writeString(coverage.resolve("exec").resolve("fcc.exec"), "recovered");
+        List<List<String>> merges = merges(coverage);
+        assertEquals(List.of(tmp.resolve("results").resolve("coverage").resolve("Solutions1082").resolve("buypass")
+                .resolve("fcc.exec.new").toString()), merges.stream().map(a -> a.get(a.indexOf("--destfile") + 1))
+                .toList());
+    }
 
-        CoverageReport.Summary summary = CoverageReport.buildReport(inputs(coverage),
-                CoverageReport.ClassFiles.none(), TOOLS, stub(Map.of(), new ArrayList<>(), Set.of()), line -> { });
-
-        assertTrue(summary.notes().stream().anyMatch(n -> n.contains("nothing was collected")), summary.notes().toString());
-        assertTrue(Files.isRegularFile(coverage.resolve(CoverageReport.zipName("20261024T153000Z"))));
+    private List<List<String>> merges(Path coverage) throws IOException {
+        List<List<String>> calls = new ArrayList<>();
+        CoverageReport.buildReport(inputs(coverage, "run1", "Solutions1082", List.of()), TOOLS, stub(Map.of(), calls),
+                allClasses(), line -> { });
+        return calls.stream().filter(args -> args.get(0).equals("merge")).toList();
     }
 
     @Test
-    void anExecFileNothingNamesIsNotedAndNotReported() throws IOException {
-        Path coverage = tmp.resolve("coverage");
-        exec(coverage, "mystery.exec");
-        List<List<String>> calls = new ArrayList<>();
+    void theLineChangeIsAgainstTheLastRunOfTheSamePlans() throws IOException {
+        report("a", List.of("PETROCORE-1"), 20);
+        report("other-plan", List.of("PETROCORE-2"), 90);
+        CoverageSummary latest = report("b", List.of("PETROCORE-1"), 25);
 
-        CoverageReport.Summary summary = CoverageReport.buildReport(inputs(coverage),
-                classes("fcc"), TOOLS, stub(Map.of(), calls, Set.of()), line -> { });
+        assertEquals("a", latest.baselineRun);
+        List<String> row = latest.rows().stream().filter(r -> r.get(0).equals("fcc")).findFirst().orElseThrow();
+        assertEquals("+5.0", row.get(5));
+        assertTrue(latest.markdown().contains("Line Δ is against run a"), latest.markdown());
+    }
 
-        assertTrue(calls.isEmpty());
-        assertTrue(summary.notes().stream().anyMatch(n -> n.startsWith("mystery.exec: no JVM by that name")),
-                summary.notes().toString());
+    private CoverageSummary report(String runId, List<String> plans, long covered) throws IOException {
+        return CoverageReport.buildReport(inputs(run(runId, "fcc.exec"), runId, "Solutions1082", plans), TOOLS,
+                stub(Map.of("fcc", new long[] {covered, 100 - covered}), new ArrayList<>()), allClasses(), line -> { });
+    }
+
+    @Test
+    void nothingCollectedIsSaidNotHiddenAndStillBundled() throws IOException {
+        Path coverage = run("run1");
+        CoverageSummary result = CoverageReport.buildReport(new CoverageReport.ReportInputs(coverage,
+                tmp.resolve("overlay.zip"), "buypass", "run1"), TOOLS, stub(Map.of(), new ArrayList<>()),
+                allClasses(), line -> { });
+        assertTrue(result.components.isEmpty());
+        assertTrue(result.notes.get(0).contains("nothing was collected"), result.notes.toString());
+        assertTrue(Files.isRegularFile(coverage.resolve(CoverageReport.zipName("run1"))));
+        assertTrue(Files.isRegularFile(coverage.resolve(CoverageSummary.SUMMARY_MD)));
     }
 
     @Test
     void aFailedReportIsANoteAndTheOtherJvmsStillStand() throws IOException {
-        Path coverage = tmp.resolve("coverage");
-        exec(coverage, "fcc.exec");
-        exec(coverage, "pmc.exec");
+        Path coverage = run("run1", "fcc.exec", "pmc.exec");
+        List<String> log = new ArrayList<>();
 
-        CoverageReport.Summary summary = CoverageReport.buildReport(inputs(coverage),
-                classes("fcc", "pmc"), TOOLS, stub(Map.of("pmc", new long[] {2, 2}), new ArrayList<>(),
-                        Set.of("fcc")), line -> { });
+        CoverageSummary result = CoverageReport.buildReport(new CoverageReport.ReportInputs(coverage,
+                tmp.resolve("overlay.zip"), "Buypass", "run1"), TOOLS,
+                stub(Map.of("pmc", new long[] {2, 2}), new ArrayList<>(), Set.of("fcc")), classes("fcc", "pmc"),
+                log::add);
 
-        assertFalse(summary.components().containsKey("fcc"));
-        assertEquals(50.0, summary.components().get("pmc"), 0.001);
-        assertTrue(summary.notes().stream().anyMatch(n -> n.startsWith("fcc: jacococli report failed")),
-                summary.notes().toString());
+        assertFalse(result.components.containsKey("fcc"));
+        assertEquals(50.0, result.components.get("pmc").percent(), 1e-9);
+        assertTrue(result.notes.stream().anyMatch(n -> n.startsWith("fcc: jacococli report failed")),
+                result.notes.toString());
+        assertTrue(log.contains("OK    pmc: 50.0% of lines"), log.toString());
+        assertTrue(log.contains("FAIL  fcc: jacococli report failed (Can't add different class with same name: A)"),
+                log.toString());
     }
 
     @Test
     void aJvmWithNoClassFilesInTheBuildIsSkippedWithoutACliCall() throws IOException {
-        Path coverage = tmp.resolve("coverage");
-        exec(coverage, "kiosk.exec");
+        Path coverage = run("run1", "kiosk.exec");
         List<List<String>> calls = new ArrayList<>();
+        Map<String, List<String>> missing = Map.of("kiosk", List.of("isdApps.psc.kiosk.foodserviceupdater.app-V1.jar"));
 
-        CoverageReport.Summary summary = CoverageReport.buildReport(inputs(coverage),
-                CoverageReport.ClassFiles.none(), TOOLS, stub(Map.of(), calls, Set.of()), line -> { });
+        CoverageSummary result = CoverageReport.buildReport(new CoverageReport.ReportInputs(coverage,
+                tmp.resolve("overlay.zip"), "buypass", "run1"), TOOLS, stub(Map.of(), calls),
+                new ClassFiles(tmp, Map.of(), missing), line -> { });
 
         assertTrue(calls.isEmpty());
-        assertTrue(summary.notes().stream().anyMatch(n -> n.contains("none of its class files")),
-                summary.notes().toString());
+        assertTrue(result.notes.stream().anyMatch(n -> n.contains("none of its class files")), result.notes.toString());
+        assertTrue(result.notes.stream().anyMatch(n -> n.startsWith("kiosk: not in this build's overlay")),
+                result.notes.toString());
     }
 
     @Test
-    void theLineCounterIsReadFromTheReportLevelCountersOnly() throws IOException {
-        Path xml = tmp.resolve("fcc.xml");
-        Files.writeString(xml, xmlReport("fcc", 3, 1), StandardCharsets.UTF_8);
+    void sourceRootsArePassedToTheReportAndTheCommitIsNoted() throws IOException {
+        Path petroapps = tmp.resolve("petroapps");
+        Files.createDirectories(petroapps.resolve("isdApps/psc/fcc/app/src"));
+        Path coverage = run("run1", "fcc.exec");
+        List<List<String>> calls = new ArrayList<>();
+        List<String> log = new ArrayList<>();
 
-        assertEquals(75.0, CoverageReport.linePercent(xml), 0.001);
+        CoverageSummary result = CoverageReport.buildReport(new CoverageReport.ReportInputs(coverage,
+                tmp.resolve("overlay.zip"), "buypass", "run1", "", List.of(), petroapps, "abc", null), TOOLS,
+                stub(Map.of("fcc", new long[] {1, 1}), calls), classes("fcc"), log::add);
+
+        List<String> args = calls.get(0);
+        assertEquals(petroapps.resolve("isdApps/psc/fcc/app/src").toRealPath().toString(),
+                args.get(args.indexOf("--sourcefiles") + 1));
+        assertTrue(log.contains("OK    fcc: 50.0% of lines, 1 source root(s)"), log.toString());
+        assertTrue(result.notes.stream().anyMatch(n -> n.startsWith("sources from " + petroapps)),
+                result.notes.toString());
     }
 
     @Test
-    void aReportWithNoLinesHasNoPercentage() throws IOException {
-        Path xml = tmp.resolve("empty.xml");
-        Files.writeString(xml, xmlReport("empty", 0, 0), StandardCharsets.UTF_8);
-
-        assertNull(CoverageReport.linePercent(xml));
+    void aJvmReportIsNamedByItsExecStem() throws IOException {
+        Path coverage = run("run1", "pos-tomcat-topaz101.exec");
+        CoverageSummary result = CoverageReport.buildReport(new CoverageReport.ReportInputs(coverage,
+                tmp.resolve("overlay.zip"), "buypass", "run1"), TOOLS,
+                stub(Map.of("pos-tomcat-topaz101", new long[] {1, 1}), new ArrayList<>()), classes("pos-tomcat"),
+                line -> { });
+        assertTrue(result.components.containsKey("pos-tomcat-topaz101"));
+        assertTrue(Files.isRegularFile(coverage.resolve("xml").resolve("pos-tomcat-topaz101.xml")));
     }
 
     @Test
-    void theZipNameCarriesTheRunId() {
+    void theFirstRunsJsonFormatIsReadAsEveryJvmHavingThoseRuns() throws IOException {
+        Path store = Files.createDirectories(tmp.resolve("store"));
+        Files.writeString(store.resolve("fcc.exec"), "x");
+        Files.writeString(store.resolve("pmc.exec"), "x");
+        Files.writeString(store.resolve("runs.json"), "[\"r1\", \"r2\"]");
+        assertEquals(Map.of("fcc", List.of("r1", "r2"), "pmc", List.of("r1", "r2")),
+                CoverageReport.readRuns(store.resolve("runs.json"), store));
+        assertEquals(Map.of(), CoverageReport.readRuns(store.resolve("absent.json"), store));
+    }
+
+    @Test
+    void aFailedMergeIsANoteAndTheRunIsNotRecorded() throws IOException {
+        Path coverage = run("run1", "fcc.exec");
+        Jacoco.CliRunner fcc = stub(Map.of("fcc", new long[] {1, 1}), new ArrayList<>());
+        Jacoco.CliRunner refusesMerge = (tools, args, timeout) -> args.get(0).equals("merge")
+                ? new Jacoco.CliResult(false, "disk full") : fcc.run(tools, args, timeout);
+
+        CoverageSummary result = CoverageReport.buildReport(inputs(coverage, "run1", "Solutions1082", List.of()),
+                TOOLS, refusesMerge, allClasses(), line -> { });
+
+        assertTrue(result.notes.contains("fcc: not added to the build's total (disk full)"), result.notes.toString());
+        assertNull(result.cumulativeLine.get("fcc"));
+    }
+
+    @Test
+    void theZipNameCarriesTheRunIdAndTheDistributionIsLowerCased() {
         assertEquals("coverage-20261024T153000Z.zip", CoverageReport.zipName("20261024T153000Z"));
+        assertEquals("buypass", new CoverageReport.ReportInputs(tmp, tmp, "Buypass", "r").dist());
     }
 
     @Test
-    void theDistributionIsLowerCasedAsTheJarNamesSpellIt() {
-        assertEquals("buypass", inputs(tmp).dist());
+    void theMergeArgsNameEveryInputAndTheDestination() {
+        assertEquals(List.of("merge", Path.of("a.exec").toString(), Path.of("b.exec").toString(), "--destfile",
+                Path.of("t.exec").toString(), "--quiet"),
+                Jacoco.mergeArgs(List.of(Path.of("a.exec"), Path.of("b.exec")), Path.of("t.exec")));
     }
 }
