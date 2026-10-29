@@ -2,8 +2,10 @@ package com.verifone.cat.build;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,9 +18,10 @@ import java.util.regex.Pattern;
  * {@link #listBuildEntries} one request. Ordering is by the server's own dates, never by number
  * alone (see {@link #listBuildEntries}).
  *
- * <p>The Python CAT's listing half of {@code petrotest.build.nightly}. Not ported here: the
- * dist-folder classification ({@code build_contents}), the viper pairing and merge, and
- * {@code fetch_commander_build}.
+ * <p>The Python CAT's listing half of {@code petrotest.build.nightly}: {@code list_branches},
+ * {@code list_build_entries}, {@code _tree}, {@code builds_with}, {@code newest_build_for} and
+ * {@code default_foundation}. The dist-folder classification is {@link BuildContents}, the viper pairing
+ * {@link FoundationPair}, and the download {@link CommanderBuildFetch}.
  *
  * <p>UNVERIFIED AGAINST A REAL ARTIFACTORY SERVER: tested against {@code FakeArtifactory}, laid
  * out as the real server was listed on 2026-10-07.
@@ -101,6 +104,127 @@ public final class BuildCatalogue {
             numbers.add(build.build());
         }
         return numbers;
+    }
+
+    /** What {@code branch}'s build {@code build} holds ({@link BuildContents#read}). One request. */
+    public BuildContents contents(String branch, String build) {
+        return BuildContents.read(client, branch, build);
+    }
+
+    /** One build of a branch, with its child folders' dates: one row of {@link #tree}. */
+    public record TreeBuild(String date, Map<String, String> children) {}
+
+    /** A build that carries a dist, with its folders for it: one row of {@link #buildsWith}. */
+    public record BuildWith(NightlyBuild build, List<DistFolder> folders) {}
+
+    /**
+     * Build to (its date, each child folder's date), from one depth-2 listing (the Python's {@code _tree}). Each
+     * child's own date matters where two pipelines share a number: master 19's folder dates from its viper, its
+     * foundation-buypass from a day later.
+     */
+    public Map<String, TreeBuild> tree(String branch) {
+        Map<String, String> dates = new LinkedHashMap<>();
+        Map<String, Map<String, String>> children = new LinkedHashMap<>();
+        for (ArtifactoryEntry entry : client.listTree(branchPath(branch), 2)) {
+            String[] parts = entry.name().split("/");
+            if (!entry.folder() || !NUMBER_ONLY.matcher(parts[0]).matches()) {
+                continue;
+            }
+            if (parts.length == 1) {
+                dates.put(parts[0], entry.lastModified());
+            } else if (parts.length == 2) {
+                children.computeIfAbsent(parts[0], k -> new LinkedHashMap<>()).put(parts[1], entry.lastModified());
+            }
+        }
+        Map<String, TreeBuild> tree = new LinkedHashMap<>();
+        for (Map.Entry<String, String> date : dates.entrySet()) {
+            tree.put(date.getKey(), new TreeBuild(date.getValue(), java.util.Collections.unmodifiableMap(
+                    children.getOrDefault(date.getKey(), new LinkedHashMap<>()))));
+        }
+        return tree;
+    }
+
+    /** {@link TreeBuild#children}'s names, in the listing's order. */
+    static List<String> childNames(TreeBuild build) {
+        return new ArrayList<>(build.children().keySet());
+    }
+
+    /**
+     * The branch's builds that carry {@code dist}, newest first, each with its folders for it. One request, two
+     * levels deep: about 650 KB and 2 s for master on 2026-10-07, so not for every keystroke of a picker.
+     */
+    public List<BuildWith> buildsWith(String branch, String dist) {
+        Map<String, TreeBuild> tree = tree(branch);
+        String name = ArtifactoryClient.trimSlashes(branch.strip());
+        List<String> numbers = new ArrayList<>(tree.keySet());
+        numbers.sort((a, b) -> {
+            int byDate = tree.get(b).date().compareTo(tree.get(a).date());
+            return byDate != 0 ? byDate : new BigInteger(b).compareTo(new BigInteger(a));
+        });
+        List<BuildWith> found = new ArrayList<>();
+        for (String build : numbers) {
+            List<DistFolder> folders = BuildContents.classify(name, build, childNames(tree.get(build)))
+                    .foldersFor(dist);
+            if (!folders.isEmpty()) {
+                found.add(new BuildWith(new NightlyBuild(build, tree.get(build).date()), folders));
+            }
+        }
+        return found;
+    }
+
+    /**
+     * The newest build of {@code branch} with a folder for {@code dist}, of any flavour. One request. What
+     * {@code cat-java build --branch <b>} downloads when no {@code --build} is named.
+     *
+     * @throws BuildException when no build carries it
+     */
+    public String newestBuildFor(String branch, String dist) {
+        List<BuildWith> found = buildsWith(branch, dist);
+        if (found.isEmpty()) {
+            throw new BuildException("no build on " + branch + " carries " + dist);
+        }
+        return found.get(0).build().build();
+    }
+
+    /**
+     * The newest foundation build for {@code dist} on {@code branch}, else on master: a hint only, never what a
+     * viper build is merged onto (that is {@link FoundationPair#paired}). The newest installable, non-plain folder,
+     * by that folder's own date. One request per branch looked at.
+     *
+     * @return {@code [branch, build]}
+     * @throws BuildException when neither branch has one
+     */
+    public List<String> defaultFoundation(String branch, String dist) {
+        for (String candidate : new java.util.LinkedHashSet<>(List.of(ArtifactoryClient.trimSlashes(branch.strip()),
+                MASTER))) {
+            String bestDate = null;
+            BigInteger bestNumber = null;
+            String best = null;
+            for (Map.Entry<String, TreeBuild> row : tree(candidate).entrySet()) {
+                for (DistFolder folder : BuildContents.classify(candidate, row.getKey(), childNames(row.getValue()))
+                        .foldersFor(dist)) {
+                    if (!folder.installable() || BuildContents.PLAIN.equals(folder.flavour())) {
+                        continue;
+                    }
+                    String date = row.getValue().children().get(folder.folder());
+                    BigInteger number = new BigInteger(row.getKey());
+                    int c = best == null ? 1 : date.compareTo(bestDate);
+                    if (c == 0) {
+                        c = number.compareTo(bestNumber);
+                    }
+                    if (c > 0) {
+                        bestDate = date;
+                        bestNumber = number;
+                        best = row.getKey();
+                    }
+                }
+            }
+            if (best != null) {
+                return List.of(candidate, best);
+            }
+        }
+        throw new BuildException("no foundation-" + dist + " build on " + branch + " or " + MASTER
+                + " to merge a viper build onto");
     }
 
     /**

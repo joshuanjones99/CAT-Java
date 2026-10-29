@@ -15,9 +15,9 @@ import java.net.http.HttpTimeoutException;
  */
 public final class ArtifactoryErrors {
 
-    /** What to do with a rejected or missing login. */
+    /** What to do with a rejected or missing login: the Python's hint, with CAT-Java's own login command. */
     static final String REENTER_HINT =
-            "set ARTIFACTORY_USER and ARTIFACTORY_PASSWORD again in the environment";
+            "re-enter it with `cat-java artifactory-login`, or set ARTIFACTORY_USER and ARTIFACTORY_PASSWORD";
 
     private ArtifactoryErrors() {}
 

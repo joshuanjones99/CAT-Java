@@ -13,11 +13,10 @@ import java.util.Map;
 import java.util.concurrent.locks.LockSupport;
 
 import com.verifone.cat.cloudtunnel.CloudTunnel;
+import com.verifone.cat.cloudtunnel.CloudTunnelProcess;
 import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.commander.Say;
-import com.verifone.cat.provision.ProvisionPaths;
 import com.verifone.cat.provision.transport.JschTransport;
-import com.verifone.cat.provision.transport.Transport;
 import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.sims.PowerShellProcessOps;
@@ -42,26 +41,23 @@ import com.verifone.cat.sims.ProcessOps;
  * Adoption reads every Java and Python command line ({@link #EXES}), so a tunnel either CAT started is adopted; an
  * adopted tunnel gets this checkout's gateway rules ({@link #refreshGateway}, the Python's {@code refresh_gateway}).
  *
- * <p>Deviations: the Python makes no checklist row for the tunnel (its lines go to the step's log); here it is step
- * 4's {@code cloud-tunnel} row. The gateway's relay source is the Python checkout's
- * {@code bridge/net-relay/CatNetRelay.java} ({@link #relaySource}), as the Python's tunnel pushes it.
+ * <p>The command line, log path, executables and the "up" line are the tunnel slice's ({@link CloudTunnelProcess}).
+ *
+ * <p>Deviation: the Python makes no checklist row for the tunnel (its lines go to the step's log); here it is step
+ * 4's {@code cloud-tunnel} row.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): no tunnel has been started or adopted from CAT-Java.
  */
 public final class TunnelStart {
 
-    /** How long {@code cloud-tunnel} may take to say "up" (an sshd reload, two SSH logins). */
-    public static final Duration START_TIMEOUT = Duration.ofSeconds(180);
+    /** How long {@code cloud-tunnel} may take to say "up": the tunnel slice's contract. */
+    public static final Duration START_TIMEOUT = CloudTunnelProcess.START_TIMEOUT;
     /** How often the tunnel's log is read while waiting for "up". */
-    public static final Duration POLL = Duration.ofMillis(500);
-    /**
-     * Executables a running tunnel may show up as: CAT-Java's {@code java}/{@code javaw}, the Python CAT's
-     * {@code python -m petrotest.cli}, or the {@code petrotest} console script started by hand.
-     */
-    public static final List<String> EXES = List.of("java.exe", "javaw.exe", "python.exe", "pythonw.exe",
-            "petrotest.exe");
+    public static final Duration POLL = CloudTunnelProcess.POLL;
+    /** Executables a running tunnel may show up as (Java and Python), so either CAT's tunnel is adopted. */
+    public static final List<String> EXES = CloudTunnelProcess.EXES;
     /** The line a serving tunnel prints once its forwards are up. */
-    public static final String UP = "cloud-tunnel: up";
+    public static final String UP = CloudTunnelProcess.UP_LINE;
     /** How long the command-line probe may take. */
     static final Duration PROBE_TIMEOUT = Duration.ofSeconds(30);
 
@@ -91,30 +87,17 @@ public final class TunnelStart {
 
     /** Where a tunnel CAT starts writes its output: {@code <results root>/cloud-tunnel/<rig>.log}. */
     public static Path log(Map<String, String> environ, String rig) {
-        return ReportPaths.resultsRoot(environ).resolve("cloud-tunnel").resolve(rig + ".log");
+        return CloudTunnelProcess.logPath(ReportPaths.resultsRoot(environ), rig);
     }
 
     /** True for a running {@code cloud-tunnel --rig <rig>} serve (not a {@code --stop}). */
     public static boolean isTunnelFor(String commandLine, String rig) {
-        List<String> words = Arrays.stream(commandLine.replace('"', ' ').strip().split("\\s+"))
-                .filter(w -> !w.isEmpty()).toList();
-        if (!words.contains("cloud-tunnel") || words.contains("--stop")) {
-            return false;
-        }
-        if (words.contains("--rig=" + rig)) {
-            return true;
-        }
-        for (int i = 0; i + 1 < words.size(); i++) {
-            if (words.get(i).equals("--rig") && words.get(i + 1).equals(rig)) {
-                return true;
-            }
-        }
-        return false;
+        return CloudTunnelProcess.isTunnelFor(commandLine, rig);
     }
 
     /** The command line of the tunnel CAT-Java starts. */
     static List<String> argv(String java, String classpath, String rig) {
-        return List.of(java, "-cp", classpath, "com.verifone.cat.Main", "cloud-tunnel", "--rig", rig);
+        return CloudTunnelProcess.argv(java, classpath, rig);
     }
 
     /**
@@ -210,30 +193,13 @@ public final class TunnelStart {
         return Files.isRegularFile(javaw) ? javaw.toString() : bin.resolve("java").toString();
     }
 
-    /** The Python checkout's {@code bridge/net-relay/CatNetRelay.java}: what the gateway pushes and compiles there. */
-    public static Path relaySource(Map<String, String> environ) {
-        return ProvisionPaths.pythonRoot(environ).resolve("bridge").resolve("net-relay").resolve("CatNetRelay.java");
-    }
-
     /**
      * The Python's {@code refresh_gateway}: when the Commander's NAT table hooks the gateway chain (a tunnel in gateway
-     * mode), this checkout's gateway rules applied ({@link CloudTunnel#refreshGateway}); else left alone.
+     * mode), this checkout's gateway rules applied ({@link CloudTunnel#refreshGateway(CommanderAccess,
+     * java.util.function.Consumer)}); else left alone.
      */
     public static String refreshGateway(Rig rig, Map<String, String> environ) {
-        CommanderAccess access = new CommanderAccess(rig, JschTransport::new, environ);
-        byte[] source;
-        try {
-            source = Files.readAllBytes(relaySource(environ));
-        } catch (IOException e) {
-            return "gateway not refreshed: " + relaySource(environ) + " unreadable (" + e.getMessage() + ")";
-        }
-        Transport transport = access.connectedTransport();
-        try {
-            return CloudTunnel.refreshGateway(transport, CloudTunnel.controllerDns(), source, access.sshTimeout(),
-                    line -> { });
-        } finally {
-            transport.close();
-        }
+        return CloudTunnel.refreshGateway(new CommanderAccess(rig, JschTransport::new, environ), line -> { });
     }
 
     /** The production seams: PowerShell's process listing, a detached child, SSH to the Commander. */

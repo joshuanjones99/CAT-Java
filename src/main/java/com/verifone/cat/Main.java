@@ -49,6 +49,7 @@ public final class Main {
      * {@code commander-init}, {@code payment-links}, {@code register-app}, {@code payment-ready},
      * {@code commander-trust}, {@code secondary-fep}, {@code csite-reset}, {@code cloud-snapshot},
      * {@code build-pos-shim} (the Python's {@code tools/build_pos_shim.py}) and {@code install-resume} (new).
+     * {@code upgrade}, {@code build}, {@code builds}, {@code artifactory-login}, {@code render-payload}: the upgrade slice's (wave 16).
      */
     static final Map<String, Command> COMMANDS = commands();
 
@@ -77,6 +78,11 @@ public final class Main {
         table.put("cloud-snapshot", new Command(com.verifone.cat.commander.connect.CloudSnapshotCommand.class, argv -> new com.verifone.cat.commander.connect.CloudSnapshotCommand().run(argv)));
         table.put("build-pos-shim", new Command(com.verifone.cat.provision.PosShimBuildCommand.class, argv -> new com.verifone.cat.provision.PosShimBuildCommand().run(argv)));
         table.put("install-resume", new Command(com.verifone.cat.launch.InstallResume.class, argv -> new com.verifone.cat.launch.InstallResume().run(argv)));
+        table.put("upgrade", new Command(com.verifone.cat.upgrade.UpgradeCommand.class, argv -> new com.verifone.cat.upgrade.UpgradeCommand().run(argv)));
+        table.put("build", new Command(com.verifone.cat.build.BuildCommand.class, argv -> new com.verifone.cat.build.BuildCommand().run(argv)));
+        table.put("builds", new Command(com.verifone.cat.build.BuildsCommand.class, argv -> new com.verifone.cat.build.BuildsCommand().run(argv)));
+        table.put("artifactory-login", new Command(com.verifone.cat.build.ArtifactoryLogin.class, argv -> new com.verifone.cat.build.ArtifactoryLogin().run(argv)));
+        table.put("render-payload", new Command(ProvisionCommand.class, argv -> new ProvisionCommand().run(java.util.stream.Stream.concat(java.util.stream.Stream.of("render-payload"), Arrays.stream(argv)).toArray(String[]::new))));
         return Collections.unmodifiableMap(table);
     }
 

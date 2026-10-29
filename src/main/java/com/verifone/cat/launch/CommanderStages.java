@@ -84,6 +84,26 @@ interface CommanderStages {
         throw new UnsupportedOperationException("downloadCommanderBuild: not given to these stages");
     }
 
+    /**
+     * {@code petrotest build --branch B --build N --dist D --mode M [--foundation-branch FB --foundation-build FN]}:
+     * a PSI build without a foundation is {@link #downloadCommanderBuild(String, String, String, Say)}; any other is
+     * {@link Real}'s ({@code InstallCommanderBuild.realDownload}).
+     */
+    default boolean downloadCommanderBuild(String branch, String build, String dist, UpgradeMode mode,
+            String foundationBranch, String foundationBuild, Say say) {
+        boolean foundation = !foundationBranch.isEmpty() && !foundationBuild.isEmpty();
+        if (mode == UpgradeMode.NEW_INSTALL && !foundation) {
+            return downloadCommanderBuild(branch, build, dist, say);
+        }
+        throw new UnsupportedOperationException("downloadCommanderBuild (" + mode.wire()
+                + (foundation ? ", a foundation" : "") + "): not given to these stages");
+    }
+
+    /** {@code petrotest upgrade --mode M --dist D [--build-dir <buildDir>]} for classic or VHQ. */
+    default boolean installUpgrade(Rig rig, UpgradeMode mode, Path buildDir, String dist, Say say) {
+        throw new UnsupportedOperationException("installUpgrade (" + mode.wire() + "): not given to these stages");
+    }
+
     /** The newest build under {@link #buildsRoot()} holding {@code dist} with the PSI files, as the Python's upgrade picks. */
     default Optional<Path> newestBuild(String dist) {
         throw new UnsupportedOperationException("newestBuild: not given to these stages");
@@ -320,6 +340,22 @@ interface CommanderStages {
                 say.err("build: " + e.getMessage());
                 return false;
             }
+        }
+
+        @Override
+        public boolean downloadCommanderBuild(String branch, String build, String dist, UpgradeMode mode,
+                String foundationBranch, String foundationBuild, Say say) {
+            boolean foundation = !foundationBranch.isEmpty() && !foundationBuild.isEmpty();
+            if (mode == UpgradeMode.NEW_INSTALL && !foundation) {
+                return downloadCommanderBuild(branch, build, dist, say);
+            }
+            return InstallCommanderBuild.realDownload(branch, build, dist, mode, foundationBranch, foundationBuild,
+                    buildsRoot(), environ, say);
+        }
+
+        @Override
+        public boolean installUpgrade(Rig rig, UpgradeMode mode, Path buildDir, String dist, Say say) {
+            return InstallCommanderBuild.realInstall(rig, mode, buildDir, dist, buildsRoot(), environ, say);
         }
 
         @Override

@@ -48,6 +48,11 @@ class MainTest {
         expected.put("cloud-snapshot", com.verifone.cat.commander.connect.CloudSnapshotCommand.class);
         expected.put("build-pos-shim", com.verifone.cat.provision.PosShimBuildCommand.class);
         expected.put("install-resume", com.verifone.cat.launch.InstallResume.class);
+        expected.put("upgrade", com.verifone.cat.upgrade.UpgradeCommand.class);
+        expected.put("build", com.verifone.cat.build.BuildCommand.class);
+        expected.put("builds", com.verifone.cat.build.BuildsCommand.class);
+        expected.put("artifactory-login", com.verifone.cat.build.ArtifactoryLogin.class);
+        expected.put("render-payload", ProvisionCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {
