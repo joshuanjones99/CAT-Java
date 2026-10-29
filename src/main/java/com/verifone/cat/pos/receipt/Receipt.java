@@ -36,6 +36,24 @@ public record Receipt(
         return new Receipt(lines, source, null, null, null, null);
     }
 
+    /**
+     * A receipt kept exactly as printed, one raw line per printed line, blank lines and column spacing included, as
+     * {@link SerialReceiptCapture} keeps the POS's. {@link #text()} gives {@code text} back unchanged.
+     *
+     * <p>The DCR's receipt is the Python's {@code receipt_since} string, which the validation normalises and compares
+     * as it is. CAT-Java run 5285e78aa370 (PETROCORE-118399) put it through {@link ReceiptParser#parse}, which drops
+     * blank lines and collapses spacing, so the centred header and the amount columns of the baseline no longer
+     * matched.
+     */
+    public static Receipt printed(String text, Source source) {
+        List<ReceiptLine> lines = new ArrayList<>();
+        String[] raw = text.split("\n", -1);
+        for (int i = 0; i < raw.length; i++) {
+            lines.add(ReceiptLine.ofRaw(i, raw[i]));
+        }
+        return ofLines(lines, source);
+    }
+
     /** Which sections this capture actually contains: "items", "header", "footer", "total", "mop". */
     public Set<String> coverage() {
         Set<String> present = new TreeSet<>();
