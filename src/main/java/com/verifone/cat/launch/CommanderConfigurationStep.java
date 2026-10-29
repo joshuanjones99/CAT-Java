@@ -1,8 +1,11 @@
 package com.verifone.cat.launch;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -18,6 +21,8 @@ import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.commander.links.CommanderLinks;
 import com.verifone.cat.devices.csite.CSiteClient;
 import com.verifone.cat.devices.forecourt.PetroPumps;
+import com.verifone.cat.provision.PosShimBuild;
+import com.verifone.cat.provision.ShimStamp;
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
 
@@ -193,12 +198,22 @@ final class CommanderConfigurationStep implements LaunchStep {
             return false;
         }
 
-        if (config.fakePos()) {
-            step.skip(label("provision"), "--fake-pos never touches real hardware");
+        // The Python's real_rig: provision_register (every real entry point sets it) and not --fake-pos.
+        boolean realRig = config.provisionRegister() && !config.fakePos();
+        if (!realRig) {
+            step.skip(label("provision"), config.fakePos() ? "--fake-pos never touches real hardware" : "");
             if (config.coverage()) {
                 step.skip(label("coverage"), "this run does not touch the rig's devices");
             }
-            if (installed.ran()) {
+            boolean ran = installed.ran();
+            // The pinpad link is the one part a run that provisions nothing still does (not under --fake-pos).
+            if (!config.fakePos() && rig != null && (forecourt(ctx) || rig.pinpad() == Rig.Pinpad.VATS)) {
+                ran = true;
+                if (!pinpadLink(ctx, step, rig, rig.pinpad() == Rig.Pinpad.VATS)) {
+                    return false;
+                }
+            }
+            if (ran) {
                 return true;
             }
             step.skip("Commander configuration", "using the existing build, no upgrade");
@@ -209,9 +224,9 @@ final class CommanderConfigurationStep implements LaunchStep {
             return step.fail("the rig file did not load, so the Commander cannot be configured");
         }
 
-        // 2. The register, then the Commander's license nags. (Coverage, when asked, ended the step above.)
-        step.skip(POS_SHIM_BUILD_ROW, "built by the Python CAT (tools/build_pos_shim.py); provision reports a "
-                + "missing or partial payload");
+        // 2. The register, then the Commander's license nags. (Coverage, when asked, ended the step above.) The
+        // pos-shim payload is built first when it is not the sources' build; provision stays the authority on it.
+        buildPosShim(ctx, step, rig);
         if (!stage(step, "provision", say -> stages.provision(rig, say))) {
             return false;
         }
@@ -237,28 +252,31 @@ final class CommanderConfigurationStep implements LaunchStep {
         // The cloud tunnel before the inits, not just before onboarding: crefreshcfg makes coresvcs push every
         // changed dataset to the cloud, and a Commander with no WAN link floods its syslog (HANDOFF.md §1.104).
         boolean onboard = config.commanderConnect();
-        if (onboard && !stage(step, "cloud-tunnel", say -> stages.cloudTunnel(rig, say))) {
+        if (onboard && !stage(step, "cloud-tunnel", say -> stages.cloudTunnel(config.rig(), rig, say))) {
             return false;
         }
 
-        // 3. The base import and the inits, every run (dev is CAT-Java's only execution mode).
-        boolean forecourt = config.simulators().contains(StartSimulatorsStep.PETRO_SIMULATOR);
-        if (!forecourt) {
-            step.skip("fuel and DCR driver inits", StartSimulatorsStep.PETRO_SIMULATOR + " is not selected");
-        }
-        // PATS's pump port to the init, as step 5 lends it to the tests: on a DCR left "not idle" the init releases
-        // the pump through Petro first (the Python's held_pump_port).
-        boolean heldPumpPort = PetroPorts.release(ctx, PetroPumps.PATS_FUEL_PORT);
-        boolean initialised;
-        try {
-            initialised = stage(step, "commander-init", say -> stages.commanderInit(rig, forecourt, say));
-        } finally {
-            if (heldPumpPort) {
-                PetroPorts.hold(ctx, step);
+        // 3. The base import and the inits: PATS's DEV-mode initializer, so only in the dev execution mode (BDD
+        // skips it, as the Python's execution_mode == "dev" gate does).
+        boolean forecourt = forecourt(ctx);
+        if (DEV_MODE.equals(config.executionMode())) {
+            if (!forecourt) {
+                step.skip("fuel and DCR driver inits", StartSimulatorsStep.PETRO_SIMULATOR + " is not selected");
             }
-        }
-        if (!initialised) {
-            return false;
+            // PATS's pump port to the init, as step 5 lends it to the tests: on a DCR left "not idle" the init
+            // releases the pump through Petro first (the Python's held_pump_port).
+            boolean heldPumpPort = PetroPorts.release(ctx, PetroPumps.PATS_FUEL_PORT);
+            boolean initialised;
+            try {
+                initialised = stage(step, "commander-init", say -> stages.commanderInit(rig, forecourt, say));
+            } finally {
+                if (heldPumpPort) {
+                    PetroPorts.hold(ctx, step);
+                }
+            }
+            if (!initialised) {
+                return false;
+            }
         }
 
         // 4. Commander Connect, after the inits, whose base import would otherwise overwrite it.
@@ -322,7 +340,9 @@ final class CommanderConfigurationStep implements LaunchStep {
 
         // 9. PATS's table load after a new install, then the EMV CA keys, every run.
         String tables = config.upgradeMode() == UpgradeMode.NEW_INSTALL ? "always" : "auto";
-        if (!stage(step, "emv-keys", say -> stages.emvKeys(rig, tables, say))) {
+        // The answers are read from whichever host serves Buypass (the Python's host_packet_args).
+        Path hostPackets = stages.hostPackets(ctx);
+        if (!stage(step, "emv-keys", say -> stages.emvKeys(rig, tables, hostPackets, say))) {
             return false;
         }
 
@@ -383,6 +403,108 @@ final class CommanderConfigurationStep implements LaunchStep {
         // 15. The build on the Commander, for the Xray execution's title.
         identifyInstalledBuild(ctx, step, rig);
         return true;
+    }
+
+    /**
+     * The Python's {@code _build_pos_shim}: {@code bridge/pos-shim/} compiled into the payload unless it holds this
+     * tree's build. Rebuilt when a file of {@link PosShimBuild#OUTPUTS} is missing, the payload has no stamp, or its
+     * stamp is not {@link ShimStamp#sourceStamp} of the sources as they are now (which is logged). A payload whose
+     * sources cannot be hashed is pushed as it is, with a WARN row.
+     *
+     * <p>It never fails the step, deliberately: provision is the authority on whether the payload is complete, and it
+     * names the missing file precisely. A build that cannot run (no JDK, no vendor jars, no Python checkout) is a
+     * WARN row with why, and provision's own error follows.
+     */
+    void buildPosShim(RunContext ctx, StepEmitter step, Rig rig) {
+        Path payload = stages.posShimPayload();
+        if (payload == null) {
+            return;
+        }
+        Path repoRoot = stages.posShimRepoRoot();
+        Path petroapps = ctx.paths().petroappsRoot();
+        List<String> missing = PosShimBuild.OUTPUTS.stream().filter(name -> !Files.isRegularFile(payload.resolve(name)))
+                .toList();
+        Optional<String> built = ShimStamp.payloadStamp(payload);
+        String current;
+        String unhashable = "";
+        try {
+            current = ShimStamp.sourceStamp(repoRoot, petroapps);
+        } catch (ShimStamp.StampInputMissing e) {
+            current = null;
+            unhashable = e.getMessage();
+        }
+        String why;
+        if (!missing.isEmpty()) {
+            why = payload + " lacks " + String.join(", ", missing);
+        } else if (built.isEmpty()) {
+            why = payload.resolve(ShimStamp.STAMP_NAME) + " is absent: these jars predate build stamps (2026-10-16), "
+                    + "or the build that wrote them did not finish";
+        } else if (current == null) {
+            step.warn(POS_SHIM_BUILD_ROW, "cannot tell whether " + payload + " (build " + head(built.get())
+                    + ") is the sources' build: " + unhashable + ". Provision pushes it as it is.");
+            return;
+        } else if (!built.get().equals(current)) {
+            why = payload + " holds build " + head(built.get()) + ", and the sources are now build " + head(current)
+                    + " (bridge/pos-shim, the retained agent, TopazERP, or the build script changed)";
+        } else {
+            step.log("OK    pos-shim payload is the sources' build " + head(current) + " — " + payload, "INFO");
+            return;
+        }
+
+        Path script = ShimStamp.resolve(repoRoot, ShimStamp.BUILD_SCRIPT);
+        if (!Files.isRegularFile(script)) {
+            step.skip(POS_SHIM_BUILD_ROW, script + " is not there; provision will report it");
+            return;
+        }
+
+        step.log("BUILD pos-shim — " + why + "; compiling bridge/pos-shim/", "INFO");
+        long started = System.nanoTime();
+        step.substep(POS_SHIM_BUILD_ROW, SubstepOutcome.RUNNING, "", 0.0);
+        StepSay say = new StepSay(step);
+        boolean ok;
+        try {
+            ok = stages.buildPosShim(rig, petroapps, say);
+        } catch (RuntimeException e) {
+            say.err(e.getClass().getSimpleName() + ": " + e.getMessage());
+            ok = false;
+        }
+        double elapsed = elapsed(started);
+        if (!ok) {
+            String detail = say.lastErr();
+            String whyFailed = "failed (" + (detail.isEmpty() ? "the build did not finish" : detail) + "). It needs a "
+                    + "JDK, petroapps, and the Topaz vendor jars, which it fetches over SSH from the rig's register "
+                    + "(needs the rig's SSH key). Leaving provision to report the missing payload.";
+            step.log("WARN  " + POS_SHIM_BUILD_ROW + " — " + whyFailed, "WARNING");
+            step.substep(POS_SHIM_BUILD_ROW, SubstepOutcome.WARNED, whyFailed, elapsed);
+            return;
+        }
+        Optional<String> now = ShimStamp.payloadStamp(payload);
+        String done = now.isPresent() ? "build " + head(now.get()) : "no " + ShimStamp.STAMP_NAME + " written";
+        step.log("OK    pos-shim built — " + done + " (" + why + ")", "INFO");
+        step.substep(POS_SHIM_BUILD_ROW, SubstepOutcome.PASSED, done, elapsed);
+    }
+
+    private static String head(String stamp) {
+        return stamp.substring(0, Math.min(12, stamp.length()));
+    }
+
+    /** {@code execution_mode}'s value for PATS's DEV-mode initializer, which runs {@code commander-init}. */
+    static final String DEV_MODE = "dev";
+
+    /**
+     * Whether Petro Simulator Suite is in play: the Python's {@code FORECOURT_SIMULATOR in config.all_simulators()}.
+     * Hook for the sims slice: {@code all_simulators()} is {@code simulators} plus every chosen Secondary FEP's
+     * simulator (a FEPSIM v2 FEP brings Petro Simulator Suite in); CAT-Java's step 3 starts only
+     * {@link LaunchConfig#simulators}, so this reads that until step 3 starts the FEPs' simulators too, and then
+     * should read the same list step 3 starts.
+     */
+    static boolean forecourt(RunContext ctx) {
+        return simulatorsInPlay(ctx).contains(StartSimulatorsStep.PETRO_SIMULATOR);
+    }
+
+    /** What step 3 adopts or starts: the Python's {@code all_simulators()} (see {@link #forecourt}). */
+    static List<String> simulatorsInPlay(RunContext ctx) {
+        return ctx.config().simulators();
     }
 
     private static String pinpadName(Rig rig) {

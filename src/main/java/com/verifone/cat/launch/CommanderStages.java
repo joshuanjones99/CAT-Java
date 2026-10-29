@@ -9,11 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
-import com.microsoft.playwright.Frame;
 import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.BuildDiscovery;
 import com.verifone.cat.build.BuildException;
@@ -39,23 +35,19 @@ import com.verifone.cat.commander.connect.ConnectService;
 import com.verifone.cat.commander.connect.ConnectTiming;
 import com.verifone.cat.commander.connect.PdkShimConnectClient;
 import com.verifone.cat.commander.links.PaymentLinks;
-import com.verifone.cat.commander.registerapp.RegisterApp;
+import com.verifone.cat.commander.SecondaryFepCli;
+import com.verifone.cat.commander.connect.CSiteReset;
+import com.verifone.cat.commander.connect.CloudSnapshotCommand;
+import com.verifone.cat.commander.registerapp.RegisterAppCommand;
+import com.verifone.cat.provision.PosShimBuild;
+import com.verifone.cat.provision.ProvisionPaths;
 import com.verifone.cat.commander.snapshot.CommanderSnapshotCommand;
 import com.verifone.cat.devices.commander.PdkShim;
-import com.verifone.cat.fep.FepClient;
-import com.verifone.cat.fep.SecondaryFep;
-import com.verifone.cat.fep.SecondaryFeps;
-import com.verifone.cat.pos.Locators;
-import com.verifone.cat.pos.driver.PosDriver;
-import com.verifone.cat.pos.driver.RegisterEndpoint;
 import com.verifone.cat.provision.ProvisionOptions;
-import com.verifone.cat.provision.ProvisionPaths;
 import com.verifone.cat.provision.ProvisionReport;
 import com.verifone.cat.provision.ProvisionRunner;
 import com.verifone.cat.provision.Stage;
 import com.verifone.cat.provision.transport.JschTransport;
-import com.verifone.cat.provision.transport.Transport;
-import com.verifone.cat.recovery.Timeouts;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.sims.Events;
 import com.verifone.cat.sims.Registry;
@@ -127,18 +119,23 @@ interface CommanderStages {
     /** The Python module the cloud tunnel lives in. */
     String CLOUD_TUNNEL_MODULE = "src/cat/launch/tunnel.py";
 
-    /** What the cloud tunnel needs that CAT-Java does not have. */
-    String CLOUD_TUNNEL_MISSING = "the cloud tunnel's serve loop (cloudtunnel: SSH reverse forwards in Transport), "
+    /** What the cloud tunnel needs that these stages do not have. */
+    String CLOUD_TUNNEL_MISSING = "the cloud tunnel's start (launch.TunnelStart over cat-java cloud-tunnel), "
             + "which a run onboarding to Commander Connect starts before the inits; the lab Commander has no WAN link";
 
-    /** The cloud tunnel, started before the inits when the run onboards to Commander Connect. */
-    default boolean cloudTunnel(Rig rig, Say say) {
+    /**
+     * The cloud tunnel, adopted or started before the inits when the run onboards to Commander Connect
+     * ({@link TunnelStart}).
+     *
+     * @param rigName the rig as the run names it, which the started {@code cloud-tunnel} loads
+     */
+    default boolean cloudTunnel(String rigName, Rig rig, Say say) {
         throw new StageUnavailable(CLOUD_TUNNEL_MODULE, CLOUD_TUNNEL_MISSING);
     }
 
     /**
      * Whether {@link #cloudTunnel} is there to run. Asked before step 4 installs anything, so a run onboarding to
-     * Commander Connect stops before a PSI install wipes the devices, not after. False until the tunnel is ported.
+     * Commander Connect stops before a PSI install wipes the devices, not after. True for {@link Real}.
      */
     default boolean cloudTunnelPorted() {
         return false;
@@ -167,7 +164,11 @@ interface CommanderStages {
         throw new StageUnavailable("src/petrotest/secondary_fep.py", "petrotest secondary-fep");
     }
 
-    /** {@code petrotest pinpad-clear}: a simulated card out of a {@code pinpad: vats} rig's M400. */
+    /**
+     * {@code petrotest pinpad-clear}: a simulated card out of a {@code pinpad: vats} rig's M400. The vats slice's:
+     * {@link Real} leaves it unavailable until that command exists (hook: override it in {@link Real} with the
+     * vats {@code pinpad-clear} logic, its lines on {@code say}).
+     */
     default boolean pinpadClear(Rig rig, Say say) {
         throw new StageUnavailable("src/petrotest/devices/vats/pinpad.py", "petrotest pinpad-clear (pinpad_clear_cli)");
     }
@@ -184,6 +185,46 @@ interface CommanderStages {
     default boolean emvKeys(Rig rig, String tables, Say say) {
         throw new StageUnavailable("src/petrotest/pos/emv_keys.py",
                 "the EMV tables and CA key download (petrotest emv-keys; commander.emv.EmvKeys in the real stages)");
+    }
+
+    /**
+     * {@code petrotest emv-keys --tables T [--host-packets F]}: {@link #emvKeys(Rig, String, Say)} with the host packet
+     * file a FEP simulator superseding BUYPASS Host writes; null is BUYPASS Host's own.
+     */
+    default boolean emvKeys(Rig rig, String tables, Path hostPackets, Say say) {
+        return emvKeys(rig, tables, say);
+    }
+
+    /**
+     * The Python's {@code host_packet_args(ctx)}: the capture file of a FEP simulator that serves BUYPASS Host's
+     * traffic this run, or null for BUYPASS Host's own {@code packetFile.txt}. Null here: CAT-Java's step 3 never
+     * supersedes BUYPASS Host. Hook for the sims slice: return {@code cat.sims.fepsim.capture_file}'s Java port for
+     * the superseding instance recorded on {@code ctx}.
+     */
+    default Path hostPackets(RunContext ctx) {
+        return null;
+    }
+
+    /**
+     * The pos-shim payload folder ({@code payload/pos}) step 4 builds before provision, or null when these stages
+     * build none (a test's recorder): step 4 then shows no {@code pos-shim build} row.
+     */
+    default Path posShimPayload() {
+        return null;
+    }
+
+    /** The Python CAT checkout the shim sources and the stamp's recipe are read from. */
+    default Path posShimRepoRoot() {
+        throw new UnsupportedOperationException("posShimRepoRoot: not given to these stages");
+    }
+
+    /**
+     * {@code tools/build_pos_shim.py --rig R --petroapps P} ({@link PosShimBuild}): the payload built from the
+     * sources, the vendor jars fetched from the rig's register when the cache lacks one. A failure is said on
+     * {@code say}'s error stream.
+     */
+    default boolean buildPosShim(Rig rig, Path petroapps, Say say) {
+        throw new UnsupportedOperationException("buildPosShim: not given to these stages");
     }
 
     /** {@code petrotest register-app}: every register back in the cashier POS app. */
@@ -324,12 +365,85 @@ interface CommanderStages {
          */
         @Override
         public boolean emvKeys(Rig rig, String tables, Say say) {
+            return emvKeys(rig, tables, null, say);
+        }
+
+        /** {@link EmvKeys#cli} with {@code --host-packets} when a FEP simulator serves the payment host. */
+        @Override
+        public boolean emvKeys(Rig rig, String tables, Path hostPackets, Say say) {
             try {
-                return new EmvKeys(rig, access(rig), EmvKeys::connectRegister, say).cli(tables, null);
+                return new EmvKeys(rig, access(rig), EmvKeys::connectRegister, say).cli(tables, hostPackets);
             } catch (RuntimeException e) {
                 say.err("emv-keys: " + e.getClass().getSimpleName() + ": " + e.getMessage());
                 return false;
             }
+        }
+
+        @Override
+        public Path posShimPayload() {
+            return PosShimBuild.defaultPayload(environ);
+        }
+
+        @Override
+        public Path posShimRepoRoot() {
+            return ProvisionPaths.pythonRoot(environ);
+        }
+
+        /**
+         * {@code python tools/build_pos_shim.py --rig R --petroapps P}, in-process: the missing vendor jars from the
+         * rig's first register, then {@link PosShimBuild#build} with this JVM's javac.
+         */
+        @Override
+        public boolean buildPosShim(Rig rig, Path petroapps, Say say) {
+            Path deps = PosShimBuild.defaultDeps(environ);
+            try {
+                if (PosShimBuild.checkDepsMissing(deps)) {
+                    PosShimBuild.pullDepsFromRig(rig, environ, deps, JschTransport::new, say::out);
+                }
+                PosShimBuild.build(new PosShimBuild.Options(posShimRepoRoot(), petroapps, deps, posShimPayload(),
+                        false), PosShimBuild.javac(), say::out);
+                return true;
+            } catch (PosShimBuild.BuildError e) {
+                say.err("ERROR: " + e.getMessage());
+                return false;
+            }
+        }
+
+        @Override
+        public boolean cloudTunnelPorted() {
+            return true;
+        }
+
+        /** {@link TunnelStart}: adopt a running {@code cloud-tunnel} for the rig, or start one and wait for "up". */
+        @Override
+        public boolean cloudTunnel(String rigName, Rig rig, Say say) {
+            return TunnelStart.start(rigName, rig, environ, Path.of("").toAbsolutePath(), TunnelStart.system(environ),
+                    say);
+        }
+
+        /** {@code petrotest csite-reset --service-id ID}, the run's C-Site account in its environment. */
+        @Override
+        public boolean csiteReset(Rig rig, String serviceId, Map<String, String> csiteEnv, Say say) {
+            Map<String, String> env = merged(csiteEnv);
+            return CSiteReset.cli(() -> CSiteReset.LIVE.open(rig, env), serviceId, say);
+        }
+
+        /** {@code petrotest cloud-snapshot restore --service-id ID}: the committed golden, then the settle. */
+        @Override
+        public boolean cloudSnapshotRestore(Rig rig, String serviceId, Map<String, String> csiteEnv, Say say) {
+            Map<String, String> env = merged(csiteEnv);
+            return CloudSnapshotCommand.cli("restore", rig, serviceId, Path.of("tests", "suites"),
+                    CloudSnapshotCommand.goldenDir(env), env, CloudSnapshotCommand.LIVE, say);
+        }
+
+        /** {@code environ} with the run's {@code CAT_CSITE_*} account over it (the Python's {@code env=csite}). */
+        private Map<String, String> merged(Map<String, String> csiteEnv) {
+            if (csiteEnv == null || csiteEnv.isEmpty()) {
+                return environ;
+            }
+            Map<String, String> env = new java.util.HashMap<>(environ);
+            env.putAll(csiteEnv);
+            return env;
         }
 
         @Override
@@ -385,51 +499,13 @@ interface CommanderStages {
         }
 
         /**
-         * The Python's {@code secondary_fep_cli}: the table, the selection, a route read and a trust over SSH. With
-         * nothing chosen, a fault is a warning (only the switching-off failed, and the run needs none of it).
-         * Deviation: no Commander Connect cloud sender (the Python's {@code _cloud_sender}); a chosen Commercial Fleet
-         * FEP is pointed at directly, with {@link SecondaryFeps#select}'s warning.
+         * The Python's {@code secondary_fep_cli} ({@link SecondaryFepCli#select}): the table, the selection, a route
+         * read and a trust over SSH, and with a service id and the run's C-Site account, the Commander Connect push.
          */
         @Override
         public boolean secondaryFep(Rig rig, List<String> feps, String serviceId, Map<String, String> csiteEnv,
                 Say say) {
-            List<SecondaryFep> catalogue;
-            List<SecondaryFep> chosen;
-            try {
-                catalogue = SecondaryFeps.loadCatalogue();
-                chosen = SecondaryFeps.resolve(feps, catalogue);
-            } catch (RuntimeException e) {
-                say.err("secondary-fep: " + e.getMessage());
-                return false;
-            }
-            CommanderAccess access = access(rig);
-            Supplier<String> route = () -> {
-                try {
-                    Transport transport = access.connectedTransport();
-                    try {
-                        return SecondaryFeps.fleetRoute(transport, access.sshTimeout());
-                    } finally {
-                        transport.close();
-                    }
-                } catch (RuntimeException e) {
-                    return "";
-                }
-            };
-            SecondaryFeps.Context context = new SecondaryFeps.Context(petroappsRoot(), rig.controller().host(),
-                    ToolsRoot.resolve(environ.get(ToolsRoot.ENV), null), null, serviceId == null ? "" : serviceId,
-                    route, SecondaryFeps.Trust.viaCommander(access, say));
-            try (PdkShim shim = access.pdkShim()) {
-                return SecondaryFeps.select(FepClient.of(shim), chosen, catalogue, context, say);
-            } catch (RuntimeException e) {
-                String why = e.getClass().getSimpleName() + ": " + e.getMessage();
-                if (chosen.isEmpty()) {
-                    say.out("WARNING secondary FEPs not checked: " + why);
-                    return true;
-                }
-                say.err("secondary-fep " + chosen.stream().map(SecondaryFep::name).collect(Collectors.joining(", "))
-                        + " on " + rig.commander().host() + " failed: " + why);
-                return false;
-            }
+            return SecondaryFepCli.select(rig, feps, petroappsRoot(), serviceId, merged(csiteEnv), access(rig), say);
         }
 
         @Override
@@ -443,20 +519,7 @@ interface CommanderStages {
 
         @Override
         public boolean registerApp(Rig rig, Say say) {
-            CommanderAccess access = access(rig);
-            Function<Rig.Register, Transport> transports = register -> {
-                Transport transport = access.registerTransport(register);
-                if (transport instanceof JschTransport jsch) {
-                    try {
-                        jsch.connect(Duration.ofSeconds(20));
-                    } catch (RuntimeException e) {
-                        transport.close();
-                        throw e;
-                    }
-                }
-                return transport;
-            };
-            return RegisterApp.run(rig, transports, new PosSeams(rig), Pauser.REAL, RegisterApp.SWITCH_TIMEOUT, say);
+            return RegisterAppCommand.forRig(rig, access(rig), say);
         }
 
         @Override
@@ -536,44 +599,5 @@ interface CommanderStages {
     static String notStartedByCat(String simulator) {
         return simulator + " was not started by CAT (adopted, or not running); restart it by hand and re-run — CAT "
                 + "stops only what it started (D9)";
-    }
-
-    /**
-     * The register's POS page over CDP, for {@code register-app}: the Python's {@code hosted_app} and
-     * {@code _press_pos_panel}, one CDP attach each.
-     */
-    final class PosSeams implements RegisterApp.PosSeams {
-
-        private final Rig rig;
-
-        PosSeams(Rig rig) {
-            this.rig = rig;
-        }
-
-        @Override
-        public Optional<String> hostedApp(Rig.Register register) {
-            try (PosDriver pos = PosDriver.connect(RegisterEndpoint.of(register), Timeouts.of(rig.timeouts()), null,
-                    null, null, false)) {
-                for (Frame frame : pos.page().frames()) {
-                    Optional<String> app = RegisterApp.appForFrame(frame.url());
-                    if (app.isPresent()) {
-                        return app;
-                    }
-                }
-                return Optional.empty();
-            } catch (RuntimeException e) {
-                // the page is reloading, or CDP is not back yet
-                return Optional.empty();
-            }
-        }
-
-        @Override
-        public void pressPosPanel(Rig.Register register) {
-            try (PosDriver pos = PosDriver.connect(RegisterEndpoint.of(register), Timeouts.of(rig.timeouts()), null,
-                    null, null, false)) {
-                pos.press(Locators.APP_SELECTOR_SWITCHER_VIEW_MAIN_PANEL, RegisterApp.SWITCHER_WAIT);
-                pos.press(Locators.APP_SELECTION_PROMPT_VIEW_APP_PANEL_POS, Duration.ofSeconds(30));
-            }
-        }
     }
 }

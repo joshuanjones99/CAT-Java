@@ -108,9 +108,9 @@ class CommanderConfigurationStepTest {
         }
 
         @Override
-        public boolean cloudTunnel(Rig rig, Say say) {
+        public boolean cloudTunnel(String rigName, Rig rig, Say say) {
             if (!tunnelPorted) {
-                return CommanderStages.super.cloudTunnel(rig, say);
+                return CommanderStages.super.cloudTunnel(rigName, rig, say);
             }
             ran.add("cloud-tunnel");
             return true;
@@ -330,12 +330,17 @@ class CommanderConfigurationStepTest {
         return CommanderConfigurationStep.label(command);
     }
 
+    /** A rig run as every real entry point builds it: provision_register on. */
+    private static LaunchConfig.Builder rigRun() {
+        return new LaunchConfig.Builder(LaunchFixtures.RIG).provisionRegister(true);
+    }
+
     private static LaunchConfig withPetro() {
-        return new LaunchConfig.Builder(LaunchFixtures.RIG).simulator(StartSimulatorsStep.PETRO_SIMULATOR).build();
+        return rigRun().simulator(StartSimulatorsStep.PETRO_SIMULATOR).build();
     }
 
     private static LaunchConfig onboarding(CommanderConnect settings) {
-        return new LaunchConfig.Builder(LaunchFixtures.RIG).commanderConnect(true).commanderConnect(settings).build();
+        return rigRun().commanderConnect(true).commanderConnect(settings).build();
     }
 
     // -- before the inits -----------------------------------------------------------------------------------------
@@ -355,7 +360,7 @@ class CommanderConfigurationStepTest {
     @Test
     void anUpgradeModeOtherThanSkipIsUnavailableBeforeAnythingRuns() throws IOException {
         Stages stages = new Stages();
-        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.CLASSIC).build(), stages);
+        Outcome out = run(rigRun().upgradeMode(UpgradeMode.CLASSIC).build(), stages);
         assertFalse(out.keepGoing());
         assertEquals(StepResult.FAILED, out.step().state());
         assertTrue(out.step().detail().startsWith("unavailable in CAT-Java: needs the Commander build install for "
@@ -365,7 +370,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void theStepMarksTheCommanderReachedForTheDayClose() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         assertFalse(ctx.commanderReached());
         run(ctx, new Stages(), Map.of());
         assertTrue(ctx.commanderReached());
@@ -375,7 +380,7 @@ class CommanderConfigurationStepTest {
     void aFailedProvisionFailsTheStepWithItsLastErrorLineAndStopsThere() throws IOException {
         Stages stages = new Stages();
         stages.provision = false;
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
 
         assertFalse(out.keepGoing());
         assertEquals(List.of("provision"), stages.ran);
@@ -387,7 +392,7 @@ class CommanderConfigurationStepTest {
     void aFailedInitIsTheStepsReasonInItsOwnWords() throws IOException {
         Stages stages = new Stages();
         stages.init = false;
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
 
         assertFalse(out.keepGoing());
         assertEquals("commander init on commander.invalid failed: DeviceError: cfuelinit: CGIPortal.InternalError",
@@ -400,7 +405,7 @@ class CommanderConfigurationStepTest {
     void aFailedPrepStopsBeforeTheInits() throws IOException {
         Stages stages = new Stages();
         stages.prep = false;
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
         assertFalse(out.keepGoing());
         assertEquals(List.of("provision", "commander-prep"), stages.ran);
         assertEquals("commander-prep failed", out.step().detail());
@@ -409,7 +414,7 @@ class CommanderConfigurationStepTest {
     @Test
     void coverageAskedForIsUnavailableBeforeProvision() throws IOException {
         Stages stages = new Stages();
-        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).coverage(true).build(), stages);
+        Outcome out = run(rigRun().coverage(true).build(), stages);
         assertFalse(out.keepGoing());
         assertTrue(stages.ran.isEmpty());
         assertTrue(out.step().detail().contains("JaCoCo coverage's launch wiring"), out.step().detail());
@@ -418,7 +423,7 @@ class CommanderConfigurationStepTest {
     @Test
     void aRigRunWithNoLoadedRigFails() throws IOException {
         Stages stages = new Stages();
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages, Map.of(), false);
+        Outcome out = run(rigRun().build(), stages, Map.of(), false);
         assertFalse(out.keepGoing());
         assertTrue(stages.ran.isEmpty());
         assertTrue(out.step().detail().startsWith("the rig file did not load"));
@@ -429,7 +434,7 @@ class CommanderConfigurationStepTest {
         // commander-init restores the snapshot itself (SnapshotRestore); the step adds no row or warning for it.
         for (Map<String, String> environ : List.of(Map.<String, String>of(),
                 Map.of(CommanderInit.NO_SNAPSHOT_ENV, "1"))) {
-            Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), new Stages(), environ, true);
+            Outcome out = run(rigRun().build(), new Stages(), environ, true);
             assertFalse(out.rows().keySet().stream().anyMatch(r -> r.toLowerCase().contains("snapshot restore")),
                     out.rows().toString());
             assertFalse(out.logs().stream().anyMatch(l -> l.contains("snapshot") && l.contains("unavailable")),
@@ -439,7 +444,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void patsPumpPortIsLentToTheInitAndToTheCloseAndHeldAgainAfterEach() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         List<String> events = new ArrayList<>();
         ctx.petroPortOpener(port -> {
             events.add("open " + port);
@@ -484,7 +489,7 @@ class CommanderConfigurationStepTest {
     @Test
     void aDefaultLabRunRunsEveryStageAfterTheInitsInThePythonsOrderAndCompletes() throws IOException {
         Stages stages = new Stages();
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
 
         assertEquals(List.of("provision", "commander-prep", "commander-init forecourt=false", "secondary-fep [none]",
                 "payment-links", "emv-keys auto", "register-app", "close-day", "payment-ready"), stages.ran);
@@ -511,7 +516,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void theRunsSecondaryFepsAreTheOnesSwitchedOn() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         ctx.commanderOptions(new RunContext.CommanderOptions(List.of("Comdata", "WEX-OTR"), false, ""));
         Stages stages = new Stages();
         run(ctx, stages, Map.of());
@@ -528,17 +533,18 @@ class CommanderConfigurationStepTest {
         assertEquals(List.of(), stages.ran);
         assertFalse(out.ctx().commanderReached(), "nothing touched the Commander");
         assertEquals(StepResult.FAILED, out.step().state());
-        assertTrue(out.step().detail().startsWith("unavailable in CAT-Java: needs the cloud tunnel's serve loop"),
+        assertTrue(out.step().detail().startsWith("unavailable in CAT-Java: needs the cloud tunnel's start"),
                 out.step().detail());
         assertEquals(SubstepOutcome.FAILED, out.rows().get("cloud-tunnel"));
         assertFalse(out.rows().containsKey(label("commander-init")));
     }
 
     @Test
-    void theProductionTunnelIsUnavailable() {
-        StageUnavailable gone = assertThrows(StageUnavailable.class,
-                () -> CommanderStages.real(Map.of()).cloudTunnel(null, null));
-        assertTrue(gone.missing().contains("cloudtunnel"), gone.missing());
+    void stagesWithoutATunnelSayWhatIsMissing() {
+        Stages stages = new Stages();
+        stages.tunnelPorted = false;
+        StageUnavailable gone = assertThrows(StageUnavailable.class, () -> stages.cloudTunnel("lab", null, null));
+        assertTrue(gone.missing().contains("TunnelStart"), gone.missing());
     }
 
     @Test
@@ -570,7 +576,7 @@ class CommanderConfigurationStepTest {
     void anEmvKeysStageThatIsNotThereStopsTheStepThere() throws IOException {
         Stages stages = new Stages();
         stages.emvPorted = false;
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
 
         assertFalse(out.keepGoing());
         assertEquals("payment-links", stages.ran.get(stages.ran.size() - 1));
@@ -589,7 +595,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void aDriftFixRestartsACatStartedBuypassHostAndChecksTheLinksAgain() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         ctx.addSimulator(FakeSims.spawned(CommanderConfigurationStep.PAYMENT_HOST));
         Stages stages = new Stages();
         stages.driftFixed = true;
@@ -602,7 +608,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void aDriftFixWithAnAdoptedBuypassHostIsAWarnAndNoRestart() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         ctx.addSimulator(FakeSims.adopted(CommanderConfigurationStep.PAYMENT_HOST));
         Stages stages = new Stages();
         stages.driftFixed = true;
@@ -617,7 +623,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void aBuypassHostThatDoesNotComeBackFailsTheStep() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         ctx.addSimulator(FakeSims.spawned(CommanderConfigurationStep.PAYMENT_HOST));
         Stages stages = new Stages();
         stages.driftFixed = true;
@@ -646,7 +652,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void aPsiInstallThatDidNotReachPsiInitSkipsTheCloseAndGoesOn() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         ctx.commanderLoginReady(false);
         Stages stages = new Stages();
         Outcome out = run(ctx, stages, Map.of());
@@ -770,7 +776,7 @@ class CommanderConfigurationStepTest {
     void onceEverythingRanPaymentReadyIsAWarnNeverAFailure() throws IOException {
         Stages stages = new Stages();
         stages.ready = false;
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
 
         assertTrue(out.keepGoing());
         assertEquals(StepResult.COMPLETE, out.step().state());
@@ -782,7 +788,7 @@ class CommanderConfigurationStepTest {
 
     @Test
     void aCaptureAskedForRunsAfterPaymentReadyAndItsFailureIsOnlyAWarn() throws IOException {
-        RunContext ctx = context(LaunchConfig.forRig(LaunchFixtures.RIG), true);
+        RunContext ctx = context(rigRun().build(), true);
         ctx.commanderOptions(new RunContext.CommanderOptions(List.of(), true, "Solutions134"));
         Stages stages = new Stages();
         stages.capture = false;
@@ -799,7 +805,7 @@ class CommanderConfigurationStepTest {
     // ------------------------------------------------------------ the clean install
 
     private static LaunchConfig psi(String branch, String build) {
-        return new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.NEW_INSTALL)
+        return rigRun().upgradeMode(UpgradeMode.NEW_INSTALL)
                 .commanderBranch(branch).commanderBuild(build).build();
     }
 
@@ -827,7 +833,7 @@ class CommanderConfigurationStepTest {
     @Test
     void aNewInstallAskingForWhatCatJavaCannotDoStopsBeforeTheDownloadAndTheInstall() throws IOException {
         // Coverage and the onboarding's cloud tunnel would end the step after the PSI install wiped both devices.
-        LaunchConfig.Builder base = new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.NEW_INSTALL)
+        LaunchConfig.Builder base = rigRun().upgradeMode(UpgradeMode.NEW_INSTALL)
                 .commanderBranch("Solutions").commanderBuild("134");
         Stages coverage = new Stages();
         coverage.root = dir.resolve("builds");
@@ -841,7 +847,7 @@ class CommanderConfigurationStepTest {
         Stages tunnel = new Stages();
         tunnel.root = dir.resolve("builds");
         tunnel.tunnelPorted = false;
-        Outcome onboarded = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.NEW_INSTALL)
+        Outcome onboarded = run(rigRun().upgradeMode(UpgradeMode.NEW_INSTALL)
                 .commanderBranch("Solutions").commanderBuild("134").commanderConnect(true).build(), tunnel);
         assertFalse(onboarded.keepGoing());
         assertEquals(List.of(), tunnel.ran);
@@ -850,9 +856,9 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void theProductionTunnelIsNotPortedSoTheGapIsCheckedUpFront() {
-        assertFalse(CommanderStages.real(Map.of()).cloudTunnelPorted());
-        LaunchConfig onboarding = new LaunchConfig.Builder(LaunchFixtures.RIG).commanderConnect(true).coverage(true)
+    void theProductionTunnelIsPortedAndAnUnportedOneIsCheckedUpFront() {
+        assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
+        LaunchConfig onboarding = rigRun().commanderConnect(true).coverage(true)
                 .build();
         assertEquals(List.of(label("coverage"), "cloud-tunnel"), CommanderConfigurationStep.unported(onboarding, false)
                 .stream().map(CommanderConfigurationStep.Gap::row).toList());
@@ -980,7 +986,7 @@ class CommanderConfigurationStepTest {
     @Test
     void aChosenBuildWithModeSkipDownloadsNothing() throws IOException {
         Stages stages = new Stages();
-        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).commanderBranch("Solutions")
+        Outcome out = run(rigRun().commanderBranch("Solutions")
                 .commanderBuild("134").build(), stages);
 
         assertEquals("provision", stages.ran.get(0));
@@ -991,7 +997,7 @@ class CommanderConfigurationStepTest {
     @Test
     void vhqIsUnavailableBeforeAnythingRuns() throws IOException {
         Stages stages = new Stages();
-        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.VHQ).build(), stages);
+        Outcome out = run(rigRun().upgradeMode(UpgradeMode.VHQ).build(), stages);
         assertFalse(out.keepGoing());
         assertTrue(stages.ran.isEmpty());
         assertTrue(out.step().detail().contains("petrotest/upgrade/vhq.py"), out.step().detail());
@@ -1014,7 +1020,7 @@ class CommanderConfigurationStepTest {
         Stages stages = new Stages();
         stages.root = dir.resolve("builds");
         stages.installed = new Installed.Identification("Solutions134", "Solutions134 (Commit_Hash abc, built t)");
-        Outcome out = run(LaunchConfig.forRig(LaunchFixtures.RIG), stages);
+        Outcome out = run(rigRun().build(), stages);
         assertEquals(SubstepOutcome.PASSED, out.rows().get(CommanderConfigurationStep.INSTALLED_BUILD_ROW));
         assertEquals("Solutions134", out.ctx().installedBuild());
 
@@ -1026,18 +1032,18 @@ class CommanderConfigurationStepTest {
                 installedHere.details().get(CommanderConfigurationStep.INSTALLED_BUILD_ROW));
 
         Stages unknown = new Stages();
-        Outcome notHere = run(LaunchConfig.forRig(LaunchFixtures.RIG), unknown);
+        Outcome notHere = run(rigRun().build(), unknown);
         assertEquals("", notHere.ctx().installedBuild());
         assertEquals(SubstepOutcome.WARNED, notHere.rows().get(CommanderConfigurationStep.INSTALLED_BUILD_ROW));
     }
 
     @Test
     void theDownloadsFieldsDefaultEmptyAndAreTrimmed() {
-        LaunchConfig plain = LaunchConfig.forRig(LaunchFixtures.RIG);
+        LaunchConfig plain = rigRun().build();
         assertEquals("", plain.commanderBranch());
         assertEquals("", plain.simBuild());
         assertFalse(plain.commanderBuildChosen());
-        LaunchConfig chosen = new LaunchConfig.Builder(LaunchFixtures.RIG).commanderBranch(" Solutions ")
+        LaunchConfig chosen = rigRun().commanderBranch(" Solutions ")
                 .commanderBuild("134").simBranch("master").simBuild("74").build();
         assertTrue(chosen.commanderBuildChosen());
         assertEquals("Solutions", chosen.commanderBranch());
@@ -1050,7 +1056,6 @@ class CommanderConfigurationStepTest {
         CommanderConfigurationStep step = new CommanderConfigurationStep();
         assertEquals(LaunchStepNames.COMMANDER, step.name());
         assertThrows(StageUnavailable.class, () -> CommanderStages.real(Map.of()).pinpadClear(null, null));
-        assertThrows(StageUnavailable.class,
-                () -> CommanderStages.real(Map.of()).cloudSnapshotRestore(null, "1", Map.of(), null));
+        assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
     }
 }
