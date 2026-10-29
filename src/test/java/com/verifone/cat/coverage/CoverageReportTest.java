@@ -65,7 +65,7 @@ class CoverageReportTest {
 
     private static String xmlReport(String name, long covered, long missed) {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                + "<!DOCTYPE report PUBLIC \"-//JACOCO//DTD Report 1.1//EN\" \"report.dtd\">"
+                + "<!DOCTYPE report PUBLIC \"-/" + "/JACOCO/" + "/DTD Report 1.1/" + "/EN\" \"report.dtd\">"
                 + "<report name=\"" + name + "\">"
                 + "<package name=\"x\"><counter type=\"LINE\" missed=\"0\" covered=\"1\"/></package>"
                 + "<counter type=\"INSTRUCTION\" missed=\"0\" covered=\"9\"/>"

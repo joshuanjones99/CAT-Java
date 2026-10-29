@@ -104,7 +104,7 @@ class CoverageSummaryTest {
     void theCountersAreTheReportsOwnNotItsPackagesAndTheDoctypeIsAllowed() throws IOException {
         Path xml = tmp.resolve("fcc.xml");
         Files.writeString(xml, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-                + "<!DOCTYPE report PUBLIC \"-//JACOCO//DTD Report 1.1//EN\" \"report.dtd\">"
+                + "<!DOCTYPE report PUBLIC \"-/" + "/JACOCO/" + "/DTD Report 1.1/" + "/EN\" \"report.dtd\">"
                 + "<report name=\"fcc\"><package name=\"p\"><counter type=\"LINE\" missed=\"9\" covered=\"9\"/>"
                 + "</package><counter type=\"INSTRUCTION\" missed=\"5\" covered=\"6\"/>"
                 + "<counter type=\"LINE\" missed=\"3\" covered=\"1\"/><counter type=\"CLASS\" missed=\"2\" covered=\"0\"/>"
