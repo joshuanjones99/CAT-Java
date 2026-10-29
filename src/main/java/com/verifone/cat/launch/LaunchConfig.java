@@ -67,6 +67,15 @@ import com.verifone.cat.runconfig.RunScope;
  * @param simBranch    the Simulator Build's branch (the Python's {@code sim_branch}): System Checks replaces the
  *                     staged simulators with it ({@link SimulatorBaseChecks#fetchSimulatorBuild}); "" replaces none
  * @param simBuild     the Simulator Build's number on {@code simBranch}
+ * @param ifsfMode     the Execution section's IFSF mode (the Python's {@code ifsf_mode}); recorded, not wired
+ * @param localBuild   with no Commander branch, the build folder under the builds root to install
+ *                     ({@code <builds root>/<localBuild>/<dist>/}); "" is the newest there
+ * @param foundationBranch a viper-only Commander Build's foundation branch to merge it onto; "" takes the paired one
+ * @param foundationBuild  that foundation build's number
+ * @param provisionRegister step 4 provisions the register (the Python's {@code provision_register}); never under
+ *                     {@code fakePos}
+ * @param keepSimulators Cleanup leaves the simulators running for the next continuous pass (the Python's
+ *                     {@code keep_simulators}); never set from the Config tab
  */
 public record LaunchConfig(
         String rig,
@@ -93,7 +102,13 @@ public record LaunchConfig(
         String commanderBranch,
         String commanderBuild,
         String simBranch,
-        String simBuild) {
+        String simBuild,
+        String ifsfMode,
+        String localBuild,
+        String foundationBranch,
+        String foundationBuild,
+        boolean provisionRegister,
+        boolean keepSimulators) {
 
     /** The Config tab's Commander Connect defaults: lab Prod, everything else empty. */
     public static final CommanderConnect NO_COMMANDER_CONNECT = new CommanderConnect("Prod", "", "", "");
@@ -116,6 +131,10 @@ public record LaunchConfig(
         commanderBuild = commanderBuild == null ? "" : commanderBuild.strip();
         simBranch = simBranch == null ? "" : simBranch.strip();
         simBuild = simBuild == null ? "" : simBuild.strip();
+        ifsfMode = ifsfMode == null ? "" : ifsfMode.strip();
+        localBuild = localBuild == null ? "" : localBuild.strip();
+        foundationBranch = foundationBranch == null ? "" : foundationBranch.strip();
+        foundationBuild = foundationBuild == null ? "" : foundationBuild.strip();
         commanderConnectSettings = commanderConnectSettings == null ? NO_COMMANDER_CONNECT : commanderConnectSettings;
         suites = List.copyOf(suites == null ? List.of() : suites);
         testPlans = List.copyOf(testPlans == null ? List.of() : testPlans);
@@ -152,7 +171,7 @@ public record LaunchConfig(
         this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope,
                 xrayReport, coverage, commanderConnect, commanderConnectSettings, DEFAULT_DIST,
                 DEFAULT_TEST_PLAN_BRANCH, DEFAULT_EXECUTION_MODE, List.of(), List.of(), false, false, false,
-                "", "", "", "");
+                "", "", "", "", "", "", "", "", false, false);
     }
 
     /** Whether the Downloads section names a Commander Build: a branch and a number. */
@@ -294,6 +313,12 @@ public record LaunchConfig(
         private String commanderBuild = "";
         private String simBranch = "";
         private String simBuild = "";
+        private String ifsfMode = "";
+        private String localBuild = "";
+        private String foundationBranch = "";
+        private String foundationBuild = "";
+        private boolean provisionRegister;
+        private boolean keepSimulators;
 
         public Builder(String rig) {
             this.rig = rig;
@@ -431,12 +456,49 @@ public record LaunchConfig(
             return this;
         }
 
+        /** The Execution section's IFSF mode; recorded, not wired (as in the Python). */
+        public Builder ifsfMode(String value) {
+            ifsfMode = value;
+            return this;
+        }
+
+        /** With no Commander branch: the build folder under the builds root to install; "" is the newest. */
+        public Builder localBuild(String value) {
+            localBuild = value;
+            return this;
+        }
+
+        /** A viper-only Commander Build's foundation branch to merge it onto; "" takes the paired one. */
+        public Builder foundationBranch(String value) {
+            foundationBranch = value;
+            return this;
+        }
+
+        /** A viper-only Commander Build's foundation build number to merge it onto. */
+        public Builder foundationBuild(String value) {
+            foundationBuild = value;
+            return this;
+        }
+
+        /** Step 4 provisions the register (the Python's {@code provision_register}). */
+        public Builder provisionRegister(boolean on) {
+            provisionRegister = on;
+            return this;
+        }
+
+        /** Cleanup leaves the simulators running for the next continuous pass (the Python's {@code keep_simulators}). */
+        public Builder keepSimulators(boolean on) {
+            keepSimulators = on;
+            return this;
+        }
+
         public LaunchConfig build() {
             return new LaunchConfig(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad,
                     snapshotUpdate, simulators, scope, xrayReport, coverage, commanderConnect,
                     commanderConnectSettings, dist, testPlanBranch, executionMode, secondaryFeps, connections,
                     buypassHost, captureSnapshot, ccRequirementWaived, commanderBranch, commanderBuild, simBranch,
-                    simBuild);
+                    simBuild, ifsfMode, localBuild, foundationBranch, foundationBuild, provisionRegister,
+                    keepSimulators);
         }
     }
 }
