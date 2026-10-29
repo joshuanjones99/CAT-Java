@@ -38,6 +38,7 @@ public final class RigContext {
     private Supplier<Map<String, Boolean>> printerPorts;
     private Map<String, Boolean> cashDrawers;
     private Supplier<Surfaces.UnsettledSuspends> parkedTickets;
+    private BooleanSupplier reprovision;
     private Duration defaultWait = DEFAULT_WAIT;
 
     /** DESIGN.md 8's {@code timeouts.default_wait}, for a context built without a rig file. */
@@ -72,6 +73,7 @@ public final class RigContext {
         frozen.printerPorts = printerPorts;
         frozen.cashDrawers = cashDrawers;
         frozen.parkedTickets = parkedTickets;
+        frozen.reprovision = reprovision;
         frozen.defaultWait = defaultWait;
         return frozen;
     }
@@ -183,6 +185,21 @@ public final class RigContext {
     public void setParkedTickets(Supplier<Surfaces.UnsettledSuspends> parkedTickets) {
         guardWrite("parked_tickets");
         this.parkedTickets = parkedTickets;
+    }
+
+    /**
+     * The {@code eps_reachable} escalation, {@code provision --force} (DESIGN.md 6.1, recovery rung 5): true when it
+     * restored the rig. Null, the default, when the caller did not enable it (the Python's {@code reprovision},
+     * off unless {@code enable_reprovision}). A control surface: refused on a read-only context.
+     */
+    public BooleanSupplier reprovision() {
+        guardControl("reprovision");
+        return reprovision;
+    }
+
+    public void setReprovision(BooleanSupplier hook) {
+        guardWrite("reprovision");
+        this.reprovision = hook;
     }
 
     private void guardControl(String attribute) {
