@@ -176,11 +176,13 @@ final class TransactionHandler implements ActionHandler {
 
     /**
      * The POS's newest committed sale after the case's mark for it. The mark moves to the sale read, so the next
-     * validation waits for one newer than this.
+     * validation waits for one newer than this. The case's dialog watch ends the wait early, as the Python's
+     * {@code abort=DialogWatch(run)}: an OK-only message holding the sale means none is coming.
      */
     private Element readPos(CaseRun run) {
         Optional<String> mark = run.scratch(ValidationFamily.TLOG_MARK);
-        ValidationContext.PosTlog read = context.pos().newestTlog(mark.orElse(null), run.budget(STATE_WAIT));
+        ValidationContext.PosTlog read = context.pos().newestTlog(mark.orElse(null), run.budget(STATE_WAIT),
+                context.watch(run));
         if (mark.isPresent() && read.trseq() != null && !read.trseq().isEmpty()) {
             run.setScratch(ValidationFamily.TLOG_MARK, read.trseq());
         }

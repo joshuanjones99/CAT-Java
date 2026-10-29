@@ -832,7 +832,9 @@ public class Pos {
     /**
      * {@code newest} once it is a number other than {@code after}, looked for each quarter second up to
      * {@code timeout}; null if none came. {@code after} may be null or empty for "any at all". A reason from
-     * {@code abort} ends the wait early: a dead end, which throws {@link DriverError}.
+     * {@code abort} ends the wait early, as null, as a timeout does: the Python's {@code DeadEnd} is a
+     * {@code TimeoutExpired}, which {@code newer_transaction} suppresses, so {@link #newestTlog} then reads the newest
+     * there is ({@code test_a_tlog_wait_held_by_an_ok_only_message_ends_early}).
      */
     static String newerTransaction(Supplier<String> newest, String after, Duration timeout,
             Supplier<String> abort) {
@@ -846,7 +848,7 @@ public class Pos {
                 if (abort != null) {
                     String reason = abort.get();
                     if (reason != null && !reason.isEmpty()) {
-                        throw new DriverError(reason);
+                        throw new DriverTimeout(reason);
                     }
                 }
                 return null;

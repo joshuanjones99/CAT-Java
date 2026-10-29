@@ -127,7 +127,8 @@ public final class StandardHandlers {
                 .withTouchPacer(pacer);
 
         // Sale: the screen over the page objects, the pumps, and the petroapps scanner data.
-        SaleContext sale = new SaleContext(SaleScreen.of(f.pos()), f.saleRmi(), pumps,
+        // Its receipt is the run's printed one (the Python's run.pos.receipt()), not the ticket on screen.
+        SaleContext sale = new SaleContext(SaleScreen.of(f.pos(), f.receipts()), f.saleRmi(), pumps,
                 scannerData(f.petroapps()), LastTlog.VALIDATED, DevicePauses.REAL, pacer, f.saleTiming());
 
         DcrDevice dcr = f.dcr() == null ? DcrDevice.UNAVAILABLE : f.dcr();
@@ -152,7 +153,9 @@ public final class StandardHandlers {
                 FixtureRequirements::printsAtDcr, posTransactions(f),
                 CommanderSeams.reads(f.commander()), f.packets() == null ? unavailablePackets() : f.packets(),
                 folders.references(),
-                f.environment()::get);
+                f.environment()::get,
+                // The receipt and TLog waits' abort, the Python's DialogWatch(run).
+                run -> PosUiFamily.dialogWatch(run, posUi));
 
         // The eight families, in the Python's order.
         PosUiFamily.register(registry, posUi);
@@ -286,8 +289,8 @@ public final class StandardHandlers {
      * {@code VALIDATE_TRANSACTION}'s POS reads, as the Python's {@code pos} fixture wires them: the transaction numbers
      * the Commander lists ({@code vtransnumlist}, newest first) and its TLog of one ({@code vtransdetails}), behind
      * {@link Pos#newestTransaction} and {@link Pos#newestTlog}. PATS's {@code TransactionCommitNumber} is the last sale
-     * the Commander committed. The Python's {@code abort} (its dialog watch) is not passed: the wait runs its budget.
-     * A run without a Commander reads the stand-in, which fails by name.
+     * the Commander committed. The Python's {@code abort} (its dialog watch) ends the wait for a newer one early, and
+     * the newest there is is read. A run without a Commander reads the stand-in, which fails by name.
      */
     static ValidationContext.PosTransactions posTransactions(HandlerFixtures f) {
         Pos reads = new Pos(f.pos().driver(), f.receipts(), number -> f.commander().fetchTlog(number),
@@ -300,8 +303,13 @@ public final class StandardHandlers {
 
             @Override
             public ValidationContext.PosTlog newestTlog(String after, double timeoutSeconds) {
+                return newestTlog(after, timeoutSeconds, null);
+            }
+
+            @Override
+            public ValidationContext.PosTlog newestTlog(String after, double timeoutSeconds, Supplier<String> abort) {
                 Element tlog = (Element) reads.newestTlog(after, Duration.ofMillis(Math.round(timeoutSeconds * 1000)),
-                        null);
+                        abort);
                 return new ValidationContext.PosTlog(tlog, reads.newestRead());
             }
         };

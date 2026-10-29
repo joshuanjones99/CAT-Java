@@ -363,9 +363,10 @@ public final class SaleFamily {
 
     /**
      * {@code TopazPrinterSim.recordReceiptsObject}, for the receipt just captured: its TRAN# and STAN go under the key
-     * a STORE_TRANS_MAP named, if one is waiting.
+     * a STORE_TRANS_MAP named, if one is waiting. VALIDATE_RECEIPT calls it with the receipt it captured, as the
+     * Python's {@code _validate_receipt} does.
      */
-    static void bindTransMap(CaseRun run, String text) {
+    public static void bindTransMap(CaseRun run, String text) {
         Optional<String> key = run.scratch(ScratchKey.TRANS_MAP_KEY);
         if (key.isEmpty()) {
             return;

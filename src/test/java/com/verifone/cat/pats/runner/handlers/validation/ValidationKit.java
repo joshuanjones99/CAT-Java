@@ -134,7 +134,7 @@ final class ValidationKit {
     }
 
     /** A POS fake: its newest transaction number, and the TLog a read returns; it records each read's mark. */
-    static final class FakePos implements ValidationContext.PosTransactions {
+    static class FakePos implements ValidationContext.PosTransactions {
         String newestNumber;
         Element tlog;
         String readNumber = "";

@@ -6,6 +6,7 @@ import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.ValidationFailure;
 import com.verifone.cat.pos.receipt.Receipt;
 import com.verifone.cat.pats.runner.handlers.posui.PosUiCaseState;
+import com.verifone.cat.pats.runner.handlers.sale.SaleFamily;
 import com.verifone.cat.pos.receipt.ReceiptCaptureException;
 import com.verifone.cat.pos.receipt.ReceiptWait;
 import com.verifone.cat.pos.receipt.ReceiptWaitException;
@@ -34,9 +35,14 @@ import org.slf4j.LoggerFactory;
  * {@code CAT_RECEIPT_REBASE=layout} rewrites. The POS receipt is read as the Python's {@code _pos_receipt} reads it
  * ({@link #posReceipt}): a no-{@code TRAN#} print is the receipt only in a case that prints a report, so a case's
  * PLU-not-found slip (36850) is never taken for its sale's receipt; the case's fresh-print mark and the unread-sale
- * settle are passed to the source for the one read. Deviation: the Python's {@code abort}
- * ({@code DialogWatch(run)}, an OK-only message holding the sale) is not passed, because the POS UI family's
- * {@code DialogWatch} is not reachable from this family yet; such a receipt waits out its ceiling instead.
+ * settle are passed to the source for the one read, with the case's dialog watch as its {@code abort}
+ * ({@code DialogWatch(run)}: an OK-only message holding the sale ends the wait as a dead end, and the case's finish
+ * presses that OK for the next case). The receipt read binds a waiting STORE_TRANS_MAP key to its TRAN# and STAN, as
+ * the Python's {@code _bind_trans_map(run, text)} after the read.
+ *
+ * <p>Run dec5794107fa (2026-10-28): with no watch, 36879's receipt and TLog waits ran 117 s each on "Transaction
+ * balance fully paid / Payment not needed / Press ENTER/OK to Continue", no dead end was recorded, so nothing pressed
+ * the OK, and 36880 failed at its first step. The Python's run 2581320c4367 gave up at 21 s and cleared it.
  *
  * <p>UNVERIFIED AGAINST HARDWARE.
  */
@@ -75,6 +81,7 @@ final class ReceiptHandler implements ActionHandler {
         double timeout = run.budget(RECEIPT_WAIT);
         Receipt receipt = capture(run, timeout);
         String text = receipt.text();
+        SaleFamily.bindTransMap(run, text);
         run.record().recordReceipt(text, name);
         String got = ValidationSupport.rstripNewlines(Normalisers.normaliseReceipt(text));
         Path catPath = ValidationSupport.baselineDir(run).resolve(
@@ -126,7 +133,8 @@ final class ReceiptHandler implements ActionHandler {
         int printMark = run.scratch(ValidationFamily.PRINT_MARK).orElse(-1);
         int unread = state.salesAtMark() - state.salesRead();
         ReceiptWait wait = new ReceiptWait(Duration.ofMillis(Math.round(timeout * 1000)), reports, printMark,
-                RECEIPT_FRESH_GRACE, unread > 0, (int) state.unreadFrom().orElse(-1), unread + 1, null);
+                RECEIPT_FRESH_GRACE, unread > 0, (int) state.unreadFrom().orElse(-1), unread + 1,
+                context.watch(run));
         try {
             return context.receipts().capture(wait);
         } finally {

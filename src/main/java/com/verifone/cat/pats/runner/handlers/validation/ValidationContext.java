@@ -1,5 +1,6 @@
 package com.verifone.cat.pats.runner.handlers.validation;
 
+import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.RunnableCase;
 import com.verifone.cat.pos.receipt.Receipt;
 import com.verifone.cat.pos.receipt.ReceiptSource;
@@ -10,6 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.w3c.dom.Element;
 
@@ -34,6 +36,8 @@ import org.w3c.dom.Element;
  * @param packets      the simulators' packet folders and their reset
  * @param references   the case's PATS reference files and the shared rule files
  * @param environment  reads an environment variable; the rebase switches are read through it
+ * @param dialogWatch  the case's dialog watch, the Python's {@code DialogWatch(run)}: asked on every look of the POS
+ *                     receipt and TLog waits, a reason ends the wait as a dead end; {@code null} watches nothing
  */
 public record ValidationContext(
         ReceiptSource receipts,
@@ -43,7 +47,20 @@ public record ValidationContext(
         CommanderReads commander,
         PacketSource packets,
         CaseReferences references,
-        Function<String, String> environment) {
+        Function<String, String> environment,
+        Function<CaseRun, Supplier<String>> dialogWatch) {
+
+    /** A context with no dialog watch: the waits run their budgets. */
+    public ValidationContext(ReceiptSource receipts, DcrReceipts dcr, Predicate<RunnableCase> printsAtDcr,
+            PosTransactions pos, CommanderReads commander, PacketSource packets, CaseReferences references,
+            Function<String, String> environment) {
+        this(receipts, dcr, printsAtDcr, pos, commander, packets, references, environment, null);
+    }
+
+    /** A fresh watch for one wait of {@code run}'s, or null when none is wired. */
+    Supplier<String> watch(CaseRun run) {
+        return dialogWatch == null ? null : dialogWatch.apply(run);
+    }
 
     /** {@code CAT_RECEIPT_REBASE=layout}: a receipt differing only by known layout drift rewrites its CAT baseline. */
     public static final String RECEIPT_REBASE_ENV = "CAT_RECEIPT_REBASE";
@@ -100,6 +117,14 @@ public record ValidationContext(
          * @throws RuntimeException when no such sale is read in time (the case stops, as PATS's does)
          */
         PosTlog newestTlog(String after, double timeoutSeconds);
+
+        /**
+         * {@link #newestTlog(String, double)} with the Python's {@code abort}: a reason from it ends the wait for a
+         * newer sale early, and the newest there is is read, as when the wait runs out. The default ignores it.
+         */
+        default PosTlog newestTlog(String after, double timeoutSeconds, Supplier<String> abort) {
+            return newestTlog(after, timeoutSeconds);
+        }
     }
 
     /**
