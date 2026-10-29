@@ -48,8 +48,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The Python's {@code run.rmi.shim} calls are {@link SaleRmi#pressKeys} and {@link SaleRmi#pressKey}; the Python's
  * overlay readers and {@code settle} are {@link SaleScreen}. PATS's {@code _clear_nag} is
- * {@link SaleScreen#clearBlockingOverlays}, which clears a nag as the sweep does. The Python's overlay read covers
- * several overlay families; {@link SaleScreen#overlay} reads the one the POS page exposes.
+ * {@link SaleScreen#clearBlockingOverlays}, which clears a nag as the sweep does. {@link SaleScreen#overlay} reads the
+ * overlay families the Python's {@code _overlay_texts} reads: the message box, else the input dialog.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */

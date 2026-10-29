@@ -2,17 +2,15 @@ package com.verifone.cat.pats.runner.handlers.sale;
 
 import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
-import com.verifone.cat.pos.pages.BaseElement;
-import com.verifone.cat.pos.pages.Overlay;
 import com.verifone.cat.pos.pages.Pos;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.receipt.ReceiptSource;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * What the sale handlers read off the POS screen: the overlay, the express panel's labels, the screen text, and the
@@ -37,9 +35,49 @@ public interface SaleScreen {
 
     /**
      * The overlay on screen: {@code TITLE}, {@code LINE1}, {@code LINE2} and {@code LINE3}, each the visible text of
-     * its element. Null when no overlay text is up.
+     * its element. Null when no overlay text is up. Read as the Python's {@code pos_ui._overlay_texts}: the message
+     * box ({@code OverlayMsgView}) first, else the input dialog ({@code InputOverlayView}, whose label 1 is LINE1).
      */
     Map<String, String> overlay();
+
+    /** The overlay families PATS reads, in order: the Python's {@code pos_ui._OVERLAYS}. */
+    List<Map<String, Locator>> OVERLAYS = List.of(
+            Map.of("TITLE", Locators.OVERLAY_MSG_VIEW_TITLE, "LINE1", Locators.OVERLAY_MSG_VIEW_LINE1,
+                    "LINE2", Locators.OVERLAY_MSG_VIEW_LINE2, "LINE3", Locators.OVERLAY_MSG_VIEW_LINE3),
+            Map.of("TITLE", Locators.INPUT_OVERLAY_VIEW_TITLE, "LINE1", Locators.INPUT_OVERLAY_VIEW_LABEL1,
+                    "LINE2", Locators.INPUT_OVERLAY_VIEW_LABEL2));
+
+    /**
+     * The message box, else the input dialog, read through {@code states}: the Python's {@code _OVERLAYS} in order,
+     * the first family with any visible text, each field the text of its last visible element. Null when neither
+     * shows any.
+     *
+     * <p>Run 5285e78aa370 (2026-10-28): this read only the message box. The register's "ENTER STAN" is the input
+     * dialog's label (the Python logged "overlay line 1 reads 'ENTER STAN'" where the Java read ''), so
+     * PETROCORE-36853's REFUND_WITH_TRANS_MAP polled its 2 s, keyed the TRAN# where the register asked for the STAN,
+     * and the refund never posted.
+     */
+    static Map<String, String> overlayFrom(Function<Locator, List<PosDriver.ElementState>> states) {
+        for (Map<String, Locator> fields : OVERLAYS) {
+            Map<String, String> read = new LinkedHashMap<>();
+            for (String name : List.of("TITLE", "LINE1", "LINE2", "LINE3")) {
+                Locator locator = fields.get(name);
+                String last = "";
+                if (locator != null) {
+                    for (PosDriver.ElementState state : states.apply(locator)) {
+                        if (state.visible()) {
+                            last = state.text();
+                        }
+                    }
+                }
+                read.put(name, last);
+            }
+            if (read.values().stream().anyMatch(text -> !text.isEmpty())) {
+                return read;
+            }
+        }
+        return null;
+    }
 
     /** The express panel's visible button labels. */
     List<String> expressLabels();
@@ -101,24 +139,7 @@ public interface SaleScreen {
 
         @Override
         public Map<String, String> overlay() {
-            Overlay overlay = pos.overlay();
-            Map<String, String> read = new LinkedHashMap<>();
-            read.put("TITLE", lastVisible(overlay.title()));
-            read.put("LINE1", lastVisible(overlay.line1()));
-            read.put("LINE2", lastVisible(overlay.line2()));
-            read.put("LINE3", lastVisible(overlay.line3()));
-            return read.values().stream().anyMatch(text -> !text.isEmpty()) ? read : null;
-        }
-
-        private String lastVisible(BaseElement element) {
-            Locator locator = element.locator();
-            List<String> shown = new ArrayList<>();
-            for (PosDriver.ElementState state : driver().elementStates(locator)) {
-                if (state.visible()) {
-                    shown.add(state.text());
-                }
-            }
-            return shown.isEmpty() ? "" : shown.get(shown.size() - 1);
+            return SaleScreen.overlayFrom(driver()::elementStates);
         }
 
         @Override
