@@ -6,7 +6,7 @@ is built, what is proven, and what comes next. Update it whenever work lands.
 If this document disagrees with the tree, the tree is right.
 
 State as of **2026-10-28, end of wave 15** (orchestrated session). `main` builds clean:
-**3,545 tests, 0 failures, 0 errors, 0 skipped** (2026-10-28 21:48) on the CICD Java 17. The eleven wave-15
+**3,568 tests, 0 failures, 0 errors, 0 skipped** (2026-10-29 01:12) on the CICD Java 17. The eleven wave-15
 branches are merged; their worktrees under `C:\gitrepos\CAT-Java-wt\` can be removed
 (`git worktree remove`). The GitHub repo exists (`origin`, joshuanjones99/CAT-Java); main is
 not yet pushed from this session.
@@ -64,7 +64,7 @@ Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 3,545 tests, 0 failures, 0 errors, 2026-10-28 21:48. Four lint gates run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 3,568 tests, 0 failures, 0 errors, 2026-10-29 01:12. Four lint gates run as tests |
 | **Charity-Indoor 70960 on the fake POS, from the CLI** | run `fb8382bade89`, 2026-10-28: 39 cases, every one to a verdict (0 passed; the 12 POS+pinpad-only cases stop exactly where the Python's `pytest tests/suites/charity --fake-pos` stops them; the 27 others need devices a fake run has not). Evidence about the repository only |
 | **Cadence 118517 on the fake POS, from the CLI** | run `81eeb3d11883`, 2026-10-28: 264 cases, every one to a verdict in 1 h 51 m, no internal error (0 passed: RMI, pumps, DCR, Commander and most Cadence elements are absent from the fake). Evidence about the repository only |
 | **First rig run from Java: steps 1 and 2 complete live, step 3 started four of five simulators** | run `e272450ee561`, 2026-10-28 15:01 (lab rig, `launch --plan PETROCORE-118517 --upgrade new_install ...`): System Checks complete (rig lines, printer COM1 held, Commander Base_Level 057.02.00 read over SSH, the five staged simulators matched master 129 by their markers, lease taken), Connections complete; **PCATS01/02/03 Loyalty started and their "Start Host" buttons pressed through the Access Bridge, confirmed in each `LoySim_Debug.log` ("Loyalty FEP Simulator is ready. Port: 9010/9020/9030 ... Started VCMG Host")**; Petro Simulator Suite started and listening. BUYPASS Host failed: CAPK re-dating not ported (ported right after: `sims.Capk`, byte-identical entries to the Python's on the real jar; first launch of the built jar pending). Cleanup stopped the four and freed the lease; nothing reached the Commander |
@@ -195,4 +195,4 @@ Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
   cli (run_plan flags, LastConfig, Main table), fakepos (first whole-plan fake-POS runs,
   step-library cases), closereg (register pass), step1 (printer readiness, Commander base,
   Java sets, simulator fetch), the merge-and-wire pass, prerig (the review's fixes).
-  then capk (CAPK re-dating, after the first rig run's step 3 failed on it), bringup (the browser override, after run 2), and after runs 4-5: the shim client name, petroapps reference folders, the pairing navigation race, the receipt read, the sale STAN source, the recovery ladder. 3,111 → 3,545 tests. Goal set by the rig owner: Cadence from a clean install (§1).
+  then capk (CAPK re-dating, after the first rig run's step 3 failed on it), bringup (the browser override, after run 2), and after runs 4-5: the shim client name, petroapps reference folders, the pairing navigation race, the receipt read, the sale STAN source, the recovery ladder. 3,111 → 3,568 tests. Goal set by the rig owner: Cadence from a clean install (§1).
