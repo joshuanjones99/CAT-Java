@@ -50,6 +50,7 @@ public final class Main {
      * {@code secondary-fep}, {@code register-app}, {@code payment-links}, {@code payment-ready},
      * {@code commander-init}, {@code commander-prep}, {@code psi-init}.
      * {@code upgrade}, {@code build}, {@code builds}, {@code artifactory-login}, {@code render-payload}: the upgrade slice's (wave 16).
+     * {@code setup}: the webshell slice's (wave 16), the Python's {@code cat-term setup}.
      */
     static final Map<String, Command> COMMANDS = commands();
 

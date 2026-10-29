@@ -167,6 +167,10 @@ final class SimulatorsService {
     private final AtomicReference<Busy> busy = new AtomicReference<>(Busy.IDLE);
     private final Map<String, Connector> connectors = new LinkedHashMap<>();
     private final Map<String, Map.Entry<String, String>> connectorRows = new ConcurrentHashMap<>();
+    /** What the page-open probe found per row, before anything starts ({@code SimRunning.probeRunning}). */
+    private final Map<String, com.verifone.cat.sims.SimRunning.Running> probed = new ConcurrentHashMap<>();
+    private java.util.function.Function<List<SimEntry>, Map<String, com.verifone.cat.sims.SimRunning.Running>> prober;
+    private java.util.function.Function<List<String>, List<SimEntry>> stopRows;
     private final List<Consumer<SimStatus>> stateListeners = new CopyOnWriteArrayList<>();
     private volatile String message = "";
     private volatile AtomicBoolean abandoned = new AtomicBoolean();
@@ -231,9 +235,13 @@ final class SimulatorsService {
         });
         Rig rig = loadRig(rigName);
         Path root = ToolsRoot.resolve(System.getenv(ToolsRoot.ENV), null);
-        String host = rig == null ? "" : rig.controller().host();
-        SimulatorsService service = new SimulatorsService(new Supervisor(new PowerShellProcessOps()),
-                SimContext.of(root, host), Registry.launchable(false), pool);
+        // The rig's controller address (BUYPASS's -ip=) and its TLS port (Petro's), as the Python's for_rig.
+        SimContext rigContext = SimContext.forRig(root, rig);
+        PowerShellProcessOps ops = new PowerShellProcessOps();
+        SimulatorsService service = new SimulatorsService(new Supervisor(ops), rigContext,
+                Registry.launchable(false), pool);
+        service.prober = rows -> com.verifone.cat.sims.SimRunning.probeRunning(rows, rigContext, ops);
+        service.stopRows = Registry::bothForms;
         service.shell = shell;
         service.rigBusy = shell.busy();
         service.ccOnboard = ccOnboard;
@@ -256,7 +264,7 @@ final class SimulatorsService {
                 for (SimEntry entry : chosen) {
                     picked.add(forBase.stream().filter(e -> e.name().equals(entry.name())).findFirst().orElse(entry));
                 }
-                return new Launch(picked, new SimContext(root, host, java.target(), null, null));
+                return new Launch(picked, rigContext.withJavaDir(java.target()));
             };
         }
         service.resetTicks();
@@ -419,6 +427,27 @@ final class SimulatorsService {
         }
     }
 
+    /**
+     * What is running before anything starts, asked once as the page opens: one process listing for every row, then
+     * each row's port and match token (the Python's {@code probe_running}). On its own daemon thread, since the
+     * listing may take 15 s; the rows show it once it lands. A test's service has no prober and probes by port only.
+     */
+    void probe() {
+        if (prober == null || busy.get() != Busy.IDLE) {
+            return;
+        }
+        Thread thread = new Thread(() -> {
+            try {
+                probed.clear();
+                probed.putAll(prober.apply(rows));
+            } catch (RuntimeException e) {
+                notify("Could not see which simulators are running: " + e.getMessage(), "warning", 5);
+            }
+        }, "cat-web-sims-probe");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     /** Ticks or unticks one row or connector. Unknown names are ignored. */
     void toggle(String name) {
         if (row(name).isEmpty() && (name == null || !connectors.containsKey(name))) {
@@ -467,6 +496,12 @@ final class SimulatorsService {
                 detail = "started by CAT from this page";
             }
             return new RowView(entry.name(), status.state().label(), status.owner().label(), detail, up, attention);
+        }
+        com.verifone.cat.sims.SimRunning.Running found = probed.get(entry.name());
+        if (found != null && !com.verifone.cat.sims.SimRunning.Running.NOT_RUNNING.equals(found.status())) {
+            boolean up = com.verifone.cat.sims.SimRunning.Running.ALREADY_RUNNING.equals(found.status());
+            return new RowView(entry.name(), found.status(), up ? "external" : "", found.detail(), up,
+                    !up && com.verifone.cat.sims.SimRunning.Running.FAILED.equals(found.status()));
         }
         if (listening(entry)) {
             return new RowView(entry.name(), "already running", "external",
@@ -685,8 +720,12 @@ final class SimulatorsService {
                 }
             }
             owned.clear();
-            Map<String, Supervisor.StopRow> outcome = supervisor.stopRunning(
-                    rows, ctx, STOP_BUDGET);
+            probed.clear();
+            // Either form of a row may be the one running (base 57's, or 56 and earlier's), so both are stopped.
+            List<SimEntry> targets = stopRows == null ? rows
+                    : stopRows.apply(rows.stream().map(SimEntry::name).toList());
+            Map<String, Supervisor.StopRow> outcome = supervisor.stopRunning(targets, ctx,
+                    stopRows == null ? STOP_BUDGET : Supervisor.STOP_WAIT);
             List<String> failed = new ArrayList<>();
             for (Map.Entry<String, Supervisor.StopRow> entry : outcome.entrySet()) {
                 Supervisor.StopRow row = entry.getValue();

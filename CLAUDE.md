@@ -89,5 +89,7 @@ src/main/java/com/verifone/cat/
   preflight/ recovery/ provision/ upgrade/ build/ collect/ closeday/ coverage/
   plans/ runconfig/ runservice/ report/ results/ validate/ xray/ atlassian/
   authoring/ setup/ sims/ connections/ fep/ cloudtunnel/ prefs/
+  gitauth/         petroapps' Bitbucket login through git's credential store (Setup's Verifone card)
+  shell/           the web shell's state: toasts, loading line, the one busy flag, page watch, auto-close
   web/             Javalin + htmx pages (localhost only)
 ```
