@@ -464,19 +464,20 @@ final class CommanderConfigurationStep implements LaunchStep {
     private boolean pinpadLink(RunContext ctx, StepEmitter step, Rig rig, boolean vats) {
         step.substep(PinpadLink.LABEL, SubstepOutcome.RUNNING, "", 0.0);
         long started = System.nanoTime();
-        if (vats) {
-            step.substep(PinpadLink.LABEL, SubstepOutcome.FAILED, "unavailable in CAT-Java", 0.0);
-            return step.unavailable("src/cat/launch/steps/simulators.py", "the pinpad link to a pinpad: vats rig's "
-                    + "terminal (_link_vats_pinpad: a new Commander socket to the M400 after emv-keys)");
-        }
-        boolean started3 = ctx.simulators().stream()
-                .anyMatch(p -> p.entry().name().equals(StartSimulatorsStep.PETRO_SIMULATOR) && p.spawned());
-        PinpadLink link = new PinpadLink(stages.pauser(), stages.pinpadTiming());
         PinpadLink.Result result;
         try {
-            result = link.link(step, ctx.config().rig(), stages.pinpadLog(rig), ctx.epsLogMark(), started3,
-                    say -> stages.emvKeys(rig, null, say),
-                    simulator -> stages.restartSimulator(ctx, simulator, step));
+            if (vats) {
+                // _link_vats_pinpad: a new Commander socket to the M400 after emv-keys; Petro is never restarted.
+                result = VatsPinpadLink.forRig(rig, stages.pauser()).link(step, rig, ctx.config().rig(),
+                        say -> stages.emvKeys(rig, null, say));
+            } else {
+                boolean started3 = ctx.simulators().stream()
+                        .anyMatch(p -> p.entry().name().equals(StartSimulatorsStep.PETRO_SIMULATOR) && p.spawned());
+                PinpadLink link = new PinpadLink(stages.pauser(), stages.pinpadTiming());
+                result = link.link(step, ctx.config().rig(), stages.pinpadLog(rig), ctx.epsLogMark(), started3,
+                        say -> stages.emvKeys(rig, null, say),
+                        simulator -> stages.restartSimulator(ctx, simulator, step));
+            }
         } catch (StageUnavailable e) {
             step.substep(PinpadLink.LABEL, SubstepOutcome.FAILED, e.getMessage(), elapsed(started));
             return step.unavailable(e.pythonModule(), "the pinpad link, which runs " + e.missing());

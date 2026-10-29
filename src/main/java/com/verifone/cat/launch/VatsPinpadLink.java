@@ -26,9 +26,8 @@ import com.verifone.cat.rig.Rig;
  * {@link Timing#linkTimeout} after it. The download is the EPS's (its CA key tables), so it still runs. <b>Petro is
  * never restarted here</b>: a silent terminal is not fixed by restarting a simulator. One attempt.
  *
- * <p>Hook (CommanderConfigurationStep.pinpadLink, the {@code vats} branch): replace the {@code unavailable} return with
- * {@code result = VatsPinpadLink.forRig(rig, stages.pauser()).link(step, ctx.config().rig(),
- * say -> stages.emvKeys(rig, null, say));} and let the method's existing tail record the row.
+ * <p>Wired into {@code CommanderConfigurationStep.pinpadLink}'s {@code vats} branch; the method's tail records the
+ * row.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): the Python's was built 2026-10-08 off-rig and driven only against a fake
  * transport serving {@code netstat} rows shaped like the lab Commander's; so is this one.

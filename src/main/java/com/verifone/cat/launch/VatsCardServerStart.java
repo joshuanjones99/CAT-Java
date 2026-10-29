@@ -22,7 +22,7 @@ import com.verifone.cat.sims.ToolsRoot;
  * {@code BTT card server}, PASS or FAIL with {@code <route>: <detail>}; a failure fails the step with
  * {@code BTT card server: <detail>}.
  *
- * <p>Hook (StartSimulatorsStep.run, first thing): {@code if (!VatsCardServerStart.start(ctx, step)) return false;}
+ * <p>Wired as {@code StartSimulatorsStep.cardServer}'s default, which step 3 runs before the selection is read.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
