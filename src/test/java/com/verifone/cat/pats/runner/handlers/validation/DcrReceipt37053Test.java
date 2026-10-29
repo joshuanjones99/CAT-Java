@@ -90,7 +90,8 @@ class DcrReceipt37053Test {
     /** What run 5285e78aa370 recorded as its capture is already the parsed text: no read can restore it. */
     @Test
     void theRigsRecordedCaptureIsTheParsedForm() throws IOException {
-        String recorded = resource(DIR + KEY + "-parsed-5285e78aa370.txt");
+        // The checkout may hold the recorded capture with CRLF (text=auto); the comparison is on lines.
+        String recorded = resource(DIR + KEY + "-parsed-5285e78aa370.txt").replace("\r\n", "\n");
         String parsed = ReceiptParser.parse(resource(DIR + KEY + "-printed-2581320c4367.txt"), Source.SERIAL).text();
         assertTrue(recorded.startsWith("WELCOME TO\nVERIFONE\nAUTOMATION LAB\n"), recorded);
         assertTrue(parsed.startsWith("WELCOME TO\nVERIFONE\nAUTOMATION LAB\n"), parsed);
