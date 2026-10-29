@@ -130,12 +130,13 @@ class StoredArtifactoryCredentialsTest {
     }
 
     @Test
-    void theFilesAreThePythonCatsThenMonarchs() {
-        assertEquals(List.of(Path.of("D:\\cat").resolve(".secrets").resolve("artifactory.credentials"),
+    void theFilesAreCatJavasThenThePythonCatsThenMonarchs() {
+        assertEquals(List.of(Path.of("H:\\home", ".cat", "java", "artifactory.credentials"),
+                Path.of("D:\\cat").resolve(".secrets").resolve("artifactory.credentials"),
                 StoredArtifactoryCredentials.MONARCH_FILES.get(0), StoredArtifactoryCredentials.MONARCH_FILES.get(1)),
-                StoredArtifactoryCredentials.defaultFiles(Map.of("CAT_PYTHON_ROOT", "D:\\cat")));
+                StoredArtifactoryCredentials.defaultFiles(Map.of("CAT_PYTHON_ROOT", "D:\\cat"), "H:\\home"));
         assertEquals(Path.of("C:\\gitrepos\\CAT\\.secrets\\artifactory.credentials"),
-                StoredArtifactoryCredentials.defaultFiles(Map.of()).get(0));
+                StoredArtifactoryCredentials.defaultFiles(Map.of(), "H:\\home").get(1));
     }
 
     @Test

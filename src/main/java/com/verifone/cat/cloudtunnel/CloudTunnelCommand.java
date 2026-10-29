@@ -4,30 +4,37 @@ import java.io.PrintStream;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.devices.DeviceError;
-import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.provision.transport.JschTransport;
 import com.verifone.cat.provision.transport.Transport;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
 
 /**
- * {@code cloud-tunnel --rig R [--stop] [--force] [--no-gateway]}: the Python {@code petrotest cloud-tunnel}'s command
- * line, for what this port does.
+ * {@code cloud-tunnel --rig R [--stop] [--force] [--no-gateway]}: the Python {@code petrotest cloud-tunnel}
+ * ({@code cloud_tunnel_cli}).
  *
  * <ul>
- * <li>{@code --stop}: removes the hosts lines, redirects, host routes and the gateway. Done fully.</li>
- * <li>no switch: clears a stale gateway, then reports {@code not needed} when the Commander reaches its first
- * endpoint itself. Otherwise it fails: the tunnel's serve loop is not ported (see {@link CloudTunnel}).</li>
+ * <li>no switch: serves until the process ends ({@link CloudTunnelServer}), or exits 0 with {@code not needed} when
+ * the Commander reaches its first endpoint itself. Prints {@code cloud-tunnel: up (<profile>): ...} once its forwards
+ * are up, which is what a run waits for ({@link CloudTunnelProcess}).</li>
+ * <li>{@code --force}: serve even when the Commander reaches the cloud itself.</li>
+ * <li>{@code --no-gateway}: relay only the cloud endpoints, not every outbound TCP connection with DNS.</li>
+ * <li>{@code --stop}: removes the hosts lines, redirects, host routes and the gateway, then exits. The sshd block is
+ * left (idempotent), as the Python leaves it.</li>
  * </ul>
  *
- * <p>{@code --no-gateway} and {@code --force} are accepted for the same command line; they only affect the serve loop,
- * which this port does not run.
+ * <p>{@code --rig=R} is accepted as argparse accepts it. Ctrl-C (the Python's {@code KeyboardInterrupt}, which it
+ * returns as success) stops the loop from a shutdown hook; the JVM's own exit status then applies.
  *
- * <p>Exit codes: 0 done or not needed, 1 failed, 2 usage. UNVERIFIED AGAINST HARDWARE (Java port).
+ * <p>Exit codes: 0 served and stopped, not needed, or stopped; 1 failed (no SSH, no endpoints, a refused sshd rule),
+ * with {@code cloud-tunnel: <reason>} on standard error; 2 usage. UNVERIFIED AGAINST HARDWARE (Java port).
  */
 public final class CloudTunnelCommand {
 
@@ -36,32 +43,60 @@ public final class CloudTunnelCommand {
     public static final int EXIT_USAGE = 2;
 
     static final String USAGE = "usage: cloud-tunnel --rig R [--stop] [--force] [--no-gateway]";
-    static final Duration TIMEOUT = Duration.ofSeconds(30);
 
     private static final Set<String> SWITCHES = Set.of("--stop", "--force", "--no-gateway");
 
-    /**
-     * Opens the transport to the Commander of the named rig: the real one in production (which loads the rig), a fake
-     * in tests.
-     */
+    /** The rig's Commander as the tunnel reaches it: a new connected session per call, and the SSH budget. */
+    public record Commander(Supplier<Transport> sessions, Duration timeout) {
+        public Commander {
+            Objects.requireNonNull(sessions, "sessions");
+            Objects.requireNonNull(timeout, "timeout");
+        }
+    }
+
+    /** Resolves the named rig's Commander: the real one in production (which loads the rig), a fake in tests. */
     @FunctionalInterface
     public interface Connector {
-        Transport open(String rigName, Map<String, String> env);
+        Commander open(String rigName, Map<String, String> env);
+    }
+
+    /** Builds the serve loop for a Commander; tests shorten its timings and fake its DNS. */
+    @FunctionalInterface
+    public interface ServerFactory {
+        CloudTunnelServer create(Commander commander, PrintStream out);
     }
 
     private final Connector connector;
+    private final ServerFactory servers;
 
     /** The production command. */
     public CloudTunnelCommand() {
-        this((rigName, env) -> {
-            Rig rig = RigLoader.load(rigName, RigLoader.rigsDir(env));
-            return new CommanderAccess(rig, JschTransport::new, env).connectedTransport();
-        });
+        this(CloudTunnelCommand::production, CloudTunnelCommand::productionServer);
     }
 
-    /** A command with its own transport seam; tests use this so no Commander is reached. */
-    public CloudTunnelCommand(Connector connector) {
-        this.connector = connector;
+    /** A command with its own seams; tests use this so no Commander is reached. */
+    public CloudTunnelCommand(Connector connector, ServerFactory servers) {
+        this.connector = Objects.requireNonNull(connector, "connector");
+        this.servers = Objects.requireNonNull(servers, "servers");
+    }
+
+    private static Commander production(String rigName, Map<String, String> env) {
+        Rig rig = RigLoader.load(rigName, RigLoader.rigsDir(env));
+        CommanderAccess access = new CommanderAccess(rig, JschTransport::new, env);
+        return new Commander(access::connectedTransport, access.sshTimeout());
+    }
+
+    private static CloudTunnelServer productionServer(Commander commander, PrintStream out) {
+        return new CloudTunnelServer(commander.sessions(), commander.timeout(), CloudTunnel::controllerDns,
+                CloudTunnel.relaySource(), say(out), CloudTunnelServer.Timing.production());
+    }
+
+    /** {@code cloud-tunnel: <message>} on {@code out}, flushed at once (the Python's {@code print(..., flush=True)}). */
+    public static Consumer<String> say(PrintStream out) {
+        return message -> {
+            out.println("cloud-tunnel: " + message);
+            out.flush();
+        };
     }
 
     /** Runs with the process environment and standard streams. */
@@ -81,6 +116,8 @@ public final class CloudTunnelCommand {
                     return EXIT_USAGE;
                 }
                 rigName = argv[++i];
+            } else if (arg.startsWith("--rig=")) {
+                rigName = arg.substring("--rig=".length());
             } else if (SWITCHES.contains(arg)) {
                 switches.add(arg);
             } else {
@@ -93,40 +130,54 @@ public final class CloudTunnelCommand {
             return EXIT_USAGE;
         }
         try {
-            Transport transport = connector.open(rigName, env);
-            try {
-                return switches.contains("--stop") ? stop(transport, out)
-                        : start(transport, switches.contains("--force"), out, err);
-            } finally {
-                transport.close();
+            Commander commander = connector.open(rigName, env);
+            if (switches.contains("--stop")) {
+                return stop(commander, out);
             }
-        } catch (DeviceUnavailable e) {
-            err.println("cloud-tunnel: " + e.getMessage());
-            return EXIT_FAILED;
+            CloudTunnelServer server = servers.create(commander, out);
+            Thread hook = new Thread(server::stop, "cloud-tunnel-stop");
+            boolean hooked = addHook(hook);
+            try {
+                server.serve(switches.contains("--force"), !switches.contains("--no-gateway"));
+                return EXIT_OK;
+            } finally {
+                if (hooked) {
+                    removeHook(hook);
+                }
+            }
         } catch (DeviceError | IllegalArgumentException | IllegalStateException e) {
             err.println("cloud-tunnel: " + e.getMessage());
+            err.flush();
             return EXIT_FAILED;
         }
     }
 
-    private static int stop(Transport transport, PrintStream out) {
-        CloudTunnel.removeRoutes(transport, TIMEOUT);
-        CloudTunnel.removeGateway(transport, TIMEOUT);
-        out.println("cloud-tunnel: removed: hosts lines, redirects, host routes, the gateway");
+    private static int stop(Commander commander, PrintStream out) {
+        Transport transport = commander.sessions().get();
+        try {
+            CloudTunnel.removeRoutes(transport, commander.timeout());
+            CloudTunnel.removeGateway(transport, commander.timeout());
+        } finally {
+            transport.close();
+        }
+        say(out).accept("removed: hosts lines, redirects, host routes, the gateway");
         return EXIT_OK;
     }
 
-    private static int start(Transport transport, boolean force, PrintStream out, PrintStream err) {
-        CloudTunnel.Discovery found = CloudTunnel.discover(transport, TIMEOUT);
-        // A relay left by a tunnel that died accepts every connect, so the reachability check would pass.
-        CloudTunnel.removeGateway(transport, TIMEOUT);
-        Endpoint first = found.endpoints().get(0);
-        if (!force && CloudTunnel.wanUp(transport, first, TIMEOUT)) {
-            out.println("cloud-tunnel: not needed - the Commander reaches " + first + " itself");
-            return EXIT_OK;
+    private static boolean addHook(Thread hook) {
+        try {
+            Runtime.getRuntime().addShutdownHook(hook);
+            return true;
+        } catch (IllegalStateException e) {
+            return false; // the JVM is already shutting down
         }
-        err.println("cloud-tunnel: the tunnel's serve loop is not ported yet (SSH reverse forwards need a Transport"
-                + " method; see CloudTunnel). Profile " + found.profile() + " needs a tunnel to " + first + ".");
-        return EXIT_FAILED;
+    }
+
+    private static void removeHook(Thread hook) {
+        try {
+            Runtime.getRuntime().removeShutdownHook(hook);
+        } catch (IllegalStateException e) {
+            // shutting down: the hook has run or will
+        }
     }
 }

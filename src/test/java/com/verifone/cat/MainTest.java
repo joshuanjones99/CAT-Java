@@ -38,6 +38,11 @@ class MainTest {
         expected.put("psi-init", PsiInitCommand.class);
         expected.put("emv-keys", EmvKeysCommand.class);
         expected.put("setup", com.verifone.cat.setup.SetupCommand.class);
+        expected.put("upgrade", com.verifone.cat.upgrade.UpgradeCommand.class);
+        expected.put("build", com.verifone.cat.build.BuildCommand.class);
+        expected.put("builds", com.verifone.cat.build.BuildsCommand.class);
+        expected.put("artifactory-login", com.verifone.cat.build.ArtifactoryLogin.class);
+        expected.put("render-payload", ProvisionCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {

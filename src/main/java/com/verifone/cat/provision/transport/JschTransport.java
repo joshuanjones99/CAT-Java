@@ -61,6 +61,13 @@ import org.slf4j.LoggerFactory;
  * Python's {@code call_with_timeout} leaves the connection up; the difference is deliberate and
  * documented here.
  *
+ * <p><b>Reverse forwards</b> (the cloud tunnel's): {@link #requestReverseForward} is JSch's
+ * {@code setPortForwardingR} with a {@link JschForwardDaemon}, the port of paramiko's
+ * {@code request_port_forward(address, port, handler)}; {@link #keepalive} and {@link #isActive} are
+ * {@code set_keepalive} and {@code is_active}. A forward lives as long as the session, so a timed-out
+ * operation (which drops the session, above) ends the forwards too; the tunnel's serve loop then
+ * reconnects.
+ *
  * <p>Passwords are not supported: the Python production factory never passes one, and the Java rig
  * schema has no password field.
  *
@@ -82,9 +89,14 @@ public final class JschTransport implements Transport {
     /** How often a running exec channel is polled for its close. A bounded park, not a busy spin. */
     private static final long EXEC_POLL_NANOS = 20_000_000L;
 
+    /** Unanswered keepalives before JSch drops the session (see {@link #keepalive}). */
+    static final int KEEPALIVE_COUNT_MAX = 3;
+
     private final SshTarget target;
     private final JSch jsch = new JSch();
     private Session session;
+    /** The session forwards or a keepalive were set on; {@link #isActive} reports on it. */
+    private Session pinned;
     private ChannelSftp sftp;
     private ExecutorService worker;
     private boolean selinuxChecked;
@@ -172,6 +184,59 @@ public final class JschTransport implements Transport {
     public boolean exists(String remotePath, Duration timeout) {
         ChannelSftp c = sftp(timeout);
         return bounded(() -> statOrAbsent(c, remotePath).isPresent(), timeout, "stat " + remotePath);
+    }
+
+    /**
+     * A remote forward ({@code Session.setPortForwardingR} with {@link JschForwardDaemon}), bounded by {@code timeout}:
+     * the {@code tcpip-forward} request waits for sshd's answer, and a refusal is a {@link DeviceError}. Each accepted
+     * connection runs on JSch's own per-channel threads, never the session's reader.
+     */
+    @Override
+    public void requestReverseForward(String bindAddress, int port, ForwardHandler handler, Duration timeout) {
+        Objects.requireNonNull(handler, "handler");
+        Session s = session(timeout);
+        pin(s);
+        bounded(() -> {
+            s.setPortForwardingR(bindAddress, port, JschForwardDaemon.class.getName(),
+                    JschForwardDaemon.arguments(handler, port));
+            return null;
+        }, timeout, "remote forward " + bindAddress + ":" + port);
+    }
+
+    /**
+     * JSch's server-alive probe: after {@code interval} of silence a keepalive is sent, and after
+     * {@link #KEEPALIVE_COUNT_MAX} unanswered ones the session is dropped. Paramiko's {@code set_keepalive} only sends;
+     * there a dead box is noticed when the socket fails. Either way {@link #isActive} turns false.
+     */
+    @Override
+    public synchronized void keepalive(Duration interval) {
+        if (session == null) {
+            throw new DeviceError(label() + ": keepalive on a session that is not open");
+        }
+        pin(session);
+        try {
+            session.setServerAliveInterval(millis(interval));
+            session.setServerAliveCountMax(KEEPALIVE_COUNT_MAX);
+        } catch (JSchException e) {
+            throw operationFailure(label(), "keepalive", e);
+        }
+    }
+
+    /**
+     * Whether the session is up. Once forwards or a keepalive are set, it answers for <em>that</em> session: the other
+     * operations reconnect a dropped session silently, and a new session carries none of the old one's forwards, so
+     * the tunnel must see the drop (the Python polls the paramiko transport it set the forwards on).
+     */
+    @Override
+    public synchronized boolean isActive() {
+        Session s = pinned != null ? pinned : session;
+        return s != null && s == session && s.isConnected();
+    }
+
+    private synchronized void pin(Session s) {
+        if (pinned == null) {
+            pinned = s;
+        }
     }
 
     /** The SFTP channel, opened after the once-per-transport SELinux step. */
