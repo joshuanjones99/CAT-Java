@@ -145,6 +145,7 @@ class RunServiceTest {
         RunService service = service(engine);
 
         service.preflight();
+        awaitPreflight(service);
         assertEquals("REPORT", service.view().preflight());
 
         service.start(config());
@@ -166,5 +167,114 @@ class RunServiceTest {
         assertTrue(service.logLines().isEmpty());
         engine.release();
         FakeRunEngine.awaitIdle(service);
+    }
+
+    private static void awaitPreflight(RunService service) {
+        long deadline = System.nanoTime() + FakeRunEngine.WAIT.toNanos();
+        while (service.view().preflighting()) {
+            if (System.nanoTime() > deadline) {
+                throw new IllegalStateException("the preflight never ended");
+            }
+            Thread.onSpinWait();
+        }
+    }
+
+    @Test
+    void aMissingSignInRefusesTheStartAsThePythonDoes() {
+        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(STARTED), null);
+        RunService service = service(engine).gates(() -> java.util.Map.of("Jira sign-in", "missing"),
+                () -> false, () -> false);
+
+        service.start(config());
+
+        assertFalse(service.view().busy());
+        assertEquals("Run not started: sign in first on the Setup page. Missing: Jira sign-in",
+                service.view().notice());
+        assertEquals(null, engine.launchedWith());
+    }
+
+    @Test
+    void aRecordingOrADownloadStillStagingRefusesTheStart() {
+        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(STARTED), null);
+        RunService recording = service(engine).gates(java.util.Map::of, () -> false, () -> true);
+        recording.start(config());
+        assertEquals(RunService.RECORDING, recording.view().notice());
+        recording.preflight();
+        assertEquals(RunService.RECORDING, recording.view().notice());
+
+        RunService staging = service(engine).gates(java.util.Map::of, () -> true, () -> false);
+        staging.start(config());
+        assertEquals(RunService.STAGING, staging.view().notice());
+    }
+
+    @Test
+    void stopAbandonsAPreflightAndStartIsRefusedWhileOneRuns() throws Exception {
+        java.util.concurrent.CountDownLatch hold = new java.util.concurrent.CountDownLatch(1);
+        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(STARTED), null);
+        RunService service = new RunService("lab", () -> engine, () -> {
+            try {
+                hold.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return "LATE REPORT";
+        }, Clock.systemUTC());
+
+        service.preflight();
+        assertTrue(service.view().preflighting());
+        service.start(config());
+        assertEquals(RunService.PREFLIGHTING, service.view().notice());
+
+        service.stop();
+        assertFalse(service.view().preflighting());
+        assertEquals("Preflight stopped before it finished.", service.view().preflight());
+        hold.countDown();
+    }
+
+    @Test
+    void aStartFromTheConfigTabFetchesTheCasesFirstThenStartsOnTheFreshChoices() throws Exception {
+        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(STARTED), null);
+        List<List<String>> fetched = new java.util.ArrayList<>();
+        java.util.concurrent.atomic.AtomicBoolean ready = new java.util.concurrent.atomic.AtomicBoolean();
+        RunService service = service(engine).caseFetch(plans -> {
+            fetched.add(plans);
+            ready.set(true);
+        });
+
+        service.startFromForm(() -> ready.get() ? new RunStart.Plan(config(), "")
+                : new RunStart.Plan(null, "Nothing to run yet: a test plan with at least one migrated case.",
+                        List.of(), true), List.of("PETROCORE-70960"));
+        engine.awaitWritten();
+
+        assertEquals(List.of(List.of("PETROCORE-70960")), fetched);
+        assertEquals(List.of("PETROCORE-70960"), engine.launchedWith().testPlans());
+        engine.release();
+        FakeRunEngine.awaitIdle(service);
+    }
+
+    @Test
+    void aStartThatStillCannotRunAfterTheFetchSaysWhyAndGoesBackToPreRun() throws Exception {
+        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(STARTED), null);
+        RunService service = service(engine).caseFetch(plans -> { });
+
+        service.startFromForm(() -> new RunStart.Plan(null, "Nothing to run yet: no cases.", List.of(), true),
+                List.of("PETROCORE-1"));
+        FakeRunEngine.awaitIdle(service);
+
+        assertFalse(service.view().started());
+        assertEquals("Nothing to run yet: no cases.", service.view().notice());
+        assertEquals(null, engine.launchedWith());
+    }
+
+    @Test
+    void aRefusalThatAFetchCannotFixIsNotStarted() {
+        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(STARTED), null);
+        RunService service = service(engine).caseFetch(plans -> { });
+
+        service.startFromForm(() -> new RunStart.Plan(null, "No rig is named.", List.of(), false),
+                List.of("PETROCORE-1"));
+
+        assertFalse(service.view().busy());
+        assertEquals("No rig is named.", service.view().notice());
     }
 }

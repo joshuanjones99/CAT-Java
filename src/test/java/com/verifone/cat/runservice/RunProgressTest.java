@@ -55,7 +55,10 @@ class RunProgressTest {
         progress.refresh();
 
         assertEquals(1, progress.snapshot().passed());
-        assertEquals(1, progress.snapshot().failed());
+        // With no plan the counters are the reducer's test counts, which count only a "failed" outcome (the
+        // Python's _apply_test_finished); the error is still listed under Failures.
+        assertEquals(0, progress.snapshot().failed());
+        assertEquals("error", progress.snapshot().failures().get(0).outcome());
         assertEquals("line one", progress.snapshot().failures().get(0).detail());
     }
 

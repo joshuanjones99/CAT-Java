@@ -151,6 +151,36 @@ class ResultsWebTest {
         assertFalse(html.contains("<script>alert"), html);
     }
 
+    @Test
+    void aRunPageHasTheBoardTheValidationsAndTheFilteredLogAsTabs() throws Exception {
+        String overview = get("/results/run/lab-run").body();
+        assertTrue(overview.contains("?tab=validations"), overview);
+        assertTrue(overview.contains("PETROCORE-1: First case"), "the board's case rows");
+        assertTrue(overview.contains("Run Complete"), overview);
+        assertTrue(overview.contains("commit") || overview.contains("failed"), overview);
+        assertFalse(overview.contains("every 2s"), "a past run does not poll");
+
+        String step = get("/results/run/lab-run/step?i=4").body();
+        assertTrue(step.contains("Tests Run") && step.contains("First case"), step);
+        String detail = get("/results/run/lab-run/case?key=PETROCORE-1").body();
+        assertTrue(detail.contains("two") && detail.contains("AssertionError"), detail);
+
+        String validations = get("/results/run/lab-run?tab=validations").body();
+        assertTrue(validations.contains("No validations yet."), validations);
+
+        String log = get("/results/run/lab-run?tab=log&lv=1&level=ERROR").body();
+        assertTrue(log.contains("No line matches these filters."), log);
+        String text = get("/results/run/lab-run/log.txt?q=line+one").body();
+        assertTrue(text.endsWith("I test: <script>alert(1)</script> line one"), text);
+    }
+
+    @Test
+    void theRunsTableSortsByAColumnAndBack() throws Exception {
+        String sorted = get("/results/view?segment=rig&tab=runs&sort=failed&dir=asc").body();
+        assertTrue(sorted.contains("aria-sort=\"ascending\""), sorted);
+        assertTrue(sorted.contains("sort=failed&amp;dir=desc"), "the header sorts the other way next");
+    }
+
     private HttpResponse<String> get(String path) throws Exception {
         return http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + app.port() + path)).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
