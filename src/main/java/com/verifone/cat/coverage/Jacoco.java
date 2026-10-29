@@ -158,6 +158,15 @@ public final class Jacoco {
         return List.copyOf(args);
     }
 
+    /** {@code merge}: several exec files into one ({@code destfile}). */
+    public static List<String> mergeArgs(List<Path> execfiles, Path destfile) {
+        List<String> args = new ArrayList<>();
+        args.add("merge");
+        execfiles.forEach(path -> args.add(path.toString()));
+        args.addAll(List.of("--destfile", destfile.toString(), "--quiet"));
+        return List.copyOf(args);
+    }
+
     /**
      * {@code report}: one exec file against its class files, with source roots when given, HTML when
      * {@code html} is not null, and always XML.
