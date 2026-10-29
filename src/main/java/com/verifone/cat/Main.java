@@ -45,9 +45,10 @@ public final class Main {
 
     /**
      * Every command word, in the usage's order. Each Python {@code petrotest <command>} that is ported is a
-     * {@code <Thing>Command.run(String[])} here. Not here yet, because no {@code *Command} class exists in the tree:
-     * {@code secondary-fep}, {@code register-app}, {@code payment-links}, {@code payment-ready},
-     * {@code commander-init}, {@code commander-prep}, {@code psi-init}.
+     * {@code <Thing>Command.run(String[])} here. Step 4's commands (wave 16): {@code commander-prep},
+     * {@code commander-init}, {@code payment-links}, {@code register-app}, {@code payment-ready},
+     * {@code commander-trust}, {@code secondary-fep}, {@code csite-reset}, {@code cloud-snapshot},
+     * {@code build-pos-shim} (the Python's {@code tools/build_pos_shim.py}) and {@code install-resume} (new).
      */
     static final Map<String, Command> COMMANDS = commands();
 
@@ -65,6 +66,17 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("commander-prep", new Command(com.verifone.cat.commander.CommanderPrepCommand.class, argv -> new com.verifone.cat.commander.CommanderPrepCommand().run(argv)));
+        table.put("commander-init", new Command(com.verifone.cat.commander.CommanderInitCommand.class, argv -> new com.verifone.cat.commander.CommanderInitCommand().run(argv)));
+        table.put("payment-links", new Command(com.verifone.cat.commander.links.PaymentLinksCommand.class, argv -> new com.verifone.cat.commander.links.PaymentLinksCommand().run(argv)));
+        table.put("register-app", new Command(com.verifone.cat.commander.registerapp.RegisterAppCommand.class, argv -> new com.verifone.cat.commander.registerapp.RegisterAppCommand().run(argv)));
+        table.put("payment-ready", new Command(com.verifone.cat.commander.PaymentReadyCommand.class, argv -> new com.verifone.cat.commander.PaymentReadyCommand().run(argv)));
+        table.put("commander-trust", new Command(com.verifone.cat.commander.CommanderTrustCommand.class, argv -> new com.verifone.cat.commander.CommanderTrustCommand().run(argv)));
+        table.put("secondary-fep", new Command(com.verifone.cat.commander.SecondaryFepCli.class, argv -> new com.verifone.cat.commander.SecondaryFepCli().run(argv)));
+        table.put("csite-reset", new Command(com.verifone.cat.commander.connect.CSiteReset.class, argv -> new com.verifone.cat.commander.connect.CSiteReset().run(argv)));
+        table.put("cloud-snapshot", new Command(com.verifone.cat.commander.connect.CloudSnapshotCommand.class, argv -> new com.verifone.cat.commander.connect.CloudSnapshotCommand().run(argv)));
+        table.put("build-pos-shim", new Command(com.verifone.cat.provision.PosShimBuildCommand.class, argv -> new com.verifone.cat.provision.PosShimBuildCommand().run(argv)));
+        table.put("install-resume", new Command(com.verifone.cat.launch.InstallResume.class, argv -> new com.verifone.cat.launch.InstallResume().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
@@ -90,6 +102,11 @@ public final class Main {
               commander-snapshot  capture, restore or check a Commander config snapshot (petrotest commander-snapshot)
               commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
               cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
+              commander-prep, commander-init, payment-links, register-app, payment-ready, commander-trust,
+              secondary-fep, csite-reset, cloud-snapshot
+                                  step 4's stages one at a time, flags as petrotest's (each takes --help)
+              build-pos-shim      compile bridge/pos-shim into payload/pos (tools/build_pos_shim.py)
+              install-resume      carry an interrupted PSI install on from its root-access push, then step 4
               --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
               --register   which register's shim to use; default the rig's first
               --port       the web UI's port on 127.0.0.1; default 8090
