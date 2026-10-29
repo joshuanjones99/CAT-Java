@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 public final class Selection {
 
     /** Where the petroapps case folders live, casefolded. */
-    static final String CASES = "automationtests/testcases";
+    public static final String CASES = "automationtests/testcases";
 
     /** An authored case's file (DESIGN.md 5.6): CAT's, never PATS's, despite matching {@code *-TestCase.*}. */
     static final String FEATURE_SUFFIX = "-testcase.feature";
@@ -196,7 +196,7 @@ public final class Selection {
     }
 
     /** {@code _join}: the non-empty parts joined with {@code /}. */
-    static String join(String... parts) {
+    public static String join(String... parts) {
         StringBuilder out = new StringBuilder();
         for (String part : parts) {
             if (!part.isEmpty()) {

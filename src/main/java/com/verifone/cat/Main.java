@@ -65,6 +65,11 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("record", new Command(com.verifone.cat.recorder.RecordCommand.class, argv -> new com.verifone.cat.recorder.RecordCommand().run(argv)));
+        table.put("generate", new Command(com.verifone.cat.recorder.GenerateCommand.class, argv -> new com.verifone.cat.recorder.GenerateCommand().run(argv)));
+        table.put("steps", new Command(com.verifone.cat.authoring.StepsCommand.class, argv -> new com.verifone.cat.authoring.StepsCommand().run(argv)));
+        table.put("authoring", new Command(com.verifone.cat.authoring.AuthoringCommand.class, argv -> new com.verifone.cat.authoring.AuthoringCommand().run(argv)));
+        table.put("publish", new Command(com.verifone.cat.publish.PublishCommand.class, argv -> new com.verifone.cat.publish.PublishCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
@@ -90,6 +95,11 @@ public final class Main {
               commander-snapshot  capture, restore or check a Commander config snapshot (petrotest commander-snapshot)
               commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
               cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
+              record              watch the POS page and write each tap to a recording (petrotest record)
+              generate            a recording as an authored .feature case (petrotest generate)
+              steps               list the step library, or check .feature cases against it (petrotest steps)
+              authoring           an Authoring session from the command line (python -m cat.authoring)
+              publish             commit a suite to a local petroapps branch (petrotest publish)
               --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
               --register   which register's shim to use; default the rig's first
               --port       the web UI's port on 127.0.0.1; default 8090
