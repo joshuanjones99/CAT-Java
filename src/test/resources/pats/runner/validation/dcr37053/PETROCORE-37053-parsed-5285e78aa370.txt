@@ -1,0 +1,65 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+VFI-QA-LAB
+CLEARWATER
+TPA FL
+560100
+DATE 10/28/26 22:36
+TRAN#9010023
+PUMP# 01
+SERVICE LEVEL: SELF
+PRODUCT: PETR-UNLD1
+GALLONS: 19.194
+PRICE/G: $0.521
+FUEL SALE  $10.00
+CAR-WASH-PLU-  $5.00
+TAX  $0.25
+TOTAL SALE  $15.25
+DISCOUNT  -0.15
+CREDIT  $15.10
+********************
+CAR WASH CODE
+CAR-WASH-PLU-1
+3 3 4 0 2
+********************
+VALID FOR 14 DAYS
+VISA
+************9003
+Entry: Swiped
+Auth #: 123628
+Resp Code: 000
+Stan: 00052588
+Invoice #: 311
+Store # 99999
+Loy. Prog: PROGRAM01
+Card: PCATS01
+**************3161
+Trace #: 16
+Stan: 00052588
+Thanks for Shopping
+with Us
+Enjoy Your Rewards
+Come back soon
+https://uqr.to/20gc7
+Discount From: PCATS
+01
+Loy. Prog: PROGRAM02
+Card: PCATS02
+**************8937
+Trace #: 10
+Stan: 00052588
+Thanks for Shopping
+with Us
+Enjoy Your Rewards
+Come back soon
+https://uqr.to/20gc7
+Discount From: PCATS
+02
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
