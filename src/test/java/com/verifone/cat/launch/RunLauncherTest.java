@@ -191,7 +191,7 @@ class RunLauncherTest {
     @Test
     void aPartialRunThatSelectsNothingIsRefusedBeforeStepOneAndTheRigFileIsNotRead() throws IOException {
         LaunchConfig config = new LaunchConfig.Builder(LaunchFixtures.RIG)
-                .scope(new RunScope(RunScope.Mode.TAGS, "@smoke", List.of(), null, "", true))
+                .tags("@smoke")
                 .build();
 
         LaunchResult result = new RunLauncher(LaunchFixtures.paths(dir)).launch(config);
@@ -259,6 +259,25 @@ class RunLauncherTest {
                 .fromCase("PETROCORE-2").build());
 
         assertEquals(RunLauncher.PARTIAL_REFUSED + "--from PETROCORE-2: not a migrated case of the plan",
+                result.steps().get(0).detail());
+    }
+
+    /** The authoring replay gate: suites and no plan, each suite one authored case, with a cases scope beside them. */
+    @Test
+    void suitesWithNoPlanAreEachACaseAndACasesScopeBesideThemIsNotAPlanSelection() throws IOException {
+        List<CaseEntry> cases = PlanCases.suiteCases(List.of("tests/authored/PETROCORE-61338-TestCase.feature",
+                "x/Other.feature"));
+        assertEquals(List.of(new CaseEntry("PETROCORE-61338", "tests/authored/PETROCORE-61338-TestCase.feature",
+                Path.of("tests/authored/PETROCORE-61338-TestCase.feature")),
+                new CaseEntry("Other", "x/Other.feature", Path.of("x/Other.feature"))), cases);
+        assertEquals(cases, PlanCases.forRun(LaunchFixtures.paths(dir)).cases(new LaunchConfig.Builder("")
+                .fakePos(true).suite("tests/authored/PETROCORE-61338-TestCase.feature").suite("x/Other.feature")
+                .build()));
+
+        LaunchResult result = new RunLauncher(LaunchFixtures.paths(dir)).launch(new LaunchConfig.Builder("")
+                .fakePos(true).suite("tests/authored/PETROCORE-61338-TestCase.feature")
+                .scope(new RunScope(RunScope.Mode.CASES, "", List.of("PETROCORE-61338"), null, "", true)).build());
+        assertFalse(result.steps().get(0).detail().startsWith(RunLauncher.PARTIAL_REFUSED),
                 result.steps().get(0).detail());
     }
 

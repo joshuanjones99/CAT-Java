@@ -232,6 +232,11 @@ final class PlanStart {
         if (!config.partial()) {
             return "";
         }
+        if (config.testPlans().isEmpty() && !config.explicitSelection()) {
+            // A Run tab scope beside suites and no plan (the authoring replay gate's cases scope): the suites are the
+            // cases, and there is no plan to select them from.
+            return "";
+        }
         List<CaseRef> pairs = new ArrayList<>();
         if (!config.testPlans().isEmpty()) {
             if (ctx.planCases() == null) {

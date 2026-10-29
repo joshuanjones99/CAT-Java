@@ -191,4 +191,28 @@ class PrinterHoldTest {
         assertEquals(List.of("Receipt Printer: stopped COM3", "Receipt Printer: failed COM3",
                 "Receipt Printer: needs attention COM3"), rows(ctx));
     }
+
+    /** A step-5 receipt names the case running as it printed, and a check's verdict and diff follow it. */
+    @Test
+    void aSessionReceiptNamesItsCaseAndACheckIsAVerdictLineWithItsDiff() throws Exception {
+        RunContext ctx = context(false);
+        FakePrinter printer = new FakePrinter();
+        String[] current = {"PETROCORE-61334"};
+        PrinterHold.ReceiptRelay relay = new PrinterHold.ReceiptRelay(ctx, "COM3", printer, () -> { },
+                () -> current[0]);
+        printer.printed.add(List.of("SALE"));
+        relay.relay();
+        com.verifone.cat.report.CaseRecord record = new com.verifone.cat.report.CaseRecord("node", "PETROCORE-61334",
+                dir.resolve("case"), java.time.Instant.now());
+        record.receiptChecked("SALE\n", false, "-a\n+b", "PETROCORE-61334-Receipt.txt");
+        PrinterHold.receiptChecked(ctx, record.receiptChecks().get(0), LaunchStepNames.TESTS);
+        relay.close();
+        ctx.closeEvents();
+
+        List<String> lines = receiptLines(ctx);
+        String key = com.verifone.cat.devices.printer.TopazPrinter.receiptKey(List.of("SALE"));
+        assertEquals("┌ receipt 1 on COM3, 1 lines [" + key + "] during PETROCORE-61334", lines.get(1));
+        assertTrue(lines.contains("╞ " + key + " PETROCORE-61334 failed PETROCORE-61334-Receipt.txt"), lines.toString());
+        assertTrue(lines.containsAll(List.of("┊ -a", "┊ +b")), lines.toString());
+    }
 }

@@ -46,8 +46,8 @@ import java.util.function.BiConsumer;
  * suite holds (the same cases run, and no 55.02 copy of a 57.02 case lands in {@code pulled/}). Two plans in one run
  * keep one entry per distinct test file (the Python's {@code dict.fromkeys(node)}), so a key that resolves to a
  * different file in each plan runs once from each. With {@link LaunchPaths#pythonRoot} null there are no local suites
- * and every case is pulled, as before. Suites ({@code --suite}) are not collected here, so a run with suites and no
- * plan has no cases, and step 1 stops it saying so.
+ * and every case is pulled, as before. A run with suites and no plan (the authoring replay gate) runs each suite as one
+ * authored case file ({@link #suiteCases}); nothing is collected for it.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): fake-tested only.
  */
@@ -93,7 +93,7 @@ final class PlanCases {
         @Override
         public List<CaseEntry> cases(LaunchConfig config) throws IOException {
             if (config.testPlans().isEmpty()) {
-                return List.of();
+                return suiteCases(config.suites());
             }
             try {
                 return resolve(config, paths);
@@ -101,6 +101,22 @@ final class PlanCases {
                 throw new IOException("the plan's cases could not be collected: " + e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * A run with suites and no plan (the authoring replay gate): each suite is one authored case file, its node id the
+     * suite exactly as given and its file that path, its key the file's case ({@code PETROCORE-61338-TestCase.feature}
+     * gives {@code PETROCORE-61338}; {@code collect.Selection.caseOf}).
+     */
+    static List<CaseEntry> suiteCases(List<String> suites) {
+        List<CaseEntry> entries = new ArrayList<>();
+        for (String suite : suites) {
+            Path file = Path.of(suite);
+            Path name = file.getFileName();
+            entries.add(new CaseEntry(com.verifone.cat.collect.Selection.caseOf(
+                    name == null ? suite : name.toString()), suite, file));
+        }
+        return List.copyOf(entries);
     }
 
     private record Planned(String key, String summary, LocalSuites.Resolution local) {}

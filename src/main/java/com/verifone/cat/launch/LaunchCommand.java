@@ -11,22 +11,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import com.verifone.cat.atlassian.AtlassianClient;
-import com.verifone.cat.atlassian.AtlassianCredentials;
-import com.verifone.cat.atlassian.AtlassianPlanSource;
-import com.verifone.cat.connections.Endpoints;
 import com.verifone.cat.plans.CaseRef;
 import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.plans.PlanCase;
 import com.verifone.cat.plans.PlanCatalogue;
-import com.verifone.cat.plans.SeedPlanSource;
 import com.verifone.cat.plans.SelectionError;
 import com.verifone.cat.plans.Snapshot;
 import com.verifone.cat.plans.TagExpressionError;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
-import com.verifone.cat.sims.Registry;
-import com.verifone.cat.sims.SimEntry;
 
 /**
  * {@code launch --rig <name|file.yaml> --plan <key>... [options]}: one run, headless, through the seven steps.
@@ -52,6 +45,9 @@ import com.verifone.cat.sims.SimEntry;
  * anything starts, as {@code run_plan._refusal} checks it: a tag expression that does not parse, or a key not among the
  * plans' migrated cases, prints {@code [run] refused: <why>} and exits 2. The tags are matched at run start, once
  * collection has pulled the files.
+ *
+ * <p>The defaults, the network catalogue and the wired launcher are {@link LaunchDefaults}', shared with the web's
+ * Start run.
  *
  * <p>Deviations from the Python: {@code --rig} is required (the Python always runs on {@code LAB_RIG}); a
  * {@code --fake-pos} run reads no saved choices and takes no default simulators or connections, so it never starts a
@@ -86,11 +82,11 @@ public final class LaunchCommand {
     /** The fake-POS banner, the same words the Python CAT's run log uses. */
     static final String FAKE_POS_BANNER = "[FAKE POS: evidence about CAT, not about a rig]";
 
-    /** The device {@code default_connections} leaves out: the physical pinpad (the Python's DEFAULT_EXCLUDED_DEVICE). */
-    static final String DEFAULT_EXCLUDED_DEVICE = "pinpad";
+    /** The device {@code default_connections} leaves out: the physical pinpad ({@link LaunchDefaults}). */
+    static final String DEFAULT_EXCLUDED_DEVICE = LaunchDefaults.DEFAULT_EXCLUDED_DEVICE;
 
     /** A bound on each Atlassian request the plan and requirements reads make (the Python's 30 s). */
-    static final Duration ATLASSIAN_TIMEOUT = Duration.ofSeconds(30);
+    static final Duration ATLASSIAN_TIMEOUT = LaunchDefaults.ATLASSIAN_TIMEOUT;
 
     /**
      * Runs the command with the environment's paths, a catalogue that reads Xray and Confluence, the saved choices
@@ -130,9 +126,8 @@ public final class LaunchCommand {
             out.println("[run] Recorded, not wired: " + String.join(", ", unwired));
         }
 
-        RunLauncher launcher = new RunLauncher(paths);
         // Step 5 runs the plan's collected cases through the production handler set, on the fake POS or the rig.
-        launcher.wireTests(new StandardRegistry(), PlanCases.forRun(paths), new BrowserConnector());
+        RunLauncher launcher = LaunchDefaults.wiredLauncher(paths);
         LaunchResult result = launcher.launch(config);
         if (config.fakePos()) {
             out.println(FAKE_POS_BANNER);
@@ -204,17 +199,12 @@ public final class LaunchCommand {
 
     /** Every simulator CAT starts when the plans name none: the launchable registry rows (the Python's). */
     static List<String> defaultSimulators() {
-        return Registry.launchable(false).stream().map(SimEntry::name).toList();
+        return LaunchDefaults.defaultSimulators();
     }
 
     /** Every optional target step 2 probes when the plans name no devices: all but the physical pinpad. */
     static List<String> defaultConnections(Rig rig) {
-        if (rig == null) {
-            return List.of();
-        }
-        return Endpoints.optionalTargetNames(rig).stream()
-                .filter(name -> !name.toLowerCase(Locale.ROOT).contains(DEFAULT_EXCLUDED_DEVICE))
-                .toList();
+        return LaunchDefaults.defaultConnections(rig);
     }
 
     private static Rig loadRig(String rig, LaunchPaths paths) {
@@ -230,12 +220,7 @@ public final class LaunchCommand {
 
     /** {@code paths} with a catalogue whose network source is Xray and Confluence, over the same caches and seed. */
     static LaunchPaths withNetwork(LaunchPaths paths, Path home) {
-        AtlassianClient client = AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(),
-                ATLASSIAN_TIMEOUT);
-        PlanCatalogue catalogue = new PlanCatalogue(home.resolve(".cat").resolve("java"), home.resolve(".cat"),
-                new AtlassianPlanSource(client), new SeedPlanSource(), paths.repoRoot());
-        return new LaunchPaths(paths.resultsRoot(), paths.rigsDir(), paths.leaseDir(), paths.repoRoot(),
-                paths.petroappsRoot(), catalogue, paths.setupEnv(), paths.pythonRoot());
+        return LaunchDefaults.withNetwork(paths, home);
     }
 
     /** The parsed command line: only what was typed; {@link #toConfig} applies the saved choices and defaults. */

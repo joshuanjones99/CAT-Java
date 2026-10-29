@@ -253,10 +253,10 @@ final class PrinterHold {
     }
 
     /** A receipt check's verdict line on the printer's log: the Python's {@code topaz_printer.RECEIPT_CHECK}. */
-    static final String RECEIPT_CHECK = "╞ ";
+    static final String RECEIPT_CHECK = com.verifone.cat.runservice.ReceiptRoll.RECEIPT_CHECK;
 
     /** One line of a receipt check's diff on the printer's log: the Python's {@code topaz_printer.RECEIPT_DIFF}. */
-    static final String RECEIPT_DIFF = "┊ ";
+    static final String RECEIPT_DIFF = com.verifone.cat.runservice.ReceiptRoll.RECEIPT_DIFF;
 
     /**
      * A receipt check's verdict on the printer's log, for the Receipt Printer's roll: {@code ╞ <receipt key> <case>

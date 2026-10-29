@@ -268,7 +268,7 @@ public record LaunchConfig(
     }
 
     /** Whether {@link #tags}, {@link #only} or {@link #fromCase} was set outright; the scope is then not read. */
-    private boolean explicitSelection() {
+    public boolean explicitSelection() {
         return !tags.isEmpty() || !only.isEmpty() || !fromCase.isEmpty();
     }
 
