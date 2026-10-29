@@ -321,8 +321,11 @@ public final class Supervisor {
             try {
                 ev.log(entry.name(), PetroTls.configure(ctx.cwdFor(entry), entry.tls(), ctx.tlsPort(), serialPorts));
                 Optional<Path> exe = ctx.javawExe();
-                if (!ctx.tlsPort().isEmpty() && exe.isPresent()) {
-                    // Without it Petro sees no serial port at all (PetroTls).
+                boolean agented = entry.argv().stream().anyMatch(arg -> arg.startsWith("-javaagent:")
+                        && arg.contains("cat-rxtx-agent"));
+                if (!ctx.tlsPort().isEmpty() && exe.isPresent() && !agented) {
+                    // Without it Petro sees no serial port at all (PetroTls). Once only: a restart is handed the
+                    // row this launch ran, which carries it already (the Python would add it twice).
                     Path jar = PetroTls.agentJar(exe.get().resolveSibling("javac.exe"), agentCache);
                     launch = entry.withArgvFirst("-javaagent:" + jar);
                 }

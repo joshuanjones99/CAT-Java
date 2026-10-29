@@ -49,10 +49,10 @@ import com.verifone.cat.sims.base.SuiteBase;
  *
  * <p>Deviations: the client is made only when something must be downloaded, so a controller with no Artifactory login
  * passes when both Java sets and the simulators are already right (the Python fails it); a chosen build already
- * installed (its {@link SuiteBase#MARKER} names that branch and build) is not downloaded again ({@link SimFetch}); the
- * rows a run uses are {@link LaunchConfig#simulators()} (CAT-Java has no Secondary FEP simulator rows, the Python's
- * {@code all_simulators}); the two registry forms of a stale row are stopped in two passes, since the supervisor keys
- * its answer by row name.
+ * installed (its {@link SuiteBase#MARKER} names that branch and build) is not downloaded again ({@link SimFetch}).
+ * The rows a run uses are the Python's {@code all_simulators} ({@link #usedSimulators}): the picker's, plus each chosen
+ * Secondary FEP's host simulator. The two registry forms of a stale row are stopped in two passes, since the
+ * supervisor keys its answer by row name.
  *
  * <p>UNVERIFIED AGAINST HARDWARE AND A REAL ARTIFACTORY SERVER (Java port).
  */
@@ -73,10 +73,18 @@ final class SimulatorBaseChecks {
         return "";
     }
 
+    /**
+     * The simulators this run uses: the Python's {@code LaunchConfig.all_simulators}, the picker's plus each chosen
+     * Secondary FEP's host simulator ({@link com.verifone.cat.sims.FepHosts}); never a FEP's on a fake-POS run.
+     */
+    static Set<String> usedSimulators(RunContext ctx) {
+        return new LinkedHashSet<>(com.verifone.cat.sims.FepHosts.allSimulators(ctx.config().simulators(),
+                ctx.commanderOptions().secondaryFeps(), ctx.config().fakePos()));
+    }
+
     /** The context the run's simulators resolve against: the tools root, the controller, and the base's Java set. */
     static SimContext simContext(Path toolsRoot, Rig rig, String base) {
-        String host = rig == null ? "" : rig.controller().host();
-        return new SimContext(toolsRoot, host, JavaSets.javaForRun(base).target(), null, null);
+        return SimContext.forRig(toolsRoot, rig).withJavaDir(JavaSets.javaForRun(base).target());
     }
 
     /**
@@ -112,7 +120,7 @@ final class SimulatorBaseChecks {
             step.skip(label, "--fake-pos starts no simulator");
             return List.of();
         }
-        Set<String> used = new LinkedHashSet<>(config.simulators());
+        Set<String> used = usedSimulators(ctx);
         String base = ctx.simsBase();
         boolean older = JavaSets.olderBase(base);
         List<SimEntry> rows = SimFetch.buildRows(Registry.forBase(older), used);
@@ -151,7 +159,7 @@ final class SimulatorBaseChecks {
         }
         String base = ctx.simsBase();
         boolean older = JavaSets.olderBase(base);
-        Set<String> used = new LinkedHashSet<>(config.simulators());
+        Set<String> used = usedSimulators(ctx);
         List<SimEntry> javaRows = Registry.forBase(older).stream()
                 .filter(e -> used.contains(e.name()) && e.runner() == Runner.JAVAW).toList();
         if (javaRows.isEmpty()) {
