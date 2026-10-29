@@ -24,9 +24,14 @@ final class CardServerStub implements AutoCloseable {
     private final List<Socket> connections = Collections.synchronizedList(new ArrayList<>());
 
     CardServerStub(List<Integer> statuses, boolean silent) throws IOException {
+        this(statuses, silent, 0);
+    }
+
+    /** On {@code port} (0 for a free one). */
+    CardServerStub(List<Integer> statuses, boolean silent, int port) throws IOException {
         this.statuses = Collections.synchronizedList(new ArrayList<>(statuses));
         this.silent = silent;
-        this.server = new ServerSocket(0, 8, InetAddress.getLoopbackAddress());
+        this.server = new ServerSocket(port, 8, InetAddress.getLoopbackAddress());
         Thread accept = new Thread(this::accept, "cssp-stub");
         accept.setDaemon(true);
         accept.start();
