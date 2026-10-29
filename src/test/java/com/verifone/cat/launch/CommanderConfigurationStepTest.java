@@ -31,6 +31,8 @@ import com.verifone.cat.commander.Say;
 import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.commander.links.CommanderLinks;
 import com.verifone.cat.devices.DeviceError;
+import com.verifone.cat.provision.PosShimBuild;
+import com.verifone.cat.provision.ShimStamp;
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
@@ -228,6 +230,50 @@ class CommanderConfigurationStepTest {
         boolean psiPairing = true;
         Optional<Path> newest = Optional.empty();
         Installed.Identification installed;
+
+        // The pos-shim build ahead of provision (null payload: no row).
+        Path payload;
+        Path repo;
+        boolean buildOk = true;
+        String hostPackets;
+
+        @Override
+        public Path posShimPayload() {
+            return payload;
+        }
+
+        @Override
+        public Path posShimRepoRoot() {
+            return repo;
+        }
+
+        @Override
+        public boolean buildPosShim(Rig rig, Path petroapps, Say say) {
+            ran.add("build-pos-shim");
+            if (!buildOk) {
+                say.err("ERROR: missing build dependencies in deps");
+                return false;
+            }
+            try {
+                Files.writeString(payload.resolve(ShimStamp.STAMP_NAME), ShimStamp.sourceStamp(repo, petroapps) + "\n");
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return true;
+        }
+
+        @Override
+        public Path hostPackets(RunContext ctx) {
+            return hostPackets == null ? null : Path.of(hostPackets);
+        }
+
+        @Override
+        public boolean emvKeys(Rig rig, String tables, Path packets, Say say) {
+            if (packets != null) {
+                ran.add("host-packets " + packets.getFileName());
+            }
+            return emvKeys(rig, tables, say);
+        }
 
         @Override
         public Path buildsRoot() {
@@ -1057,5 +1103,107 @@ class CommanderConfigurationStepTest {
         assertEquals(LaunchStepNames.COMMANDER, step.name());
         assertThrows(StageUnavailable.class, () -> CommanderStages.real(Map.of()).pinpadClear(null, null));
         assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
+    }
+
+    // -- wave 16: provision_register, the execution mode, the pos-shim build ------------------------------------------
+
+    @Test
+    void aRunThatDoesNotProvisionTheRegisterTouchesNothingAndIsSkipped() throws IOException {
+        Stages stages = new Stages();
+        Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).build(), stages);
+        assertTrue(out.keepGoing());
+        assertEquals(List.of(), stages.ran);
+        assertEquals(SubstepOutcome.SKIPPED, out.rows().get(label("provision")));
+        assertEquals(StepResult.SKIPPED, out.step().state());
+    }
+
+    @Test
+    void theBddExecutionModeSkipsCommanderInit() throws IOException {
+        Stages stages = new Stages();
+        Outcome out = run(rigRun().executionMode("BDD").build(), stages);
+        assertTrue(out.keepGoing(), out.step().detail());
+        assertFalse(stages.ran.stream().anyMatch(stage -> stage.startsWith("commander-init")), stages.ran.toString());
+        assertTrue(stages.ran.contains("payment-links"), stages.ran.toString());
+    }
+
+    @Test
+    void aHostPacketFileReachesEmvKeys() throws IOException {
+        Stages stages = new Stages();
+        stages.hostPackets = "fepsim-capture.txt";
+        Outcome out = run(rigRun().build(), stages);
+        assertTrue(out.keepGoing(), out.step().detail());
+        assertTrue(stages.ran.contains("host-packets fepsim-capture.txt"), stages.ran.toString());
+    }
+
+    /** Stages with a payload of every output and fixture sources under {@code dir} (petroapps: the run's). */
+    private Stages shimStages() throws IOException {
+        Stages stages = new Stages();
+        stages.repo = dir.resolve("cat");
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("cat/bridge/pos-shim/src/main/java/x/Shim.java", "class Shim {}\n");
+        files.put("cat/bridge/pos-shim/petrotest-pos-shim.sh", "#!/bin/sh\n");
+        files.put("cat/tools/build_pos_shim.py", "TARGET_RELEASE = '17'\n");
+        files.put("petroapps/" + ShimStamp.AGENT_SUBPATH + "/A.java", "class A {}\n");
+        files.put("petroapps/" + ShimStamp.TOPAZERP_SUBPATH + "/" + ShimStamp.TOPAZERP_CLASSES.get(0), "class V {}\n");
+        for (Map.Entry<String, String> file : files.entrySet()) {
+            Path path = ShimStamp.resolve(dir, file.getKey());
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, file.getValue());
+        }
+        stages.payload = Files.createDirectories(dir.resolve("payload").resolve("pos"));
+        for (String name : PosShimBuild.OUTPUTS) {
+            Files.writeString(stages.payload.resolve(name), "x");
+        }
+        return stages;
+    }
+
+    @Test
+    void aPayloadOfTheSourcesBuildIsNotBuiltAgain() throws IOException {
+        Stages stages = shimStages();
+        Files.writeString(stages.payload.resolve(ShimStamp.STAMP_NAME),
+                ShimStamp.sourceStamp(stages.repo, dir.resolve("petroapps")) + "\n");
+        Outcome out = run(rigRun().build(), stages);
+        assertFalse(stages.ran.contains("build-pos-shim"), stages.ran.toString());
+        assertFalse(out.rows().containsKey(CommanderConfigurationStep.POS_SHIM_BUILD_ROW));
+        assertTrue(out.logs().stream().anyMatch(line -> line.startsWith("OK    pos-shim payload is the sources"
+                + "\u2019 build ") || line.startsWith("OK    pos-shim payload is the sources' build ")),
+                out.logs().toString());
+    }
+
+    @Test
+    void aStaleStampRebuildsAndSaysWhichBuildsDiffer() throws IOException {
+        Stages stages = shimStages();
+        Files.writeString(stages.payload.resolve(ShimStamp.STAMP_NAME), "0123456789abcdef\n");
+        Outcome out = run(rigRun().build(), stages);
+        assertEquals("build-pos-shim", stages.ran.get(0), stages.ran.toString());
+        assertEquals("provision", stages.ran.get(1), stages.ran.toString());
+        assertEquals(SubstepOutcome.PASSED, out.rows().get(CommanderConfigurationStep.POS_SHIM_BUILD_ROW));
+        assertTrue(out.logs().stream().anyMatch(line -> line.startsWith("BUILD pos-shim \u2014 ")
+                && line.contains("holds build 0123456789ab, and the sources are now build ")), out.logs().toString());
+    }
+
+    @Test
+    void aMissingJarIsBuiltAndAFailedBuildOnlyWarns() throws IOException {
+        Stages stages = shimStages();
+        Files.delete(stages.payload.resolve("tokenRMI.prop"));
+        stages.buildOk = false;
+        Outcome out = run(rigRun().build(), stages);
+        assertTrue(out.keepGoing(), out.step().detail());
+        assertEquals(SubstepOutcome.WARNED, out.rows().get(CommanderConfigurationStep.POS_SHIM_BUILD_ROW));
+        String detail = out.details().get(CommanderConfigurationStep.POS_SHIM_BUILD_ROW);
+        assertTrue(detail.startsWith("failed (ERROR: missing build dependencies in deps). It needs a JDK"), detail);
+        assertTrue(stages.ran.contains("provision"), "provision is the authority on the payload");
+    }
+
+    @Test
+    void sourcesThatCannotBeHashedLeaveACompletePayloadAsItIs() throws IOException {
+        Stages stages = shimStages();
+        Files.writeString(stages.payload.resolve(ShimStamp.STAMP_NAME), "abc\n");
+        Files.delete(stages.repo.resolve("tools").resolve("build_pos_shim.py"));
+        Outcome out = run(rigRun().build(), stages);
+        assertFalse(stages.ran.contains("build-pos-shim"));
+        assertEquals(SubstepOutcome.WARNED, out.rows().get(CommanderConfigurationStep.POS_SHIM_BUILD_ROW));
+        assertTrue(out.details().get(CommanderConfigurationStep.POS_SHIM_BUILD_ROW).contains(
+                "Provision pushes it as it is."));
     }
 }
