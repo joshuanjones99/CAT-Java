@@ -294,7 +294,12 @@ final class StartSimulatorsStep implements LaunchStep {
         // pass still leaves its children owned by the run.
         List<SimProcess> procs = ctx.supervisor().startAll(starting, sims, events, START_TIMEOUT,
                 new AtomicBoolean());
-        procs.forEach(ctx::addSimulator);
+        // The final handle replaces the one Events.started recorded for the same process (the Python's
+        // `ctx.sim_procs = procs`): recorded twice, a restart would stop one and leave the other.
+        for (SimProcess proc : procs) {
+            ctx.replaceSimulators(ctx.simulators().stream()
+                    .filter(p -> p.process() != null && p.process() == proc.process()).toList(), proc);
+        }
 
         List<String> failed = new ArrayList<>();
         List<String> attention = new ArrayList<>();
