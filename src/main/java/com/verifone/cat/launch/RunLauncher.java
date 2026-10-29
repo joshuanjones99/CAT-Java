@@ -265,8 +265,8 @@ public final class RunLauncher {
     }
 
     /**
-     * Stops the simulator processes this run spawned, and no others (D9). Cleanup, which does this in
-     * the Python CAT, is not ported, so the launcher does it whatever step ended the run.
+     * Stops the simulator processes this run spawned and Cleanup did not stop or keep, and no others (D9): the
+     * Python's {@code release_rig}, whatever step ended the run.
      */
     static void stopSimulators(RunContext ctx) {
         List<SimProcess> procs = ctx.simulators();
