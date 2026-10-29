@@ -162,25 +162,134 @@ class RunRoutesTest {
     }
 
     @Test
-    void thePreflightReportIsShownEscaped() throws Exception {
-        String body = post("/run/preflight", true).body();
+    void thePreflightRunsInTheBackgroundAndItsReportIsShownEscaped() throws Exception {
+        post("/run/preflight", true);
+        String body = "";
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (System.nanoTime() < deadline) {
+            body = get("/fragments/run").body();
+            if (body.contains("REPORT")) {
+                break;
+            }
+            Thread.onSpinWait();
+        }
 
         assertTrue(body.contains("REPORT &lt;ok&gt;"), body);
         assertFalse(body.contains("REPORT <ok>"), body);
     }
 
-    @Test
-    void theLogTabShowsTheRunLogEscapedAndPollsWhileRunning() throws Exception {
-        String page = get("/run/log").body();
-        assertTrue(page.contains("No run yet") || page.contains("<pre class=\"run-log\">"), page);
+    /** A richer run: a plan, two cases (one unmigrated), a test with steps, a validation, simulators, log lines. */
+    private static final List<String> RICH = List.of(STARTED,
+            "{\"type\":\"plan.resolved\",\"cases\":[{\"key\":\"PETROCORE-1\",\"summary\":\"Cash <sale>\","
+                    + "\"node\":\"tests/suites/c/PETROCORE-1-TestCase.feature\"},"
+                    + "{\"key\":\"PETROCORE-9\",\"summary\":\"Not migrated\",\"node\":null}]}",
+            "{\"type\":\"step.entered\",\"step\":\"System Checks\"}",
+            "{\"type\":\"step.check\",\"step\":\"System Checks\",\"label\":\"petroapps current\","
+                    + "\"outcome\":\"passed\",\"detail\":\"up to date\",\"elapsed\":0.2}",
+            "{\"type\":\"step.finished\",\"step\":\"System Checks\",\"state\":\"complete\",\"detail\":\"\",\"elapsed\":1}",
+            "{\"type\":\"simulator.state\",\"name\":\"BUYPASS Host\",\"state\":\"ready\"}",
+            "{\"type\":\"simulator.state\",\"name\":\"Receipt Printer\",\"state\":\"ready\",\"bind\":\"COM1\"}",
+            "{\"type\":\"connection.state\",\"target\":\"Commander\",\"state\":\"up\"}",
+            "{\"type\":\"log.line\",\"at\":\"2026-10-24T10:00:01Z\",\"level\":\"INFO\",\"logger\":\"cat\","
+                    + "\"message\":\"PASS  petroapps <current>\",\"step\":\"System Checks\"}",
+            "{\"type\":\"log.line\",\"at\":\"2026-10-24T10:00:02Z\",\"level\":\"ERROR\",\"logger\":\"sim.BUYPASS Host\","
+                    + "\"message\":\"host said no\",\"step\":\"\"}",
+            "{\"type\":\"step.entered\",\"step\":\"Tests Run\"}",
+            "{\"type\":\"test.started\",\"nodeid\":\"tests/suites/c/PETROCORE-1-TestCase.feature::cash\"}",
+            "{\"type\":\"test.step\",\"nodeid\":\"tests/suites/c/PETROCORE-1-TestCase.feature::cash\",\"index\":1,"
+                    + "\"keyword\":\"Given\",\"text\":\"a cash sale\",\"outcome\":\"passed\",\"duration\":1.5}",
+            "{\"type\":\"test.validation\",\"at\":\"2026-10-24T10:00:03Z\","
+                    + "\"nodeid\":\"tests/suites/c/PETROCORE-1-TestCase.feature::cash\",\"case\":\"PETROCORE-1\","
+                    + "\"kind\":\"receipt\",\"name\":\"PETROCORE-1-Receipt.txt\",\"passed\":false,"
+                    + "\"diff\":\"-TOTAL 1.00\\n+TOTAL 2.00\",\"expected\":\"HEAD\\nTOTAL 1.00\","
+                    + "\"actual\":\"HEAD\\nTOTAL 2.00\"}",
+            "{\"type\":\"test.finished\",\"nodeid\":\"tests/suites/c/PETROCORE-1-TestCase.feature::cash\","
+                    + "\"outcome\":\"failed\",\"duration\":3.0,\"exc_type\":\"AssertionError\",\"detail\":\"receipt\"}");
 
+    private void startRich() throws Exception {
+        engine = new FakeRunEngine(tmp.resolve("results").resolve("rich"), RICH, null)
+                .closingWith("{\"type\":\"run.finished\",\"run_id\":\"abc123def456\",\"outcome\":\"failed\","
+                        + "\"passed\":0,\"failed\":1,\"warned\":0,\"cancelled\":false,\"elapsed\":4.0}");
         post("/run/start", true);
         engine.awaitWritten();
-        String log = get("/fragments/run/log").body();
+    }
 
-        assertTrue(log.contains("&lt;b&gt;hi&lt;/b&gt; and &amp; more"), log);
-        assertFalse(log.contains("<b>hi</b>"), log);
-        assertTrue(log.contains("every 2s"), log);
+    @Test
+    void theBoardShowsTheCasesInPlanOrderTheSimulatorsAndTheConnections() throws Exception {
+        startRich();
+        String panel = get("/fragments/run").body();
+
+        assertTrue(panel.contains("PETROCORE-1: Cash &lt;sale&gt;"), panel);
+        assertTrue(panel.indexOf("PETROCORE-1:") < panel.indexOf("PETROCORE-9:"), "plan order");
+        assertTrue(panel.contains("not migrated"), panel);
+        assertTrue(panel.contains("BUYPASS Host") && panel.contains("/run/log?source=sim%3ABUYPASS+Host"), panel);
+        assertTrue(panel.contains("/fragments/run/receipts"), "the Receipt Printer's row opens its roll");
+        assertTrue(panel.contains("Commander"), panel);
+        assertTrue(panel.contains("id=\"run-clock\""), panel);
+        assertTrue(panel.contains(">Validations</button>"), panel);
+
+        String side = get("/fragments/run/side").body();
+        String hash = side.replaceAll("(?s).*?h=([0-9a-f]+)\".*", "$1");
+        assertEquals(204, get("/fragments/run/side?h=" + hash).statusCode(), "an unchanged part is not redrawn");
+
+        engine.release();
+        FakeRunEngine.awaitIdle(run);
+        String ended = get("/fragments/run").body();
+        assertTrue(ended.contains("Run Complete"), ended);
+        assertTrue(ended.contains("Skipped:"), ended);
+        assertTrue(ended.contains("Total:"), ended);
+        assertTrue(ended.contains("PETROCORE-9: Not migrated"), "the Not Run card names the case");
+        assertFalse(ended.contains("every 2s"), ended);
+    }
+
+    @Test
+    void theStepCaseAndValidationsDialogsShowTheirRows() throws Exception {
+        startRich();
+
+        String step = get("/fragments/run/step?i=0").body();
+        assertTrue(step.contains("petroapps current"), step);
+        assertTrue(step.contains("1 check · 1 passed"), step);
+        assertTrue(step.contains("Show this step's log") && step.contains("/run/log?step=System+Checks"), step);
+        String tests = get("/fragments/run/step?i=4").body();
+        assertTrue(tests.contains("PETROCORE-1: Cash &lt;sale&gt;"), tests);
+        assertTrue(tests.contains("1 plan case(s) not run"), tests);
+
+        String detail = get("/fragments/run/case?key=PETROCORE-1").body();
+        assertTrue(detail.contains("Given a cash sale"), detail);
+        assertTrue(detail.contains("AssertionError: receipt"), detail);
+        assertTrue(get("/fragments/run/case?key=PETROCORE-9").body().contains("counted as Not Run"));
+
+        String validations = get("/fragments/run/validations").body();
+        assertTrue(validations.contains("1 validation, 1 failed this run"), validations);
+        assertTrue(validations.contains("Receipts 1 · 1 failed"), validations);
+        assertTrue(validations.contains("<tr class=\"changed\">"), validations);
+        assertTrue(validations.contains("Expected (baseline)"), validations);
+        engine.release();
+        FakeRunEngine.awaitIdle(run);
+    }
+
+    @Test
+    void theLogFiltersBySourceLevelAndSearchAndCopiesEveryKeptLine() throws Exception {
+        String page = get("/run/log").body();
+        assertTrue(page.contains("No run yet"), page);
+
+        startRich();
+        String all = get("/fragments/run/log").body();
+        assertTrue(all.contains("PASS  petroapps &lt;current&gt;"), all);
+        assertFalse(all.contains("petroapps <current>"), all);
+        assertTrue(all.contains("every 2s"), all);
+        assertTrue(all.contains("<option value=\"sim:BUYPASS Host\">BUYPASS Host</option>"), all);
+
+        String step = get("/run/log?step=System+Checks").body();
+        assertTrue(step.contains("petroapps"), step);
+        assertFalse(step.contains("host said no"), step);
+        assertTrue(step.contains("value=\"step:System Checks\" selected"), step);
+
+        String errors = get("/fragments/run/log/body?lv=1&level=ERROR").body();
+        assertTrue(errors.contains("host said no") && !errors.contains("petroapps"), errors);
+
+        String text = get("/run/log.txt?q=HOST").body();
+        assertEquals("10:00:02 E BUYPASS Host: host said no", text);
         engine.release();
         FakeRunEngine.awaitIdle(run);
     }

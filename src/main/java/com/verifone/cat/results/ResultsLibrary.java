@@ -109,6 +109,38 @@ public final class ResultsLibrary {
         if (folder.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(RunStore.replay(folder.get().resolve(ReportPaths.EVENTS_FILE), includeLogs));
+        Path events = folder.get().resolve(ReportPaths.EVENTS_FILE);
+        String stamp = Files.size(events) + "@" + Files.getLastModifiedTime(events).toMillis();
+        String key = runId + (includeLogs ? "+logs" : "");
+        synchronized (loaded) {
+            Loaded hit = loaded.get(key);
+            if (hit != null && hit.stamp().equals(stamp)) {
+                return Optional.of(hit.replay());
+            }
+        }
+        RunReplay replay = RunStore.replay(events, includeLogs);
+        synchronized (loaded) {
+            loaded.put(key, new Loaded(stamp, replay));
+        }
+        return Optional.of(replay);
     }
+
+    /** How many loaded runs stay in memory (the Python {@code RunLibrary}'s {@code _KEEP}). */
+    static final int KEEP = 4;
+
+    private record Loaded(String stamp, RunReplay replay) {}
+
+    /**
+     * The newest few runs opened, so each dialog and log request of a run page does not re-read its file (a whole
+     * Cadence plan's {@code events.ndjson} is ~255 MB). Keyed by the file's size and time, so a run still being
+     * written is read again.
+     */
+    private final Map<String, Loaded> loaded = new java.util.LinkedHashMap<>(8, 0.75f, true) {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Loaded> eldest) {
+            return size() > KEEP;
+        }
+    };
 }

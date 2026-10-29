@@ -3,8 +3,8 @@ package com.verifone.cat.web;
 import static com.verifone.cat.web.Html.esc;
 
 /**
- * Run, with its tabs Overview, Config and Log (docs/web-ui.md, "Pages"). Not built yet:
- * each tab is a placeholder naming the Python module it will come from.
+ * Run, with its tabs Overview, Config and Log (docs/web-ui.md, "Pages"): the tab strip, the board's styles and
+ * script ({@link RunStyle}) and the element the run's dialogs open in, around each tab's body.
  */
 final class RunPage {
 
@@ -52,6 +52,8 @@ final class RunPage {
                     .append('>').append(esc(t.label)).append("</a>");
         }
         out.append("</nav>");
+        // The board's and the Log's styles and script, and the element the run's dialogs open in.
+        out.append(RunStyle.assets()).append("<div id=\"").append(RunBoardHtml.DIALOG).append("\"></div>");
         return out.append(content).toString();
     }
 }
