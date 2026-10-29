@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -57,7 +56,8 @@ import com.verifone.cat.launch.UpgradeMode;
  * index files are Verifone's, so CAT-Java does not ship them; an Auto Upgrade merge reads them from the Python CAT's
  * checkout ({@link #transitionDir}: {@code $CAT_PYTHON_ROOT\src\petrotest\build\overlay_transition}) and refuses to
  * merge, before writing anything, when that folder is not there (the Python always has its vendored copy). A PSI merge
- * needs none of them.
+ * needs none of them. An input with an entry neither stored nor deflated is refused by {@code java.util.zip} as it is
+ * opened (a {@code ZipException}, as the jar's would be), where the Python names the entry later.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): no merged overlay has been installed on a Commander by CAT. Tested
  * against the jar's output for the Python CAT's synthetic fixture.
@@ -598,12 +598,5 @@ public final class OverlayMerge {
 
     private static String pyBool(boolean value) {
         return value ? "True" : "False";
-    }
-
-    /** The CRC of {@code data}, for a test's comparison. */
-    static long crc(byte[] data) {
-        CRC32 crc = new CRC32();
-        crc.update(data);
-        return crc.getValue();
     }
 }
