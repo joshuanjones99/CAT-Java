@@ -65,6 +65,7 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("pinpad-clear", new Command(com.verifone.cat.devices.vats.PinpadClearCommand.class, argv -> new com.verifone.cat.devices.vats.PinpadClearCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
