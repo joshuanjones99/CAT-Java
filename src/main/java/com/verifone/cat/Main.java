@@ -49,6 +49,7 @@ public final class Main {
      * {@code <Thing>Command.run(String[])} here. Not here yet, because no {@code *Command} class exists in the tree:
      * {@code secondary-fep}, {@code register-app}, {@code payment-links}, {@code payment-ready},
      * {@code commander-init}, {@code commander-prep}.
+     * {@code upgrade}, {@code build}, {@code builds}, {@code artifactory-login}, {@code render-payload}: the upgrade slice's (wave 16).
      */
     static final Map<String, Command> COMMANDS = commands();
 
@@ -66,6 +67,11 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("upgrade", new Command(com.verifone.cat.upgrade.UpgradeCommand.class, argv -> new com.verifone.cat.upgrade.UpgradeCommand().run(argv)));
+        table.put("build", new Command(com.verifone.cat.build.BuildCommand.class, argv -> new com.verifone.cat.build.BuildCommand().run(argv)));
+        table.put("builds", new Command(com.verifone.cat.build.BuildsCommand.class, argv -> new com.verifone.cat.build.BuildsCommand().run(argv)));
+        table.put("artifactory-login", new Command(com.verifone.cat.build.ArtifactoryLogin.class, argv -> new com.verifone.cat.build.ArtifactoryLogin().run(argv)));
+        table.put("render-payload", new Command(ProvisionCommand.class, argv -> new ProvisionCommand().run(java.util.stream.Stream.concat(java.util.stream.Stream.of("render-payload"), Arrays.stream(argv)).toArray(String[]::new))));
         return Collections.unmodifiableMap(table);
     }
 
