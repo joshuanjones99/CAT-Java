@@ -21,9 +21,10 @@ import com.verifone.cat.authoring.StepDef;
  * so the page is the server's state. The Feature editor is the one exception: it saves as the operator types and
  * answers with its diagnostics and the cases table only, so the text under the cursor is never replaced.
  *
- * <p>Built: Jira ingest (read-only), the cases, the editor and checker, the step library, approve, and the publish
- * dry run. Not built, and shown disabled with the Python module that would build them: Draft with Claude
- * ({@code cat/authoring/draft.py}), Capture and Replay ({@code cat/authoring/replay.py}).
+ * <p>Built: Jira ingest (read-only), Draft with Claude, the cases, the editor and checker, the step library, Capture,
+ * Approve baselines, Replay with the replay gate's verdict, and the publish dry run. While a draft or a replay is under
+ * way the page asks {@code /authoring/poll} every two seconds and reloads when it ends; "Open the Run page" follows a
+ * replay there.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -48,7 +49,15 @@ final class AuthoringPage {
 
         StringBuilder out = new StringBuilder();
         out.append("<section id=\"authoring-workbench\" class=\"card wide authoring\" aria-label=\"Authoring\">");
-        out.append("<p class=\"authoring-status muted\">").append(esc(status(session))).append("</p>");
+        out.append("<p class=\"authoring-status muted\">").append(esc(status(session, service))).append("</p>");
+        if (service.replaying()) {
+            out.append("<p><a class=\"button ghost\" href=\"").append(Section.RUN.path())
+                    .append("\">Open the Run page</a></p>");
+        }
+        if (service.waiting()) {
+            out.append("<div id=\"authoring-poll\" hx-get=\"/authoring/poll\" hx-trigger=\"every 2s\""
+                    + " hx-swap=\"none\" aria-hidden=\"true\"></div>");
+        }
         String message = service.message();
         if (!message.isEmpty()) {
             out.append("<p class=\"authoring-message ").append(tone(message)).append("\" role=\"status\">")
@@ -62,7 +71,7 @@ final class AuthoringPage {
         out.append("<label>Spec ticket to ingest <input id=\"authoring-spec\" name=\"spec\" value=\"")
                 .append(esc(service.specField())).append("\" placeholder=\"e.g. PETROCORE-678\"></label>");
         out.append(action("Ingest", "/authoring/ingest", ""));
-        notBuilt("Draft with Claude", AuthoringService.DRAFT_MODULE, out);
+        out.append(action("Draft with Claude", "/authoring/draft", ""));
         out.append("</div>");
 
         out.append("<div class=\"authoring-toolbar\">");
@@ -79,9 +88,9 @@ final class AuthoringPage {
         out.append("</div>");
 
         out.append("<div class=\"authoring-toolbar\">");
-        notBuilt("Capture", AuthoringService.REPLAY_MODULE, out);
+        out.append(action("Capture", "/authoring/capture", ""));
         out.append(action("Approve baselines", "/authoring/approve", "ghost"));
-        notBuilt("Replay", AuthoringService.REPLAY_MODULE, out);
+        out.append(action("Replay", "/authoring/replay", ""));
         out.append(action("Publish (dry run)", "/authoring/publish", ""));
         out.append("</div>");
 
@@ -97,7 +106,8 @@ final class AuthoringPage {
         out.append("<div role=\"tabpanel\" id=\"authoring-panel-review\" aria-label=\"Review\"")
                 .append(hidden(tab, AuthoringService.TAB_REVIEW)).append(">")
                 .append(AuthoringService.TAB_REVIEW.equals(tab)
-                        ? AuthoringReview.review(session, review, gate(session), service.publishLines()) : "")
+                        ? AuthoringReview.review(session, review, service.verdict(), service.draftResult(),
+                                service.publishLines()) : "")
                 .append("</div>");
         out.append("</div></div></section>");
         return out.toString();
@@ -118,15 +128,22 @@ final class AuthoringPage {
 
     // ------------------------------------------------------------ parts
 
-    private static String status(Session session) {
-        if (session == null) {
-            return "Authoring — no session yet";
-        }
+    private static String status(Session session, AuthoringService service) {
         List<String> parts = new ArrayList<>();
-        parts.add("Session " + session.slug());
-        parts.add("story " + (session.ticket() == null ? "—" : session.ticket()));
-        parts.add("spec " + (session.specTicket() == null ? "—" : session.specTicket()));
-        parts.add(session.cases().size() + " case(s)");
+        if (session == null) {
+            parts.add("Authoring — no session yet");
+        } else {
+            parts.add("Session " + session.slug());
+            parts.add("story " + (session.ticket() == null ? "—" : session.ticket()));
+            parts.add("spec " + (session.specTicket() == null ? "—" : session.specTicket()));
+            parts.add(session.cases().size() + " case(s)");
+        }
+        if (!service.busy().isEmpty()) {
+            parts.add("… " + service.busy());
+        }
+        if (service.replaying()) {
+            parts.add("▶ replaying");
+        }
         return String.join(" · ", parts);
     }
 
@@ -235,16 +252,6 @@ final class AuthoringPage {
         return out.append("</ul>").toString();
     }
 
-    /** The Review tab's gate: the publish blockers, then the replay gate's reason, which is always there for now. */
-    private static List<String> gate(Session session) {
-        if (session == null) {
-            return List.of();
-        }
-        List<String> out = new ArrayList<>(session.publishBlockers());
-        out.add(AuthoringService.GATE_REASON);
-        return out;
-    }
-
     // ------------------------------------------------------------ small markup
 
     private static String hidden(String tab, String panel) {
@@ -255,12 +262,5 @@ final class AuthoringPage {
         return "<button type=\"button\"" + (cls.isEmpty() ? "" : " class=\"" + cls + "\"")
                 + " hx-post=\"" + esc(url) + "\" hx-include=\"" + INCLUDE + "\" hx-target=\"" + WORKBENCH
                 + "\" hx-swap=\"outerHTML\">" + esc(label) + "</button>";
-    }
-
-    /** A control this build has not ported: disabled, and its label says what is missing. */
-    private static void notBuilt(String label, String module, StringBuilder out) {
-        out.append("<button type=\"button\" disabled title=\"Not built yet: ").append(esc(module)).append("\">")
-                .append(esc(label)).append("</button>");
-        out.append("<span class=\"placeholder-note\">not built yet — ").append(esc(module)).append("</span>");
     }
 }
