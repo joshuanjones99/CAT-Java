@@ -71,7 +71,7 @@ class RunProgressTest {
         assertTrue(snap.finished());
         assertEquals(7, snap.passed());
         assertEquals(2, snap.warned());
-        assertEquals(100, snap.percent());
+        assertEquals(0, snap.percent(), 0.001); // case-based (percent_complete): no plan, no collected count
         assertEquals(41.5, snap.seconds(java.time.Instant.now()));
     }
 
@@ -86,9 +86,9 @@ class RunProgressTest {
 
         RunProgress.Snapshot snap = progress.snapshot();
         assertEquals("Connections", snap.currentStep());
-        assertEquals("running", snap.steps().get(1).state());
-        assertEquals("pending", snap.steps().get(2).state());
-        assertEquals(25, snap.percent(), 0.001);
+        assertEquals("running", snap.steps().get(1).status());
+        assertEquals("pending", snap.steps().get(2).status());
+        assertEquals(0, snap.percent(), 0.001); // case-based, not the step's own progress
     }
 
     @Test

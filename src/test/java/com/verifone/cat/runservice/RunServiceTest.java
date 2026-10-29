@@ -53,8 +53,8 @@ class RunServiceTest {
         assertEquals("running", midRun.status());
         assertEquals("abc123def456", midRun.snapshot().runId());
         assertEquals(1, midRun.snapshot().passed());
-        assertEquals("complete", midRun.snapshot().steps().get(0).state());
-        assertEquals("pending", midRun.snapshot().steps().get(1).state());
+        assertEquals("complete", midRun.snapshot().steps().get(0).status());
+        assertEquals("pending", midRun.snapshot().steps().get(1).status());
 
         service.start(config());
         assertEquals(RunService.BUSY, service.view().notice());

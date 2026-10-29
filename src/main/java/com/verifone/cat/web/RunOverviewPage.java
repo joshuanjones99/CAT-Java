@@ -1,29 +1,33 @@
 package com.verifone.cat.web;
 
 import static com.verifone.cat.web.Html.esc;
+import static com.verifone.cat.web.RunBoardHtml.badge;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
-import com.verifone.cat.runconfig.ConfigView;
 import com.verifone.cat.runservice.RunProgress;
 import com.verifone.cat.runservice.RunSchedule;
 import com.verifone.cat.runservice.RunService;
 import com.verifone.cat.runservice.RunStart;
+import com.verifone.cat.runservice.RunState;
+import com.verifone.cat.runservice.RunView;
 
 /**
- * The Run tab's Overview panel: before a run, the read-back of the Config tab with Start run,
- * Preflight, and the schedule (Schedule run, Clear schedule, Continuous run); during and after it,
- * the counters, progress, the current step, Pause/Continue, Stop and New run (docs/web-ui.md,
- * "Run → Overview").
+ * The Run tab's Overview panel (docs/web-ui.md, "Run → Overview"; the Python CAT's {@code cat/web/pages/run.py}).
  *
- * <p>The panel is one {@code <section id="run-panel">}. Every action answers with the whole panel,
- * so the page is one server reading. While a run is going, or a schedule or continuous run is
- * waiting, the panel polls itself with htmx; once neither holds, the poll stops, so an idle page
- * makes no requests.
+ * <p>Before a run: the Pre-Run read-back of the Config tab's choices ({@code form.describe} and "What this run will
+ * start"), Start run, Preflight (check only, a background job with Stop) and the schedule (Schedule run, Clear
+ * schedule, Continuous run). During and after it: the counters (Run Time ticking each second), the progress bar,
+ * Pause/Continue, Stop, Validations and New run, a failed step's card, then the board (the cases in plan order with
+ * a filter and each case's detail, the current step's card that opens the step dialog, the Simulators and Connections
+ * rails); after it, Failures with case labels, Not Run and Run Complete (Skipped and Total included).
  *
- * <p>Not built yet, and drawn as disabled placeholders: the cases, Simulators, Connections and
- * Validations.
+ * <p>The panel is one {@code <section id="run-panel">}. Before a run it polls itself only while a schedule, a
+ * continuous run or a preflight is waiting. Once started, its parts poll themselves while the run goes: the head
+ * every two seconds, the clock every second, the board and the post-run cards only when they would change
+ * ({@link RunBoardHtml#polled}). Every action answers with the whole panel.
  */
 final class RunOverviewPage {
 
@@ -31,7 +35,7 @@ final class RunOverviewPage {
     static final String PANEL_ID = "run-panel";
 
     /** How often a running panel refreshes itself. */
-    static final String POLL = "every 2s";
+    static final String POLL = RunBoardHtml.POLL;
 
     /** The times the schedule takes, as the Python CAT's {@code SCHEDULE_HINT}. */
     static final String SCHEDULE_HINT = "Times: 23:00 · 23:00:30 · 2026-09-06 23:00 · +30m (relative). "
@@ -44,52 +48,55 @@ final class RunOverviewPage {
     /**
      * The panel.
      *
-     * @param view the service's read of the current run (not started, busy or ended)
-     * @param config the Config tab's read-back, drawn before a run starts
-     * @param plan the Config tab's choices as Start run would launch them
+     * @param view     the service's read of the current run (not started, busy or ended)
+     * @param plan     the Config tab's choices as Start run would launch them, with their read-back
      * @param schedule the schedule and the continuous run
      */
-    static String panel(RunService.View view, ConfigView config, RunStart.Plan plan,
-            RunSchedule.View schedule) {
-        StringBuilder out = new StringBuilder();
-        if (view.started()) {
-            started(out, view, schedule);
-        } else {
-            preRun(out, config, plan, view, schedule);
+    static String panel(RunService.View view, RunStart.Plan plan, RunSchedule.View schedule) {
+        if (!view.started()) {
+            StringBuilder out = new StringBuilder();
+            preRun(out, plan, view, schedule);
+            boolean poll = schedule.active() || view.preflighting();
+            return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\""
+                    + (poll ? " hx-get=\"/fragments/run\" hx-trigger=\"" + POLL + "\" hx-swap=\"outerHTML\"" : "")
+                    + ">" + out + "</section>";
         }
-        boolean poll = view.busy() || schedule.active();
-        return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\"" + (poll ? polling() : "") + ">"
-                + out + "</section>";
-    }
-
-    private static String polling() {
-        return " hx-get=\"/fragments/run\" hx-trigger=\"" + POLL + "\" hx-swap=\"outerHTML\"";
+        RunLinks links = RunLinks.live(view.busy());
+        RunState state = view.state();
+        return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\" style=\"max-width: 90rem;\">"
+                + head(view, schedule)
+                + RunBoardHtml.board(state, links, "/fragments/run/cases", "/fragments/run/side")
+                + post(view)
+                + "</section>";
     }
 
     // ------------------------------------------------------------------ before a run
 
-    private static void preRun(StringBuilder out, ConfigView config, RunStart.Plan plan, RunService.View view,
+    private static void preRun(StringBuilder out, RunStart.Plan plan, RunService.View view,
             RunSchedule.View schedule) {
         notices(out, view);
         out.append("<div class=\"card run-card\"><h2>Pre-Run</h2>");
-        out.append("<ul class=\"run-summary\">");
-        for (String line : config.summary()) {
-            out.append("<li>").append(esc(line)).append("</li>");
-        }
-        for (String line : config.caseLines()) {
-            out.append("<li class=\"muted\">").append(esc(line)).append("</li>");
+        out.append("<ul class=\"run-summary cat-mono\">");
+        for (RunStart.Line line : plan.readBack()) {
+            out.append("<li").append(line.warning() ? " class=\"warn\"" : "").append('>').append(esc(line.text()))
+                    .append("</li>");
         }
         out.append("</ul>");
-        if (!plan.startable()) {
-            out.append("<p class=\"warn\">").append(esc(plan.refusal())).append("</p>");
-        }
+        boolean canTry = plan.startable() || plan.needsFetch();
         out.append("<div class=\"run-actions\">");
         out.append("<button type=\"button\" class=\"run-primary\" hx-post=\"/run/start\" ").append(TARGET)
-                .append(plan.startable() ? "" : " disabled")
-                .append(">Start run</button>");
-        out.append("<button type=\"button\" hx-post=\"/run/preflight\" ").append(TARGET)
-                .append(" title=\"Checks the rig and changes nothing\">Preflight (check only)</button>");
+                .append(canTry ? "" : " disabled").append(">Start run</button>");
+        if (view.preflighting()) {
+            out.append("<span class=\"muted\">Preflight is running…</span>")
+                    .append("<button type=\"button\" class=\"run-danger\" hx-post=\"/run/stop\" ").append(TARGET)
+                    .append(">Stop</button>");
+        } else {
+            out.append("<button type=\"button\" hx-post=\"/run/preflight\" ").append(TARGET)
+                    .append(" title=\"Checks the rig and changes nothing\">Preflight (check only)</button>");
+        }
         out.append("</div>");
+        out.append("<p class=\"muted\">Preflight with repair drives the POS, so it waits for the rig owner's "
+                + "go-ahead; use the check only.</p>");
         if (!view.preflight().isEmpty()) {
             out.append("<h3>Last preflight</h3><pre class=\"run-preflight\">")
                     .append(esc(view.preflight())).append("</pre>");
@@ -99,8 +106,8 @@ final class RunOverviewPage {
     }
 
     /**
-     * The schedule block. Before a run it has the entry form, Clear schedule and Continuous run; during
-     * one it only shows what is waiting, with Finish continuous and Cancel per run.
+     * The schedule block. Before a run it has the entry form, Clear schedule and Continuous run; during one it only
+     * shows what is waiting, with Finish continuous and Cancel per run.
      */
     private static void scheduleCard(StringBuilder out, RunSchedule.View schedule, boolean preRun) {
         if (!preRun && !schedule.active()) {
@@ -143,8 +150,15 @@ final class RunOverviewPage {
 
     // ------------------------------------------------------------------ during and after
 
-    private static void started(StringBuilder out, RunService.View view, RunSchedule.View schedule) {
-        RunProgress.Snapshot snap = view.snapshot();
+    /** The head: notices, actions, counters, the progress bar, a failed step's card and the waiting schedule. */
+    static String head(RunService.View view, RunSchedule.View schedule) {
+        StringBuilder out = new StringBuilder();
+        RunState state = view.state();
+        out.append("<div id=\"run-head\" class=\"run-card\"");
+        if (view.busy()) {
+            out.append(" hx-get=\"/fragments/run/head\" hx-trigger=\"").append(POLL).append("\" hx-swap=\"outerHTML\"");
+        }
+        out.append('>');
         notices(out, view);
         out.append("<div class=\"run-actions\">");
         if (view.busy()) {
@@ -154,32 +168,21 @@ final class RunOverviewPage {
                     .append(">Stop</button>");
         }
         if (view.ended()) {
-            out.append("<button type=\"button\" hx-post=\"/run/new\" ").append(TARGET)
-                    .append(">New run</button>");
+            out.append("<button type=\"button\" hx-post=\"/run/new\" ").append(TARGET).append(">New run</button>");
         }
+        out.append("<button type=\"button\" ").append(RunBoardHtml.dialogGet("/fragments/run/validations"))
+                .append(">Validations</button>");
         out.append("</div>");
         if (view.paused() && view.busy()) {
-            out.append("<p class=\"warn\">Paused: the run waits before its next step.</p>");
+            out.append("<p class=\"warn\">Paused: the run waits before its next step or test case.</p>");
         }
-
-        counters(out, view, snap);
-        double percent = snap == null ? 0 : snap.percent();
+        counters(out, view, state);
         out.append("<progress class=\"run-progress\" max=\"100\" value=\"")
-                .append(String.format(Locale.ROOT, "%.0f", percent)).append("\" aria-label=\"Progress\"></progress>");
+                .append(String.format(Locale.ROOT, "%.0f", state.percentComplete()))
+                .append("\" aria-label=\"Progress\"></progress>");
+        stepFailures(out, state);
         scheduleCard(out, schedule, false);
-
-        if (snap != null) {
-            currentStep(out, snap);
-            stepFailures(out, snap);
-            steps(out, snap);
-            if (snap.finished()) {
-                complete(out, snap);
-            }
-            failures(out, snap);
-        }
-        placeholders(out, "Cases, Simulators, Connections and Validations",
-                "the cases in plan order, the simulator and connection panels and Validations are not built "
-                        + "in CAT-Java yet (Python: cat/web/pages/run.py, cat/web/components.py)");
+        return out.append("</div>").toString();
     }
 
     private static void notices(StringBuilder out, RunService.View view) {
@@ -190,75 +193,60 @@ final class RunOverviewPage {
         }
     }
 
-    private static void counters(StringBuilder out, RunService.View view, RunProgress.Snapshot snap) {
+    /** The Status counter: Starting before the run's first event, Paused, else the Python's {@code status_word}. */
+    static String statusWord(RunService.View view, RunState state) {
+        if (view.busy() && "not_started".equals(state.status())) {
+            return "Starting";
+        }
+        if (view.paused() && "running".equals(state.status())) {
+            return "Paused";
+        }
+        if (!view.busy() && !view.error().isEmpty() && state.outcome() == null) {
+            return "Failed";
+        }
+        return RunView.statusWord(state);
+    }
+
+    private static void counters(StringBuilder out, RunService.View view, RunState state) {
+        Map<String, Integer> counts = RunView.verdictCounts(state);
         out.append("<div class=\"run-counters\">");
-        metric(out, "Status", view.status());
-        metric(out, "Run ID", snap == null || snap.runId().isEmpty() ? "-" : snap.runId(), "mono");
-        metric(out, "Run Time", clockText(view.seconds()));
-        metric(out, "Test Plan(s)", snap == null || snap.testPlans().isEmpty()
-                ? "-" : String.join(", ", snap.testPlans()));
-        metric(out, "Passed", snap == null ? 0 : snap.passed());
-        metric(out, "Failed", snap == null ? 0 : snap.failed());
-        metric(out, "Passed with Warnings", snap == null ? 0 : snap.warned());
-        metric(out, "Not Run", snap == null ? 0 : snap.notRun());
-        metric(out, "Percent Completed", snap == null ? "0%" : String.format(Locale.ROOT, "%.0f%%", snap.percent()));
+        metric(out, "Status", esc(statusWord(view, state)), "");
+        metric(out, "Run ID", esc(state.runId().isEmpty() ? "-" : state.runId()), "mono");
+        metric(out, "Run Time", clock(view), "");
+        String plans = RunView.plansLabel(state.testPlans(), state.suite(), state.planNames());
+        metric(out, "Test Plan(s)", esc(plans.isEmpty() ? "-" : plans), "");
+        metric(out, "Passed", String.valueOf(counts.get("passed")), "");
+        metric(out, "Failed", String.valueOf(counts.get("failed")), "");
+        metric(out, "Passed with Warnings", String.valueOf(counts.get("warned")), "");
+        metric(out, "Not Run", String.valueOf(state.countNotRun()), "");
+        metric(out, "Percent Completed", String.format(Locale.ROOT, "%.0f%%", state.percentComplete()), "");
         out.append("</div>");
     }
 
-    private static void metric(StringBuilder out, String label, Object value) {
-        metric(out, label, value, "");
+    /** The Run Time value; while the run goes it ticks each second from {@code /fragments/run/clock}. */
+    static String clock(RunService.View view) {
+        String text = esc(clockText(view.seconds()));
+        if (view.busy() && "running".equals(view.state().status())) {
+            return "<span id=\"run-clock\" hx-get=\"/fragments/run/clock\" hx-trigger=\"every 1s\""
+                    + " hx-swap=\"outerHTML\">" + text + "</span>";
+        }
+        return "<span id=\"run-clock\">" + text + "</span>";
     }
 
-    private static void metric(StringBuilder out, String label, Object value, String extraClass) {
+    private static void metric(StringBuilder out, String label, String html, String extraClass) {
         out.append("<div class=\"run-metric\"><div class=\"run-metric-label\">").append(esc(label))
                 .append("</div><div class=\"run-metric-value")
                 .append(extraClass.isEmpty() ? "" : " " + extraClass).append("\">")
-                .append(esc(value)).append("</div></div>");
-    }
-
-    private static void currentStep(StringBuilder out, RunProgress.Snapshot snap) {
-        out.append("<h3>Current step</h3>");
-        if (snap.currentStep().isEmpty()) {
-            out.append("<p class=\"muted\">").append(snap.finished() ? "The run has finished." : "None yet.")
-                    .append("</p>");
-            return;
-        }
-        out.append("<p>").append(esc(snap.currentStep())).append("</p>");
-    }
-
-    private static void steps(StringBuilder out, RunProgress.Snapshot snap) {
-        out.append("<ol class=\"run-steps\">");
-        for (RunProgress.StepLine step : snap.steps()) {
-            out.append("<li><span class=\"run-step-name\">").append(esc(step.name())).append("</span> ")
-                    .append("<span class=\"badge muted\">").append(esc(step.state())).append("</span>");
-            if (!step.detail().isEmpty()) {
-                out.append(" <span class=\"muted\">").append(esc(step.detail())).append("</span>");
-            }
-            out.append("</li>");
-        }
-        out.append("</ol>");
-    }
-
-    private static void complete(StringBuilder out, RunProgress.Snapshot snap) {
-        out.append("<div class=\"card run-card\"><h2>Run Complete</h2><dl class=\"run-summary\">");
-        row(out, "Passed", snap.passed());
-        row(out, "Failed", snap.failed());
-        row(out, "Passed with Warnings", snap.warned());
-        row(out, "Not Run", snap.notRun());
-        out.append("</dl><p class=\"muted\">New run resets this page; the run stays in Results.</p></div>");
-    }
-
-    private static void row(StringBuilder out, String label, int value) {
-        out.append("<div><dt>").append(esc(label)).append("</dt><dd>").append(value).append("</dd></div>");
+                .append(html).append("</div></div>");
     }
 
     /**
-     * A step that failed, above the step list: its name, then its detail one line per element. The
-     * Start Simulators failure is one operator line per simulator (SimStatus.awaitingButtons).
+     * A step that failed: its name, then its detail one line per element. The Start Simulators failure is one
+     * operator line per simulator.
      */
-    private static void stepFailures(StringBuilder out, RunProgress.Snapshot snap) {
-        for (RunProgress.StepLine step : snap.steps()) {
-            if (!"failed".equals(step.state()) || step.detail().isEmpty()) {
+    private static void stepFailures(StringBuilder out, RunState state) {
+        for (RunState.StepState step : state.steps()) {
+            if (!"failed".equals(step.status()) || step.detail().isEmpty()) {
                 continue;
             }
             out.append("<div class=\"card run-card\"><h2>").append(esc(step.name())).append(" failed</h2>");
@@ -269,42 +257,70 @@ final class RunOverviewPage {
         }
     }
 
-    private static void failures(StringBuilder out, RunProgress.Snapshot snap) {
-        out.append("<div class=\"card run-card\"><h2>Failures</h2>");
-        if (snap.failures().isEmpty()) {
-            out.append("<p class=\"muted\">None.</p></div>");
-            return;
-        }
-        out.append("<ul class=\"run-summary\">");
-        for (RunProgress.FailureLine failure : snap.failures()) {
-            out.append("<li><span class=\"badge error\">").append(esc(failure.outcome())).append("</span> ")
-                    .append(esc(failure.nodeid()));
-            if (!failure.detail().isEmpty()) {
-                out.append(" <span class=\"muted\">").append(esc(failure.detail())).append("</span>");
-            }
-            out.append("</li>");
-        }
-        out.append("</ul>");
-        if (snap.failureCount() > snap.failures().size()) {
-            out.append("<p class=\"muted\">and ").append(snap.failureCount() - snap.failures().size()).append(" more</p>");
-        }
-        out.append("</div>");
+    /** The post-run cards, polled while the run goes so they appear when it ends. */
+    static String post(RunService.View view) {
+        return RunBoardHtml.polled("div", "run-post", "", "/fragments/run/post", postInner(view), view.busy());
     }
 
-    // ------------------------------------------------------------------ placeholders
+    static String postInner(RunService.View view) {
+        if (!view.ended()) {
+            return "";
+        }
+        return postCards(view.state(), new RunProgress.Snapshot(view.state()),
+                "New run resets this page; the run stays in Results.");
+    }
 
-    private static void placeholders(StringBuilder out, String label, String why) {
-        out.append("<div class=\"placeholder run-placeholder\" aria-disabled=\"true\">")
-                .append("<h3>Not built yet: ").append(esc(label)).append("</h3>")
-                .append("<p class=\"placeholder-note\">").append(esc(why)).append("</p></div>");
+    /** Failures, Not Run and Run Complete for a finished run (shared with Results). */
+    static String postCards(RunState state, RunProgress.Snapshot snap, String note) {
+        StringBuilder out = new StringBuilder("<div class=\"run-post\">");
+        out.append("<div class=\"card run-card\"><h2>Failures</h2>");
+        List<RunProgress.FailureLine> failures = snap.failures();
+        if (failures.isEmpty()) {
+            out.append("<p class=\"muted\">None.</p>");
+        } else {
+            out.append("<div class=\"run-rows\">");
+            for (RunProgress.FailureLine failure : failures) {
+                out.append("<div class=\"run-row\">").append(badge(failure.outcome())).append("<div class=\"grow\"><div>")
+                        .append(esc(failure.label())).append("</div>");
+                if (!failure.detail().isEmpty()) {
+                    out.append("<div class=\"sub\">").append(esc(failure.detail())).append("</div>");
+                }
+                out.append("</div></div>");
+            }
+            out.append("</div>");
+            if (snap.failureCount() > failures.size()) {
+                out.append("<p class=\"muted\">and ").append(snap.failureCount() - failures.size()).append(" more</p>");
+            }
+        }
+        out.append("</div>");
+        out.append("<div class=\"card run-card\"><h2>Not Run</h2>");
+        List<String> keys = state.notRunCaseKeys();
+        if (keys.isEmpty()) {
+            out.append("<p class=\"muted\">None.</p>");
+        } else {
+            out.append("<ul class=\"run-summary\">");
+            for (String key : keys) {
+                out.append("<li>").append(esc(RunView.caseLine(key, state.cases().get(key).summary()))).append("</li>");
+            }
+            out.append("</ul>");
+        }
+        out.append("</div>");
+        Map<String, Integer> counts = RunView.verdictCounts(state);
+        out.append("<div class=\"card run-card\"><h2>Run Complete</h2><pre class=\"run-complete\">");
+        out.append(line("Passed:", counts.get("passed"))).append(line("Failed:", counts.get("failed")))
+                .append(line("Passed with Warnings:", counts.get("warned")))
+                .append(line("Skipped:", counts.get("skipped"))).append(line("Not Run:", state.countNotRun()))
+                .append(line("Total:", counts.get("total")));
+        out.append("</pre><p class=\"muted\">").append(esc(note)).append("</p></div>");
+        return out.append("</div>").toString();
+    }
+
+    private static String line(String label, int value) {
+        return String.format(Locale.ROOT, "%-22s%d%n", label, value).replace("\r", "");
     }
 
     /** The run timer as {@code 0:04:09}: it keeps its seconds past an hour, as the Python CAT's {@code clock_text}. */
     static String clockText(double seconds) {
-        long whole = (long) seconds;
-        long hours = whole / 3600;
-        long minutes = (whole % 3600) / 60;
-        long secs = whole % 60;
-        return String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, secs);
+        return RunView.clockText(seconds);
     }
 }

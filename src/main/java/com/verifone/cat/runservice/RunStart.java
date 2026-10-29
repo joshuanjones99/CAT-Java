@@ -83,6 +83,11 @@ public final class RunStart {
             downloads = downloads == null ? () -> null : downloads;
         }
 
+        /** This context with the page's Downloads choice in place of the saved one. */
+        public Context withDownloads(Supplier<LaunchDefaults.Downloads> choice) {
+            return new Context(rig, saved, env, catalogue, rigsDir, choice);
+        }
+
         /** The rig alone: no saved choices, no requirements, no rig file. */
         public static Context of(String rig) {
             return new Context(rig, LastConfig::none, Map.of(), null, null, null);
