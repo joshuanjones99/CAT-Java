@@ -124,6 +124,14 @@ public final class GitAuth {
     }
 
     /**
+     * A git that is never run: every call answers exit 1, so no checkout has an {@code origin}. The default of a
+     * test's {@code SetupEnv}, so no test reaches the real git or its credential helper by accident.
+     */
+    public static GitAuth offline() {
+        return new GitAuth((repo, args, stdin, config) -> new Done(1, "", "git is not used in this environment"));
+    }
+
+    /**
      * The real {@code git} with {@code env} added to the no-prompt environment. Tests pass
      * {@code GIT_CONFIG_NOSYSTEM}/{@code GIT_CONFIG_GLOBAL} here, as the Python's tests do, so git never reads this
      * account's own configuration or credential helper.
