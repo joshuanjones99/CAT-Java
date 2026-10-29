@@ -13,10 +13,10 @@ import com.verifone.cat.provision.transport.Transport;
  * The seams {@link CoverageDevice} reaches the world through. Tests replace each one; production takes the
  * defaults from {@link #defaults}.
  *
- * <p>Two seams have no default yet: {@link #waitForSsh} and {@link #waitForCgilink}. Their Python source is
- * {@code petrotest.upgrade.new_install.wait_for_ssh} and {@code wait_for_cgilink}, which this port does not
- * have. Until they are wired, a step that must wait after a reboot reports that it cannot, rather than
- * assuming the device is back.
+ * <p>{@link #defaults} wires {@link #waitForSsh} and {@link #waitForCgilink} to {@link CoverageWaits} (the Python's
+ * {@code new_install.wait_for_ssh} and {@code wait_for_cgilink}, as {@code device._ops_defaults} does). A test that
+ * passes null for either gets the old behaviour: a step that must wait after a reboot reports that it cannot,
+ * rather than assuming the device is back.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  *
@@ -61,9 +61,10 @@ public record DeviceOps(
         mountPollInterval = mountPollInterval == null ? DEFAULT_MOUNT_POLL : mountPollInterval;
     }
 
-    /** The production defaults: SSH through {@link JschTransport}, the real CLI runner, and the waits not wired. */
+    /** The production defaults: SSH through {@link JschTransport}, the real CLI runner, and {@link CoverageWaits}. */
     public static DeviceOps defaults(Consumer<String> log) {
-        return new DeviceOps(spec -> new JschTransport(spec.toSshTarget()), null, null, null,
+        Function<TargetSpec, Transport> transports = spec -> new JschTransport(spec.toSshTarget());
+        return new DeviceOps(transports, CoverageWaits.ssh(transports), CoverageWaits.cgilink(), null,
                 Jacoco.processRunner(), log, null, null);
     }
 

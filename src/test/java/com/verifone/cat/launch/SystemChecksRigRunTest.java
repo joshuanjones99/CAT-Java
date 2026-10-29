@@ -278,13 +278,13 @@ class SystemChecksRigRunTest {
     }
 
     @Test
-    void coverageOrAnOnboardingOnARigFailStepOneBeforeAnythingIsStarted() throws IOException {
+    void anOnboardingOnARigFailsStepOneBeforeAnythingIsStartedAndCoverageNoLongerDoes() throws IOException {
         stageLoySim91();
 
+        // [coverage slice, wave 16] coverage is wired (CoverageLaunch), so step 1 no longer stops it.
         Outcome covered = run(loysim().coverage(true));
-        assertFalse(covered.keepGoing());
-        assertTrue(covered.log().contains("FAIL  JaCoCo coverage — unavailable in CAT-Java: needs JaCoCo coverage's "
-                + "launch wiring"), covered.log());
+        assertTrue(covered.keepGoing(), covered.step().detail());
+        assertFalse(covered.log().contains("JaCoCo coverage — unavailable"), covered.log());
         ctx.runLock().release();
 
         Outcome onboarding = run(loysim().commanderConnect(true));

@@ -29,7 +29,8 @@ import com.verifone.cat.xray.XraySidecar;
  * {@code java -jar cat-java.jar --rig lab [--register topaz101] [--port 8090]} starts the web UI;
  * {@code cat-java web --rig lab ...} is the same. Any word in {@link #COMMANDS} ({@code preflight},
  * {@code launch}, {@code provision}, {@code xray}, {@code close-day}, {@code commander-snapshot},
- * {@code commander-connect}, {@code cloud-tunnel}) runs that command instead and exits with its code.
+ * {@code commander-connect}, {@code cloud-tunnel}, {@code coverage}, {@code xray-attach}) runs that command instead
+ * and exits with its code.
  *
  * <p>Reads the rig, points a {@link PosShimClient} at the register's shim, and serves
  * the web UI on localhost. The web UI is told the rig's name, as typed, so its Start run launches on it.
@@ -65,6 +66,8 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("coverage", new Command(com.verifone.cat.coverage.CoverageCommand.class, com.verifone.cat.coverage.CoverageCommand::run));
+        table.put("xray-attach", new Command(com.verifone.cat.xray.Attach.class, com.verifone.cat.xray.Attach::run));
         return Collections.unmodifiableMap(table);
     }
 
