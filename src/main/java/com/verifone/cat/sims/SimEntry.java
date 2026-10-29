@@ -13,9 +13,8 @@ import java.util.Objects;
  * may not add one), so {@link Registry} builds the rows in code. Field meanings are the
  * Python's; only the names are camelCase.
  *
- * <p>Fields this port does not act on are left out and named in the port's HANDOFF: the
- * artifactory source and match_base flag (kept in {@link SimSources}), the TLS pre-step,
- * {@code superseded_by}, {@code well_formed}, and the Swing minimising of {@code windowed}.
+ * <p>The {@code artifactory:} source and {@code match_base:} flag are kept in {@link SimSources}, a table beside
+ * this record. Every other registry field is here.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  *
@@ -40,6 +39,12 @@ import java.util.Objects;
  * @param capkFrom the jar this row's {@code -jar} is built from, with CAPK expiries re-dated
  *     ({@link Capk}), before each launch; empty for none
  * @param olderBaseForm this row's form for a Commander on base 56 or earlier, or null
+ * @param wellFormed files under {@code cwd} that must be well-formed XML before a run (System Checks, required)
+ * @param tls Petro's tank level simulator files ({@link PetroTls}), or null for a row without one
+ * @param fepOnly the host of one secondary FEP only: never on the picker, and checked or started only when the run's
+ *     Secondary FEP names it
+ * @param supersededBy another row's FEP simulator that serves this row's service when its staged build can
+ *     ({@link Fepsim#supersede}), or null
  */
 public record SimEntry(
         String name,
@@ -61,7 +66,46 @@ public record SimEntry(
         boolean replaceStale,
         boolean stagedOnly,
         String capkFrom,
-        SimEntry olderBaseForm) {
+        SimEntry olderBaseForm,
+        List<String> wellFormed,
+        Tls tls,
+        boolean fepOnly,
+        SupersededBy supersededBy) {
+
+    /**
+     * A row's {@code tls:} block: the two {@code .properties} files under its {@code cwd} that
+     * {@link PetroTls#configure} sets before each launch.
+     *
+     * @param simulators the file whose {@code Simulators:} list gains or loses {@code TLS}
+     * @param port the file whose {@code SerialPort} is the rig's {@code controller.tls_port}
+     */
+    public record Tls(String simulators, String port) {
+        public Tls {
+            Objects.requireNonNull(simulators, "simulators");
+            Objects.requireNonNull(port, "port");
+        }
+    }
+
+    /**
+     * A row's {@code superseded_by:} block: {@code simulator}'s FEP simulator serves this row's service from its own
+     * {@code instance} when that simulator's staged jar is FEPSIM generation {@code fepsim} or later.
+     *
+     * @param simulator the row whose suite runs the instance
+     * @param fepsim the lowest FEPSIM generation that can
+     * @param instance the FEPSIM instance id
+     * @param legacy the instance's legacy profile ({@code BUYPASS}), or ""
+     * @param readyTcp the port the instance listens on
+     * @param needsTcp other controller ports the listener's answers depend on (its suite's WireMock)
+     */
+    public record SupersededBy(String simulator, int fepsim, String instance, String legacy, int readyTcp,
+            List<Integer> needsTcp) {
+        public SupersededBy {
+            Objects.requireNonNull(simulator, "simulator");
+            Objects.requireNonNull(instance, "instance");
+            legacy = legacy == null ? "" : legacy;
+            needsTcp = List.copyOf(needsTcp == null ? List.of() : needsTcp);
+        }
+    }
 
     public SimEntry {
         Objects.requireNonNull(name, "name");
@@ -77,6 +121,7 @@ public record SimEntry(
         fallbackJaxb = orEmpty(fallbackJaxb);
         fallbackWhen = orEmpty(fallbackWhen);
         capkFrom = orEmpty(capkFrom);
+        wellFormed = List.copyOf(wellFormed == null ? List.of() : wellFormed);
     }
 
     private static String orEmpty(String value) {
@@ -91,6 +136,23 @@ public record SimEntry(
     /** True when starting the row needs Swing buttons pressed, which this port cannot do. */
     public boolean needsClicks() {
         return !click.isEmpty() || readyClicked;
+    }
+
+    /** This row with no readiness probe: matched by command line alone (the Python's {@code replace(entry, ready={})}). */
+    public SimEntry withoutReady() {
+        return new SimEntry(name, runner, cwd, argv, exe, env, 0, false, click, log, windowed, match, fallbackJdk,
+                fallbackJaxb, fallbackWhen, adoptOnlyMatch, replaceStale, stagedOnly, capkFrom, olderBaseForm,
+                wellFormed, tls, fepOnly, supersededBy);
+    }
+
+    /** This row with {@code first} put before its argv (the Python's {@code replace(entry, argv=[...])}). */
+    public SimEntry withArgvFirst(String first) {
+        List<String> longer = new ArrayList<>();
+        longer.add(first);
+        longer.addAll(argv);
+        return new SimEntry(name, runner, cwd, longer, exe, env, readyTcp, readyClicked, click, log, windowed, match,
+                fallbackJdk, fallbackJaxb, fallbackWhen, adoptOnlyMatch, replaceStale, stagedOnly, capkFrom,
+                olderBaseForm, wellFormed, tls, fepOnly, supersededBy);
     }
 
     /** A javaw row, in the tools root's Java set. */
@@ -125,6 +187,10 @@ public record SimEntry(
         private boolean stagedOnly;
         private String capkFrom = "";
         private SimEntry olderBaseForm;
+        private final List<String> wellFormed = new ArrayList<>();
+        private Tls tls;
+        private boolean fepOnly;
+        private SupersededBy supersededBy;
 
         private Builder(String name, Runner runner) {
             this.name = name;
@@ -214,10 +280,35 @@ public record SimEntry(
             return this;
         }
 
+        /** Files under {@code cwd} that must parse as XML before a run. */
+        public Builder wellFormed(String... files) {
+            wellFormed.addAll(List.of(files));
+            return this;
+        }
+
+        /** The tank level simulator's two files under {@code cwd}. */
+        public Builder tls(String simulators, String port) {
+            this.tls = new Tls(simulators, port);
+            return this;
+        }
+
+        public Builder fepOnly() {
+            this.fepOnly = true;
+            return this;
+        }
+
+        /** {@code superseded_by:}: served by {@code simulator}'s FEP simulator from generation {@code fepsim} on. */
+        public Builder supersededBy(String simulator, int fepsim, String instance, String legacy, int readyTcp,
+                Integer... needsTcp) {
+            this.supersededBy = new SupersededBy(simulator, fepsim, instance, legacy, readyTcp, List.of(needsTcp));
+            return this;
+        }
+
         public SimEntry build() {
             return new SimEntry(name, runner, cwd, argv, exe, env, readyTcp, readyClicked,
                     click, log, windowed, match, fallbackJdk, fallbackJaxb, fallbackWhen,
-                    adoptOnlyMatch, replaceStale, stagedOnly, capkFrom, olderBaseForm);
+                    adoptOnlyMatch, replaceStale, stagedOnly, capkFrom, olderBaseForm,
+                    wellFormed, tls, fepOnly, supersededBy);
         }
     }
 }

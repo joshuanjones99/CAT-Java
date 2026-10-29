@@ -34,8 +34,9 @@ import com.verifone.cat.rig.Rig;
  * <p>The order, and what each part is here:
  * <ol>
  *   <li>Before anything is installed, on a rig run: what the run asks for that CAT-Java does not have
- *       ({@link #unported}: JaCoCo coverage's launch wiring; the cloud tunnel of a run onboarding to Commander
- *       Connect, when the stages have none) fails the step as unavailable, one failed row each. Deviation: the Python reaches these after the
+ *       ({@link #unported}: the cloud tunnel of a run onboarding to Commander Connect) fails the step as
+ *       unavailable, one failed row each. JaCoCo coverage is wired ({@link CoverageLaunch#prepare}, before
+ *       {@code provision}). Deviation: the Python reaches these after the
  *       install; CAT-Java cannot do them, so it stops before a PSI install wipes both devices for a run that would
  *       end there anyway. System Checks fails the same run first.</li>
  *   <li>The Commander build download and install ({@link InstallCommanderBuild}, the Python's
@@ -89,11 +90,8 @@ import com.verifone.cat.rig.Rig;
  * Config tab, web form and {@code run_plan}, sets) installs what it was asked to and otherwise only links the pinpad
  * when Petro Simulator Suite or a vats pinpad is in play, as the Python's; with nothing done the step is skipped.
  *
- * <p>Deviations from the Python: no FEP simulator supersedes BUYPASS Host in CAT-Java's step 3, so {@code emv-keys}
- * gets {@code --host-packets} only through the {@link CommanderStages#hostPackets} hook and the drift restart never
- * defers to one; "Petro Simulator Suite in play" reads {@link LaunchConfig#simulators}, not the Python's
- * {@code all_simulators()} ({@link #simulatorsInPlay}, a hook); the pos-shim build runs in-process
- * ({@link com.verifone.cat.provision.PosShimBuild}) rather than as {@code python tools/build_pos_shim.py}; a {@code csite-reset} failure is a WARN
+ * <p>Deviations from the Python: the pos-shim build runs in-process ({@link com.verifone.cat.provision.PosShimBuild})
+ * rather than as {@code python tools/build_pos_shim.py}; a {@code csite-reset} failure is a WARN
  * line (the Python's comment says "never fails the step", while its {@code run_petrotest} marks the step failed and
  * goes on, so the Python step ends failed while returning success); a stage that is not ported throws
  * {@link StageUnavailable}, which fails the step there.
@@ -151,10 +149,6 @@ final class CommanderConfigurationStep implements LaunchStep {
         return STAGE_LABELS.getOrDefault(command, command);
     }
 
-    /** What JaCoCo coverage needs that CAT-Java does not have. */
-    static final String COVERAGE_MISSING = "JaCoCo coverage's launch wiring (cat.launch.coverage.prepare_coverage), "
-            + "which runs before provision when the Config tab asks for coverage";
-
     /**
      * Something a rig run asks for that CAT-Java does not have: its row, and what {@link StepEmitter#unavailable} says.
      */
@@ -176,9 +170,7 @@ final class CommanderConfigurationStep implements LaunchStep {
             return List.of();
         }
         List<Gap> gaps = new java.util.ArrayList<>();
-        if (config.coverage()) {
-            gaps.add(new Gap(label("coverage"), PYTHON_MODULE, COVERAGE_MISSING));
-        }
+        // [coverage slice, wave 16] JaCoCo coverage is wired (launch.CoverageLaunch), so it is no longer a gap.
         if (config.commanderConnect() && !tunnelPorted) {
             gaps.add(new Gap("cloud-tunnel", CommanderStages.CLOUD_TUNNEL_MODULE, CommanderStages.CLOUD_TUNNEL_MISSING));
         }
@@ -233,8 +225,12 @@ final class CommanderConfigurationStep implements LaunchStep {
             return step.fail("the rig file did not load, so the Commander cannot be configured");
         }
 
-        // 2. The register, then the Commander's license nags. (Coverage, when asked, ended the step above.) The
-        // pos-shim payload is built first when it is not the sources' build; provision stays the authority on it.
+        // [coverage slice, wave 16] JaCoCo coverage, when asked: before provision, because getting the agent loaded may
+        // reboot a device and provision brings the register's shim back. A failure costs the run its coverage only.
+        CoverageLaunch.prepare(ctx, step);
+
+        // 2. The register, then the Commander's license nags. The pos-shim payload is built first when it is not the
+        // sources' build; provision stays the authority on it.
         buildPosShim(ctx, step, rig);
         if (!stage(step, "provision", say -> stages.provision(rig, say))) {
             return false;
@@ -501,11 +497,9 @@ final class CommanderConfigurationStep implements LaunchStep {
     static final String DEV_MODE = "dev";
 
     /**
-     * Whether Petro Simulator Suite is in play: the Python's {@code FORECOURT_SIMULATOR in config.all_simulators()}.
-     * Hook for the sims slice: {@code all_simulators()} is {@code simulators} plus every chosen Secondary FEP's
-     * simulator (a FEPSIM v2 FEP brings Petro Simulator Suite in); CAT-Java's step 3 starts only
-     * {@link LaunchConfig#simulators}, so this reads that until step 3 starts the FEPs' simulators too, and then
-     * should read the same list step 3 starts.
+     * Whether Petro Simulator Suite is in play: the Python's {@code FORECOURT_SIMULATOR in config.all_simulators()},
+     * {@code simulators} plus every chosen Secondary FEP's host simulator (a FEPSIM v2 FEP brings Petro Simulator
+     * Suite in), the list step 3 starts.
      */
     static boolean forecourt(RunContext ctx) {
         return simulatorsInPlay(ctx).contains(StartSimulatorsStep.PETRO_SIMULATOR);
@@ -513,7 +507,8 @@ final class CommanderConfigurationStep implements LaunchStep {
 
     /** What step 3 adopts or starts: the Python's {@code all_simulators()} (see {@link #forecourt}). */
     static List<String> simulatorsInPlay(RunContext ctx) {
-        return ctx.config().simulators();
+        return com.verifone.cat.sims.FepHosts.allSimulators(ctx.config().simulators(),
+                ctx.commanderOptions().secondaryFeps(), ctx.config().fakePos());
     }
 
     private static String pinpadName(Rig rig) {
@@ -577,6 +572,10 @@ final class CommanderConfigurationStep implements LaunchStep {
      * CAT, which is said), else whether the restart brought it back (a failure fails the step).
      */
     private Boolean restartPaymentHost(RunContext ctx, StepEmitter step) {
+        // A FEP simulator serves the payment host this run: BUYPASS Host is not the one the drift fix left deaf.
+        if (StartSimulatorsStep.paymentHostSuperseded(ctx)) {
+            return null;
+        }
         boolean owned = ctx.simulators().stream()
                 .anyMatch(p -> p.entry().name().equals(PAYMENT_HOST) && p.spawned());
         if (!owned) {
@@ -607,7 +606,7 @@ final class CommanderConfigurationStep implements LaunchStep {
         PinpadLink.Result result;
         try {
             result = link.link(step, ctx.config().rig(), stages.pinpadLog(rig), ctx.epsLogMark(), started3,
-                    say -> stages.emvKeys(rig, null, say),
+                    say -> stages.emvKeys(rig, null, stages.hostPackets(ctx), say),
                     simulator -> stages.restartSimulator(ctx, simulator, step));
         } catch (StageUnavailable e) {
             step.substep(PinpadLink.LABEL, SubstepOutcome.FAILED, e.getMessage(), elapsed(started));

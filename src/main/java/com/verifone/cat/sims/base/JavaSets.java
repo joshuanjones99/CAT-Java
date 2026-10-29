@@ -185,6 +185,29 @@ public final class JavaSets {
     }
 
     /**
+     * Downloads every set in {@link #missing}: the Python's {@code fetch_missing_java}. One problem per set that
+     * failed, else empty. Never throws; the client is asked for only when a set is missing.
+     */
+    public static List<String> fetchMissingJava(Path toolsRoot, Supplier<ArtifactoryClient> clients,
+            Consumer<String> log) {
+        List<String> problems = new ArrayList<>();
+        for (JavaSet java : missing(toolsRoot)) {
+            String problem;
+            try {
+                problem = stage(java, toolsRoot, clients.get(), log);
+            } catch (RuntimeException e) {
+                problem = "Java 17 " + java.version() + ": " + artifactoryFailure(e);
+            } catch (IOException e) {
+                problem = "Java 17 " + java.version() + ": " + artifactoryFailure(new UncheckedIOException(e));
+            }
+            if (!problem.isEmpty()) {
+                problems.add(problem);
+            }
+        }
+        return problems;
+    }
+
+    /**
      * Why a listing or download failed, in words: the Python's {@code cat.sims.fetch._artifactory_failure}. A
      * rejected login or an unreachable server is said as {@link ArtifactoryErrors#describe} says it; anything else as
      * its exception.

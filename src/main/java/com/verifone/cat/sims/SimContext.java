@@ -33,8 +33,10 @@ import java.util.stream.Stream;
  * @param javaDir the Java 17 set under the tools root: {@code Java17}, or {@code Java17v1.1}
  * @param jdk one specific JDK directory, or null for the highest under {@code javaDir}
  * @param jaxb the JAXB module directory for {@code {jaxb}}, or null for {@code {java_home}/jaxb-ri/mod}
+ * @param tlsPort the rig's {@code controller.tls_port}: the serial port Petro's tank level simulator uses, or ""
+ *     to keep that simulator off ({@link PetroTls})
  */
-public record SimContext(Path toolsRoot, String controllerHost, String javaDir, Path jdk, Path jaxb) {
+public record SimContext(Path toolsRoot, String controllerHost, String javaDir, Path jdk, Path jaxb, String tlsPort) {
 
     /** The Java 17 set Commander base 57 and later launch on (D13). */
     public static final String JAVA_DIR = "Java17";
@@ -45,16 +47,42 @@ public record SimContext(Path toolsRoot, String controllerHost, String javaDir, 
         Objects.requireNonNull(toolsRoot, "toolsRoot");
         controllerHost = controllerHost == null ? "" : controllerHost.strip();
         javaDir = javaDir == null || javaDir.isBlank() ? JAVA_DIR : javaDir;
+        tlsPort = tlsPort == null ? "" : tlsPort.strip();
+    }
+
+    /** A context with Petro's tank level simulator off (no {@code controller.tls_port}). */
+    public SimContext(Path toolsRoot, String controllerHost, String javaDir, Path jdk, Path jaxb) {
+        this(toolsRoot, controllerHost, javaDir, jdk, jaxb, "");
     }
 
     /** A context on the standard Java set, with no JDK override. */
     public static SimContext of(Path toolsRoot, String controllerHost) {
-        return new SimContext(toolsRoot, controllerHost, JAVA_DIR, null, null);
+        return new SimContext(toolsRoot, controllerHost, JAVA_DIR, null, null, "");
+    }
+
+    /**
+     * The Python's {@code SimContext.for_rig}: the tools root (the environment's, else the default), the rig's
+     * controller host and its {@code controller.tls_port}; both empty without a rig.
+     */
+    public static SimContext forRig(com.verifone.cat.rig.Rig rig) {
+        return forRig(ToolsRoot.resolve(null), rig);
+    }
+
+    /** {@link #forRig(com.verifone.cat.rig.Rig)} under a given tools root (a test's). */
+    public static SimContext forRig(Path toolsRoot, com.verifone.cat.rig.Rig rig) {
+        String host = rig == null ? "" : rig.controller().host();
+        String tls = rig == null ? "" : rig.controller().tlsPort();
+        return new SimContext(toolsRoot, host, JAVA_DIR, null, null, tls);
+    }
+
+    /** This context on another Java 17 set ({@code Java17} or {@code Java17v1.1}). */
+    public SimContext withJavaDir(String dir) {
+        return new SimContext(toolsRoot, controllerHost, dir, jdk, jaxb, tlsPort);
     }
 
     /** This context, relaunching on one specific JDK (the Petro row's {@code fallback_jdk}). */
     public SimContext withJdk(Path onJdk, Path onJaxb) {
-        return new SimContext(toolsRoot, controllerHost, javaDir, onJdk, onJaxb);
+        return new SimContext(toolsRoot, controllerHost, javaDir, onJdk, onJaxb, tlsPort);
     }
 
     /** The java home: the parent of the override JDK, or {@code <tools_root>/<javaDir>}. */

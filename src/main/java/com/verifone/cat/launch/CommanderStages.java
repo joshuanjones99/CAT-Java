@@ -217,12 +217,10 @@ interface CommanderStages {
 
     /**
      * The Python's {@code host_packet_args(ctx)}: the capture file of a FEP simulator that serves BUYPASS Host's
-     * traffic this run, or null for BUYPASS Host's own {@code packetFile.txt}. Null here: CAT-Java's step 3 never
-     * supersedes BUYPASS Host. Hook for the sims slice: return {@code cat.sims.fepsim.capture_file}'s Java port for
-     * the superseding instance recorded on {@code ctx}.
+     * traffic this run ({@link StartSimulatorsStep#hostPackets}), or null for BUYPASS Host's own {@code packetFile.txt}.
      */
     default Path hostPackets(RunContext ctx) {
-        return null;
+        return StartSimulatorsStep.hostPackets(ctx).orElse(null);
     }
 
     /**
@@ -591,7 +589,8 @@ interface CommanderStages {
         }
 
         /**
-         * The Python's {@code _restart_simulator}: only a CAT-started instance (D9), stopped, started again, and
+         * The Python's {@code _restart_simulator}: only a CAT-started instance (D9), stopped, started again in the
+         * simulators' context step 3 used ({@link StartSimulatorsStep#runSims}: its Java set and TLS port), and
          * recorded on the run in place of the old one.
          */
         @Override
@@ -601,12 +600,11 @@ interface CommanderStages {
             if (owned.isEmpty()) {
                 return notStartedByCat(simulator);
             }
-            Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
             step.log("restarting " + simulator, "INFO");
             Supervisor supervisor = ctx.supervisor();
             supervisor.stop(owned, Supervisor.STOP_WAIT);
-            SimProcess fresh = supervisor.start(owned.get(0).entry(), sims(rig), Events.NONE, "", "",
-                    SIM_START_TIMEOUT);
+            SimProcess fresh = supervisor.start(owned.get(0).entry(), StartSimulatorsStep.runSims(ctx), Events.NONE,
+                    "", "", SIM_START_TIMEOUT);
             ctx.replaceSimulators(owned, fresh);
             if (fresh.status().state() != SimStatus.State.READY) {
                 return simulator + " did not come back: " + fresh.status().state().label() + " — "

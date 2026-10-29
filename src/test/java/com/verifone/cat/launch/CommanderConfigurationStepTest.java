@@ -459,12 +459,31 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void coverageAskedForIsUnavailableBeforeProvision() throws IOException {
-        Stages stages = new Stages();
-        Outcome out = run(rigRun().coverage(true).build(), stages);
-        assertFalse(out.keepGoing());
-        assertTrue(stages.ran.isEmpty());
-        assertTrue(out.step().detail().contains("JaCoCo coverage's launch wiring"), out.step().detail());
+    void coverageIsPreparedBeforeProvisionAndAFailedPrepareNeverStopsTheStep() throws IOException {
+        // [coverage slice, wave 16] was coverageAskedForIsUnavailableBeforeProvision: coverage is wired now.
+        for (int exit : new int[] {0, 1}) {
+            Stages stages = new Stages();
+            RunContext ctx = context(rigRun().coverage(true).build(), true);
+            CoverageLaunch.use(ctx, new CoverageLaunch.Ops() {
+                @Override
+                public int coverage(List<String> args, java.util.function.Consumer<String> out,
+                        java.util.function.Consumer<String> err) {
+                    stages.ran.add(String.join(" ", args.subList(0, 2)));
+                    return exit;
+                }
+
+                @Override
+                public long spawn(List<String> argv, Path log, Path cwd) {
+                    throw new AssertionError("step 4 never uploads");
+                }
+            });
+            Outcome out = run(ctx, stages, Map.of());
+            assertTrue(out.keepGoing(), "exit " + exit);
+            assertEquals(List.of("coverage prepare", "provision"), stages.ran.subList(0, 2));
+            assertEquals(exit == 0, CoverageLaunch.ready(ctx));
+            assertEquals(exit == 0 ? SubstepOutcome.PASSED : SubstepOutcome.FAILED,
+                    out.rows().get("JaCoCo coverage prepare — cat-java coverage prepare"));
+        }
     }
 
     @Test
@@ -879,18 +898,8 @@ class CommanderConfigurationStepTest {
 
     @Test
     void aNewInstallAskingForWhatCatJavaCannotDoStopsBeforeTheDownloadAndTheInstall() throws IOException {
-        // Coverage and the onboarding's cloud tunnel would end the step after the PSI install wiped both devices.
-        LaunchConfig.Builder base = rigRun().upgradeMode(UpgradeMode.NEW_INSTALL)
-                .commanderBranch("Solutions").commanderBuild("134");
-        Stages coverage = new Stages();
-        coverage.root = dir.resolve("builds");
-        Outcome covered = run(base.coverage(true).build(), coverage);
-        assertFalse(covered.keepGoing());
-        assertEquals(List.of(), coverage.ran);
-        assertEquals(SubstepOutcome.FAILED, covered.rows().get(label("coverage")));
-        assertTrue(covered.step().detail().contains("JaCoCo coverage's launch wiring"), covered.step().detail());
-        assertFalse(covered.rows().containsKey(label("build")));
-
+        // The onboarding's cloud tunnel would end the step after the PSI install wiped both devices. (Coverage was a
+        // second case until the coverage slice wired it, wave 16.)
         Stages tunnel = new Stages();
         tunnel.root = dir.resolve("builds");
         tunnel.tunnelPorted = false;
@@ -907,9 +916,10 @@ class CommanderConfigurationStepTest {
         assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
         LaunchConfig onboarding = rigRun().commanderConnect(true).coverage(true)
                 .build();
-        assertEquals(List.of(label("coverage"), "cloud-tunnel"), CommanderConfigurationStep.unported(onboarding, false)
+        // [coverage slice, wave 16] coverage is wired, so only the tunnel is a gap.
+        assertEquals(List.of("cloud-tunnel"), CommanderConfigurationStep.unported(onboarding, false)
                 .stream().map(CommanderConfigurationStep.Gap::row).toList());
-        assertEquals(List.of(label("coverage")), CommanderConfigurationStep.unported(onboarding, true).stream()
+        assertEquals(List.of(), CommanderConfigurationStep.unported(onboarding, true).stream()
                 .map(CommanderConfigurationStep.Gap::row).toList());
         assertEquals(List.of(), CommanderConfigurationStep.unported(new LaunchConfig.Builder("").fakePos(true)
                 .commanderConnect(true).coverage(true).build(), false));
