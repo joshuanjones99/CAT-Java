@@ -273,6 +273,96 @@ class TestsRunStepTest {
         assertEquals(List.of("PETROCORE-100", "PETROCORE-300"), seen);
     }
 
+    /** A {@code @plan_end} case as a {@code .feature} of one PATS action, named {@code <key>-TestCase.feature}. */
+    private Path writePlanEndCase(String key, String action) throws IOException {
+        Path folder = Files.createDirectories(dir.resolve("suite"));
+        Path file = folder.resolve(key + "-TestCase.feature");
+        Files.writeString(file, "@" + key + " @plan_end\nFeature: Cadence\n\n  Scenario: the end-of-plan report\n"
+                + "    When PATS runs " + action + " with \"REPORTNAME=X\"\n", StandardCharsets.UTF_8);
+        return file;
+    }
+
+    private static RegistryFactory checking() {
+        return services -> {
+            ActionRegistry registry = new ActionRegistry();
+            registry.register("TOUCH_EVENT", (run, action) -> { });
+            registry.register("BOOM", (run, action) -> {
+                throw new IllegalStateException("boom");
+            });
+            registry.register("CHECK", (run, action) -> {
+                throw new com.verifone.cat.pats.runner.ValidationFailure("report differs");
+            });
+            return registry;
+        };
+    }
+
+    private static JsonNode finished(RunContext ctx, String key) throws IOException {
+        return events(ctx).stream().filter(e -> "test.finished".equals(e.get("type").asText())
+                && e.get("nodeid").asText().contains(key)).findFirst().orElseThrow();
+    }
+
+    /**
+     * PETROCORE-37031/37033/37036/37063 in CAT-Java run a4eda2bf8602: an end-of-plan report after two earlier
+     * failures. The Python ({@code pats.plugin.PatsCase.run}, {@code pats.feature.PatsScenario.finish}) xfails it,
+     * "plan_end verdict untrusted: 2 earlier case(s) failed", as its run 2581320c4367 did; it is neither passed nor
+     * failed.
+     */
+    @Test
+    void aPlanEndReportAfterAnEarlierFailureIsAnExpectedFailure() throws IOException {
+        RunContext ctx = context("plan-end-untrusted", rigRun());
+        List<CaseEntry> entries = List.of(
+                entry("PETROCORE-100", writeCase("PETROCORE-100", "BOOM")),
+                entry("PETROCORE-200", writeCase("PETROCORE-200", "CHECK")),
+                entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "CHECK")));
+        TestsRunStep step = new TestsRunStep(checking(), config -> entries, null);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        JsonNode report = finished(ctx, "PETROCORE-37031");
+        assertEquals("skipped", report.get("outcome").asText());
+        assertEquals("XFailed", report.get("exc_type").asText());
+        assertTrue(report.get("detail").asText().startsWith("plan_end verdict untrusted: 2 earlier case(s) failed\n"),
+                report.get("detail").asText());
+        assertTrue(report.get("detail").asText().contains("report differs"));
+        String log = Files.readString(ctx.runFolder().resolve("PETROCORE-37031").resolve("steps.log"));
+        assertTrue(log.contains("EXPECTED FAILURE (xfail)"), log);
+
+        assertEquals("3/3 tests completed, 2 failed", stepDetail(ctx, "Tests Run"));
+        JsonNode run = runFinished(ctx);
+        assertEquals(0, run.get("passed").asInt());
+        assertEquals(2, run.get("failed").asInt(), "the expected failure is not counted as a failure");
+    }
+
+    /** With every earlier case passed, a plan_end report's verdict is trusted: a failed validation fails it. */
+    @Test
+    void aPlanEndReportAfterOnlyPassesIsAFailure() throws IOException {
+        RunContext ctx = context("plan-end-trusted", rigRun());
+        List<CaseEntry> entries = List.of(
+                entry("PETROCORE-100", writeCase("PETROCORE-100", "TOUCH_EVENT")),
+                entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "CHECK")));
+        TestsRunStep step = new TestsRunStep(checking(), config -> entries, null);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        assertEquals("failed", finished(ctx, "PETROCORE-37031").get("outcome").asText());
+        assertEquals(1, runFinished(ctx).get("failed").asInt());
+    }
+
+    /** A plan_end case's step that could not be done is still a failure after earlier failures (PatsStepError). */
+    @Test
+    void aPlanEndStepFailureIsNeverAnExpectedFailure() throws IOException {
+        RunContext ctx = context("plan-end-step", rigRun());
+        List<CaseEntry> entries = List.of(
+                entry("PETROCORE-200", writeCase("PETROCORE-200", "CHECK")),
+                entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "BOOM")));
+        TestsRunStep step = new TestsRunStep(checking(), config -> entries, null);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        assertEquals("failed", finished(ctx, "PETROCORE-37031").get("outcome").asText());
+        assertEquals(2, runFinished(ctx).get("failed").asInt());
+    }
+
     /** A failed action walks the rungs in order until one restores the rig, each reaching the run's target. */
     @Test
     void aFailedActionWalksTheRungsInOrderOnTheRunsTarget() throws IOException {

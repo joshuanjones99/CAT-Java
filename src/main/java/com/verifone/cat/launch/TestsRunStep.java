@@ -29,6 +29,7 @@ import com.verifone.cat.pats.runner.RunnableCase;
 import com.verifone.cat.pats.runner.ValidationsFailed;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
 import com.verifone.cat.pats.runner.handlers.posui.PinpadView;
+import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.pos.fake.FakePosBanner;
 import com.verifone.cat.pos.fake.FakePosPinpad;
@@ -61,6 +62,13 @@ import com.verifone.cat.rig.Rig;
  *
  * <p>The state a case carries to the next one is the run's {@link RunState}: a case after a failed one
  * waits for the POS, as PATS does.
+ *
+ * <p>A {@code @plan_end} case (an end-of-plan report, built from every sale before it) whose validations fail after an
+ * earlier case failed is an expected failure, not a failure: {@code xfailed} in its record, {@code skipped} with
+ * {@code exc_type} {@code XFailed} on its {@code test.finished}, its detail {@code "plan_end verdict untrusted: N
+ * earlier case(s) failed\n..."}, and it counts neither as passed nor as failed. A step that could not be done is still
+ * a failure. This is the Python's {@code PatsCase.run} / {@code PatsScenario.finish} ({@code pytest.xfail}) over
+ * {@code validate.plugin.earlier_failures}, which counts cases that failed in setup or call (rig owner, 2026-09-23).
  *
  * <p>The verdict: {@code complete}, detailed {@code finished/total tests completed[, N failed]}, when every
  * case ran to a verdict (a failing test is not a failing step, as the Python's {@code _tests_outcome}
@@ -252,16 +260,21 @@ final class TestsRunStep implements LaunchStep {
         int passed = 0;
         int failed = 0;
         int finished = 0;
+        // validate.plugin's _FAILED_SO_FAR: the cases that failed in setup or call so far this session.
+        int earlierFailures = 0;
         String drained = "";
         for (Loaded one : loaded) {
             CaseEntry entry = one.entry();
             pauseBeforeCase(ctx, entry.nodeid());
-            CaseVerdict verdict = runCase(ctx, one, built, session.petro, state, ladder);
+            CaseVerdict verdict = runCase(ctx, one, built, session.petro, state, ladder, earlierFailures);
             finished++;
             if (verdict.passed()) {
                 passed++;
-            } else {
+            } else if (!verdict.xfailed()) {
                 failed++;
+            }
+            if (verdict.countsAsFailure()) {
+                earlierFailures++;
             }
             step.progress(entry.key(), finished, toRun.size());
             if (!verdict.drainReason().isEmpty()) {
@@ -283,7 +296,7 @@ final class TestsRunStep implements LaunchStep {
 
     /** One case, from its start to its verdict, with its events, its folder, any recovery and the pump teardown. */
     private CaseVerdict runCase(RunContext ctx, Loaded one, RegistryFactory.Built built, PetroSession petro,
-            RunState state, RecoveryLadder ladder) {
+            RunState state, RecoveryLadder ladder, int earlierFailures) {
         CaseEntry entry = one.entry();
         String nodeid = entry.nodeid();
         Path folder = ctx.runFolder().resolve(entry.key());
@@ -298,6 +311,9 @@ final class TestsRunStep implements LaunchStep {
             declared.addAll(FixtureRequirements.fixturesFor(one.kase()));
         }
         Attempt attempt = execute(ctx, record, one, built, declared, petro, state);
+        if (attempt.validationOnly() && earlierFailures > 0 && planEnd(entry.file())) {
+            attempt = Attempt.untrusted(attempt, earlierFailures);
+        }
         record.finish(attempt.outcome(), attempt.detail(), "", ctx.clock().instant());
         writeStepsLog(record, folder);
 
@@ -312,7 +328,19 @@ final class TestsRunStep implements LaunchStep {
         double seconds = (System.nanoTime() - started) / 1_000_000_000.0;
         ctx.emit(new CatEvent.TestFinished(nodeid, attempt.testOutcome(), seconds, 0, attempt.excType(),
                 truncate(attempt.detail())));
-        return new CaseVerdict(attempt.passed(), drained);
+        return new CaseVerdict(attempt.passed(), attempt.xfailed(), attempt.countsAsFailure(), drained);
+    }
+
+    /** Whether the case's file carries {@code @plan_end}, on its feature or its scenario (pytest's marker). */
+    static boolean planEnd(Path file) {
+        if (file == null) {
+            return false;
+        }
+        try {
+            return PartialRun.fileTags(file).stream().anyMatch(tags -> tags.contains("@plan_end"));
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Walks the ladder for a failed case, emits the walk, and returns the drain reason, or "" when none. */
@@ -558,8 +586,11 @@ final class TestsRunStep implements LaunchStep {
         return text.length() <= DETAIL_CHARS ? text : text.substring(0, DETAIL_CHARS);
     }
 
-    /** One case's verdict: whether it passed, and the drain reason ("" when recovery did not drain the rig). */
-    private record CaseVerdict(boolean passed, String drainReason) {
+    /**
+     * One case's verdict: whether it passed, whether it was an expected failure, whether it counts towards the
+     * session's earlier failures, and the drain reason ("" when recovery did not drain the rig).
+     */
+    private record CaseVerdict(boolean passed, boolean xfailed, boolean countsAsFailure, String drainReason) {
 
         CaseVerdict {
             drainReason = drainReason == null ? "" : drainReason;
@@ -594,6 +625,26 @@ final class TestsRunStep implements LaunchStep {
 
         static Attempt validationsFailed(ValidationsFailed failed) {
             return new Attempt("failed", failed.getMessage(), failed.getClass().getSimpleName(), false, "call");
+        }
+
+        /** A {@code @plan_end} case's failed validations after an earlier failure: pytest's {@code xfail}. */
+        static Attempt untrusted(Attempt failed, int earlierFailures) {
+            return new Attempt("xfailed", "plan_end verdict untrusted: " + earlierFailures
+                    + " earlier case(s) failed\n" + failed.detail(), "XFailed", false, "call");
+        }
+
+        /** Whether every action ran and only validations failed (the Python's {@code AssertionError}). */
+        boolean validationOnly() {
+            return "failed".equals(outcome) && !recoverable && "call".equals(phase);
+        }
+
+        boolean xfailed() {
+            return "xfailed".equals(outcome);
+        }
+
+        /** pytest's {@code report.failed} in setup or call, which {@code earlier_failures} counts. */
+        boolean countsAsFailure() {
+            return "failed".equals(outcome) || ("error".equals(outcome) && "setup".equals(phase));
         }
 
         static Attempt stepFailed(RuntimeException cause) {
@@ -649,6 +700,8 @@ final class TestsRunStep implements LaunchStep {
             return switch (outcome) {
                 case "passed" -> Outcome.PASSED;
                 case "failed" -> Outcome.FAILED;
+                // pytest reports an xfail as skipped, with wasxfail; the plugin names it XFailed.
+                case "xfailed" -> Outcome.SKIPPED;
                 default -> Outcome.ERROR;
             };
         }

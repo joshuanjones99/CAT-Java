@@ -35,6 +35,9 @@ final class ReportHandler implements ActionHandler {
     /** The suffix of CAT's own report baseline. */
     static final String BASELINE_SUFFIX = "-CATReport.xml";
 
+    /** What the difference calls a report, as the Python's {@code _xml_diff(kind="report")} does. */
+    private static final String KIND = "report";
+
     /** The rule file a report reads when it names none. */
     static final String DEFAULT_RULE = "REPORT-RULE.txt";
 
@@ -92,9 +95,12 @@ final class ReportHandler implements ActionHandler {
         List<String> attributes = ValidationSupport.concat(lists.attributes(),
                 ValidationSupport.CAT_REPORT_IGNORE_ATTRIBUTES);
         TlogOptions options = ValidationSupport.options(tags, attributes);
+        String rules = rule + " and CAT's " + String.join(", ",
+                ValidationSupport.concat(ValidationSupport.CAT_REPORT_IGNORE_TAGS,
+                        ValidationSupport.CAT_REPORT_IGNORE_ATTRIBUTES));
 
         if (run.update() || "1".equals(context.env(ValidationContext.REPORT_REBASE_ENV))) {
-            if (!hasReference || !differs(referenceBytes(name), actual, tags, attributes, options).isEmpty()) {
+            if (!hasReference || !differs(referenceBytes(name), actual, tags, attributes, options, rules).isEmpty()) {
                 Files.write(catPath, ValidationSupport.serialiseBytes(actual));
                 LOG.warn("{}: wrote {}; review it against {}", run.kase().key(), catPath, name);
             }
@@ -102,7 +108,7 @@ final class ReportHandler implements ActionHandler {
         }
         boolean own = Files.isRegularFile(catPath);
         byte[] reference = own ? Files.readAllBytes(catPath) : referenceBytes(name);
-        String difference = differs(reference, actual, tags, attributes, options);
+        String difference = differs(reference, actual, tags, attributes, options, rules);
         if (!difference.isEmpty()) {
             throw new ValidationFailure("report differs from " + (own ? catPath.getFileName() : name)
                     + ":\n" + difference);
@@ -113,9 +119,9 @@ final class ReportHandler implements ActionHandler {
      * The difference from {@code reference}, or empty when they match. A difference that the entry ordering
      * explains (the same entries in another order) is not one.
      */
-    private static String differs(byte[] reference, Element actual, List<String> tags, List<String> attributes,
-            TlogOptions options) {
-        String difference = ValidationSupport.xmlDiff(reference, actual, options);
+    static String differs(byte[] reference, Element actual, List<String> tags, List<String> attributes,
+            TlogOptions options, String rules) {
+        String difference = ValidationSupport.xmlDiff(reference, actual, options, KIND, rules);
         if (difference.isEmpty()) {
             return "";
         }
@@ -127,7 +133,7 @@ final class ReportHandler implements ActionHandler {
             return difference;
         }
         Element unordered = ValidationSupport.entriesSorted(actual, tags, attributes);
-        return ValidationSupport.xmlDiff(ordered, unordered, options).isEmpty() ? "" : difference;
+        return ValidationSupport.xmlDiff(ordered, unordered, options, KIND, rules).isEmpty() ? "" : difference;
     }
 
     private byte[] referenceBytes(String name) {
