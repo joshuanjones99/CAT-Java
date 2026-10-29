@@ -12,6 +12,10 @@ builds clean: **3,568 tests, 0 failures, 0 errors, 0 skipped**, plus the `RootAc
 the final proof run's PSI install, so the clean-install proof is not yet recorded; the best Cadence
 run from Java is 258/264 (run `a4eda2bf8602`), the Python's own count.
 
+**Wave 16 is IN FLIGHT (2026-10-29, off-rig, the Commander still down): read §6a first.** The user asked
+for all of the Python CAT to be ported. Ten slices are on `wave16/*` branches in worktrees under
+`C:\gitrepos\CAT-Java-wt\`, none merged yet. §5 below overstates several rows; §6a lists the real gaps.
+
 ## 1. What this is
 
 A port of the Python CAT (`C:\gitrepos\CAT`, github.com/joshuanjones99/CAT) to Java 17,
@@ -171,6 +175,56 @@ Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
     10-24 (PID 30372) holds `target\cat-java.jar`, so `build.cmd` cannot repackage until it is
     closed. Run from the classes instead:
     `java -cp "target\classes;target\lib\*" com.verifone.cat.Main launch ...`.
+
+## 6a. Wave 16: port the rest (in flight, 2026-10-29)
+
+On 2026-10-29, four read-only audits compared the Python with this tree, module by module and command by command. They
+found that §5 overstates several areas.
+- **Web Start run** never wires step 5 and has no Atlassian source.
+- **Plan counts**: `plan.resolved` is never emitted, so Not Run is always 0.
+- **`@plan_end` cases** are judged in any run shape. The Python judges them only in a full plan run.
+- **Partial runs** are refused.
+- **Web board and log**: the Overview board, the Validations view, the receipt roll and the Log filters are placeholders.
+- **Web Config tab**: most of its controls are placeholders.
+- **Setup** only detects. It cannot repair or sign in.
+- **Coverage** lacks the class extraction, sources, summary, CLI and launch wiring.
+- **Upgrade, publish, recorder**: classic (AU) upgrade, the foundation merge, VATS, the recorder, draft/replay,
+  `publish`, gitauth and FEPSIM v2 are absent.
+- **Commander Connect**: the cloud tunnel's serve loop is not ported.
+- **CLI**: about twenty `petrotest` subcommands have no Java command yet.
+
+The shared brief, with the rules and the file-ownership table, is `docs/wave16-brief.md`. Before branching,
+`LaunchConfig` gained six fields on main (63437bc): `ifsfMode`, `localBuild`, `foundationBranch`, `foundationBuild`,
+`provisionRegister` and `keepSimulators`.
+
+| Slice (branch `wave16/<slice>`, worktree `C:\gitrepos\CAT-Java-wt\<slice>`) | Scope |
+|---|---|
+| launchcore | `PlanResolved`, the `@plan_end` full-plan gate, partial runs, config/requirements gaps, evidence capture, the `error` outcome, Outline Examples, Xray status lines and sidecar args, receipt relay, `keep_simulators`, `preflight --repair` |
+| sims | FEPSIM v2 (`fepsim.py`) and step 3's supersede, Secondary FEP host simulators, the SSLUtil/TLS/RxtxAgent pre-steps, the wrong-variant stop, staging and `fetch-sims`, SimulatorState events |
+| tunnel | `Transport` reverse forwards, `CloudTunnel.serve` and gateway, `cloud-tunnel` start |
+| step4 | `TunnelStart`, `commander_cloud_config`, csite-reset and cloud-snapshot stages, the BDD skip, the pos-shim rebuild (`build_pos_shim.py`), recovery reprovision, **`install-resume` (§6 item 1a)**, and the commander-prep/init, payment-links, register-app, payment-ready, commander-trust, secondary-fep, csite-reset and cloud-snapshot commands |
+| upgrade | classic AU, VHQ, `local_build`, the foundation/overlay merge, and the `upgrade`, `build`, `builds`, `artifactory-login` and `render-payload` commands |
+| coverage | `classes`, `sources`, `summary`, the `coverage` CLI, `launch/CoverageLaunch`, `xray/attach` |
+| webrun | `cat/state` fold, the web Start run as a real run, the Overview board, Validations, the receipt roll, the Log filters, the Results detail |
+| webshell | the shell lifecycle, the Config controls, Setup repair and sign-in, gitauth, the `setup` CLI, Install Upgrade wiring, Launch Simulators parity |
+| vats | `devices/vats/**`, the BTT card server, `agent.py` shipped and spawned, `pinpad-clear` |
+| authoring | the recorder, `record`/`generate`, draft/replay, the authoring CLI, `steps list/check`, `publish` |
+
+The session ended while the slices were mid-work. Each agent was asked to commit a `WIP wave16:` commit, but some
+may hold uncommitted changes in their worktree.
+
+**To resume:**
+1. In each worktree, run `git status` and `git log main..`. Commit anything left with a WIP message.
+2. Finish each slice: start one agent per worktree with the brief, the slice's scope row above, and "continue from
+   the WIP commit".
+3. Merge one branch at a time and run the full build after each. Merge in this order: tunnel, upgrade, sims,
+   launchcore, step4, coverage, vats, authoring, webshell, webrun. Conflicts are expected in `Main.java`'s table and
+   in the step files that the coverage hooks touch.
+4. Wire the cross-slice hooks each slice reports. Expect these: the sims APIs into `TestsRunStep` and the emv-keys
+   stage; `all_simulators` into the forecourt choice; the VATS calls into steps 1, 3 and 4 and into `LivePosScreen`;
+   `LaunchDefaults` deduplicated with `LaunchCommand`; the webrun routes registered in `WebApp`.
+5. Have a read-only reviewer compare the merged launch with the Python (§7).
+6. Rewrite §5 and §6 from the result.
 
 ## 7. Lessons (read before orchestrating again)
 

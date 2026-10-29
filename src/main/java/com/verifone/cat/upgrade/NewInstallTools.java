@@ -21,7 +21,7 @@ import java.util.Map;
  * @param gemregLicensePath the first Commander package {@code -q lic} pushes
  */
 public record NewInstallTools(Path buildDir, String javaBin, String netloaderJar, String rootAccessPath,
-        String gemregLicensePath) {
+        String gemregLicensePath) implements UpgradePushTools {
 
     /** PATS's home on the controller; the tools and packages sit under it. */
     static final String PATS_HOME = "C:\\CICD";
@@ -51,6 +51,11 @@ public record NewInstallTools(Path buildDir, String javaBin, String netloaderJar
 
     public Path autoUpgradeJar() {
         return buildDir.resolve(AUTO_UPGRADE_JAR);
+    }
+
+    @Override
+    public String autoUpgradeJarPath() {
+        return autoUpgradeJar().toString();
     }
 
     /** The distribution name: the build directory's last element, as {@code psi_answers} takes it. */
