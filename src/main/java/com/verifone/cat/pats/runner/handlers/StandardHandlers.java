@@ -54,7 +54,6 @@ import com.verifone.cat.pats.runner.handlers.configuration.BuypassV2;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
 import com.verifone.cat.pos.pages.Pos;
 import com.verifone.cat.pos.receipt.Receipt;
-import com.verifone.cat.pos.receipt.ReceiptParser;
 import com.verifone.cat.pos.receipt.Source;
 
 import java.io.IOException;
@@ -262,7 +261,7 @@ public final class StandardHandlers {
      * The DCR's receipts for the validations, or null when the run has no DCR (the validation then reads the POS's own
      * receipt, as it did before a DCR was wired). The DCR's text is parsed as a printed receipt.
      */
-    private static ValidationContext.DcrReceipts dcrReceipts(DcrDevice dcr) {
+    static ValidationContext.DcrReceipts dcrReceipts(DcrDevice dcr) {
         if (dcr == null) {
             return null;
         }
@@ -275,7 +274,7 @@ public final class StandardHandlers {
             @Override
             public Receipt receiptSince(long mark, double timeoutSeconds) {
                 String text = dcr.receiptSince((int) mark, Duration.ofMillis(Math.round(timeoutSeconds * 1000)));
-                return ReceiptParser.parse(text, Source.SERIAL);
+                return Receipt.printed(text, Source.SERIAL); // as printed: the Python compares the string
             }
         };
     }
