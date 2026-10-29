@@ -9,7 +9,7 @@ import com.verifone.cat.web.SettingsPlaces.Place;
 
 /**
  * Settings, as cat/web/pages/settings.py lays it out: Appearance (match Windows, light, dark),
- * where CAT keeps things, and the not-yet-built parts of the Python page.
+ * where CAT keeps things, and Starting CAT with Shut down CAT.
  *
  * <p>The Appearance choice saves at once (htmx posts the form on change) and answers with a
  * one-line result. The rest of the page is read-only.
@@ -20,10 +20,17 @@ final class SettingsPage {
 
     /** The whole page body. */
     static String body(Appearance current, List<Place> places) {
-        return appearanceCard(current) + placesCard(places) + Placeholder.html(
-                "Starting CAT (the desktop and Start menu shortcut) and Shut down CAT, which stops the "
-                        + "server now. Neither is in CAT-Java yet.",
-                "cat/web/pages/settings.py");
+        return appearanceCard(current) + placesCard(places) + startingCard();
+    }
+
+    /** Starting CAT, and Shut down CAT with its confirmation (the Python's last card). */
+    static String startingCard() {
+        return "<section class=\"card settings-card\"><h2>Starting CAT</h2>"
+                + "<p>run.cmd starts CAT-Java and opens this page in the browser. If CAT is already running, it only "
+                + "opens this page again. Close every CAT page and CAT closes itself 30 seconds later, but never "
+                + "during a run, a schedule, a download or a recording: it waits for them to end "
+                + "(--no-browser and --stay keep it serving). Shut down CAT below stops it now, run and all.</p>"
+                + Layout.shutdownButton() + "</section>";
     }
 
     /** The one-line answer to a saved (or refused) Appearance choice. */
