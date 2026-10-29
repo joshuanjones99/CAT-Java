@@ -39,6 +39,10 @@ class CoverageCommandTest {
         return (tools, args, timeout) -> {
             calls.add(args);
             try {
+                if (args.get(0).equals("merge")) {
+                    Files.writeString(Path.of(args.get(args.indexOf("--destfile") + 1)), "merged");
+                    return new Jacoco.CliResult(true, "");
+                }
                 Path xml = Path.of(args.get(args.indexOf("--xml") + 1));
                 Files.createDirectories(xml.getParent());
                 Files.writeString(xml, "<report name=\"x\"><counter type=\"LINE\" missed=\"1\" covered=\"3\"/></report>");

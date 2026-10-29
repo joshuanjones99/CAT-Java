@@ -121,7 +121,9 @@ public final class SourceResolver {
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
             factory.setExpandEntityReferences(false);
-            document = factory.newDocumentBuilder().parse(definition.toFile());
+            javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
+            builder.setErrorHandler(new org.xml.sax.helpers.DefaultHandler()); // no "[Fatal Error]" on stderr: it throws
+            document = builder.parse(definition.toFile());
         } catch (Exception e) {
             return List.of(); // unparseable: no dependencies, as the Python's ParseError branch
         }
