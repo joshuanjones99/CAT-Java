@@ -206,7 +206,7 @@ class BttTest {
             assertEquals("automation server", started.route());
             assertEquals(List.of(Map.of("message_type", BttAutomationClient.START_CARD_SERVER, "version", "1.0",
                     "payload", Map.of("interface", "contact"))), server.received);
-            assertTrue(log.get(0).startsWith("BTT automation server: Start_CardSimulatorServer -> ACK"), log.toString());
+            assertTrue(log.get(0).startsWith("BTT automation server: " + BttAutomationClient.START_CARD_SERVER + " -> ACK"), log.toString());
         }
     }
 

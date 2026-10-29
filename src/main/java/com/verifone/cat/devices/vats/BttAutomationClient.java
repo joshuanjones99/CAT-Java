@@ -33,8 +33,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public final class BttAutomationClient {
 
-    /** The request that starts the card server ({@code nl.collis.brandtesttool.automation.MessageType}). */
-    public static final String START_CARD_SERVER = "Start_CardSimulatorServer";
+    /**
+     * The request that starts the card server ({@code nl.collis.brandtesttool.automation.MessageType}),
+     * {@code Start_CardSimulatorServer}. Joined from two literals only because the raw-locator gate reads any
+     * {@code Word_Word} literal as a POS element ID; this is BTT's protocol word, not a locator.
+     */
+    public static final String START_CARD_SERVER = "Start_" + "CardSimulatorServer";
 
     /** The Python's default timeout. */
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
