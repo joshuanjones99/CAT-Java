@@ -1,0 +1,106 @@
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CA #03 12.667G       14.20
+      SELF @ 1.121/ G
+   CAR-WASH-PLU-4          1       10.50
+    15.00 Dsc -4.50
+                              ----------
+                   Subtotal        24.70
+TOTAL     24.70
+                  Cash Back  $      5.00
+                     CREDIT  $     29.70
+                     Change  $     -5.00
+
+Your 5 digit Car Wash code(s)
+   CAR-WASH-PLU-4   <CARWASH_CODE>
+Good thru <DAY> <DATE>
+
+
+SALE Receipt
+DISCOVER   USD$29.70
+CASH BACK $5.00
+Acct/Card #: ************7297
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+MERCHANT COPY
+
+________________________________________
+SIGNATURE
+I agree to pay the amount stated
+on this receipt.
+
+APPROVED
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
+WELCOME TO
+VERIFONE
+AUTOMATION LAB
+HAVE YOU RUN
+AUTOMATION TODAY
+99999
+VFI-QA-LAB
+CLEARWATER
+TPA FL 560100
+
+
+ <CUSTOMER COPY>
+
+   Description           Qty      Amount
+   -----------           ---      ------
+   PETR-UNLD1 CA #03 12.667G       14.20
+      SELF @ 1.121/ G
+   CAR-WASH-PLU-4          1       10.50
+    15.00 Dsc -4.50
+                              ----------
+                   Subtotal        24.70
+TOTAL     24.70
+                  Cash Back  $      5.00
+                     CREDIT  $     29.70
+                     Change  $     -5.00
+
+Your 5 digit Car Wash code(s)
+   CAR-WASH-PLU-4   <CARWASH_CODE>
+Good thru <DAY> <DATE>
+
+
+
+SALE Receipt
+DISCOVER   USD$29.70
+CASH BACK $5.00
+Acct/Card #: ************7297
+Entry: Swiped
+Auth #: <AUTH>
+Resp Code: 000
+Stan: <STAN>
+Invoice #: <INVOICE>
+CUSTOMER COPY
+
+APPROVED
+
+THANK YOU FOR
+AUTOMATING THINGS
+PLEASE RUN
+AUTOMATION
+AGAIN AND AGAIN
+ST#<STORE> DR#<REGISTER> TRAN#<TXN>
+CSH: <CASHIER> <DATETIME>
