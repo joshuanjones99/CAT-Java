@@ -353,13 +353,14 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void anUpgradeModeOtherThanSkipIsUnavailableBeforeAnythingRuns() throws IOException {
+    void aClassicInstallGoesToTheUpgradeStageBeforeAnythingElseRuns() throws IOException {
+        // The classic install is InstallCommanderBuild's own stage (its tests drive it); a recorder has none to give.
         Stages stages = new Stages();
         Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.CLASSIC).build(), stages);
         assertFalse(out.keepGoing());
         assertEquals(StepResult.FAILED, out.step().state());
-        assertTrue(out.step().detail().startsWith("unavailable in CAT-Java: needs the Commander build install for "
-                + "upgrade mode 'classic'"), out.step().detail());
+        assertTrue(out.step().detail().contains("installUpgrade (classic)"), out.step().detail());
+        assertEquals(SubstepOutcome.FAILED, out.rows().get(label("upgrade")));
         assertTrue(stages.ran.isEmpty());
     }
 
@@ -999,12 +1000,12 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void vhqIsUnavailableBeforeAnythingRuns() throws IOException {
+    void vhqFailsAtTheUpgradeStageBeforeAnythingElseRuns() throws IOException {
         Stages stages = new Stages();
         Outcome out = run(new LaunchConfig.Builder(LaunchFixtures.RIG).upgradeMode(UpgradeMode.VHQ).build(), stages);
         assertFalse(out.keepGoing());
         assertTrue(stages.ran.isEmpty());
-        assertTrue(out.step().detail().contains("petrotest/upgrade/vhq.py"), out.step().detail());
+        assertTrue(out.step().detail().contains("installUpgrade (vhq)"), out.step().detail());
     }
 
     @Test
