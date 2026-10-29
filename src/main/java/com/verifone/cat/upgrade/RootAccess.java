@@ -20,8 +20,8 @@ import com.verifone.cat.provision.transport.Transport;
  * and {@code is_hard_fault}. Argv is the one {@code CICDScript.bat} gives; the {@code 443} and the trailing
  * {@code 0} are copied as-is. Success is judged as the Python judges it.
  *
- * <p>Not ported here: the AU path's overlay push and its CGI upgrade dance (the Python {@code classic}
- * module's {@code upgrade_classic}).
+ * <p>The AU path's overlay push and CGI upgrade dance are {@link ClassicUpgrade}'s. Both paths' tools are
+ * {@link UpgradePushTools}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -94,7 +94,7 @@ final class RootAccess {
      * Pushes both root-access packages to the Commander ({@code Auto_Upgrade.jar -q lic}, port 443). When the
      * Commander refuses the jacoco package by size, the sibling systems package is pushed instead.
      */
-    static StepResult pushCommanderRootAccess(NewInstallTools tools, Jars jars, String host, Duration timeout) {
+    static StepResult pushCommanderRootAccess(UpgradePushTools tools, Jars jars, String host, Duration timeout) {
         for (String packagePath : List.of(tools.gemregLicensePath(), tools.rootAccessPath())) {
             StepResult failed = pushLic(tools, jars, host, packagePath, timeout);
             if (failed != null && failed.detail() != null && failed.detail().contains(COMMANDER_PACKAGE_TOO_LARGE)) {
@@ -116,9 +116,9 @@ final class RootAccess {
     }
 
     /** One {@code -q lic} push; {@code null} on success, else the failed result. */
-    private static StepResult pushLic(NewInstallTools tools, Jars jars, String host, String packagePath,
+    private static StepResult pushLic(UpgradePushTools tools, Jars jars, String host, String packagePath,
             Duration timeout) {
-        List<String> argv = jarArgv(tools.javaBin(), tools.autoUpgradeJar().toString(),
+        List<String> argv = jarArgv(tools.javaBin(), tools.autoUpgradeJarPath(),
                 "-q", "lic", packagePath, host, "443", "0");
         Jars.Result result;
         try {
@@ -144,7 +144,7 @@ final class RootAccess {
      * Pushes root access to one register ({@code NetLoaderClient.jar <host> <package>}). The jar exits 0
      * whether or not the push worked, so success is its own {@link #NETLOADER_SUCCESS} line and nothing else.
      */
-    static StepResult pushRegisterRootAccess(NewInstallTools tools, Jars jars, String host, Duration timeout) {
+    static StepResult pushRegisterRootAccess(UpgradePushTools tools, Jars jars, String host, Duration timeout) {
         List<String> argv = List.of(tools.javaBin(), "-jar", tools.netloaderJar(), host, tools.rootAccessPath());
         Jars.Result result;
         try {
@@ -174,7 +174,7 @@ final class RootAccess {
      * @param retryInterval the pause between attempts
      * @param log receives every attempt's outcome
      */
-    static StepResult pushUntilConfirmed(NewInstallTools tools, Jars jars, Target target, Duration timeout,
+    static StepResult pushUntilConfirmed(UpgradePushTools tools, Jars jars, Target target, Duration timeout,
             Duration retryFor, Duration retryInterval, java.util.function.Predicate<Target> sshAnswers,
             java.util.function.Consumer<String> log) {
         boolean commander = target.role() == Target.Role.COMMANDER;
