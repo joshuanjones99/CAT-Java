@@ -153,7 +153,7 @@ against a rig from Java. Every path wave 15 added is fake-tested only.
     §2). If the Access Bridge click fails on the real LoySims, the run stops before the install.
 14. **Windows PowerShell 5.1 quoting** (`-EncodedCommand` in the sims port) and Playwright's
     browser download (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` in `run.cmd`/tests) as before.
-14. Incidents, all harmless, kept for honesty: 2026-10-24's three (a `client=nosuch` read of
+15. Incidents, all harmless, kept for honesty: 2026-10-24's three (a `client=nosuch` read of
     the lab shim; one TCP connect to the example rig's documentation address; a refused
     kill-by-image command). 2026-10-28: the fakepos agent's first run moved
     `C:\gitrepos\petroapps` to `master` and back (the freshness check used `master`; fixed,
