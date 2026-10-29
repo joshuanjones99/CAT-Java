@@ -30,8 +30,9 @@ import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
 
 /**
- * {@code cloud-tunnel}: endpoint discovery, route planning and the Commander-side commands. A port of the Python
- * {@code tests/unit/test_cloud_tunnel.py}, for what this port has (no serve loop, no step-4 adoption).
+ * {@code cloud-tunnel}: endpoint discovery, route planning, the Commander-side commands and the command line. A port
+ * of the Python {@code tests/unit/test_cloud_tunnel.py}; the serve loop's sessions are {@link CloudTunnelServerTest},
+ * the adoption rules {@link CloudTunnelProcessTest}.
  *
  * <p>Fake-backed: evidence about this repository, not about a Commander. Every Commander-side command is checked as
  * a string handed to a fake transport; nothing here runs a shell or touches this machine's hosts file, routes, DNS,
@@ -324,11 +325,24 @@ class CloudTunnelTest {
 
     // --- the command line --------------------------------------------------------------------------------------
 
+    /**
+     * Runs the command against {@code c}. The serve loop is stopped before it starts (the Python tests' pre-set
+     * {@code stop_event}): the "needed" decision and {@code _prepare} run, the loop exits at once.
+     */
     private static String[] command(FakeCommander c, String... argv) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
-        int code = new CloudTunnelCommand((rig, env) -> c).run(argv, Map.of(),
-                new PrintStream(out, true, StandardCharsets.UTF_8), new PrintStream(err, true, StandardCharsets.UTF_8));
+        CloudTunnelCommand command = new CloudTunnelCommand(
+                (rig, env) -> new CloudTunnelCommand.Commander(() -> c, T),
+                (commander, stream) -> {
+                    CloudTunnelServer server = new CloudTunnelServer(commander.sessions(), commander.timeout(),
+                            () -> DNS, RELAY_SOURCE, CloudTunnelCommand.say(stream),
+                            CloudTunnelServer.Timing.production());
+                    server.stop();
+                    return server;
+                });
+        int code = command.run(argv, Map.of(), new PrintStream(out, true, StandardCharsets.UTF_8),
+                new PrintStream(err, true, StandardCharsets.UTF_8));
         return new String[] {String.valueOf(code), out.toString(StandardCharsets.UTF_8),
                 err.toString(StandardCharsets.UTF_8)};
     }
@@ -362,16 +376,47 @@ class CloudTunnelTest {
     }
 
     @Test
-    void aRouteThatReachesNothingStillNeedsTheTunnelWhichThisPortCannotServe() {
+    void aRouteThatReachesNothingStillNeedsTheTunnel() {
+        // The lab LAN's gateway forwards nothing to the internet: a route is not a WAN.
         for (boolean route : new boolean[] {false, true}) {
             FakeCommander c = FakeCommander.qat();
             c.routeN = route ? ROUTE_N : "";
             String[] result = command(c, "--rig", "lab");
-            assertEquals("1", result[0]);
-            assertTrue(result[2].contains("not ported"), result[2]);
+            assertEquals("0", result[0], result[2]);
+            assertFalse(result[1].contains("not needed"), result[1]);
+            assertTrue(c.any(">> " + CloudTunnel.SSHD_CONFIG));
             assertEquals(route, c.any("/dev/tcp/"));
-            assertFalse(c.any(">> " + CloudTunnel.HOSTS));
         }
+    }
+
+    @Test
+    void forceServesEvenWhenTheCommanderReachesTheCloud() {
+        FakeCommander c = FakeCommander.qat();
+        c.routeN = ROUTE_N;
+        c.reachesCloud = true;
+        String[] result = command(c, "--rig=lab", "--force");
+        assertEquals("0", result[0], result[2]);
+        assertFalse(result[1].contains("not needed"), result[1]);
+        assertFalse(c.any("/dev/tcp/"));
+        assertTrue(c.any(">> " + CloudTunnel.SSHD_CONFIG));
+    }
+
+    @Test
+    void theGatewayForwardIsAllowedBySshdOnlyInGatewayMode() {
+        FakeCommander c = FakeCommander.qat();
+        assertEquals("0", command(c, "--rig", "lab")[0]);
+        assertTrue(c.any("127.0.0.1:" + CloudTunnel.GATEWAY_FORWARD));
+        FakeCommander other = FakeCommander.qat();
+        assertEquals("0", command(other, "--rig", "lab", "--no-gateway")[0]);
+        assertFalse(other.any("127.0.0.1:" + CloudTunnel.GATEWAY_FORWARD));
+    }
+
+    @Test
+    void aCommanderWithNoEndpointsFailsTheCommandWithItsReason() {
+        FakeCommander c = new FakeCommander();
+        String[] result = command(c, "--rig", "lab");
+        assertEquals("1", result[0]);
+        assertTrue(result[2].startsWith("cloud-tunnel: no cloud endpoints found for profile 'prod'"), result[2]);
     }
 
     @Test
