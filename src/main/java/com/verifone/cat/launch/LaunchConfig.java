@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Set;
 
 import com.verifone.cat.commander.connect.CommanderConnect;
+import com.verifone.cat.fep.SecondaryFep;
+import com.verifone.cat.fep.SecondaryFeps;
 import com.verifone.cat.runconfig.RunScope;
 
 /**
@@ -19,8 +21,9 @@ import com.verifone.cat.runconfig.RunScope;
  * Commander Connect waiver. Several of those are carried before the step that reads them is ported: each
  * component's Javadoc says what reads it in the Python. The Downloads section is not carried here.
  *
- * <p>A run that is not the whole plan is refused by {@link RunLauncher} (see there), because the
- * partial selection reads petroapps' case files, which this port does not read yet.
+ * <p>A run that is not the whole plan ({@link #partial}) is narrowed by {@link RunLauncher} at run start, from the
+ * whole plan in plan order ({@link PlanStart#applyPartialSelection}), as the Python's {@code launch_run} does; a
+ * selection that cannot be made refuses the run before step 1.
  *
  * @param rig          the rig's name or {@code .yaml} path, as {@code RigLoader} reads it; may be
  *                     empty only for a fake-POS run
@@ -76,6 +79,12 @@ import com.verifone.cat.runconfig.RunScope;
  *                     {@code fakePos}
  * @param keepSimulators Cleanup leaves the simulators running for the next continuous pass (the Python's
  *                     {@code keep_simulators}); never set from the Config tab
+ * @param tags         an opt-in partial run's Cucumber tag expression (the Python's {@code tags}, {@code run_plan
+ *                     --tags}); "" for none
+ * @param only         an opt-in partial run's case keys, PATS's Run (the Python's {@code only}, {@code --only})
+ * @param fromCase     an opt-in partial run's first case, PATS's Continue (the Python's {@code from_case},
+ *                     {@code --from}); "" for none. The three combine, as the Python's do; with all three empty the
+ *                     Run tab's {@link #scope} decides ({@link #selectionTags} and its siblings)
  */
 public record LaunchConfig(
         String rig,
@@ -108,7 +117,10 @@ public record LaunchConfig(
         String foundationBranch,
         String foundationBuild,
         boolean provisionRegister,
-        boolean keepSimulators) {
+        boolean keepSimulators,
+        String tags,
+        List<String> only,
+        String fromCase) {
 
     /** The Config tab's Commander Connect defaults: lab Prod, everything else empty. */
     public static final CommanderConnect NO_COMMANDER_CONNECT = new CommanderConnect("Prod", "", "", "");
@@ -148,6 +160,10 @@ public record LaunchConfig(
                 : executionMode.strip();
         secondaryFeps = List.copyOf(secondaryFeps == null ? List.of() : secondaryFeps);
         connections = List.copyOf(connections == null ? List.of() : connections);
+        tags = tags == null ? "" : tags.strip();
+        only = only == null ? List.of()
+                : only.stream().filter(k -> k != null && !k.isBlank()).map(String::strip).toList();
+        fromCase = fromCase == null ? "" : fromCase.strip();
         if (rig.isEmpty() && !fakePos) {
             throw new IllegalArgumentException("a run needs a rig, or fakePos");
         }
@@ -171,7 +187,17 @@ public record LaunchConfig(
         this(rig, suites, testPlans, upgradeMode, fakePos, fakePinpad, snapshotUpdate, simulators, scope,
                 xrayReport, coverage, commanderConnect, commanderConnectSettings, DEFAULT_DIST,
                 DEFAULT_TEST_PLAN_BRANCH, DEFAULT_EXECUTION_MODE, List.of(), List.of(), false, false, false,
-                "", "", "", "", "", "", "", "", false, false);
+                "", "", "", "", "", "", "", "", false, false, "", List.of(), "");
+    }
+
+    /** A builder holding every field of this config, so a caller can change a few and build a copy. */
+    public Builder toBuilder() {
+        return new Builder(this);
+    }
+
+    /** This config with {@code nodes} as its pytest targets (the Python's {@code replace(config, suites=...)}). */
+    public LaunchConfig withSuites(List<String> nodes) {
+        return toBuilder().suites(nodes).build();
     }
 
     /** Whether the Downloads section names a Commander Build: a branch and a number. */
@@ -233,9 +259,121 @@ public record LaunchConfig(
                 List.of(), RunScope.whole(), false, false);
     }
 
-    /** True when a partial run (tags, cases, or from a case) was asked for. */
+    /**
+     * True when a partial run was asked for: a tag expression, case keys or a first case, given outright or through
+     * the Run tab's scope (the Python's {@code LaunchConfig.partial}).
+     */
     public boolean partial() {
-        return scope.mode() != RunScope.Mode.WHOLE;
+        return !selectionTags().isEmpty() || !selectionOnly().isEmpty() || !selectionFrom().isEmpty();
+    }
+
+    /** Whether {@link #tags}, {@link #only} or {@link #fromCase} was set outright; the scope is then not read. */
+    private boolean explicitSelection() {
+        return !tags.isEmpty() || !only.isEmpty() || !fromCase.isEmpty();
+    }
+
+    /**
+     * The partial run's tag expression: {@link #tags}, else a Tags scope whose cases follow the expression (the
+     * Python's {@code cat.panels.config.scope.launch_fields}); "" for none.
+     */
+    public String selectionTags() {
+        if (explicitSelection()) {
+            return tags;
+        }
+        return scope.mode() == RunScope.Mode.TAGS && scope.tagCases() == null ? scope.tags().strip() : "";
+    }
+
+    /**
+     * The partial run's case keys: {@link #only}, else a Cases scope's keys, or a Tags scope ticked by hand (its ticked
+     * keys, as {@code launch_fields} gives {@code only=result.run_keys}). A scope's added prerequisites are the
+     * caller's to add to {@link #only}: they need the plan's cases, which the Config tab reads.
+     */
+    public List<String> selectionOnly() {
+        if (explicitSelection()) {
+            return only;
+        }
+        if (scope.mode() == RunScope.Mode.CASES) {
+            return scope.cases();
+        }
+        if (scope.mode() == RunScope.Mode.TAGS && scope.tagCases() != null) {
+            return scope.tagCases();
+        }
+        return List.of();
+    }
+
+    /** The partial run's first case: {@link #fromCase}, else a From-a-case scope's; "" for none. */
+    public String selectionFrom() {
+        if (explicitSelection()) {
+            return fromCase;
+        }
+        return scope.mode() == RunScope.Mode.FROM ? scope.fromCase().strip() : "";
+    }
+
+    /**
+     * The Secondary FEPs' table rows, in order; a name the table lacks is left out, and so is everything when the
+     * table will not load (step 4's {@code secondary-fep} reads the same table and says why). The Python's
+     * {@code secondary_fep_rows}.
+     */
+    public List<SecondaryFep> secondaryFepRows() {
+        if (secondaryFeps.isEmpty()) {
+            return List.of();
+        }
+        List<SecondaryFep> catalogue;
+        try {
+            catalogue = SecondaryFeps.loadCatalogue();
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+        Set<SecondaryFep> rows = new LinkedHashSet<>();
+        for (String name : secondaryFeps) {
+            SecondaryFep row = SecondaryFeps.find(name, catalogue);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        return List.copyOf(rows);
+    }
+
+    /**
+     * The Secondary FEPs only the Commercial Fleet license enables (WEX-OTR, ...): that license comes through
+     * Commander Connect, so choosing one needs the Commander onboarded. The Python's {@code license_feps}.
+     */
+    public List<String> licenseFeps() {
+        return secondaryFepRows().stream().filter(SecondaryFep::licenseEnabled).map(SecondaryFep::name).toList();
+    }
+
+    /**
+     * Non-default values of the recorded-but-not-wired fields, for the run's summary: empty when the operator left
+     * them alone. The Python's {@code unwired_options}.
+     */
+    public List<String> unwiredOptions() {
+        List<String> chosen = new ArrayList<>();
+        if (!DEFAULT_EXECUTION_MODE.equals(executionMode)) {
+            chosen.add("execution mode " + executionMode);
+        }
+        if (!ifsfMode.isEmpty()) {
+            chosen.add("IFSF " + ifsfMode);
+        }
+        return List.copyOf(chosen);
+    }
+
+    /**
+     * The suite paths to offer a picker: the immediate subfolders of {@code <repoRoot>/tests/suites}, sorted, as
+     * {@code tests/suites/<name>}. The Python's {@code discover_suites}; empty when the folder is missing.
+     */
+    public static List<String> discoverSuites(java.nio.file.Path repoRoot) {
+        java.nio.file.Path suites = repoRoot.resolve("tests").resolve("suites");
+        if (!java.nio.file.Files.isDirectory(suites)) {
+            return List.of();
+        }
+        try (java.util.stream.Stream<java.nio.file.Path> children = java.nio.file.Files.list(suites)) {
+            return children.filter(java.nio.file.Files::isDirectory)
+                    .map(p -> "tests/suites/" + p.getFileName())
+                    .sorted()
+                    .toList();
+        } catch (java.io.IOException e) {
+            return List.of();
+        }
     }
 
     /**
@@ -319,13 +457,101 @@ public record LaunchConfig(
         private String foundationBuild = "";
         private boolean provisionRegister;
         private boolean keepSimulators;
+        private String tags = "";
+        private final List<String> only = new ArrayList<>();
+        private String fromCase = "";
 
         public Builder(String rig) {
             this.rig = rig;
         }
 
+        /** A builder holding every field of {@code c}. */
+        Builder(LaunchConfig c) {
+            this.rig = c.rig();
+            suites.addAll(c.suites());
+            testPlans.addAll(c.testPlans());
+            simulators.addAll(c.simulators());
+            upgradeMode = c.upgradeMode();
+            fakePos = c.fakePos();
+            fakePinpad = c.fakePinpad();
+            snapshotUpdate = c.snapshotUpdate();
+            scope = c.scope();
+            xrayReport = c.xrayReport();
+            coverage = c.coverage();
+            commanderConnect = c.commanderConnect();
+            commanderConnectSettings = c.commanderConnectSettings();
+            dist = c.dist();
+            testPlanBranch = c.testPlanBranch();
+            executionMode = c.executionMode();
+            secondaryFeps.addAll(c.secondaryFeps());
+            connections.addAll(c.connections());
+            buypassHost = c.buypassHost();
+            captureSnapshot = c.captureSnapshot();
+            ccRequirementWaived = c.ccRequirementWaived();
+            commanderBranch = c.commanderBranch();
+            commanderBuild = c.commanderBuild();
+            simBranch = c.simBranch();
+            simBuild = c.simBuild();
+            ifsfMode = c.ifsfMode();
+            localBuild = c.localBuild();
+            foundationBranch = c.foundationBranch();
+            foundationBuild = c.foundationBuild();
+            provisionRegister = c.provisionRegister();
+            keepSimulators = c.keepSimulators();
+            tags = c.tags();
+            only.addAll(c.only());
+            fromCase = c.fromCase();
+        }
+
         public Builder suite(String node) {
             suites.add(node);
+            return this;
+        }
+
+        /** Replaces the pytest targets with {@code nodes}, in order. */
+        public Builder suites(List<String> nodes) {
+            suites.clear();
+            suites.addAll(nodes);
+            return this;
+        }
+
+        /** Replaces the simulators step 3 starts with {@code names}, in order. */
+        public Builder simulators(List<String> names) {
+            simulators.clear();
+            simulators.addAll(names);
+            return this;
+        }
+
+        /** Replaces the Secondary FEPs with {@code names}, in order, each once. */
+        public Builder secondaryFeps(List<String> names) {
+            secondaryFeps.clear();
+            names.forEach(this::secondaryFep);
+            return this;
+        }
+
+        /** Replaces the optional devices step 2 probes with {@code names}, in order, each once. */
+        public Builder connections(List<String> names) {
+            connections.clear();
+            names.forEach(this::connection);
+            return this;
+        }
+
+        /** A partial run's tag expression ({@code --tags}). */
+        public Builder tags(String expression) {
+            tags = expression;
+            return this;
+        }
+
+        /** A partial run's case keys ({@code --only}), replacing any given before. */
+        public Builder only(List<String> keys) {
+            only.clear();
+            only.addAll(keys);
+            return this;
+        }
+
+        /** A partial run's first case ({@code --from}). */
+        public Builder fromCase(String key) {
+            fromCase = key;
             return this;
         }
 
@@ -498,7 +724,7 @@ public record LaunchConfig(
                     commanderConnectSettings, dist, testPlanBranch, executionMode, secondaryFeps, connections,
                     buypassHost, captureSnapshot, ccRequirementWaived, commanderBranch, commanderBuild, simBranch,
                     simBuild, ifsfMode, localBuild, foundationBranch, foundationBuild, provisionRegister,
-                    keepSimulators);
+                    keepSimulators, tags, only, fromCase);
         }
     }
 }

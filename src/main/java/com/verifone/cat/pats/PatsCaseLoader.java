@@ -37,42 +37,75 @@ public final class PatsCaseLoader {
 
     /**
      * The case in {@code file}, by its type: {@code .xml} (a PATS {@code -TestCase.xml}), {@code .scenario} (a BDD
-     * case) or {@code .feature} (one scenario of PATS phrases).
+     * case) or {@code .feature} (one scenario of PATS or step-library phrases). For a Scenario Outline with Examples,
+     * the first row's case; {@link #loadAll} gives every row's.
      *
      * @throws IOException              when the file cannot be read
      * @throws IllegalArgumentException when the file is none of those types, or does not parse as one
      */
     public static RunnableCase load(Path file) throws IOException {
+        return loadAll(file).get(0).kase();
+    }
+
+    /**
+     * One case a file holds: the parameter id pytest gives its test ({@code ""} for a file of one case; an Outline's
+     * Examples row's id otherwise) and the case.
+     */
+    public record Variant(String id, RunnableCase kase) {
+    }
+
+    /**
+     * Every case in {@code file}: one, except for a {@code .feature} Scenario Outline with Examples, which is one case
+     * per Examples row with that row substituted into its steps, as pytest-bdd runs one test per row
+     * ({@code petrotest.authoring.plugin._rendered}). {@link #load} is the first of them.
+     *
+     * @throws IOException              when the file cannot be read
+     * @throws IllegalArgumentException when the file is none of the case types, or does not parse as one
+     */
+    public static List<Variant> loadAll(Path file) throws IOException {
         Path absolute = file.toAbsolutePath();
         String name = absolute.getFileName().toString().toLowerCase(Locale.ROOT);
+        String key = keyOf(absolute);
+        if (name.endsWith(".feature")) {
+            Gherkin.Feature feature = Gherkin.read(absolute);
+            if (feature.scenarios().size() != 1) {
+                throw new IllegalArgumentException(absolute.getFileName() + ": expected one scenario, found "
+                        + feature.scenarios().size());
+            }
+            List<Variant> variants = new java.util.ArrayList<>();
+            for (Gherkin.Rendered rendered : feature.scenarios().get(0).rendered()) {
+                variants.add(new Variant(rendered.id(), featureCase(feature, rendered).withSource(key,
+                        absolute.toString())));
+            }
+            return List.copyOf(variants);
+        }
         ParsedCase parsed;
         if (name.endsWith(".xml")) {
             parsed = CaseParser.parseActions(Files.readAllBytes(absolute));
         } else if (name.endsWith(".scenario")) {
             parsed = ScenarioParser.parseScenario(text(absolute));
-        } else if (name.endsWith(".feature")) {
-            parsed = featureCase(absolute);
         } else {
             throw new IllegalArgumentException(absolute.getFileName() + " is not a PATS case: expected a"
                     + " -TestCase.xml, a .scenario or a .feature");
         }
-        return parsed.withSource(keyOf(absolute), absolute.toString());
+        return List.of(new Variant("", parsed.withSource(key, absolute.toString())));
     }
 
-    /** A {@code .feature}'s one scenario as a case, titled by the scenario's name. */
-    private static ParsedCase featureCase(Path file) throws IOException {
-        Gherkin.Feature feature = Gherkin.read(file);
-        if (feature.scenarios().size() != 1) {
-            throw new IllegalArgumentException(file.getFileName() + ": expected one scenario, found "
-                    + feature.scenarios().size());
-        }
+    /** One rendered scenario of a {@code .feature}'s one scenario as a case, titled by its (rendered) name. */
+    private static ParsedCase featureCase(Gherkin.Feature feature, Gherkin.Rendered rendered) {
         Gherkin.Scenario scenario = feature.scenarios().get(0);
-        boolean bdd = feature.tags().contains(PatsFeature.BDD_TAG) || scenario.tags().contains(PatsFeature.BDD_TAG);
-        // A scenario of PATS action phrases is a PATS case; one of the step library's phrases is run step by step
-        // (pats.feature.LibrarySteps), as the Python's authoring plugin binds every library phrase for pytest-bdd.
-        List<Action> actions = PatsFeature.scenarioActions(scenario.steps(), bdd)
-                .orElseGet(() -> LibrarySteps.actions(scenario.steps()));
-        return new ParsedCase(scenario.name(), actions);
+        boolean bddCase = feature.tags().contains(PatsFeature.BDD_TAG) || scenario.tags().contains(PatsFeature.BDD_TAG);
+        List<Action> actions;
+        if (!scenario.examples().isEmpty()) {
+            // An Outline with Examples is an authored case, never a migrated PATS one (the Python's _pats_actions).
+            actions = LibrarySteps.actions(rendered.steps());
+        } else {
+            // A scenario of PATS action phrases is a PATS case; one of the step library's phrases is run step by step
+            // (pats.feature.LibrarySteps), as the Python's authoring plugin binds every library phrase for pytest-bdd.
+            actions = PatsFeature.scenarioActions(rendered.steps(), bddCase)
+                    .orElseGet(() -> LibrarySteps.actions(rendered.steps()));
+        }
+        return new ParsedCase(rendered.name(), actions);
     }
 
     /** The file's text as a {@code .scenario} is read: UTF-8, with a leading byte-order mark dropped. */

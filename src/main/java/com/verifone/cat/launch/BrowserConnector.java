@@ -12,6 +12,7 @@ import com.verifone.cat.devices.printer.TopazPrinter;
 import com.verifone.cat.devices.viperpay.ViperPayPinpad;
 import com.verifone.cat.pats.runner.handlers.devices.DcrDevice;
 import com.verifone.cat.pats.runner.handlers.devices.FuelPumps;
+import com.verifone.cat.pos.driver.CaseArtifacts;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.pinpad.PinpadDevice;
 import com.verifone.cat.pos.receipt.ReceiptPrinter;
@@ -47,6 +48,12 @@ import org.slf4j.LoggerFactory;
  *       failed case; a fake-POS run has none, as the Python walks it only with {@code --rig}.</li>
  * </ul>
  *
+ * <p>Either driver writes its evidence ({@link PosDriver#capture}) through one {@link CaseArtifacts}
+ * ({@link #caseArtifacts}), which step 5 points at each case's folder for the case's duration, as the Python's
+ * {@code pos} fixture re-points {@code pos_driver.artifacts} at {@code pos_artifacts}. Outside a case it writes to the
+ * run's folder (the Python's session folder is {@code results_root()/<register id>}, outside the run; this keeps a
+ * run's files in its own folder).
+ *
  * <p>{@link #clients} builds the network clients without connecting or listening, so the wiring is testable on
  * documentation names. {@link #connect} starts them. {@link #close} releases everything {@link #connect} opened, the
  * printer's port included, as the Python's tests_run step hands the port over at the end of the run.
@@ -54,7 +61,7 @@ import org.slf4j.LoggerFactory;
  * <p>UNVERIFIED AGAINST HARDWARE: this code path has not been run against a register, a Commander or a forecourt. It
  * is written from the rig schema and the Python's {@code petrotest.pos}, {@code devices.context} and {@code pos.plugin}.
  */
-public final class BrowserConnector implements RunServices.Connector {
+public final class BrowserConnector implements RunServices.Connector, CaseEvidence {
 
     private static final Logger LOG = LoggerFactory.getLogger("com.verifone.cat.launch");
 
@@ -88,6 +95,13 @@ public final class BrowserConnector implements RunServices.Connector {
     private Browser browser;
     private ViperPayPinpad viperPay;
     private TopazPrinter printer;
+    private volatile CaseArtifacts artifacts;
+
+    /** The connected POS driver's evidence sink, which step 5 points at each case's folder; null with no driver. */
+    @Override
+    public CaseArtifacts caseArtifacts() {
+        return artifacts;
+    }
 
     @Override
     public RunServices connect(RunServices base) {
@@ -111,7 +125,9 @@ public final class BrowserConnector implements RunServices.Connector {
         Page page = browser.newPage();
         page.navigate(base.fakePosUrl().toString(),
                 new Page.NavigateOptions().setWaitUntil(WaitUntilState.NETWORKIDLE));
-        PosDriver driver = PosDriver.builder(page).registerId(FAKE_REGISTER).settleOverlays(false).build();
+        artifacts = new CaseArtifacts(base.runFolder());
+        PosDriver driver = PosDriver.builder(page).registerId(FAKE_REGISTER).settleOverlays(false)
+                .artifacts(artifacts).build();
         return with(base, driver, null, null, base.pinpad(), null, base.dcr(), base.fuelPumps(), base.recovery());
     }
 
@@ -120,7 +136,7 @@ public final class BrowserConnector implements RunServices.Connector {
         Rig.Register register = rig.primaryRegister();
         Clients clients = clients(rig, base.pinpad() == null);
 
-        PosDriver driver = openPos(register);
+        PosDriver driver = openPos(register, base.runFolder());
         PinpadDevice pinpad = base.pinpad();
         if (clients.viperPay() != null) {
             viperPay = clients.viperPay();
@@ -161,13 +177,16 @@ public final class BrowserConnector implements RunServices.Connector {
     }
 
     /** The POS page over CDP, or null when the browser cannot attach (logged; the POS actions then fail by name). */
-    private PosDriver openPos(Rig.Register register) {
+    private PosDriver openPos(Rig.Register register, java.nio.file.Path runFolder) {
         String endpoint = "http://" + register.host() + ":" + register.cdpPort();
         try {
             playwright = Playwright.create();
             browser = playwright.chromium().connectOverCDP(endpoint);
             Page page = browser.contexts().get(0).pages().get(0);
-            return PosDriver.builder(page).registerId(register.id()).build();
+            CaseArtifacts sink = new CaseArtifacts(runFolder);
+            PosDriver driver = PosDriver.builder(page).registerId(register.id()).artifacts(sink).build();
+            artifacts = sink;
+            return driver;
         } catch (PlaywrightException e) {
             LOG.warn("could not open the POS page at {}; the POS actions will fail by name: {}", endpoint,
                     e.getMessage());
