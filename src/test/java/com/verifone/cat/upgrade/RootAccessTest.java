@@ -179,6 +179,8 @@ class RootAccessTest {
         assertTrue(RootAccess.isHardFault(TOO_LARGE_FAULT));
         assertFalse(RootAccess.isHardFault("java.net.SocketTimeoutException"));
         assertFalse(RootAccess.isHardFault(null));
+        // The AAA tier still starting after the install's reboot is not a refusal (run 35c918e7595d).
+        assertFalse(RootAccess.isHardFault("Auto_Upgrade.jar exited 500:CGIPortal.InternalError AAA service unavailable"));
     }
 
     /** The bypass command is the first one a fresh target runs; {@link InMemoryTransport} keys replies by text. */

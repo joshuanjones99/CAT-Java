@@ -56,9 +56,21 @@ final class RootAccess {
 
     private RootAccess() {}
 
-    /** A push failure that retrying cannot fix: the Commander answered, and refused. */
+    /**
+     * The one {@link #HARD_FAULT} that is not hard: the Commander's authentication tier still starting after the
+     * install's reboot. CGILink answers every request with it until AAA is up, and the next attempt may well be
+     * accepted. Run 35c918e7595d (2026-10-29, the lab rig) ended its install on exactly this after one attempt.
+     * The Python's {@code classic.is_hard_fault} treats it as hard too; this port deviates, deliberately, and its
+     * readiness probe ({@code NewInstall} on {@code validate}) already names this text as "the tier down".
+     */
+    static final String AAA_UNAVAILABLE = "AAA service unavailable";
+
+    /**
+     * A push failure that retrying cannot fix: the Commander answered, and refused. {@link #AAA_UNAVAILABLE} is the
+     * exception: the Commander did not get as far as refusing.
+     */
     static boolean isHardFault(String detail) {
-        return detail != null && detail.contains(HARD_FAULT);
+        return detail != null && detail.contains(HARD_FAULT) && !detail.contains(AAA_UNAVAILABLE);
     }
 
     /** Sets {@code bypass.mem.size.check} to {@code true} on the Commander, before any upgrade branch. */
