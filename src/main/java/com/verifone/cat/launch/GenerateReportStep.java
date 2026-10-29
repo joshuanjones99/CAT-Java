@@ -27,8 +27,9 @@ import com.verifone.cat.report.html.HtmlReport;
  * {@link #WRITE_TIMEOUT}; a timeout is a failed step, and what they had written is partial.
  *
  * <p>Not carried, because the steps that feed them are not ported: the event tee's dropped-event count
- * (CAT-Java has no socket tee), the Xray status lines, and the JaCoCo coverage report that runs first
- * when coverage is on. A run with any of them asked for does not get them here.
+ * (CAT-Java has no socket tee) and the Xray status lines. A run with either asked for does not get them here.
+ * The JaCoCo coverage report runs first when coverage is on ({@link CoverageLaunch#collect}); asked for and
+ * not delivered, it leaves this step failed with {@link CoverageLaunch#FAILED_DETAIL}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: the report is built from fake-backed run events only. The Python
  * CAT's summary and JUnit output were checked against a real run's events (HANDOFF.md §4).
@@ -49,6 +50,9 @@ final class GenerateReportStep implements LaunchStep {
 
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
+        // [coverage slice, wave 16] JaCoCo coverage first, when asked (launch.CoverageLaunch): before the writers, so
+        // the index lists it. It reboots the Commander and waits for it, which is why it is here, before Cleanup.
+        boolean coverageOk = CoverageLaunch.collect(ctx, step);
         Path folder = ctx.runFolder();
         Path events = folder.resolve(ReportPaths.EVENTS_FILE);
         if (!Files.isRegularFile(events)) {
@@ -99,6 +103,11 @@ final class GenerateReportStep implements LaunchStep {
             return step.fail("a report file is missing from " + folder);
         }
         step.setDetail(folder.toString());
+        if (!coverageOk) {
+            // [coverage slice, wave 16] Asked for and not delivered: the reports stand, but a complete step would say
+            // the coverage did too. The run still goes on to Cleanup, as the Python's.
+            step.fail(folder + CoverageLaunch.FAILED_DETAIL);
+        }
         return true;
     }
 

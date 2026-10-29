@@ -50,8 +50,10 @@ import com.verifone.cat.sims.base.Unzip;
  * the lab's saved Simulator Build ({@code master 129}) re-downloads every simulator at every run and refuses (fails
  * step 1) whenever one is still running. The client is made only when a row has to be downloaded.
  *
- * <p>Not ported: {@code fetch_missing} and {@code fetch}, the never-overwrite path, which no run calls since the
- * Simulator Build replaced the Upgrade Simulators switch (2026-10-07).
+ * <p>Also the never-overwrite path, {@code fetch_missing} and {@code fetch} ({@link #fetchMissing}, {@link #fetch}):
+ * a row not staged at all is fetched from the newest build of its repo that has its folder, and a staged copy is
+ * never touched. No run calls it since the Simulator Build replaced the Upgrade Simulators switch (2026-10-07);
+ * {@code cat-java fetch-sims} ({@link SimStaging}) does.
  *
  * <p>UNVERIFIED AGAINST A REAL ARTIFACTORY SERVER AND HARDWARE (Java port): tested against {@code FakeArtifactory}
  * and a {@code @TempDir} tools root.
@@ -224,11 +226,69 @@ public final class SimFetch {
                 results.put(entry.name(), entry.name() + ": running (" + busy.get(entry.name())
                         + "); stop it before replacing its files");
             } else {
-                rows.add(new Row(entry, sources.get(entry.name()), build));
+                rows.add(new Row(entry, sources.get(entry.name()), build, true));
             }
         }
         results.putAll(install(rows, ctx));
         return results;
+    }
+
+    /**
+     * Stages each of {@code entries} that is not staged, from the newest build of its repo that has its folder; never
+     * replaces a staged copy (the Python's {@code fetch_missing}). Rows sharing a zip download it once, and each
+     * {@code (repo, folder)}'s build is resolved once. One result per entry, in order: {@code ""} when the row is (now)
+     * staged, else why not. Never throws for a row's problem; making the client (the login) may throw, and is asked
+     * only when a row is missing.
+     *
+     * @param olderBase the base form the entries are in, which picks each row's source
+     */
+    public List<String> fetchMissing(List<SimEntry> entries, SimContext ctx, boolean olderBase) {
+        Map<String, String> problems = new LinkedHashMap<>();
+        List<Row> rows = new ArrayList<>();
+        Map<String, Object> builds = new LinkedHashMap<>(); // "repo\0folder" -> build or the failure
+        for (SimEntry entry : entries) {
+            Optional<ArtifactorySource> registered = SimSources.forRow(entry.name(), olderBase);
+            if (registered.isEmpty()) {
+                problems.put(entry.name(), entry.name() + ": no Artifactory source in the registry");
+                continue;
+            }
+            ArtifactorySource source = registered.get();
+            if (Files.isDirectory(ctx.cwdFor(entry))) {
+                problems.put(entry.name(), "");
+                continue;
+            }
+            String key = source.repo() + "\0" + source.folder();
+            if (!builds.containsKey(key)) {
+                try {
+                    builds.put(key, NightlyBuilds.latestBuildWith(client(), source.repo(), source.folder()));
+                } catch (RuntimeException e) {
+                    builds.put(key, e);
+                }
+            }
+            Object build = builds.get(key);
+            if (build instanceof RuntimeException failure) {
+                String why = failure instanceof NightlyBuilds.NotFound ? "fetching from Artifactory failed: "
+                        + failure.getClass().getSimpleName() + ": " + failure.getMessage()
+                        : JavaSets.artifactoryFailure(failure);
+                problems.put(entry.name(), entry.name() + ": " + why);
+                continue;
+            }
+            rows.add(new Row(entry, source, (String) build, false));
+        }
+        problems.putAll(install(rows, ctx));
+        List<String> out = new ArrayList<>();
+        for (SimEntry entry : entries) {
+            out.add(problems.getOrDefault(entry.name(), ""));
+        }
+        return out;
+    }
+
+    /**
+     * Downloads and unpacks {@code entry} into the tools root when it is not staged: {@code ""} when it is there, else
+     * why not. Never replaces a staged copy (the Python's {@code fetch}).
+     */
+    public String fetch(SimEntry entry, SimContext ctx, boolean olderBase) {
+        return fetchMissing(List.of(entry), ctx, olderBase).get(0);
     }
 
     /**
@@ -248,7 +308,8 @@ public final class SimFetch {
         return out;
     }
 
-    private record Row(SimEntry entry, ArtifactorySource source, String build) {
+    /** One row to place; {@code replaceStaged} swaps a staged copy out, otherwise a staged copy stands. */
+    private record Row(SimEntry entry, ArtifactorySource source, String build, boolean replaceStaged) {
     }
 
     private record ZipKey(String repo, String build, String folder, String file) {
@@ -340,11 +401,24 @@ public final class SimFetch {
             return entry.name() + ": " + source.file() + " holds no "
                     + (source.holds().isEmpty() ? target.getFileName().toString() : source.holds()) + "/";
         }
-        String problem = replaceDir(staged, target);
-        if (!problem.isEmpty()) {
-            return entry.name() + ": " + problem;
+        if (row.replaceStaged()) {
+            String problem = replaceDir(staged, target);
+            if (!problem.isEmpty()) {
+                return entry.name() + ": " + problem;
+            }
+            log.accept(entry.name() + ": replaced with build " + row.build() + "'s copy in " + target);
+        } else {
+            if (Files.isDirectory(target)) { // staged by someone else meanwhile: theirs stands
+                return "";
+            }
+            try {
+                Files.createDirectories(target.getParent());
+                mover.move(staged, target);
+            } catch (IOException e) {
+                return entry.name() + ": could not put it in place: " + describe(e);
+            }
+            log.accept(entry.name() + ": unpacked build " + row.build() + "'s copy into " + target);
         }
-        log.accept(entry.name() + ": replaced with build " + row.build() + "'s copy in " + target);
         String setup = setup(entry, source, ctx, target);
         try { // which base this copy is for, read back by SuiteBase.installedBase
             SuiteBase.writeMarker(target, source.repo(), row.build());
