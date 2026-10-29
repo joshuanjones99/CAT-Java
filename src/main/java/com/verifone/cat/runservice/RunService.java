@@ -6,33 +6,49 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import com.verifone.cat.launch.LastConfig;
 import com.verifone.cat.launch.LaunchConfig;
+import com.verifone.cat.launch.LaunchDefaults;
 import com.verifone.cat.launch.LaunchPaths;
 import com.verifone.cat.launch.LaunchResult;
-import com.verifone.cat.launch.RunLauncher;
+import com.verifone.cat.plans.PlanCatalogue;
+import com.verifone.cat.setup.SetupAudit;
+import com.verifone.cat.setup.SetupEnv;
+import com.verifone.cat.setup.SetupItems;
 
 /**
  * The one current run, for the web UI: the Python CAT's {@code CatService} for the Run tab.
  *
- * <p>One run at a time. Start is refused while a run is in progress, and Preflight while a run is.
- * The run itself is launched on a daemon thread, so a request returns at once; the Overview and the
- * Log read its folder on each poll. Pause, Stop and New run act on the current run. A refused action
- * leaves its reason in {@link View#notice()}, which the page shows.
+ * <p>One thing at a time: a run or a preflight. Start is refused while either is going, and so is Preflight. Both
+ * go on a daemon thread, so a request returns at once; the Overview and the Log read the run's folder on each poll
+ * (a {@link RunProgress} folds its events into a {@link RunState}). Pause, Stop and New run act on the current run;
+ * Stop also stops a preflight. A refused action leaves its reason in {@link View#notice()}, which the page shows.
  *
- * <p>The schedule and the continuous run ({@link RunSchedule}) sit on top of this: a scheduled run is
- * started by {@link #tick}, which {@link #standard} calls once a second on a daemon
- * {@link ScheduledExecutorService}. A continuous pass starts the next pass on the run's own thread
- * when the last one ends. Nothing is persisted: a restart clears the schedule, as the Python CAT's does.
+ * <p>Before a run starts, as the Python's {@code _startable_config} and {@code _signed_in_launch}: a recording in
+ * progress refuses it, so does a sign-in missing on the Setup page ({@code credential_gaps}), and so does a download
+ * of Java 17 or the simulators still staging. A Start from the Config tab whose ticked plan has no case list yet
+ * fetches the plan's cases from Jira first and starts when they arrive; the production service always refreshes the
+ * plans' cases and requirements first (Xray first, writing the cache), as {@code launch} does.
+ *
+ * <p>The schedule and the continuous run ({@link RunSchedule}) sit on top of this: a scheduled run is started by
+ * {@link #tick}, which {@link #standard} calls once a second on a daemon {@link ScheduledExecutorService}. A
+ * continuous pass starts the next pass on the run's own thread when the last one ends. Nothing is persisted.
+ *
+ * <p>Preflight is check only here. Preflight with repair (it drives the POS) waits for the rig owner's go-ahead.
  *
  * <p>Holds no HTML and no form: {@link RunStart} makes the config, and the routes draw the page.
+ *
+ * <p>UNVERIFIED AGAINST HARDWARE (Java port): the production engine drives the rig a run is started on.
  */
 public final class RunService {
 
@@ -42,17 +58,35 @@ public final class RunService {
     /** The reason Start, and New run, are refused while a run is going. */
     public static final String BUSY = "A run is in progress: stop it first.";
 
+    /** The reason Start is refused while a preflight is going. */
+    public static final String PREFLIGHTING = "Preflight is running: wait for it to finish, or Stop it.";
+
+    /** The reason Start and Preflight are refused while a recording is going. */
+    public static final String RECORDING = "A recording is in progress: stop it on the Authoring page.";
+
+    /** The reason Start is refused while Java 17 or the simulators are still downloading. */
+    public static final String STAGING = "Run not started: Java 17 / the simulators are still downloading. "
+            + "Start it again when CAT says they are staged.";
+
     private final String rig;
     private final Supplier<RunEngine> engines;
     private final Supplier<String> preflight;
     private final Clock clock;
     private final RunSchedule schedule;
 
+    private Supplier<Map<String, String>> credentialGaps = Map::of;
+    private BooleanSupplier staging = () -> false;
+    private BooleanSupplier recording = () -> false;
+    private Consumer<List<String>> caseFetch;
+    private RunStart.Context startContext;
+
     private RunEngine engine;
     private Path folder;
     private RunProgress progress;
     private boolean busy;
     private boolean preflighting;
+    private Thread preflightThread;
+    private String fetching = "";
     private String error = "";
     private String notice = "";
     private String preflightText = "";
@@ -70,19 +104,31 @@ public final class RunService {
         this.preflight = preflight;
         this.clock = clock;
         this.schedule = new RunSchedule(() -> LocalDateTime.now(this.clock), this::startPass);
+        this.startContext = RunStart.Context.of(this.rig);
     }
 
     /**
-     * The service the production app uses: a {@link RunLauncher} per run, the rig's check-only preflight,
-     * and the schedule ticked once a second on a daemon thread.
+     * The service the production app uses: a launcher per run with step 5 wired and a catalogue that reads Xray and
+     * Confluence ({@link LaunchDefaults}), the sign-in gate over the Setup page's credential items, the rig's
+     * check-only preflight, and the schedule ticked once a second on a daemon thread.
      */
     public static RunService standard(String rig, Map<String, String> env) {
-        LaunchPaths paths = LaunchPaths.fromEnv(env);
+        String home = System.getProperty("user.home");
+        LaunchPaths paths = LaunchDefaults.withNetwork(LaunchPaths.fromEnv(env), Path.of(home));
         String name = rig == null ? "" : rig;
         RunService service = new RunService(name,
-                () -> new LaunchEngine(new RunLauncher(paths)),
+                () -> new LaunchEngine(LaunchDefaults.wiredLauncher(paths)),
                 () -> RigPreflight.checkOnly(name, env),
                 Clock.system(ZoneId.systemDefault()));
+        service.gates(RunService::setupCredentialGaps, () -> false, () -> false);
+        service.caseFetch(plans -> {
+            for (String plan : plans) {
+                paths.catalogue().cases(plan, PlanCatalogue.Mode.REFRESH);
+            }
+            paths.catalogue().requirements(PlanCatalogue.Mode.REFRESH);
+        });
+        service.startContext(new RunStart.Context(name, () -> LastConfig.fromHome(env, home), env,
+                paths.catalogue(), paths.rigsDir(), null));
         ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor(task -> {
             Thread thread = new Thread(task, "cat-schedule");
             thread.setDaemon(true);
@@ -92,31 +138,161 @@ public final class RunService {
         return service;
     }
 
+    /** The Setup page's sign-ins that are not in place, by name; local reads only, fresh each call. */
+    static Map<String, String> setupCredentialGaps() {
+        Map<String, String> out = new java.util.LinkedHashMap<>();
+        SetupAudit.credentialGaps(SetupItems.standard(), SetupEnv.system())
+                .forEach((item, result) -> out.put(item, result.detail()));
+        return out;
+    }
+
+    /**
+     * The start refusals' inputs.
+     *
+     * @param credentialGaps the missing sign-ins by name (empty when all are in place)
+     * @param staging        whether Java 17 or the simulators are still downloading
+     * @param recording      whether a recording is in progress
+     */
+    public synchronized RunService gates(Supplier<Map<String, String>> credentialGaps, BooleanSupplier staging,
+            BooleanSupplier recording) {
+        this.credentialGaps = credentialGaps == null ? Map::of : credentialGaps;
+        this.staging = staging == null ? () -> false : staging;
+        this.recording = recording == null ? () -> false : recording;
+        return this;
+    }
+
+    /** What fetches the plans' cases (and requirements) from Jira before a Start from the Config tab; null for none. */
+    public synchronized RunService caseFetch(Consumer<List<String>> fetch) {
+        this.caseFetch = fetch;
+        return this;
+    }
+
+    /** Where Start run's defaults come from ({@link RunStart.Context}). */
+    public synchronized RunService startContext(RunStart.Context context) {
+        this.startContext = context == null ? RunStart.Context.of(rig) : context;
+        return this;
+    }
+
+    /** The context {@link RunStart} reads Start run's defaults from. */
+    public synchronized RunStart.Context startContext() {
+        return startContext;
+    }
+
     /** The rig Start run launches on. */
     public String rig() {
         return rig;
     }
 
-    /** Starts {@code config} on a background thread, unless a run is already going. */
+    // ------------------------------------------------------------------ starting
+
+    /** Starts {@code config} on a background thread, unless something refuses it. */
     public synchronized void start(LaunchConfig config) {
         startPass(config, null);
     }
 
     /**
-     * Starts {@code config} unless a run is going or preflight is. {@code done} runs on the run's thread
-     * once the run has ended, still holding this service's lock and with {@code busy} already clear.
+     * Start run from the Config tab: refuses as the Python does, else starts on a background thread that first
+     * fetches the plans' cases (when a fetch is wired) and then re-reads the choices. {@code plans} are the ticked
+     * plans, fetched even when the cached choices cannot start a run yet.
+     */
+    public void startFromForm(Supplier<RunStart.Plan> planner, List<String> plans) {
+        RunStart.Plan plan = planner.get();
+        synchronized (this) {
+            String refusal = refusal();
+            if (!refusal.isEmpty()) {
+                notice = refusal;
+                return;
+            }
+            boolean fetch = caseFetch != null && !plans.isEmpty();
+            if (!plan.startable() && !(fetch && plan.needsFetch())) {
+                notice = plan.refusal();
+                return;
+            }
+            String gate = signInGate();
+            if (!gate.isEmpty()) {
+                notice = gate;
+                return;
+            }
+            Consumer<List<String>> fetcher = fetch ? caseFetch : null;
+            List<String> keys = List.copyOf(plans);
+            begin(() -> {
+                if (fetcher != null) {
+                    synchronized (this) {
+                        fetching = "Fetching the case list for " + String.join(", ", keys)
+                                + " from Jira; the run starts when it arrives.";
+                    }
+                    try {
+                        fetcher.accept(keys);
+                    } finally {
+                        synchronized (this) {
+                            fetching = "";
+                        }
+                    }
+                }
+                RunStart.Plan fresh = planner.get();
+                if (!fresh.startable()) {
+                    synchronized (this) {
+                        notice = fresh.refusal();
+                    }
+                    return null;
+                }
+                return fresh.config();
+            }, null);
+        }
+    }
+
+    /** Why nothing may start now (a run, a preflight or a recording), or "". Called under the lock. */
+    private String refusal() {
+        if (busy) {
+            return BUSY;
+        }
+        if (preflighting) {
+            return PREFLIGHTING;
+        }
+        if (recording.getAsBoolean()) {
+            return RECORDING;
+        }
+        return "";
+    }
+
+    /** The sign-in and staging gate ({@code _signed_in_launch}), or "". Called under the lock. */
+    private String signInGate() {
+        Map<String, String> gaps;
+        try {
+            gaps = credentialGaps.get();
+        } catch (RuntimeException e) {
+            gaps = Map.of("the credential check (" + e.getMessage() + ")", "");
+        }
+        if (!gaps.isEmpty()) {
+            return "Run not started: sign in first on the Setup page. Missing: " + String.join(", ", gaps.keySet());
+        }
+        if (staging.getAsBoolean()) {
+            return STAGING;
+        }
+        return "";
+    }
+
+    /**
+     * Starts {@code config} unless something refuses it. {@code done} runs on the run's thread once the run has
+     * ended, still holding this service's lock and with {@code busy} already clear.
      *
      * @return whether the run was started
      */
     private synchronized boolean startPass(LaunchConfig config, Consumer<RunSchedule.PassEnd> done) {
-        if (busy) {
-            notice = BUSY;
+        String refusal = refusal();
+        if (refusal.isEmpty()) {
+            refusal = signInGate();
+        }
+        if (!refusal.isEmpty()) {
+            notice = refusal;
             return false;
         }
-        if (preflighting) {
-            notice = "Preflight is running: wait for it to finish.";
-            return false;
-        }
+        begin(() -> config, done);
+        return true;
+    }
+
+    /** Makes the engine and starts the run thread. Called under the lock, with nothing refusing. */
+    private void begin(Supplier<LaunchConfig> config, Consumer<RunSchedule.PassEnd> done) {
         RunEngine next = engines.get();
         engine = next;
         folder = null;
@@ -128,23 +304,31 @@ public final class RunService {
         Thread worker = new Thread(() -> launch(next, config, done), "cat-run");
         worker.setDaemon(true);
         worker.start();
-        return true;
     }
 
-    private void launch(RunEngine next, LaunchConfig config, Consumer<RunSchedule.PassEnd> done) {
+    private void launch(RunEngine next, Supplier<LaunchConfig> config, Consumer<RunSchedule.PassEnd> done) {
         RunSchedule.PassEnd end = RunSchedule.PassEnd.NONE;
+        boolean launched = false;
         try {
-            LaunchResult result = next.launch(config);
-            if (!result.cancelled()) {
-                end = new RunSchedule.PassEnd(result.runId(), testsRun());
+            LaunchConfig chosen = config.get();
+            if (chosen != null) {
+                launched = true;
+                LaunchResult result = next.launch(chosen);
+                if (!result.cancelled()) {
+                    end = new RunSchedule.PassEnd(result.runId(), testsRun());
+                }
             }
         } catch (RuntimeException e) {
             synchronized (this) {
                 error = e.getClass().getSimpleName() + ": " + e.getMessage();
+                launched = true;
             }
         } finally {
             synchronized (this) {
                 busy = false;
+                if (!launched) {
+                    engine = null; // never started: back to the pre-run page, the reason in the notice
+                }
                 if (done != null) {
                     done.accept(end);
                 }
@@ -154,20 +338,12 @@ public final class RunService {
 
     /** The verdicts the run's folder holds so far: a pass with none ran no test cases. */
     private synchronized int testsRun() {
-        Path where = folderNow();
-        if (where == null) {
+        RunState state = refreshed();
+        if (state == null) {
             return 0;
         }
-        try {
-            if (progress == null) {
-                progress = new RunProgress(where);
-            }
-            progress.refresh();
-        } catch (IOException e) {
-            return 0;
-        }
-        RunProgress.Snapshot snapshot = progress.snapshot();
-        return snapshot.passed() + snapshot.failed() + snapshot.warned();
+        Map<String, Integer> counts = RunView.verdictCounts(state);
+        return counts.get("passed") + counts.get("failed") + counts.get("warned");
     }
 
     // ------------------------------------------------------------------ schedule and continuous
@@ -192,8 +368,8 @@ public final class RunService {
     }
 
     /**
-     * Continuous run: on, or, pressed again, off after the pass in flight. Refused while a run goes
-     * on its own, as the Python CAT refuses it.
+     * Continuous run: on, or, pressed again, off after the pass in flight. Refused while a run goes on its own, as
+     * the Python CAT refuses it.
      */
     public synchronized void toggleContinuous(RunStart.Plan plan) {
         if (schedule.continuousOn()) {
@@ -220,8 +396,8 @@ public final class RunService {
     }
 
     /**
-     * One scheduler tick: while nothing holds the rig, start the continuous pass whose hold has passed,
-     * or the earliest due scheduled run. Public for tests; {@link #standard} calls it once a second.
+     * One scheduler tick: while nothing holds the rig, start the continuous pass whose hold has passed, or the
+     * earliest due scheduled run. Public for tests; {@link #standard} calls it once a second.
      */
     public synchronized void tick() {
         if (busy || preflighting) {
@@ -246,6 +422,8 @@ public final class RunService {
         notice = why;
     }
 
+    // ------------------------------------------------------------------ pause, stop, new run
+
     /** Pause if running, Continue if paused. */
     public synchronized void togglePause() {
         if (!busy || engine == null) {
@@ -260,8 +438,16 @@ public final class RunService {
         notice = "";
     }
 
-    /** Stops the run before its next step, or at once if it is paused. */
+    /** Stops the run before its next step, or at once if it is paused; or stops the preflight in flight. */
     public synchronized void stop() {
+        if (preflighting && preflightThread != null) {
+            preflightThread.interrupt();
+            preflighting = false;
+            preflightThread = null;
+            preflightText = "Preflight stopped before it finished.";
+            notice = "Stopping preflight.";
+            return;
+        }
         if (!busy || engine == null) {
             notice = NOT_RUNNING;
             return;
@@ -284,20 +470,31 @@ public final class RunService {
         notice = "";
     }
 
-    /** Runs the check-only preflight. Not held under the lock: it can take a while. */
-    public void preflight() {
-        synchronized (this) {
-            if (busy) {
-                notice = BUSY;
-                return;
-            }
-            if (preflighting) {
-                notice = "Preflight is already running.";
-                return;
-            }
-            preflighting = true;
-            notice = "";
+    // ------------------------------------------------------------------ preflight
+
+    /** Runs the check-only preflight on a background thread; Stop abandons it. */
+    public synchronized void preflight() {
+        if (busy) {
+            notice = BUSY;
+            return;
         }
+        if (preflighting) {
+            notice = "Preflight is already running.";
+            return;
+        }
+        if (recording.getAsBoolean()) {
+            notice = RECORDING;
+            return;
+        }
+        preflighting = true;
+        notice = "";
+        Thread worker = new Thread(this::runPreflight, "cat-preflight");
+        worker.setDaemon(true);
+        preflightThread = worker;
+        worker.start();
+    }
+
+    private void runPreflight() {
         String text;
         try {
             text = preflight.get();
@@ -305,10 +502,16 @@ public final class RunService {
             text = "Preflight could not run: " + e.getMessage();
         }
         synchronized (this) {
+            if (preflightThread != Thread.currentThread()) {
+                return; // stopped: its report is not shown
+            }
             preflighting = false;
+            preflightThread = null;
             preflightText = text == null ? "" : text;
         }
     }
+
+    // ------------------------------------------------------------------ reading
 
     /** The current run's log lines, the last {@link RunLogTail#LINES}; empty when there is no run folder yet. */
     public List<String> logLines() throws IOException {
@@ -319,25 +522,41 @@ public final class RunService {
         return where == null ? List.of() : RunLogTail.tail(where, RunLogTail.LINES);
     }
 
+    /** The current run's state as its events say it now; the empty state before a run has made its folder. */
+    public synchronized RunState state() {
+        RunState state = refreshed();
+        return state == null ? RunState.empty() : state;
+    }
+
+    /** Folds what the run has written since the last read; null with no folder yet. Called under the lock. */
+    private RunState refreshed() {
+        Path where = folderNow();
+        if (where == null) {
+            return null;
+        }
+        try {
+            if (progress == null) {
+                progress = new RunProgress(where);
+            }
+            progress.refresh();
+            readProblem = "";
+        } catch (IOException e) {
+            readProblem = "The run's events could not be read yet: " + e.getMessage();
+        }
+        return progress == null ? null : progress.state();
+    }
+
     /** The current run's read of its folder, with the Overview's extras. */
     public synchronized View view() {
-        Path where = folderNow();
-        RunProgress.Snapshot snapshot = null;
-        if (where != null) {
-            try {
-                if (progress == null) {
-                    progress = new RunProgress(where);
-                }
-                progress.refresh();
-                readProblem = "";
-            } catch (IOException e) {
-                readProblem = "The run's events could not be read yet: " + e.getMessage();
-            }
-            snapshot = progress == null ? null : progress.snapshot();
-        }
+        RunState state = refreshed();
+        RunProgress.Snapshot snapshot = state == null ? null : new RunProgress.Snapshot(state);
         boolean started = engine != null;
         boolean paused = started && busy && engine.paused();
         Instant now = clock.instant();
+        List<String> notices = new ArrayList<>();
+        if (!fetching.isEmpty()) {
+            notices.add(fetching);
+        }
         return new View(
                 started,
                 busy,
@@ -347,7 +566,7 @@ public final class RunService {
                 snapshot,
                 snapshot == null ? 0 : snapshot.seconds(now),
                 error,
-                notice,
+                notice.isEmpty() && !notices.isEmpty() ? notices.get(0) : notice,
                 preflightText,
                 preflighting,
                 readProblem);
@@ -409,5 +628,10 @@ public final class RunService {
             String preflight,
             boolean preflighting,
             String readProblem) {
+
+        /** The run's state, or the empty state before it has one. */
+        public RunState state() {
+            return snapshot == null ? RunState.empty() : snapshot.state();
+        }
     }
 }
