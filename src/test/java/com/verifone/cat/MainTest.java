@@ -37,6 +37,7 @@ class MainTest {
         expected.put("cloud-tunnel", CloudTunnelCommand.class);
         expected.put("psi-init", PsiInitCommand.class);
         expected.put("emv-keys", EmvKeysCommand.class);
+        expected.put("fetch-sims", com.verifone.cat.sims.FetchSimsCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {

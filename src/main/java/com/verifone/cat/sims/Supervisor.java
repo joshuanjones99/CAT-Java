@@ -47,6 +47,12 @@ import java.util.stream.Collectors;
  * windows minimised as they appear, best effort, on a thread of its own
  * ({@link Clicker#minimiseWhenShown}).
  *
+ * <p>Before a spawn, a {@code capk_from} row's jar is rebuilt ({@link Capk}), a {@code tls:} row's tank level
+ * simulator is set from the rig ({@link PetroTls}) and a row's {@code artifactory.after} step (Petro's SSLUtil) runs,
+ * every launch, as the Python's {@code start} does. {@link #stopWrongVariants} closes a row's other-base form (LoySim
+ * 9.1 against a 55.02 Commander), another override of D9 the rig owner made (2026-10-13). {@link #stopRunning} takes
+ * both forms of one row at once, and stops every PID of either (the Python keeps only the second form's PIDs).
+ *
  * <p>Every wait is bounded. A timeout is a {@code FAILED} row naming the timeout.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). The Python CAT's {@code cat.sims.supervisor} is
@@ -109,6 +115,16 @@ public final class Supervisor {
     private final ProcessOps ops;
     private final Duration staleBindWait;
     private final Clicker clicker;
+
+    /** Each row's {@code artifactory:} block, whose {@code after} step runs before every launch (a test's seam). */
+    java.util.function.Function<SimEntry, Optional<SimSources.ArtifactorySource>> sources =
+            entry -> SimSources.forRow(entry.name(), false);
+
+    /** Where the RXTX agent jar is built and kept ({@link PetroTls#agentJar}); a test's temp folder. */
+    Path agentCache = PetroTls.defaultAgentCache();
+
+    /** The controller's serial ports for {@link PetroTls#configure}; null reads Windows' map. */
+    Set<String> serialPorts;
 
     /** A supervisor that presses buttons through this controller's Access Bridge. */
     public Supervisor(ProcessOps ops) {
@@ -269,6 +285,7 @@ public final class Supervisor {
         SimStatus spawning = new SimStatus(entry.name(), SimStatus.State.STARTING, SimStatus.Owner.CAT, "",
                 "spawning" + caveat);
         ev.status(spawning);
+        entry = beforeLaunch(entry, ctx, ev);
         AtomicBoolean tripped = new AtomicBoolean();
         SimProcess proc = launch(entry, ctx, spawning, ev, deadline, tripped);
         if (tripped.get() && !entry.fallbackJdk().isEmpty()) {
@@ -289,6 +306,112 @@ public final class Supervisor {
         }
         ev.status(proc.status());
         return proc;
+    }
+
+    /**
+     * The pre-launch steps of a row CAT is about to spawn, as the Python's {@code start} runs them: Petro's tank level
+     * simulator set from the rig ({@link PetroTls#configure}; with a port, the launch gains {@code -javaagent:} for
+     * the RXTX agent), then the vendor script's {@code artifactory.after} step (Petro's SSLUtil, which writes the
+     * keystore its EPS listener on 5000 needs), on every launch as {@code startSimulator.bat} does. A failure of
+     * either is a log line and the launch goes ahead, as in the Python. Returns the row to launch.
+     */
+    private SimEntry beforeLaunch(SimEntry entry, SimContext ctx, Events ev) {
+        SimEntry launch = entry;
+        if (entry.tls() != null) {
+            try {
+                ev.log(entry.name(), PetroTls.configure(ctx.cwdFor(entry), entry.tls(), ctx.tlsPort(), serialPorts));
+                Optional<Path> exe = ctx.javawExe();
+                if (!ctx.tlsPort().isEmpty() && exe.isPresent()) {
+                    // Without it Petro sees no serial port at all (PetroTls).
+                    Path jar = PetroTls.agentJar(exe.get().resolveSibling("javac.exe"), agentCache);
+                    launch = entry.withArgvFirst("-javaagent:" + jar);
+                }
+            } catch (IOException | RuntimeException e) {
+                ev.log(entry.name(), "tank level simulator not configured: "
+                        + (e.getMessage() == null ? e.toString() : e.getMessage()));
+            }
+        }
+        Optional<SimSources.ArtifactorySource> source;
+        try {
+            source = sources.apply(entry);
+        } catch (RuntimeException e) {
+            source = Optional.empty();
+        }
+        if (source.isPresent() && !source.get().after().isEmpty()) {
+            SimFetch setup = new SimFetch(() -> {
+                throw new IllegalStateException("a setup step downloads nothing");
+            }, line -> ev.log(entry.name(), line));
+            String problem = setup.setup(entry, source.get(), ctx, ctx.cwdFor(entry));
+            if (!problem.isEmpty()) {
+                ev.log(entry.name(), problem);
+            }
+        }
+        return launch;
+    }
+
+    /**
+     * Closes a running instance of a row's other-base form: the Python's {@code stop_wrong_variants}, an override of
+     * D9 for this case only (rig owner, 2026-10-13). {@code others} is {@link Registry#otherVariants} for the run's
+     * base: LoySim 9.1 left running from a base 57 run (or LoySim 7 from a 55.02 one) is the wrong version for this
+     * Commander, and {@link #start} would start the right one beside it. Only a row whose two forms have different
+     * match tokens can be told apart (not MPPA, whose 03 and 04 run the same main class). Matched by command line
+     * alone, never by port, so the right version's listener is never touched. Rows with no wrong form running are
+     * left out of the result; each detail starts with the wrong form's match token.
+     */
+    public Map<String, StopRow> stopWrongVariants(List<SimEntry> entries, Map<String, SimEntry> others,
+            SimContext ctx, Duration timeout) {
+        List<SimEntry> wrong = new ArrayList<>();
+        for (SimEntry entry : entries) {
+            SimEntry other = others.get(entry.name());
+            if (other == null) {
+                continue;
+            }
+            String mine;
+            String theirs;
+            try {
+                mine = normalise(ctx.matchToken(entry));
+                theirs = normalise(ctx.matchToken(other));
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            if (mine.contains(theirs) || theirs.contains(mine)) {
+                continue;
+            }
+            wrong.add(other.withoutReady());
+        }
+        Map<String, StopRow> out = new LinkedHashMap<>();
+        if (wrong.isEmpty()) {
+            return out;
+        }
+        ProcessOps.Snapshot listed;
+        try {
+            listed = ops.commandLines(processNames(wrong, ctx), timeout);
+        } catch (IllegalArgumentException e) {
+            listed = ProcessOps.Snapshot.failed(e.getMessage());
+        }
+        if (!listed.error().isEmpty()) {
+            for (SimEntry other : wrong) {
+                out.put(other.name(), new StopRow(StopOutcome.FAILED,
+                        "could not list running processes: " + listed.error()));
+            }
+            return out;
+        }
+        String lines = normalise(listed.text());
+        List<SimEntry> running = wrong.stream()
+                .filter(other -> lines.contains(normalise(ctx.matchToken(other)))).toList();
+        if (running.isEmpty()) {
+            return out;
+        }
+        Map<String, StopRow> stopped = stopRunning(running, ctx, timeout);
+        for (SimEntry other : running) {
+            StopRow row = stopped.get(other.name());
+            String detail = ctx.matchToken(other) + ": " + row.detail();
+            while (detail.endsWith(":") || detail.endsWith(" ")) {
+                detail = detail.substring(0, detail.length() - 1);
+            }
+            out.put(other.name(), new StopRow(row.outcome(), detail));
+        }
+        return out;
     }
 
     /**
@@ -347,10 +470,12 @@ public final class Supervisor {
         for (SimEntry entry : list) {
             try {
                 Set<Long> pids = instances(entry, ctx, parsed);
-                if (pids.isEmpty()) {
-                    rows.put(entry.name(), new StopRow(StopOutcome.ABSENT, ""));
-                } else {
-                    targets.put(entry.name(), pids);
+                if (!pids.isEmpty()) {
+                    // Two forms of one row (base 57's and 56's) are one row: every PID of either is stopped.
+                    targets.computeIfAbsent(entry.name(), name -> new HashSet<>()).addAll(pids);
+                    rows.remove(entry.name());
+                } else if (!targets.containsKey(entry.name())) {
+                    rows.putIfAbsent(entry.name(), new StopRow(StopOutcome.ABSENT, ""));
                 }
             } catch (IllegalArgumentException e) {
                 rows.put(entry.name(), new StopRow(StopOutcome.FAILED, "bad registry row: " + e.getMessage()));

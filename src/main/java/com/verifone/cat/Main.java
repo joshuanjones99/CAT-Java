@@ -65,6 +65,7 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("fetch-sims", new Command(com.verifone.cat.sims.FetchSimsCommand.class, argv -> new com.verifone.cat.sims.FetchSimsCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
@@ -90,6 +91,7 @@ public final class Main {
               commander-snapshot  capture, restore or check a Commander config snapshot (petrotest commander-snapshot)
               commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
               cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
+              fetch-sims          stage the Java 17 sets and every simulator not yet staged (cat-term fetch-sims)
               --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
               --register   which register's shim to use; default the rig's first
               --port       the web UI's port on 127.0.0.1; default 8090
