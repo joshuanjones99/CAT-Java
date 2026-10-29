@@ -74,17 +74,22 @@ final class PushListener {
             } catch (IOException e) {
                 return; // closed
             }
+            Object obj;
             try (conn) {
                 conn.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeout.toMillis()));
-                deliver(exchange(conn));
+                obj = exchange(conn);
             } catch (SocketTimeoutException e) {
                 // A probe closes. A push that stalls is lost, and a DCR whose pushes all stall shows nothing.
                 LOG.warn("port {}: a push stalled; nothing arrived in {} s", port, timeout.toSeconds());
+                continue;
             } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
-                // a probe, or a stream this reader cannot parse
+                continue; // a probe, or a stream this reader cannot parse
             } catch (RuntimeException e) {
                 LOG.error("port {}: dropped a push this reader cannot parse", port, e);
+                continue;
             }
+            // As the Python's _Listener: the connection is closed, the suite's writer released, before the handler runs.
+            deliver(obj);
         }
     }
 
