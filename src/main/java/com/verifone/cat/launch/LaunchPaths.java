@@ -7,6 +7,7 @@ import com.verifone.cat.collect.Collect;
 import com.verifone.cat.plans.PlanCatalogue;
 import com.verifone.cat.plans.PlanSource;
 import com.verifone.cat.plans.SeedPlanSource;
+import com.verifone.cat.provision.ProvisionPaths;
 import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.rig.RigLease;
 import com.verifone.cat.rig.RigLoader;
@@ -27,15 +28,23 @@ import com.verifone.cat.setup.SetupEnv;
  * @param petroappsRoot the petroapps checkout whose freshness System Checks checks and whose cases step 5 collects
  * @param catalogue    where the plan catalogue and the plans' requirements come from
  * @param setupEnv     the environment the workstation audit reads (variables, home, commands)
+ * @param pythonRoot   the Python CAT checkout whose {@code tests/suites/**} hand-migrated suites step 5 runs cases from
+ *                     before pulling any ({@code plans.LocalSuites}), or {@code null} for none: every case is pulled
  */
 public record LaunchPaths(Path resultsRoot, Path rigsDir, Path leaseDir, Path repoRoot, Path petroappsRoot,
-        PlanCatalogue catalogue, SetupEnv setupEnv) {
+        PlanCatalogue catalogue, SetupEnv setupEnv, Path pythonRoot) {
 
     public LaunchPaths {
         if (resultsRoot == null || rigsDir == null || leaseDir == null || repoRoot == null
                 || petroappsRoot == null || catalogue == null || setupEnv == null) {
             throw new IllegalArgumentException("every launch path, the catalogue and the setup environment are required");
         }
+    }
+
+    /** Paths with no local suites: every plan case is pulled from petroapps (the test fixtures' default). */
+    public LaunchPaths(Path resultsRoot, Path rigsDir, Path leaseDir, Path repoRoot, Path petroappsRoot,
+            PlanCatalogue catalogue, SetupEnv setupEnv) {
+        this(resultsRoot, rigsDir, leaseDir, repoRoot, petroappsRoot, catalogue, setupEnv, null);
     }
 
     /**
@@ -55,6 +64,7 @@ public record LaunchPaths(Path resultsRoot, Path rigsDir, Path leaseDir, Path re
                 petroapps.isEmpty() ? Path.of(Collect.DEFAULT_PETROAPPS_ROOT) : Path.of(petroapps),
                 new PlanCatalogue(home.resolve(".cat").resolve("java"), home.resolve(".cat"),
                         PlanSource.unavailable("no Atlassian source in this build"), new SeedPlanSource(), repoRoot),
-                SetupEnv.system());
+                SetupEnv.system(),
+                ProvisionPaths.pythonRoot(env));
     }
 }

@@ -194,7 +194,7 @@ public final class LaunchCommand {
         PlanCatalogue catalogue = new PlanCatalogue(home.resolve(".cat").resolve("java"), home.resolve(".cat"),
                 new AtlassianPlanSource(client), new SeedPlanSource(), paths.repoRoot());
         return new LaunchPaths(paths.resultsRoot(), paths.rigsDir(), paths.leaseDir(), paths.repoRoot(),
-                paths.petroappsRoot(), catalogue, paths.setupEnv());
+                paths.petroappsRoot(), catalogue, paths.setupEnv(), paths.pythonRoot());
     }
 
     /** The parsed command line: only what was typed; {@link #toConfig} applies the saved choices and defaults. */
