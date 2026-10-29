@@ -34,6 +34,15 @@ class LaunchCommandReachesStepFiveTest {
     void theFakePosPlanRunPassesSystemChecksAndStartsStepFive() throws Exception {
         Assumptions.assumeTrue(PetroappsRepo.gitAvailable(), "git is not on PATH");
         LaunchPaths paths = LaunchFixtures.paths(dir, PetroappsRepo.withOneCase(dir));
+        // The case's translated test, which run start pulls: without one there is nothing to run, and step 1 stops the
+        // run, as the Python's does.
+        Path work = dir.resolve("work");
+        Files.writeString(work.resolve("AutomationTests").resolve("testcases").resolve(PetroappsRepo.CASE_KEY)
+                .resolve(PetroappsRepo.CASE_KEY + "-TestCase.feature"), "@" + PetroappsRepo.CASE_KEY
+                + "\nFeature: one case\n\n  Scenario: a sale\n    Given the register is idle\n", StandardCharsets.UTF_8);
+        PetroappsRepo.git(work, "add", "-A");
+        PetroappsRepo.commit(work, "its test");
+        PetroappsRepo.git(work, "push", "-q", "origin", "master");
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
         PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);

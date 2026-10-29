@@ -82,9 +82,40 @@ class TestsRunStepTest {
         return new CaseEntry(key, POS_PATH + file.getFileName(), file);
     }
 
+    /**
+     * {@code factory}'s registry with every fixture a case declares available (a placeholder object): the step sets a
+     * case's declared fixtures up before its first action, and these fakes register actions such as TOUCH_EVENT that
+     * declare the POS.
+     */
+    static RegistryFactory withFixtures(RegistryFactory factory) {
+        return new RegistryFactory() {
+            @Override
+            public ActionRegistry create(RunServices services) {
+                return factory.create(services);
+            }
+
+            @Override
+            public Built build(RunServices services) {
+                return new Built(factory.create(services), name -> name, null);
+            }
+        };
+    }
+
+    /** Makes {@code ctx} the whole plan of {@code entries} in plan order, so a {@code @plan_end} case is judged. */
+    private static void fullPlan(RunContext ctx, List<CaseEntry> entries) {
+        List<com.verifone.cat.plans.PlanCase> rows = new ArrayList<>();
+        List<String> nodes = new ArrayList<>();
+        for (CaseEntry entry : entries) {
+            rows.add(new com.verifone.cat.plans.PlanCase(entry.key(), "", entry.nodeid()));
+            nodes.add(entry.nodeid());
+        }
+        ctx.config(ctx.config().withSuites(nodes));
+        ctx.planCases(rows);
+    }
+
     /** A registry whose TOUCH_EVENT records the case and whether the case before it failed. */
     private static RegistryFactory touching(List<String> seen) {
-        return services -> {
+        return withFixtures(services -> {
             ActionRegistry registry = new ActionRegistry();
             registry.register("TOUCH_EVENT", (run, action) ->
                     seen.add(run.kase().key() + " afterFailure=" + run.afterFailure()));
@@ -92,7 +123,7 @@ class TestsRunStepTest {
                 throw new IllegalStateException("boom");
             });
             return registry;
-        };
+        });
     }
 
     private static List<JsonNode> events(RunContext ctx) throws IOException {
@@ -260,7 +291,8 @@ class TestsRunStepTest {
             });
             return registry;
         };
-        TestsRunStep step = new TestsRunStep(checks, threeCases("TOUCH_EVENT", "CHECK", "TOUCH_EVENT"), connector);
+        TestsRunStep step = new TestsRunStep(withFixtures(checks), threeCases("TOUCH_EVENT", "CHECK", "TOUCH_EVENT"),
+                connector);
 
         assertTrue(StepRunner.runLocal(ctx, step));
 
@@ -283,7 +315,7 @@ class TestsRunStepTest {
     }
 
     private static RegistryFactory checking() {
-        return services -> {
+        return withFixtures(services -> {
             ActionRegistry registry = new ActionRegistry();
             registry.register("TOUCH_EVENT", (run, action) -> { });
             registry.register("BOOM", (run, action) -> {
@@ -293,7 +325,7 @@ class TestsRunStepTest {
                 throw new com.verifone.cat.pats.runner.ValidationFailure("report differs");
             });
             return registry;
-        };
+        });
     }
 
     private static JsonNode finished(RunContext ctx, String key) throws IOException {
@@ -314,6 +346,7 @@ class TestsRunStepTest {
                 entry("PETROCORE-100", writeCase("PETROCORE-100", "BOOM")),
                 entry("PETROCORE-200", writeCase("PETROCORE-200", "CHECK")),
                 entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "CHECK")));
+        fullPlan(ctx, entries);
         TestsRunStep step = new TestsRunStep(checking(), config -> entries, null);
 
         assertTrue(StepRunner.runLocal(ctx, step));
@@ -340,12 +373,54 @@ class TestsRunStepTest {
         List<CaseEntry> entries = List.of(
                 entry("PETROCORE-100", writeCase("PETROCORE-100", "TOUCH_EVENT")),
                 entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "CHECK")));
+        fullPlan(ctx, entries);
         TestsRunStep step = new TestsRunStep(checking(), config -> entries, null);
 
         assertTrue(StepRunner.runLocal(ctx, step));
 
         assertEquals("failed", finished(ctx, "PETROCORE-37031").get("outcome").asText());
         assertEquals(1, runFinished(ctx).get("failed").asInt());
+    }
+
+    /**
+     * The Python's {@code PETROTEST_FULL_PLAN_RUN} gate: outside a whole, in-order run of its plan on a rig, a
+     * {@code @plan_end} case is skipped before any fixture, with the plugin's words, and counts in nothing.
+     */
+    @Test
+    void aPlanEndCaseOutsideAFullPlanRunIsSkipped() throws IOException {
+        RunContext ctx = context("plan-end-skipped", rigRun());
+        List<String> seen = new ArrayList<>();
+        List<CaseEntry> entries = List.of(
+                entry("PETROCORE-100", writeCase("PETROCORE-100", "TOUCH_EVENT")),
+                entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "CHECK")));
+        // No plan resolved: not a full plan run.
+        TestsRunStep step = new TestsRunStep(touching(seen), config -> entries, null);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        JsonNode report = finished(ctx, "PETROCORE-37031");
+        assertEquals("skipped", report.get("outcome").asText());
+        assertEquals("Skipped", report.get("exc_type").asText());
+        assertEquals(TestsRunStep.PLAN_END_SKIP, report.get("detail").asText());
+        assertEquals("2/2 tests completed", stepDetail(ctx, "Tests Run"));
+        assertEquals(1, runFinished(ctx).get("passed").asInt());
+        assertEquals(0, runFinished(ctx).get("failed").asInt());
+        assertEquals(List.of("PETROCORE-100 afterFailure=false"), seen);
+    }
+
+    /** A fake-POS run is never a full plan run, whatever its targets. */
+    @Test
+    void aFakePosRunIsNeverAFullPlanRun() {
+        List<com.verifone.cat.plans.PlanCase> cases = List.of(new com.verifone.cat.plans.PlanCase("A-1", "", "t/a"),
+                new com.verifone.cat.plans.PlanCase("A-2", "", "t/b"));
+        LaunchConfig rig = new LaunchConfig.Builder("lab").suite("t/a").suite("t/b").build();
+        assertTrue(PlanStart.isFullPlanRun(rig, cases));
+        assertFalse(PlanStart.isFullPlanRun(rig.toBuilder().fakePos(true).build(), cases));
+        assertFalse(PlanStart.isFullPlanRun(rig.withSuites(List.of("t/b", "t/a")), cases), "reordered");
+        assertFalse(PlanStart.isFullPlanRun(rig.withSuites(List.of("t/a")), cases), "partial");
+        assertFalse(PlanStart.isFullPlanRun(rig, List.of(cases.get(0), cases.get(1),
+                new com.verifone.cat.plans.PlanCase("A-3", "", null))), "an unmigrated case");
+        assertFalse(PlanStart.isFullPlanRun(rig, null), "an unresolved plan");
     }
 
     /** A plan_end case's step that could not be done is still a failure after earlier failures (PatsStepError). */
@@ -355,6 +430,7 @@ class TestsRunStepTest {
         List<CaseEntry> entries = List.of(
                 entry("PETROCORE-200", writeCase("PETROCORE-200", "CHECK")),
                 entry("PETROCORE-37031", writePlanEndCase("PETROCORE-37031", "BOOM")));
+        fullPlan(ctx, entries);
         TestsRunStep step = new TestsRunStep(checking(), config -> entries, null);
 
         assertTrue(StepRunner.runLocal(ctx, step));
@@ -444,7 +520,7 @@ class TestsRunStepTest {
             });
             return registry;
         };
-        TestsRunStep step = new TestsRunStep(stopAfterFirst,
+        TestsRunStep step = new TestsRunStep(withFixtures(stopAfterFirst),
                 threeCases("TOUCH_EVENT", "TOUCH_EVENT", "TOUCH_EVENT"), null);
 
         assertThrows(StepRunner.Cancelled.class, () -> StepRunner.runLocal(ctx, step));
@@ -469,7 +545,7 @@ class TestsRunStepTest {
             });
             return registry;
         };
-        TestsRunStep step = new TestsRunStep(pauseAfterFirst,
+        TestsRunStep step = new TestsRunStep(withFixtures(pauseAfterFirst),
                 threeCases("TOUCH_EVENT", "TOUCH_EVENT", "TOUCH_EVENT"), null);
         ExecutorService pool = Executors.newSingleThreadExecutor();
         try {
@@ -557,6 +633,61 @@ class TestsRunStepTest {
         assertEquals("failed", stepState(ctx, "Tests Run"));
         assertTrue(stepDetail(ctx, "Tests Run").contains("unavailable"), stepDetail(ctx, "Tests Run"));
         assertFalse(types(ctx).contains("run.finished"), "no session ran, so the launcher writes the stand-in");
+    }
+
+    /**
+     * A fixture a case declares that the run cannot give errors the case at setup, before its first action, as pytest
+     * does with a fixture that raises (the Python's {@code legacy_rmi} under {@code --fake-pos}, a missing pinpad).
+     */
+    @Test
+    void aDeclaredFixtureTheRunCannotGiveErrorsTheCaseAtSetup() throws IOException {
+        RunContext ctx = context("setup-error", rigRun());
+        List<String> seen = new ArrayList<>();
+        RegistryFactory noPos = services -> {
+            ActionRegistry registry = new ActionRegistry();
+            registry.register("TOUCH_EVENT", (run, action) -> seen.add(run.kase().key()));
+            return registry;
+        };
+        TestsRunStep step = new TestsRunStep(noPos, threeCases("TOUCH_EVENT", "TOUCH_EVENT", "TOUCH_EVENT"), null);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        assertEquals(List.of(), seen, "no action ran");
+        JsonNode first = finished(ctx, "PETROCORE-100");
+        assertEquals("error", first.get("outcome").asText());
+        assertEquals("DeviceUnavailable", first.get("exc_type").asText());
+        assertTrue(first.get("detail").asText().contains("pos"), first.get("detail").asText());
+        assertEquals("3/3 tests completed, 3 failed", stepDetail(ctx, "Tests Run"));
+        assertEquals(3, runFinished(ctx).get("failed").asInt(), "the session counts its errors as failures");
+    }
+
+    /** A Scenario Outline runs once per Examples row, each its own test, as pytest-bdd parametrises it. */
+    @Test
+    void anOutlineRunsOnceForEachExamplesRow() throws IOException {
+        RunContext ctx = context("outline", rigRun());
+        List<String> lines = new ArrayList<>();
+        RegistryFactory steps = withFixtures(services -> {
+            ActionRegistry registry = new ActionRegistry();
+            registry.register("CAT_STEP", (run, action) -> lines.add(action.get("STEP")));
+            return registry;
+        });
+        Path file = Files.createDirectories(dir.resolve("authored")).resolve("PETROCORE-500-TestCase.feature");
+        Files.writeString(file, "@PETROCORE-500\nFeature: outline\n\n  Scenario Outline: sell <item>\n"
+                + "    When the cashier scans item <item>\n    Then the total is <total>\n\n    Examples:\n"
+                + "      | item | total |\n      | 111  | 1.00  |\n      | 222  | 2.00  |\n", StandardCharsets.UTF_8);
+        List<CaseEntry> entries = List.of(new CaseEntry("PETROCORE-500", "tests/suites/authored/" + file.getFileName(),
+                file));
+        TestsRunStep step = new TestsRunStep(steps, config -> entries, null);
+
+        assertTrue(StepRunner.runLocal(ctx, step));
+
+        assertEquals(List.of("the cashier scans item 111", "the total is 1.00", "the cashier scans item 222",
+                "the total is 2.00"), lines);
+        assertEquals(List.of("tests/suites/authored/PETROCORE-500-TestCase.feature[111-1.00]=passed",
+                "tests/suites/authored/PETROCORE-500-TestCase.feature[222-2.00]=passed"), finishedOutcomes(events(ctx)));
+        assertTrue(Files.isRegularFile(ctx.runFolder().resolve("PETROCORE-500-111-1.00").resolve("steps.log")));
+        assertTrue(Files.isRegularFile(ctx.runFolder().resolve("PETROCORE-500-222-2.00").resolve("steps.log")));
+        assertEquals("2/2 tests completed", stepDetail(ctx, "Tests Run"));
     }
 
     /** Polls the run's events file until {@code text} appears; the step writes it before it waits. */

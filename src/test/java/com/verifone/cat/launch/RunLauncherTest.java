@@ -189,7 +189,7 @@ class RunLauncherTest {
     }
 
     @Test
-    void aPartialRunIsRefusedBeforeStepOneAndTheRigFileIsNotRead() throws IOException {
+    void aPartialRunThatSelectsNothingIsRefusedBeforeStepOneAndTheRigFileIsNotRead() throws IOException {
         LaunchConfig config = new LaunchConfig.Builder(LaunchFixtures.RIG)
                 .scope(new RunScope(RunScope.Mode.TAGS, "@smoke", List.of(), null, "", true))
                 .build();
@@ -198,9 +198,84 @@ class RunLauncherTest {
 
         for (StepResult refused : result.steps().subList(0, 5)) {
             assertEquals(StepResult.SKIPPED, refused.state(), refused.name());
-            assertEquals(RunLauncher.PARTIAL_REFUSED, refused.detail(), refused.name());
+            assertEquals(RunLauncher.PARTIAL_REFUSED + "--tags '@smoke': no case of the plan is selected",
+                    refused.detail(), refused.name());
         }
         assertFalse(Files.readString(result.runFolder().resolve("run.log")).contains("PASS  rig file"));
+    }
+
+    /** Three resolved cases, the middle one Not Run, in plan order; files under {@code dir/cases}. */
+    private CaseSource planOfThree() throws IOException {
+        Path folder = Files.createDirectories(dir.resolve("cases"));
+        Path one = Files.writeString(folder.resolve("PETROCORE-1-TestCase.xml"), "<testscript/>");
+        Path three = Files.writeString(folder.resolve("PETROCORE-3-TestCase.xml"), "<testscript/>");
+        return config -> List.of(new CaseEntry("PETROCORE-1", "tests/c/PETROCORE-1-TestCase.xml", one),
+                new CaseEntry("PETROCORE-2", null, null),
+                new CaseEntry("PETROCORE-3", "tests/c/PETROCORE-3-TestCase.xml", three));
+    }
+
+    @Test
+    void runStartResolvesThePlanWidensToTheWholePlanAndRestatesRunStarted() throws IOException {
+        RunLauncher launcher = new RunLauncher(LaunchFixtures.paths(dir));
+        launcher.wireTests(null, planOfThree(), null);
+        LaunchResult result = launcher.launch(new LaunchConfig.Builder("").fakePos(true).testPlan("PETROCORE-70960")
+                .build());
+
+        List<JsonNode> events = LaunchFixtures.events(result.runFolder());
+        JsonNode plan = events.stream().filter(e -> "plan.resolved".equals(e.get("type").asText())).findFirst()
+                .orElseThrow();
+        assertEquals(3, plan.get("cases").size());
+        assertTrue(plan.get("cases").get(1).get("node").isNull(), plan.toString());
+        List<JsonNode> started = events.stream().filter(e -> "run.started".equals(e.get("type").asText())).toList();
+        assertEquals(2, started.size());
+        assertFalse(started.get(0).get("restated").asBoolean());
+        assertTrue(started.get(1).get("restated").asBoolean());
+        assertTrue(started.get(1).get("cmd").asText()
+                .contains("tests/c/PETROCORE-1-TestCase.xml tests/c/PETROCORE-3-TestCase.xml"), started.get(1).toString());
+        String log = Files.readString(result.runFolder().resolve("events.ndjson"));
+        assertTrue(log.contains("pytest targets, in plan order: tests/c/PETROCORE-1-TestCase.xml "
+                + "tests/c/PETROCORE-3-TestCase.xml"), log);
+    }
+
+    @Test
+    void aPartialRunNarrowsTheWholePlanInPlanOrderAndWarnsWhatItLeavesOut() throws IOException {
+        RunLauncher launcher = new RunLauncher(LaunchFixtures.paths(dir));
+        launcher.wireTests(null, planOfThree(), null);
+        LaunchResult result = launcher.launch(new LaunchConfig.Builder("").fakePos(true).testPlan("PETROCORE-70960")
+                .only(List.of("3")).build());
+
+        String log = Files.readString(result.runFolder().resolve("events.ndjson"));
+        assertTrue(log.contains("partial run, pytest targets in plan order: tests/c/PETROCORE-3-TestCase.xml"), log);
+        assertTrue(log.contains("partial run: 1 case(s) selected"), log);
+        assertFalse(result.steps().get(0).detail().startsWith(RunLauncher.PARTIAL_REFUSED), result.steps().get(0)
+                .detail());
+    }
+
+    @Test
+    void aPartialRunNamingACaseNotInThePlanIsRefused() throws IOException {
+        RunLauncher launcher = new RunLauncher(LaunchFixtures.paths(dir));
+        launcher.wireTests(null, planOfThree(), null);
+        LaunchResult result = launcher.launch(new LaunchConfig.Builder("").fakePos(true).testPlan("PETROCORE-70960")
+                .fromCase("PETROCORE-2").build());
+
+        assertEquals(RunLauncher.PARTIAL_REFUSED + "--from PETROCORE-2: not a migrated case of the plan",
+                result.steps().get(0).detail());
+    }
+
+    @Test
+    void aPlanThatDoesNotResolveIsAWarningAndAPartialRunOfItIsRefused() throws IOException {
+        RunLauncher launcher = new RunLauncher(LaunchFixtures.paths(dir));
+        launcher.wireTests(null, config -> {
+            throw new IOException("no catalogue");
+        }, null);
+        LaunchResult result = launcher.launch(new LaunchConfig.Builder("").fakePos(true).testPlan("PETROCORE-70960")
+                .tags("@smoke").build());
+
+        String log = Files.readString(result.runFolder().resolve("events.ndjson"));
+        assertTrue(log.contains("could not resolve PETROCORE-70960 to a case list (IOException: no catalogue); Not Run "
+                + "cannot be counted for this run"), log);
+        assertEquals(RunLauncher.PARTIAL_REFUSED + "a partial run needs its plan's cases, and the plan did not resolve",
+                result.steps().get(0).detail());
     }
 
     @Test
