@@ -42,8 +42,9 @@ public final class VatsSession implements AutoCloseable {
      * @param petroappsRoot the petroapps checkout: the MSR track file and the cases' own card images
      * @param agentDir      where the shipped {@code agent.py} is written ({@code ~/.cat/java/vats})
      * @param btt           the BTT installs and their card server
+     * @param interpreter   run the relay and agent under this rather than the staged Python 3.9; null in production
      */
-    public record Environment(Path toolsRoot, Path petroappsRoot, Path agentDir, Btt btt) {
+    public record Environment(Path toolsRoot, Path petroappsRoot, Path agentDir, Btt btt, Path interpreter) {
 
         /** This controller's: {@code CAT_TOOLS_ROOT}, {@code PETROAPPS_ROOT}, the user's home. */
         public static Environment forThisMachine(Map<String, String> env) {
@@ -53,7 +54,12 @@ public final class VatsSession implements AutoCloseable {
             return new Environment(tools,
                     Path.of(petroapps.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : petroapps),
                     home.resolve(".cat").resolve("java").resolve("vats"),
-                    Btt.forThisMachine(home, tools));
+                    Btt.forThisMachine(home, tools), null);
+        }
+
+        /** The staged SDK, or {@link com.verifone.cat.devices.DeviceUnavailable} naming what is missing. */
+        public VatsSdk sdk() {
+            return new VatsSdk(VatsSdk.locate(connectorRoot()).root(), interpreter);
         }
 
         /** The staged connector's folder. */
@@ -107,7 +113,7 @@ public final class VatsSession implements AutoCloseable {
     /** The full session: BTT's card server, the relay, the agent and the terminal's hello. */
     public static VatsSession open(Rig rig, Path workdir, Consumer<String> log, Environment env) {
         Rig.Vats config = requireVats(rig);
-        VatsSdk sdk = VatsSdk.locate(env.connectorRoot());
+        VatsSdk sdk = env.sdk();
         Btt.CardServerStart started = env.btt().startCardServer(config.cardServerPort(), config.interfaceKind(),
                 config.automationPort(), config.bttVersion(), Btt.DEFAULT_START_TIMEOUT, log);
         log.accept("BTT card server: " + started.route() + " — " + started.detail());
@@ -140,7 +146,7 @@ public final class VatsSession implements AutoCloseable {
     /** The relay and agent only, no BTT: its pinpad loads no card image. */
     public static VatsSession openTerminal(Rig rig, Path workdir, Environment env) {
         Rig.Vats config = requireVats(rig);
-        VatsSdk sdk = VatsSdk.locate(env.connectorRoot());
+        VatsSdk sdk = env.sdk();
         VatsRelay relay = new VatsRelay(sdk, config.host(), config.port(), config.km4Port(), workdir).start();
         AgentClient agent = new AgentClient(sdk, config.km4Port(), workdir, AgentScript.extract(env.agentDir()));
         Map<String, Object> terminal;
