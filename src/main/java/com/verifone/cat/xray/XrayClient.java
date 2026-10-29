@@ -135,6 +135,40 @@ public final class XrayClient {
     }
 
     /**
+     * Attaches one file to an issue ({@code POST rest/api/3/issue/<key>/attachments}, multipart, with Jira's
+     * {@code X-Atlassian-Token: no-check}): the Python's {@code attach_file}. {@code upload} sends it, because
+     * {@link AtlassianClient} has no multipart call; the reply is judged here as {@code send} judges every other
+     * call: retried on 429 and 5xx, the anonymous-404 check, and an {@link AtlassianUnavailable} naming the call.
+     * Added by the coverage slice (wave 16) for {@code xray.Attach}; nothing else in this class changed.
+     */
+    public void attachFile(String issueKey, java.nio.file.Path file, AttachUpload upload) {
+        String what = AttachUpload.what(issueKey, file);
+        int attempt = 0;
+        RawReply response;
+        while (true) {
+            response = upload.post(issueKey, file);
+            if (response.isSuccess()) {
+                return;
+            }
+            if ((response.status() == 429 || response.status() >= 500) && ++attempt <= RETRIES) {
+                Duration wait = retryAfter(response.retryAfter());
+                LOG.warn("{} -> HTTP {}; retrying in {}s", what, response.status(), wait.toSeconds());
+                if (awaitCancel(wait)) {
+                    break;
+                }
+                continue;
+            }
+            break;
+        }
+        if (response.status() == 404 && jiraRejects()) {
+            throw new AtlassianUnavailable(what + " -> HTTP 404, but the cause is the Jira credentials: "
+                    + "Jira answers 'GET /myself' with 401, so it served this request as anonymous. "
+                    + "Re-enter the Atlassian API token: press s in CAT.");
+        }
+        throw new AtlassianUnavailable(what + " -> HTTP " + response.status() + ": " + excerpt(response.body(), 300));
+    }
+
+    /**
      * Applies the workflow transition called {@code name}, if the issue offers it.
      *
      * @return whether it was applied; a workflow without that transition is not an error
