@@ -71,6 +71,7 @@ against a rig from Java. Every path wave 15 added is fake-tested only.
 | **Third rig run: provision with the browser override brought CDP up on the wiped register; pairing reached the OTP** | run `1a158f28d9cd`, 2026-10-28 16:09: install 27 m PASS, psi-init --no-pairing PASS, **provision PASS in 46 s with the pushed Chromium, the CDP relay and the boot hook (first live run of `BrowserOverride`)**, then pairing: `cpairingsvc` true, OTP fetched, and the register's page navigated while the Java checked for the refused page: Playwright "Execution context was destroyed" ended the stage (the Python's `is_present` would throw the same). Fixed in `PairingPage` (bounded retry of the snapshot queries across a navigation, commit 9a72dc1). Rig left: Commander on Solutions 134 with the lab password, register wiped, browser override on, unpaired |
 | **Fourth rig run: STEP 4 COMPLETE from a clean install (45 m 16 s); step 5 reached** | run `b34a01ad8176`, 2026-10-28 16:42: install 27 m, psi-init, provision (browser override), **pairing PASS (3 m 10 s, the register rebooted and came back to its login screen)**, provision again, commander-prep, **commander-init 5 m 35 s (snapshot restore, base import, inits)**, secondary-fep, payment-links 5 m 17 s, **emv-keys 27 s (tables + CA keys confirmed from the host packet log)**, register-app, **close-day 17 s (register pass + close confirmed in the Commander log)**, pinpad link, payment-ready, snapshot capture, installed build Solutions134. Step 5: 79588, 124034, 79590 (Fuel DCR Init, 2 m 20 s), 37043 (POS-Login), 36857 and 118535 PASSED; then every key-driven case failed: the Java named the shim client "CAT" (the Python names none) and every `-Receipt.txt`/`-Tlog.xml` reference was looked for in the pulled folder, not petroapps' `TestCases/<key>/`. Both fixed (commit on main, 2026-10-28 17:4x). Run killed by the rig owner's decision at ~60 cases; simulators left running for the next run to adopt |
 | **Fifth rig run: the first Cadence cases PASS on the rig from Java** | run `f6b5c0596966`, 2026-10-28 17:55: steps 1-3 adopted the running simulators; step 4 complete again in 46 m 55 s (install, psi-init, provision, pairing 3 m 19 s, provision, prep, init 5 m 22 s, secondary-fep, payment-links 5 m 19 s, emv-keys 33 s, close-day, pinpad link, payment-ready, snapshot); step 5: **79588, 124034, 79590, 37043, 36847, 36848 PASSED** (scan, EMV card sale, receipt and TLog validated: the first key presses and validations from Java on a rig). Then three classes: 36850's receipt validation compared the interim "PLU ITEM NOT FOUND" slip, not the sale receipt; 36853's `REFUND_WITH_TRANS_MAP` had no TLog source for the STAN; and no recovery walk ran after that failure, so its open ticket failed every later case ("reads 'Error Correct'", 60 s each). Killed at ~12 cases (rig owner's standing decision for a cascade). Fixes in progress on `wave15/receipts` and `wave15/step5fix` |
+| **Sixth rig run: the first WHOLE Cadence plan from Java, all seven steps complete** | run `dec5794107fa`, 2026-10-28 19:23, `--upgrade skip` (rig owner: iterate with skip, finish with a clean install): step 4 in 2 m 15 s on the warm Commander (close-day's register pass cleared the killed run's ticket); **step 5: 264/264 cases to a verdict in 2 h 12 m, 180 passed, 84 failed**; Cleanup closed the day and freed the lease. Failures by class: 26 `WAIT_DCR_PROMPT` (Petro dropped every DCR soft key, the Python's identical bytes too: the Petro instance's state, see §6), 18 `NETWORK_REPORT` (report family's register unbound; fix in progress), 12 loyalty `WAIT_FOR_PROMPT` + ~22 receipt/TLog diffs (the pulled 55.02 case variants and baselines; fixed: local suites resolve first), 36879/37073 (the Python's own expected failures), 37072 SELECT_TILL, two cascades. First live proof of: the shim key path, receipt and TLog validation, the recovery ladder (one rung cleared an open ticket), the dialog watch |
 | Java Access Bridge clicks against a real Swing window | 2026-10-28, a throwaway JFrame on this controller through the real `AccessBridgeClicker`: "clicked Load Data, Load Servers" in 5.3 s; a miss lists the available buttons. Says nothing about the LoySim/MPPA windows |
 | pos-shim health/screen/keys **read** from the lab register (Reg101) | live, 2026-10-24 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 |
@@ -78,7 +79,7 @@ against a rig from Java. Every path wave 15 added is fake-tested only.
 | Results page over the real `C:\CICD\Results\CAT` | live 2026-10-24 |
 | Config tab over the real plan cache | live 2026-10-24 (GET only) |
 | summary.html, canonical TLog, locator catalogue (852), `.feature` reading (337 actions), PATS field table (71), snapshot logic, receipt key, CGILink `?` | parity against the Python's own data, 2026-10-24 (unchanged) |
-| **Not yet exercised from Java** | a whole plan on a rig, the recovery ladder on a rig, any Xray send |
+| **Not yet exercised from Java** | a green Cadence; a DCR case passing (Petro dropped the keys); any Xray send; Commander Connect |
 
 ## 5. Port map
 
@@ -129,27 +130,28 @@ against a rig from Java. Every path wave 15 added is fake-tested only.
    (`Solutions134`) → installed build. Watch first: step 3's LoySim/MPPA clicks (a "clicked"
    detail on a disabled button is not proof the host started: look at the windows), the
    pairing, and emv-keys' host-packet confirmation.
-2. **Commander Connect:** port `cloud_tunnel.py`'s serve loop (SSH reverse forwards and the
+2. **Petro dropped every DCR soft key in run dec5794107fa.** The Java's bytes equal the Python's (parity test `ForecourtWireParityTest`), and after the run the Python's own sender (`petro_forecourt._send(controller, 1053, encode_dcr_key(1,'L2'))`) was dropped the same way: Petro accepted the connection and never logged `handleKeyData`. That Petro instance (started by run b34a01ad8176 at 16:42, kept across a PSI reinstall and three commander-inits) was stopped at 21:40 so the next run starts a fresh one. If a fresh Petro also drops keys, look at Petro's `DcrClientAdapter$ClientRequestHandler` (javap) for the state check.
+3. **Commander Connect:** port `cloud_tunnel.py`'s serve loop (SSH reverse forwards and the
    gateway mode in `Transport`), then the onboarding path (commander-connect, csite-reset,
    cloud-snapshot restore) is reachable. Every migration plan must pass onboarded.
-3. **FEPSIM v2 superseding BUYPASS Host** (`cat/sims/fepsim.py`, `simulators.py` 260-290,
+4. **FEPSIM v2 superseding BUYPASS Host** (`cat/sims/fepsim.py`, `simulators.py` 260-290,
    `emv-keys --host-packets`): not ported; Java always starts BUYPASS Host.
-4. **Coverage** launch wiring (`cat/launch/coverage.py`); a run asking for it stops in step 1.
-5. **Failed-validation evidence capture** in step 5 (`PosDriver.capture` needs an
+5. **Coverage** launch wiring (`cat/launch/coverage.py`); a run asking for it stops in step 1.
+6. **Failed-validation evidence capture** in step 5 (`PosDriver.capture` needs an
    `ArtifactSink`; `BrowserConnector` builds none).
-6. **A step-library case whose fixture is unavailable** is recorded as failed; the Python
+7. **A step-library case whose fixture is unavailable** is recorded as failed; the Python
    records a setup error. Consider an `error` outcome.
-7. **`LOGIN`/`LOGOUT` on a fake-POS run** reach the pos-shim stand-in at `localhost:1`
+8. **`LOGIN`/`LOGOUT` on a fake-POS run** reach the pos-shim stand-in at `localhost:1`
    (`DeviceUnreachable`), and the report actions have no `RegisterPos` bound.
-8. **Two `CommanderLinks` classes** (`commander.links`, `devices.eps`): consolidate.
-9. **Partial runs** (`--tags/--only/--from`) are parsed but `RunLauncher` refuses them.
-10. **Web UI**: its Start run gets no default simulators/connections (decided in
+9. **Two `CommanderLinks` classes** (`commander.links`, `devices.eps`): consolidate.
+10. **Partial runs** (`--tags/--only/--from`) are parsed but `RunLauncher` refuses them.
+11. **Web UI**: its Start run gets no default simulators/connections (decided in
     `LaunchCommand`, not at run start); `UpgradeService` still says psi-init is "not built".
-11. **`cat-java preflight` without `--no-repair` drives the live POS**; only with the rig
+12. **`cat-java preflight` without `--no-repair` drives the live POS**; only with the rig
     owner's go-ahead.
-12. **Step 3 is stricter than the Python**: a NEEDS_ATTENTION row fails the step (decision in
+13. **Step 3 is stricter than the Python**: a NEEDS_ATTENTION row fails the step (decision in
     §2). If the Access Bridge click fails on the real LoySims, the run stops before the install.
-13. **Windows PowerShell 5.1 quoting** (`-EncodedCommand` in the sims port) and Playwright's
+14. **Windows PowerShell 5.1 quoting** (`-EncodedCommand` in the sims port) and Playwright's
     browser download (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` in `run.cmd`/tests) as before.
 14. Incidents, all harmless, kept for honesty: 2026-10-24's three (a `client=nosuch` read of
     the lab shim; one TCP connect to the example rig's documentation address; a refused
