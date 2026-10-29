@@ -439,12 +439,21 @@ class CommanderInitTest {
         // PATS's pump port is held here first, so the release cannot listen and says so. (Resolving the fixture's
         // controller.invalid alone was not enough: with a real Petro running on this controller, its pushes reached
         // the test's listener on 1072 and the release "succeeded" — 2026-10-28, after rig run b34a01ad8176.)
-        try (java.net.ServerSocket held = new java.net.ServerSocket(
-                com.verifone.cat.devices.forecourt.PetroPumps.PATS_FUEL_PORT)) {
+        java.net.ServerSocket held = null;
+        try {
+            held = new java.net.ServerSocket(com.verifone.cat.devices.forecourt.PetroPumps.PATS_FUEL_PORT);
+        } catch (java.io.IOException alreadyHeld) {
+            // Someone else holds it (a live CAT run on this controller): the release must fail just the same.
+        }
+        try {
             CommanderInit init = CommanderInit.builder(CommanderFixtures.access(rig, new CommanderSsh(""), registers))
                     .say(say).build();
             assertNull(init.releasePump(3));
             assertTrue(say.outText().contains("pump 3: not released through Petro ("), say.outText());
+        } finally {
+            if (held != null) {
+                held.close();
+            }
         }
     }
 
