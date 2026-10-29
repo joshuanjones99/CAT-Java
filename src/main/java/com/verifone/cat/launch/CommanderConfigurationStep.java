@@ -35,28 +35,32 @@ import com.verifone.cat.rig.Rig;
  * <ol>
  *   <li>Before anything is installed, on a rig run: what the run asks for that CAT-Java does not have
  *       ({@link #unported}: JaCoCo coverage's launch wiring; the cloud tunnel of a run onboarding to Commander
- *       Connect) fails the step as unavailable, one failed row each. Deviation: the Python reaches these after the
+ *       Connect, when the stages have none) fails the step as unavailable, one failed row each. Deviation: the Python reaches these after the
  *       install; CAT-Java cannot do them, so it stops before a PSI install wipes both devices for a run that would
  *       end there anyway. System Checks fails the same run first.</li>
  *   <li>The Commander build download and install ({@link InstallCommanderBuild}, the Python's
  *       {@code install_commander_build}): the chosen build downloaded, the PSI install, and {@code psi-init
  *       --no-pairing}. AU and VHQ are unavailable.</li>
- *   <li>On a rig: the pos-shim jar build (the Python CAT's, so a row says so); {@code provision} (ported, the
+ *   <li>On a rig (the Python's {@code real_rig}: {@link LaunchConfig#provisionRegister} and not {@code --fake-pos}):
+ *       the pos-shim payload built when it is not the sources' build ({@link #buildPosShim}, the Python's
+ *       {@code _build_pos_shim}: a WARN row at worst, never a failure); {@code provision} (ported, the
  *       {@code provision} package); the printer-port hold ({@link PrinterHold#hold}, the Python's
  *       {@code _hold_printer_port}: idempotent when System Checks already holds it); after a PSI install,
  *       {@code psi-init} with pairing, then {@link RunContext#commanderLoginReady()} and {@code provision} again
  *       (pairing reboots the register); {@code commander-prep} (ported).</li>
  *   <li>When the run onboards to Commander Connect ({@link LaunchConfig#commanderConnect}): the cloud tunnel, before
- *       the inits (reached only once it is ported; see the first item). Without onboarding (the default) the
+ *       the inits ({@link TunnelStart}: a running tunnel adopted, else {@code cat-java cloud-tunnel} started and left
+ *       running). Without onboarding (the default) the
  *       Commander Connect row is skipped with the Python's reason.</li>
- *   <li>{@code commander-init} (ported, every run: CAT-Java has only the {@code dev} execution mode), with
+ *   <li>{@code commander-init} (ported) in the {@code dev} execution mode only (BDD skips it, as the Python does), with
  *       {@code --no-forecourt} when Petro Simulator Suite is not selected. The init restores the Commander snapshot
  *       first ({@code commander.snapshot.SnapshotRestore}; {@code $CAT_NO_SNAPSHOT} switches it off), its lines in
  *       the init's. PATS's pump port {@value PetroPumps#PATS_FUEL_PORT} is lent to it, as the Python lends it (the
  *       init may release a pump through Petro).</li>
  *   <li>Onboarding only: {@code commander-connect} ({@code ConnectService.apply}), then, with a service id and a
  *       C-Site account, {@code csite-reset} (a failure leaves its row failed, a WARN line, and the step going)
- *       and {@code cloud-snapshot restore} (not ported: unavailable). Reached only once the tunnel is ported.</li>
+ *       and {@code cloud-snapshot restore} (the committed golden, then the wait for the Commander to apply it; a failure
+ *       fails the step).</li>
  *   <li>{@code secondary-fep} (the {@code fep} package), every rig run: the run's FEPs
  *       ({@link RunContext.CommanderOptions#secondaryFeps}, from {@link LaunchConfig#secondaryFeps}), or
  *       {@code none}.</li>
@@ -65,7 +69,8 @@ import com.verifone.cat.rig.Rig;
  *       ({@link CommanderLinks#FEP_DRIFT_FIXED}) leaves a CAT-started BUYPASS Host deaf: it is restarted, and the
  *       links checked again. An adopted BUYPASS Host is the operator's to restart (D9): a WARN line.</li>
  *   <li>{@code emv-keys} ({@code commander.emv.EmvKeys}), {@code --tables always} after a new install, else
- *       {@code auto}.</li>
+ *       {@code auto}, with the host packet file a FEP simulator superseding BUYPASS Host writes
+ *       ({@link CommanderStages#hostPackets}: none yet, a hook for the sims slice).</li>
  *   <li>{@code register-app} ({@code commander.registerapp}), every rig run.</li>
  *   <li>The day close ({@link DayClose}, shared with Cleanup; {@code closeday.CloseDay} with its register pass), with
  *       {@value PetroPumps#PATS_FUEL_PORT} lent; a day that did not close fails the step.</li>
@@ -80,11 +85,15 @@ import com.verifone.cat.rig.Rig;
  * </ol>
  *
  * <p>A fake-POS run touches no device: everything is skipped, and the step is {@code skipped}, as the
- * Python's. Every non-fake run is treated as the Python's {@code provision_register=True}, which each of the
- * Python's real entry points (Config tab, web form, {@code run_plan}) sets.
+ * Python's. A run without {@link LaunchConfig#provisionRegister} (which each of the Python's real entry points, the
+ * Config tab, web form and {@code run_plan}, sets) installs what it was asked to and otherwise only links the pinpad
+ * when Petro Simulator Suite or a vats pinpad is in play, as the Python's; with nothing done the step is skipped.
  *
  * <p>Deviations from the Python: no FEP simulator supersedes BUYPASS Host in CAT-Java's step 3, so {@code emv-keys}
- * never gets {@code --host-packets} and the drift restart never defers to one; a {@code csite-reset} failure is a WARN
+ * gets {@code --host-packets} only through the {@link CommanderStages#hostPackets} hook and the drift restart never
+ * defers to one; "Petro Simulator Suite in play" reads {@link LaunchConfig#simulators}, not the Python's
+ * {@code all_simulators()} ({@link #simulatorsInPlay}, a hook); the pos-shim build runs in-process
+ * ({@link com.verifone.cat.provision.PosShimBuild}) rather than as {@code python tools/build_pos_shim.py}; a {@code csite-reset} failure is a WARN
  * line (the Python's comment says "never fails the step", while its {@code run_petrotest} marks the step failed and
  * goes on, so the Python step ends failed while returning success); a stage that is not ported throws
  * {@link StageUnavailable}, which fails the step there.

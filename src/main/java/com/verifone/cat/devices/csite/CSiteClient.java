@@ -50,8 +50,8 @@ import java.util.function.Consumer;
  * variables. Nothing here is hard-coded.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only (a loopback stand-in for OpenAM, the device grant and the CSITE
- * API). The Commander's cloud-config read (PATS's {@code commander_cloud_config}) is not ported; the endpoints are
- * passed in.
+ * API). The endpoints are passed in; {@link CommanderCloudConfig} reads them off the rig's Commander (the Python's
+ * {@code commander_cloud_config}, wave 16).
  */
 public final class CSiteClient {
 

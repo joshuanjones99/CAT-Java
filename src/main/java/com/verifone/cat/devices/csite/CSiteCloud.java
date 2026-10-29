@@ -17,7 +17,7 @@ import java.util.Objects;
  * how the step fails by name; the message never carries the password or the token.
  *
  * <p>The environment and endpoints come from {@link CSiteSettings}: the caller passes the Commander's cloud settings
- * ({@code app}), since the Python's SSH read of them is not ported.
+ * ({@code app}): {@link CommanderCloudConfig} reads them off the rig's Commander.
  */
 public final class CSiteCloud implements CloudSite {
 

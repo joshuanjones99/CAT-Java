@@ -223,6 +223,6 @@ class RecoveryLadderTest {
         DeviceUnavailable provision = org.junit.jupiter.api.Assertions.assertThrows(DeviceUnavailable.class, live::reprovision);
 
         assertTrue(reset.getMessage().contains("simhub"), reset.getMessage());
-        assertTrue(provision.getMessage().contains("not ported"), provision.getMessage());
+        assertTrue(provision.getMessage().contains("no provision is wired"), provision.getMessage());
     }
 }
