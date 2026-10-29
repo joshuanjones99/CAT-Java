@@ -162,7 +162,12 @@ public final class WebApp {
                 env -> com.verifone.cat.setup.ToolStaging.NONE, shell, Runnable::run, Runnable::run, false);
         DownloadsService downloads = parts.downloads != null ? parts.downloads
                 : DownloadsService.standard(parts.env);
-        AuthoringService authoring = parts.authoring != null ? parts.authoring : AuthoringService.standard();
+        // Start run's Downloads are the page's choice, never a saved file's (webrun's hook).
+        RunRoutes.useDownloads(run, downloads);
+        // The run service's own start refusals: the sign-ins (when required), and the tools download.
+        run.gates(setup::credentialGapsByName, shell::toolsStaging, () -> false);
+        AuthoringService authoring = parts.authoring != null ? parts.authoring
+                : AuthoringService.standard(run, configForm);
         SimulatorsService sims = parts.sims.withShell(shell).withCcOnboard(configForm::ccOnboard);
 
         RigBusy busy = shell.busy();

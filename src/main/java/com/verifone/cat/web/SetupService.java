@@ -350,6 +350,21 @@ final class SetupService {
         return "";
     }
 
+    /**
+     * The missing sign-ins by name, their detail as the value, for the run service's gate; empty when sign-ins are not
+     * required ({@code --no-setup}) or all are in place. Local reads only.
+     */
+    Map<String, String> credentialGapsByName() {
+        if (!requireCredentials) {
+            return Map.of();
+        }
+        SetupAudit fresh = audits.get();
+        Map<String, String> out = new LinkedHashMap<>();
+        SetupAudit.credentialGaps(fresh.items(), fresh.env())
+                .forEach((name, result) -> out.put(name, result == null ? "" : result.detail()));
+        return out;
+    }
+
     /** The warning a run starts with when a saved login was rejected, or "". */
     synchronized String rejectedWarning() {
         if (audit == null || audit.rejected().isEmpty()) {
