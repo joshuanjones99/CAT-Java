@@ -85,10 +85,30 @@ final class ValidationSupport {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    /** The directory of the case's test file, where CAT's own baselines are written. */
+    /**
+     * The directory of the case's test file, where CAT's own baselines are read and written: the Python's
+     * {@code run.baseline_dir}, {@code Path(request.path).parent}. Step 5 sets it from the case entry's file, which is
+     * the hand-migrated test's own folder ({@code tests/suites/cadence/} for a 57.02 Cadence case,
+     * {@code cadence_55_02/} for 79667's) or {@code tests/suites/pulled} for a pulled case. A run that set none falls
+     * back to the folder its case was loaded from.
+     */
     static Path baselineDir(CaseRun run) {
-        return run.baselineDir().orElseThrow(
-                () -> new PatsStepError(run.kase().key() + ": no baseline directory for this case"));
+        Optional<Path> set = run.baselineDir();
+        if (set.isPresent()) {
+            return set.get();
+        }
+        String source = run.kase().source();
+        if (source != null && !source.isBlank()) {
+            try {
+                Path parent = Path.of(source).getParent();
+                if (parent != null) {
+                    return parent;
+                }
+            } catch (java.nio.file.InvalidPathException e) {
+                // not a path: no baseline directory, as below
+            }
+        }
+        throw new PatsStepError(run.kase().key() + ": no baseline directory for this case");
     }
 
     /** {@code _packet_prefix}: the case key up to its first numeric token. */
