@@ -18,7 +18,9 @@ import com.verifone.cat.pats.runner.handlers.cloudsettle.CloudSettleFamily;
 import com.verifone.cat.pats.runner.handlers.cloudsettle.CommanderLog;
 import com.verifone.cat.pats.runner.handlers.configuration.ConfigurationContext;
 import com.verifone.cat.pats.runner.handlers.configuration.ConfigurationFamily;
+import com.verifone.cat.pats.runner.handlers.configuration.LegacyRegister;
 import com.verifone.cat.pats.runner.handlers.configuration.RegisterPos;
+import com.verifone.cat.devices.legacyrmi.LegacyRmi;
 import com.verifone.cat.pats.runner.handlers.configuration.StuckCloseRecovery;
 import com.verifone.cat.pats.runner.handlers.configuration.CloudSender;
 import com.verifone.cat.pats.runner.handlers.devices.DcrDevice;
@@ -146,7 +148,7 @@ public final class StandardHandlers {
         StuckCloseRecovery closeRecovery = f.commanderAccess() == null ? StuckCloseRecovery.UNBOUND
                 : CommanderSeams.stuckCloseRecovery(closeDay(f));
         ConfigurationContext configuration = new ConfigurationContext(f.petroapps(), f.toolsRoot(),
-                RegisterPos.UNBOUND, cloudSender, closeRecovery, () -> Optional.ofNullable(f.buypassV2()),
+                reportRegister(f, widgetText), cloudSender, closeRecovery, () -> Optional.ofNullable(f.buypassV2()),
                 folders.configurationFiles(), inits, Waits.production());
 
         ValidationContext validation = new ValidationContext(f.receipts(), dcrReceipts(f.dcr()),
@@ -203,6 +205,18 @@ public final class StandardHandlers {
             case COMMANDER_CONFIG -> f.commander();
             case CONFIGURATIONS -> f.petroapps().configurations();
         };
+    }
+
+    /**
+     * The report actions' register: the pos-shim's keys (the Python's {@code run.rmi}, its before-action the driver's
+     * overlay clear, as {@code pos/plugin.py} wires it) and the POS screen's reads, paced by the sale timing's
+     * {@code TOUCH_SETTLE} and {@code OVERLAY_SEEN_PAUSE}.
+     */
+    static RegisterPos reportRegister(HandlerFixtures f, Function<String, String> widgetText) {
+        Pos pos = f.pos();
+        LegacyRmi rmi = new LegacyRmi(f.posShim(), () -> pos.driver().clearBlockingOverlays(null));
+        return new LegacyRegister(rmi, SaleScreen.of(pos, f.receipts()), widgetText, f.saleTiming().touchSettle(),
+                f.saleTiming().overlaySeenPause(), DevicePauses.REAL::pause);
     }
 
     /** The close-day family's close, built over the run's Commander access, for the stuck-close recovery. */
