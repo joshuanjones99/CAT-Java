@@ -52,6 +52,9 @@ final class DownloadsPanel {
         out.append("<div class=\"pick-grid\">");
         commanderRow(out, d, c, busy);
         distRow(out, d, c, busy);
+        if (d.foundationShown()) {
+            foundationRow(out, d, c, busy);
+        }
         modeRow(out, c, busy);
         simulatorRow(out, d, c, busy);
         out.append("</div>");
@@ -176,13 +179,7 @@ final class DownloadsPanel {
 
     private static String commanderHint(DownloadsService d, DownloadsService.Choice c) {
         if (c.commanderBranch().isEmpty()) {
-            List<Path> local = d.localBuilds(c.mode(), c.dist());
-            if (local.isEmpty()) {
-                return "Don't download: the Commander Build is one already on this PC. None holds "
-                        + c.dist() + " for this mode yet; pick a branch to download one.";
-            }
-            return "Don't download: " + local.size() + " build(s) on this PC hold " + c.dist()
-                    + " for this mode. Newest on this PC is used.";
+            return existingBuildMeaning(d, c);
         }
         if (c.commanderBuild().isEmpty()) {
             return "Pick a build of " + c.commanderBranch() + ".";
@@ -203,6 +200,135 @@ final class DownloadsPanel {
         }
         return c.commanderBranch() + " " + c.commanderBuild() + " holds " + c.dist()
                 + ". Download fetches its overlay.zip" + jarsSentence(c.mode()) + ".";
+    }
+
+    /** "AU" or "PSI": how the mode installs, in the Python's words ({@code _HOW}). */
+    private static String how(UpgradeMode mode) {
+        return mode == UpgradeMode.CLASSIC ? "AU" : "PSI";
+    }
+
+    /**
+     * The Commander Build's hint under Don't download: the Python's {@code _existing_build_meaning}, word for word
+     * where the port has the facts (this PC's builds under the builds root).
+     */
+    static String existingBuildMeaning(DownloadsService d, DownloadsService.Choice c) {
+        String dist = c.dist();
+        Path root = d.root();
+        String folder = root + java.io.File.separator + "<build>" + java.io.File.separator + dist
+                + java.io.File.separator;
+        List<String> needs = new ArrayList<>(List.of(DownloadsService.OVERLAY));
+        needs.addAll(DownloadsService.jarsFor(c.mode()));
+        String needed = String.join(" and ", needs);
+        String skipped = c.mode() == UpgradeMode.SKIP ? "Upgrade mode is Skip" : "VHQ";
+        if (!c.localBuild().isEmpty()) {
+            Path where = root.resolve(c.localBuild()).resolve(dist);
+            if (c.installing()) {
+                return how(c.mode()) + " installs " + where + ", already on this PC.";
+            }
+            return skipped + ", so nothing is installed. AU or PSI would install " + where + ".";
+        }
+        String first = c.installing()
+                ? how(c.mode()) + " installs the newest " + dist + " build already on this PC: CAT looks for "
+                        + folder + " holding " + needed + "."
+                : skipped + ", so nothing is installed. AU or PSI would install the newest " + dist
+                        + " build already on this PC, from " + folder + ".";
+        List<Path> local = d.localBuilds(c.mode(), dist);
+        if (!local.isEmpty()) {
+            Path found = local.get(0);
+            String built = BuildDiscovery.buildDate(found);
+            return first + "\nExisting build: " + found.getParent().getFileName()
+                    + (built.isEmpty() ? "" : ", built " + built) + ".";
+        }
+        if (!java.nio.file.Files.isDirectory(root)) {
+            return first + "\nExisting build: none, " + root + " does not exist. Pick one to download.";
+        }
+        String nothing = "no " + dist + " folder there holds " + needed;
+        return first + "\nExisting build: none, " + nothing + (c.installing() ? ". Pick one to download." : ".");
+    }
+
+    /** The Distribution's hint: the Python's {@code dist_hint}. */
+    static String distHint(DownloadsService d, DownloadsService.Choice c) {
+        String dist = c.dist();
+        if (!c.commanderBranch().isEmpty()) {
+            String where = c.commanderBranch() + " " + c.commanderBuild();
+            if (c.commanderBuild().isEmpty()) {
+                return "Listed once a build of " + c.commanderBranch() + " is picked.";
+            }
+            List<String> available = d.dists(c.commanderBranch(), c.commanderBuild());
+            if (available == null) {
+                return "Listed once " + where + " has been read.";
+            }
+            if (available.isEmpty()) {
+                return where + " holds no dist folder: pick another build.";
+            }
+            boolean lacks = available.stream().noneMatch(name -> name.equalsIgnoreCase(dist));
+            return "Offered from " + where + ": " + String.join(", ", available) + "."
+                    + (lacks ? " It has no " + dist + ": pick one of these, or another build." : "");
+        }
+        List<String> available = d.localDists();
+        if (available.isEmpty()) {
+            return "No build in " + d.root() + " holds an overlay.zip: pick a Commander Build.";
+        }
+        boolean lacks = available.stream().noneMatch(name -> name.equalsIgnoreCase(dist));
+        return "Offered from the builds already in " + d.root() + ": " + String.join(", ", available) + "."
+                + (lacks ? " None of them has " + dist + "." : "");
+    }
+
+    /** The Simulator Build's hint: the Python's {@code _simulator_meaning} (the build's contents are not read). */
+    static String simulatorMeaning(DownloadsService.Choice c) {
+        if (c.simBranch().isEmpty()) {
+            return "The staged simulators are used as they are.";
+        }
+        if (c.simBuild().isEmpty()) {
+            return "Pick a build of " + c.simBranch() + ".";
+        }
+        return c.simBranch() + " " + c.simBuild() + "'s simulators replace the staged ones completely, config files "
+                + "and all. A running simulator is refused: stop it first.";
+    }
+
+    /** The Foundation Build's hint: the Python's {@code _foundation_meaning}, without the build's contents. */
+    static String foundationMeaning(DownloadsService.Choice c) {
+        if (c.foundationBranch().isEmpty()) {
+            return "Pick the foundation build this viper build is merged onto.";
+        }
+        if (c.foundationBuild().isEmpty()) {
+            return "Pick a build of " + c.foundationBranch() + ".";
+        }
+        return c.foundationBranch() + " " + c.foundationBuild() + ": its overlay and installer jars are used";
+    }
+
+    private static void foundationRow(StringBuilder out, DownloadsService d, DownloadsService.Choice c,
+            boolean busy) {
+        String disabled = busy ? " disabled" : "";
+        out.append("<div class=\"pick\"><span class=\"pick-label\">Foundation Build</span>");
+        out.append("<div class=\"pick-controls\">");
+        out.append("<select name=\"value\" aria-label=\"Foundation Build branch\" hx-post=\"")
+                .append(set("foundationBranch")).append("\" hx-trigger=\"change\" ").append(TARGET)
+                .append(disabled).append(">");
+        out.append(option("", "Pick a foundation", c.foundationBranch().isEmpty()));
+        List<String> branches = d.branches();
+        if (branches != null) {
+            for (String name : branches) {
+                out.append(option(name, name, name.equals(c.foundationBranch())));
+            }
+        }
+        if (!c.foundationBranch().isEmpty() && (branches == null || !branches.contains(c.foundationBranch()))) {
+            out.append(option(c.foundationBranch(), c.foundationBranch() + " (saved; not listed yet)", true));
+        }
+        out.append("</select>");
+        out.append("<select name=\"value\" aria-label=\"Foundation Build number\" hx-post=\"")
+                .append(set("foundationBuild")).append("\" hx-trigger=\"change\" ").append(TARGET)
+                .append(c.foundationBranch().isEmpty() ? " disabled" : disabled).append(">");
+        out.append(option("", c.foundationBuild().isEmpty() ? "Pick a build" : c.foundationBuild(), true));
+        List<BuildCatalogue.NightlyBuild> builds = c.foundationBranch().isEmpty() ? null
+                : d.builds(c.foundationBranch());
+        if (builds != null) {
+            for (BuildCatalogue.NightlyBuild build : builds) {
+                out.append(option(build.build(), build.build(), build.build().equals(c.foundationBuild())));
+            }
+        }
+        out.append("</select></div>");
+        out.append("<p class=\"muted pick-hint\">").append(esc(foundationMeaning(c))).append("</p></div>");
     }
 
     private static String jarsSentence(UpgradeMode mode) {
@@ -233,7 +359,7 @@ final class DownloadsPanel {
         for (String name : options) {
             out.append(option(name, name, name.equals(c.dist())));
         }
-        out.append("</select></div></div>");
+        out.append("</select></div><p class=\"muted pick-hint\">").append(esc(distHint(d, c))).append("</p></div>");
     }
 
     private static void modeRow(StringBuilder out, DownloadsService.Choice c, boolean busy) {
@@ -275,10 +401,7 @@ final class DownloadsPanel {
             }
         }
         out.append("</select></div>");
-        String hint = c.simChosen()
-                ? "A Simulator Build replaces the staged simulators. Not built yet (cat/sims/fetch.py): "
-                        + "Install Upgrade refuses one, and a run will not start with it."
-                : "The staged simulators are used as they are.";
+        String hint = simulatorMeaning(c);
         out.append("<p class=\"muted pick-hint\">").append(esc(hint)).append("</p></div>");
     }
 

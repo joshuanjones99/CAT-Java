@@ -145,7 +145,7 @@ class ConfigFormTest {
         form.togglePlan(ConfigFixture.PLAN);
         form.setScope("tags", "@fuel", false);
 
-        assertEquals("1 of 3 cases match", form.view().tagCount());
+        assertEquals("1 of 3 cases", form.view().tagCount());
         assertNull(form.scope().tagCases(), "the ticks follow the expression");
         assertTrue(ticked(form, ConfigFixture.FUEL));
 

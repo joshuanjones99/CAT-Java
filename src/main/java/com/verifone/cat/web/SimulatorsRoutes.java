@@ -21,10 +21,24 @@ final class SimulatorsRoutes {
     private SimulatorsRoutes() {}
 
     static void register(Javalin app, SimulatorsService sims) {
-        app.get("/simulators", ctx -> ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators",
-                SimulatorsPage.body(sims))));
+        app.get("/simulators", ctx -> {
+            // What a run would start, each time the page opens (the Python's _default_ticks).
+            sims.resetTicks();
+            ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators", SimulatorsPage.body(sims)));
+        });
         app.get("/fragments/simulators", ctx -> ctx.html(SimulatorsPage.panel(sims)));
+        app.post("/simulators/cancel", ctx -> {
+            if (!fromThisPage(ctx)) {
+                return;
+            }
+            sims.cancel();
+            ctx.html(SimulatorsPage.panel(sims));
+        });
         app.get("/fragments/simulators/log", ctx -> {
+            if (SimulatorsService.LAUNCH_LOG.equals(ctx.queryParam("name"))) {
+                ctx.html(SimulatorsPage.log(sims, SimulatorsService.LAUNCH_LOG));
+                return;
+            }
             Optional<SimEntry> entry = sims.row(ctx.queryParam("name"));
             if (entry.isEmpty()) {
                 ctx.status(HttpStatus.NOT_FOUND).result("No simulator with that name.");
