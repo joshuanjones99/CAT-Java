@@ -76,6 +76,11 @@ public final class Main {
         table.put("artifactory-login", new Command(com.verifone.cat.build.ArtifactoryLogin.class, argv -> new com.verifone.cat.build.ArtifactoryLogin().run(argv)));
         table.put("render-payload", new Command(ProvisionCommand.class, argv -> new ProvisionCommand().run(java.util.stream.Stream.concat(java.util.stream.Stream.of("render-payload"), Arrays.stream(argv)).toArray(String[]::new))));
         table.put("fetch-sims", new Command(com.verifone.cat.sims.FetchSimsCommand.class, argv -> new com.verifone.cat.sims.FetchSimsCommand().run(argv)));
+        table.put("record", new Command(com.verifone.cat.recorder.RecordCommand.class, argv -> new com.verifone.cat.recorder.RecordCommand().run(argv)));
+        table.put("generate", new Command(com.verifone.cat.recorder.GenerateCommand.class, argv -> new com.verifone.cat.recorder.GenerateCommand().run(argv)));
+        table.put("steps", new Command(com.verifone.cat.authoring.StepsCommand.class, argv -> new com.verifone.cat.authoring.StepsCommand().run(argv)));
+        table.put("authoring", new Command(com.verifone.cat.authoring.AuthoringCommand.class, argv -> new com.verifone.cat.authoring.AuthoringCommand().run(argv)));
+        table.put("publish", new Command(com.verifone.cat.publish.PublishCommand.class, argv -> new com.verifone.cat.publish.PublishCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
@@ -102,6 +107,11 @@ public final class Main {
               commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
               cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
               fetch-sims          stage the Java 17 sets and every simulator not yet staged (cat-term fetch-sims)
+              record              watch the POS page and write each tap to a recording (petrotest record)
+              generate            a recording as an authored .feature case (petrotest generate)
+              steps               list the step library, or check .feature cases against it (petrotest steps)
+              authoring           an Authoring session from the command line (python -m cat.authoring)
+              publish             commit a suite to a local petroapps branch (petrotest publish)
               --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
               --register   which register's shim to use; default the rig's first
               --port       the web UI's port on 127.0.0.1; default 8090

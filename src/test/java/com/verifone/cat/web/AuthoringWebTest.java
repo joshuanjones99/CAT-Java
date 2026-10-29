@@ -84,13 +84,13 @@ class AuthoringWebTest {
     }
 
     @Test
-    void openingThePageCreatesNothingAndNamesWhatIsNotBuilt() throws Exception {
+    void openingThePageCreatesNothing() throws Exception {
         String html = get("/authoring");
 
         assertTrue(html.contains("no session yet"), html);
         assertFalse(Files.exists(root), "opening the page must not create a session folder");
-        assertTrue(html.contains("Not built yet: cat/authoring/draft.py"), html);
-        assertTrue(html.contains("not built yet — cat/authoring/replay.py"), html);
+        assertFalse(html.contains("not built yet"), html);
+        assertTrue(html.contains("hx-post=\"/authoring/draft\""), html);
         assertFalse(html.contains("cat/web/pages/authoring.py"), "the placeholder is gone");
     }
 
@@ -219,7 +219,7 @@ class AuthoringWebTest {
         assertTrue(html.contains("DRY RUN"), html);
         assertTrue(html.contains("nothing was sent"), html);
         assertTrue(html.contains("no story ticket (D17)"), html);
-        assertTrue(html.contains("the replay gate is not built yet (cat/authoring/replay.py)"), html);
+        assertTrue(html.contains("not replayed: ▶ Replay runs the cases as an ordinary run (§3.6)"), html);
         assertTrue(html.contains("aria-label=\"Review\">"), html);
     }
 
@@ -248,11 +248,12 @@ class AuthoringWebTest {
     }
 
     @Test
-    void theDraftCaptureAndReplayButtonsAreDisabledAndNameTheirModules() throws Exception {
+    void theDraftCaptureAndReplayButtonsPostTheirActions() throws Exception {
         String html = get("/authoring");
 
-        assertTrue(html.contains("disabled title=\"Not built yet: cat/authoring/draft.py\""), html);
-        assertTrue(html.contains("disabled title=\"Not built yet: cat/authoring/replay.py\""), html);
+        assertTrue(html.contains("hx-post=\"/authoring/capture\""), html);
+        assertTrue(html.contains("hx-post=\"/authoring/replay\""), html);
+        assertFalse(html.contains(" disabled title="), html);
     }
 
     @Test
@@ -261,6 +262,37 @@ class AuthoringWebTest {
 
         assertFalse(html.contains("<img src=x"), html);
         assertTrue(html.contains("&lt;img src=x"), html);
+    }
+
+    @Test
+    void replayWithNoRunServiceSaysWhyAndWritesNoSuite() throws Exception {
+        post("/authoring/case/new", "name", "cash sale");
+
+        String html = post("/authoring/replay");
+
+        assertTrue(html.contains("this page has no run service to replay on"), html);
+        assertFalse(Files.exists(tmp.resolve("generated")), "a refused replay writes no suite");
+    }
+
+    @Test
+    void draftWithNoSpecAsksForAnIngestFirst() throws Exception {
+        post("/authoring/case/new", "name", "cash sale");
+
+        String html = post("/authoring/draft");
+
+        assertTrue(html.contains("ingest a ticket first: Draft works from the session"), html);
+    }
+
+    @Test
+    void thePollAnswersOnlyThisPageAndReloadsItWhenNothingIsUnderWay() throws Exception {
+        HttpResponse<String> bare = http.send(HttpRequest.newBuilder(URI.create(base + "/authoring/poll")).GET().build(),
+                BodyHandlers.ofString());
+        HttpResponse<String> htmx = http.send(HttpRequest.newBuilder(URI.create(base + "/authoring/poll"))
+                .header("HX-Request", "true").GET().build(), BodyHandlers.ofString());
+
+        assertEquals(403, bare.statusCode());
+        assertEquals("true", htmx.headers().firstValue("HX-Refresh").orElse(""));
+        assertFalse(get("/authoring").contains("id=\"authoring-poll\""), "nothing is under way, so no polling");
     }
 
     // ------------------------------------------------------------ helpers

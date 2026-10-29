@@ -3,9 +3,6 @@ package com.verifone.cat.results;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,36 +10,30 @@ import java.util.Set;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.verifone.cat.report.NdjsonReader;
 import com.verifone.cat.report.RunFacts;
+import com.verifone.cat.runservice.RunState;
+import com.verifone.cat.runservice.RunStateReducer;
 
 /**
- * One run's {@code events.ndjson} folded, in file order, into what Results shows.
+ * One run's {@code events.ndjson} folded, in file order, into a {@link RunState}: the Python CAT's
+ * {@code cat.results.store.replay}, which folds a file through {@code cat.state}'s {@code EventReducer}.
  *
- * <p>The Python CAT replays a file through {@code cat.state.apply_event} into a whole
- * {@code RunState}. This is the part of that state Results reads: the run's start and
- * finish, the seven steps, every test's verdict, the plan's cases, and (on request) the
- * log lines. {@code run.started}'s {@code fake_pos} and {@code test_plans}, the recovery
- * rungs and the preflight checks come from {@link RunFacts}, the fold the report writers
- * share; the rest is folded here.
+ * <p>The fold is {@link RunStateReducer}, the same one the Run tab folds a live run with, so a past run reads as it
+ * read while it ran. This class keeps the narrow views Results' index and statistics read (the steps, the tests,
+ * the plan's cases, the counts) over that state, and {@link #state} for the pages that draw the whole run.
+ * {@code run.started}'s {@code fake_pos} and {@code test_plans}, the recovery rungs and the preflight checks also come
+ * from {@link RunFacts}, the fold the report writers share.
  *
- * <p>Two rules from the Python reducer are kept: the rig a plugin stamps as
- * {@code unknown} never overwrites a known one, and a run's {@code warned_nodeids} move
- * those tests to {@code warned} whatever order their {@code test.finished} arrived in.
+ * <p>Log lines are folded only on request: they are most of a real run's lines, and no summary reads them.
  *
- * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests of this repository's reading of recorded
- * runs, not of a rig.
+ * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests of this repository's reading of recorded runs, not of a rig.
  */
 public final class RunReplay {
 
     /** The seven steps, in the order the launcher runs them (the Python {@code STEP_NAMES}). */
-    public static final List<String> STEP_NAMES = List.of(
-            "System Checks", "Connections", "Start Simulators", "Commander Configuration",
-            "Tests Run", "Generate Report", "Cleanup");
+    public static final List<String> STEP_NAMES = RunState.STEP_NAMES;
 
     /** The statuses that count as a verdict; the statistics rate these. */
-    public static final Set<String> VERDICT_STATUSES =
-            Set.of("passed", "failed", "warned", "skipped", "error", "timeout");
-
-    private static final Set<String> FAILING_STATUSES = Set.of("failed", "error", "timeout");
+    public static final Set<String> VERDICT_STATUSES = RunState.VERDICT_STATUSES;
 
     /** A test's state in its latest event: {@code running} until a verdict arrives. */
     public record TestState(String nodeid, String status, double duration, String excType) {}
@@ -58,49 +49,24 @@ public final class RunReplay {
 
     private final Path eventsFile;
     private final RunFacts facts = new RunFacts();
-    private final boolean includeLogs;
-    private final Map<String, String> stepStatus = new LinkedHashMap<>();
-    private final Map<String, Double> stepElapsed = new HashMap<>();
-    private final Map<String, TestState> tests = new LinkedHashMap<>();
-    private final Map<String, PlanCase> cases = new LinkedHashMap<>();
-    private final List<LogLine> logLines = new ArrayList<>();
-    private List<String> warnedNodeids = List.of();
-
-    private String rig = "";
-    private String startedAt = "";
-    private String cmd = "";
-    private String gitHead = "";
-    private List<String> planNames = List.of();
-    private boolean finished;
-    private boolean cancelled;
-    private String outcome;
-    private int finishedPassed;
-    private int finishedFailed;
-    private int finishedWarned;
-    private double finishedElapsed;
-    private int livePassed;
-    private int liveFailed;
-    private int liveWarned;
+    private final RunStateReducer reducer;
+    private RunState state;
+    private String startedAtText = "";
 
     private RunReplay(Path eventsFile, boolean includeLogs) {
         this.eventsFile = eventsFile;
-        this.includeLogs = includeLogs;
-        for (String step : STEP_NAMES) {
-            stepStatus.put(step, "pending");
-            stepElapsed.put(step, 0.0);
-        }
+        this.reducer = new RunStateReducer(includeLogs);
     }
 
     /**
-     * Folds {@code eventsFile} in file order. Log lines are skipped unless {@code includeLogs}:
-     * they are most of a real run's lines, and no summary reads them.
+     * Folds {@code eventsFile} in file order. Log lines are skipped unless {@code includeLogs}.
      *
      * @throws IOException when the file cannot be read as UTF-8
      */
     public static RunReplay read(Path eventsFile, boolean includeLogs) throws IOException {
         RunReplay replay = new RunReplay(eventsFile, includeLogs);
         NdjsonReader.forEach(eventsFile, replay::apply);
-        replay.settle();
+        replay.state = replay.reducer.state();
         return replay;
     }
 
@@ -111,173 +77,46 @@ public final class RunReplay {
 
     private void apply(JsonNode event) {
         facts.fold(event);
-        String type = text(event, "type");
-        if (type == null) {
-            return;
-        }
-        switch (type) {
-            case "run.started" -> onRunStarted(event);
-            case "run.finished" -> onRunFinished(event);
-            case "step.entered" -> onStep(event, "running", null);
-            case "step.finished" -> onStep(event, stepState(event), event.get("elapsed"));
-            case "test.started" -> onTestStarted(event);
-            case "test.finished" -> onTestFinished(event);
-            case "plan.resolved" -> onPlanResolved(event);
-            case "log.line" -> {
-                if (includeLogs) {
-                    logLines.add(new LogLine(orEmpty(text(event, "level")),
-                            orEmpty(text(event, "logger")), orEmpty(text(event, "message"))));
-                }
-            }
-            default -> {
-                // Other event types change nothing Results shows.
-            }
+        reducer.apply(event);
+        if (startedAtText.isEmpty() && "run.started".equals(text(event, "type"))) {
+            startedAtText = text(event, "started_at");
         }
     }
 
-    private void onRunStarted(JsonNode event) {
-        // The launcher's and the plugin's run.started both arrive; a plugin's "unknown" rig
-        // does not erase a known one (the Python reducer's rule).
-        String incoming = orEmpty(text(event, "rig"));
-        if (!("unknown".equals(incoming) && !rig.isEmpty())) {
-            rig = incoming;
-        }
-        if (startedAt.isEmpty()) {
-            startedAt = orEmpty(text(event, "started_at"));
-        }
-        cmd = orEmpty(text(event, "cmd"));
-        String head = orEmpty(text(event, "git_head"));
-        if (!head.isEmpty()) {
-            gitHead = head;
-        }
-        List<String> names = new ArrayList<>();
-        JsonNode array = event.get("plan_names");
-        if (array != null && array.isArray()) {
-            array.forEach(name -> names.add(name.asText()));
-        }
-        if (!names.isEmpty()) {
-            planNames = List.copyOf(names);
-        }
+    private static String text(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? "" : value.asText();
     }
 
-    private void onRunFinished(JsonNode event) {
-        finished = true;
-        cancelled = event.path("cancelled").asBoolean(false);
-        outcome = text(event, "outcome");
-        finishedPassed = event.path("passed").asInt();
-        finishedFailed = event.path("failed").asInt();
-        finishedWarned = event.path("warned").asInt();
-        finishedElapsed = event.path("elapsed").asDouble();
-        List<String> warned = new ArrayList<>();
-        JsonNode array = event.get("warned_nodeids");
-        if (array != null && array.isArray()) {
-            array.forEach(node -> warned.add(node.asText()));
-        }
-        warnedNodeids = List.copyOf(warned);
-    }
-
-    private void onStep(JsonNode event, String status, JsonNode elapsed) {
-        String name = text(event, "step");
-        if (name == null || !stepStatus.containsKey(name)) {
-            return;
-        }
-        stepStatus.put(name, status);
-        if (elapsed != null) {
-            stepElapsed.put(name, elapsed.asDouble());
-        }
-    }
-
-    private static String stepState(JsonNode event) {
-        String state = text(event, "state");
-        return state == null || state.isEmpty() ? "failed" : state;
-    }
-
-    private void onTestStarted(JsonNode event) {
-        String nodeid = text(event, "nodeid");
-        if (nodeid != null) {
-            tests.putIfAbsent(nodeid, new TestState(nodeid, "running", 0.0, ""));
-        }
-    }
-
-    private void onTestFinished(JsonNode event) {
-        String nodeid = text(event, "nodeid");
-        if (nodeid == null) {
-            return;
-        }
-        String verdict = orEmpty(text(event, "outcome"));
-        int warnings = event.path("warnings").asInt(0);
-        String status = switch (verdict) {
-            case "failed" -> "failed";
-            case "skipped" -> "skipped";
-            case "error" -> "error";
-            case "timeout" -> "timeout";
-            case "repairing" -> "warned";
-            default -> "passed";
-        };
-        if ("passed".equals(verdict)) {
-            if (warnings > 0) {
-                liveWarned++;
-            } else {
-                livePassed++;
-            }
-        } else if ("failed".equals(verdict)) {
-            liveFailed++;
-        }
-        tests.put(nodeid, new TestState(nodeid, status, event.path("duration").asDouble(),
-                orEmpty(text(event, "exc_type"))));
-    }
-
-    private void onPlanResolved(JsonNode event) {
-        JsonNode array = event.get("cases");
-        if (array == null || !array.isArray()) {
-            return;
-        }
-        cases.clear();
-        for (JsonNode planned : array) {
-            String key = text(planned, "key");
-            if (key == null || key.isEmpty()) {
-                continue;
-            }
-            String node = text(planned, "node");
-            cases.put(key, new PlanCase(key, orEmpty(text(planned, "summary")),
-                    node == null || node.isEmpty() ? null : node));
-        }
-    }
-
-    /** Moves the warned tests off {@code passed}, once the whole stream is read. */
-    private void settle() {
-        for (String nodeid : warnedNodeids) {
-            TestState test = tests.get(nodeid);
-            if (test != null) {
-                tests.put(nodeid, new TestState(nodeid, "warned", test.duration(), test.excType()));
-            }
-        }
+    /** The whole run as its events said it. */
+    public RunState state() {
+        return state;
     }
 
     /** The run's rig as the launcher recorded it, "" when no run.started was read. */
     public String rig() {
-        return rig;
+        return state.rig();
     }
 
     /** The first run.started's time, or "" when none was read. */
     public String startedAt() {
-        return startedAt;
+        return startedAtText;
     }
 
     public String cmd() {
-        return cmd;
+        return state.cmd();
     }
 
     public String gitHead() {
-        return gitHead;
+        return state.gitHead();
     }
 
     public List<String> planNames() {
-        return planNames;
+        return state.planNames();
     }
 
     public boolean fakePos() {
-        return facts.fakePos();
+        return facts.fakePos() || state.fakePos();
     }
 
     public List<String> testPlans() {
@@ -286,99 +125,84 @@ public final class RunReplay {
 
     /** True once a run.finished has been read. */
     public boolean finished() {
-        return finished;
+        return state.outcome() != null;
     }
 
     public boolean cancelled() {
-        return cancelled;
+        return "cancelled".equals(state.status());
     }
 
     /** The run's outcome word, or null when no run.finished was read. */
     public String outcome() {
-        return outcome;
+        return state.outcome();
     }
 
     /** run.finished's count once it is read, the live count before. */
     public int passed() {
-        return finished ? finishedPassed : livePassed;
+        return state.testCountPassed();
     }
 
     public int failed() {
-        return finished ? finishedFailed : liveFailed;
+        return state.testCountFailed();
     }
 
     public int warned() {
-        return finished ? finishedWarned : liveWarned;
+        return state.testCountWarned();
     }
 
     /** The steps in the launcher's order. */
     public List<StepState> steps() {
         List<StepState> out = new ArrayList<>();
-        for (String name : STEP_NAMES) {
-            out.add(new StepState(name, stepStatus.get(name), stepElapsed.get(name)));
+        for (RunState.StepState step : state.steps()) {
+            out.add(new StepState(step.name(), step.status(), step.elapsed()));
         }
         return out;
     }
 
     /** Every test that has an event, in the order its first event arrived. */
     public List<TestState> tests() {
-        return List.copyOf(tests.values());
+        List<TestState> out = new ArrayList<>();
+        for (RunState.TestState test : state.tests().values()) {
+            out.add(new TestState(test.nodeid(), test.status(), test.duration(), test.excType()));
+        }
+        return out;
     }
 
     /** The plan's cases in plan order. Empty when no plan was resolved. */
     public List<PlanCase> cases() {
-        return List.copyOf(cases.values());
+        List<PlanCase> out = new ArrayList<>();
+        for (RunState.CaseState planned : state.cases().values()) {
+            out.add(new PlanCase(planned.key(), planned.summary(), planned.node()));
+        }
+        return out;
     }
 
     /** Every log line read, when the replay was asked for logs; else empty. */
     public List<LogLine> logLines() {
-        return List.copyOf(logLines);
+        List<LogLine> out = new ArrayList<>();
+        for (RunState.LogLine line : state.logLines()) {
+            out.add(new LogLine(line.level(), line.logger(), line.message()));
+        }
+        return out;
     }
 
     /** The run's wall time: the steps' sum when the launcher recorded them, else run.finished's. */
     public double runElapsed() {
-        double steps = stepElapsed.values().stream().mapToDouble(Double::doubleValue).sum();
-        return steps > 0 ? steps : finishedElapsed;
+        double steps = state.steps().stream().mapToDouble(RunState.StepState::elapsed).sum();
+        return steps > 0 ? steps : state.elapsed();
     }
 
-    /**
-     * Plan case key to its single verdict, aggregated over its file's tests.
-     *
-     * <p>A case resolves to a file and a file can hold several tests, so the file is collapsed
-     * worst first: any failure makes the case failed, then any warning, then any pass; a file
-     * whose every test was skipped is skipped. A case with no verdict yet is absent.
-     */
+    /** Plan case key to its single verdict, aggregated over its file's tests, worst first. */
     public Map<String, String> caseVerdicts() {
-        Map<String, Set<String>> byFile = new HashMap<>();
-        for (TestState test : tests.values()) {
-            if (VERDICT_STATUSES.contains(test.status())) {
-                byFile.computeIfAbsent(nodeFile(test.nodeid()), k -> new HashSet<>()).add(test.status());
-            }
-        }
-        Map<String, String> verdicts = new LinkedHashMap<>();
-        for (PlanCase planned : cases.values()) {
-            if (planned.node() == null) {
-                continue;
-            }
-            Set<String> statuses = byFile.get(planned.node());
-            if (statuses != null && !statuses.isEmpty()) {
-                verdicts.put(planned.key(), aggregate(statuses));
-            }
-        }
-        return verdicts;
+        return state.caseVerdicts();
     }
 
     /** Plan cases with no verdict (unmigrated, or never reached), in plan order. */
     public List<PlanCase> notRunCases() {
-        if (cases.isEmpty()) {
-            return List.of();
-        }
-        Map<String, String> verdicts = caseVerdicts();
         List<PlanCase> out = new ArrayList<>();
-        for (PlanCase planned : cases.values()) {
-            if (!verdicts.containsKey(planned.key())) {
-                out.add(planned);
-            }
+        for (String key : state.notRunCaseKeys()) {
+            RunState.CaseState planned = state.cases().get(key);
+            out.add(new PlanCase(planned.key(), planned.summary(), planned.node()));
         }
         return out;
     }
@@ -390,31 +214,6 @@ public final class RunReplay {
 
     /** The repo-relative file part of a pytest nodeid, with forward slashes. */
     static String nodeFile(String nodeid) {
-        return nodeid.split("::", 2)[0].replace('\\', '/');
-    }
-
-    static String aggregate(Set<String> statuses) {
-        for (String status : FAILING_STATUSES) {
-            if (statuses.contains(status)) {
-                return "failed";
-            }
-        }
-        if (statuses.contains("warned")) {
-            return "warned";
-        }
-        if (statuses.contains("passed")) {
-            return "passed";
-        }
-        return "skipped";
-    }
-
-    /** The field as text, or null when it is absent or JSON null. */
-    static String text(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asText();
-    }
-
-    private static String orEmpty(String text) {
-        return text == null ? "" : text;
+        return RunState.nodeFile(nodeid);
     }
 }

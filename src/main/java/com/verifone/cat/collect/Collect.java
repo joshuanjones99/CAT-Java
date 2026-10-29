@@ -57,7 +57,7 @@ public final class Collect {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     /** The branch a run reads: what was asked for, and the ref actually read. */
-    record Ref(String ref, String commit) {}
+    public record Ref(String ref, String commit) {}
 
     /** A file queued for writing: its path relative to the output folder, its destination, and its blob. */
     record Pending(String rel, Path dest, String sha) {}
@@ -89,7 +89,7 @@ public final class Collect {
     }
 
     /** {@code origin/<revision>} if it exists, else {@code <revision>} as the checkout holds it. Never fetches. */
-    static Ref resolveCommit(Path repo, String revision) {
+    public static Ref resolveCommit(Path repo, String revision) {
         for (String candidate : List.of("origin/" + revision, revision)) {
             try {
                 byte[] out = GitUtil.git(repo, GIT_TIMEOUT, null, "rev-parse", "--verify", "--quiet",
@@ -103,7 +103,7 @@ public final class Collect {
     }
 
     /** Every blob under the collected roots, keyed by casefolded path (NTFS's view). */
-    static Map<String, List<Blob>> readIndex(Path repo, String commit) {
+    public static Map<String, List<Blob>> readIndex(Path repo, String commit) {
         byte[] raw = GitUtil.git(repo, GIT_TIMEOUT, null, "ls-tree", "-r", "-z", "--full-tree", commit, "--",
                 "AutomationTests", "isdApps/xml/schemas/src/schemas");
         Map<String, List<Blob>> index = new LinkedHashMap<>();

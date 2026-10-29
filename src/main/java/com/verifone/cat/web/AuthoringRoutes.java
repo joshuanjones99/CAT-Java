@@ -57,6 +57,20 @@ final class AuthoringRoutes {
             service.act(() -> service.filterSteps(ctx.formParam("filter")));
             ctx.html(service.view(AuthoringPage::steps));
         });
+        app.post("/authoring/draft", ctx -> reply(ctx, service, service::draft));
+        app.post("/authoring/capture", ctx -> reply(ctx, service, service::capture));
+        app.post("/authoring/replay", ctx -> reply(ctx, service, service::replay));
+        // While a draft or a replay is under way the page asks here; when it has ended, the page reloads.
+        app.get("/authoring/poll", ctx -> {
+            if (!fromThisPage(ctx)) {
+                return;
+            }
+            boolean waiting = service.view(AuthoringService::waiting);
+            if (!waiting) {
+                ctx.header("HX-Refresh", "true");
+            }
+            ctx.result("");
+        });
     }
 
     /** Saves the draft the editor sent, runs {@code action}, and returns the workbench. */
