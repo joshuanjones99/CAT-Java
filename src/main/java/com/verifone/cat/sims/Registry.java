@@ -18,8 +18,10 @@ import java.util.Optional;
  *       the Java Access Bridge ({@link AccessBridgeClicker}); {@code ready} once pressed,
  *       {@code needs attention} otherwise.</li>
  *   <li>{@code Petro Simulator Suite}: started with its argv, the JAXB fallback on the
- *       {@code javax/xml/bind/JAXBException} line, D9 adoption on 9001 and {@code replace_stale}.
- *       Its tank-level, SSLUtil and well-formedness pre-steps are not ported.</li>
+ *       {@code javax/xml/bind/JAXBException} line, D9 adoption on 9001 and {@code replace_stale}; before
+ *       each launch its tank level simulator is set from the rig ({@link PetroTls}) and its SSLUtil step
+ *       runs; System Checks parses its {@code fuelPosTotals.xml}.</li>
+ *   <li>{@code BUYPASS Host} is {@code superseded_by} that suite's FEP simulator v2 ({@link Fepsim}).</li>
  *   <li>{@code Terminal Connector}: {@code staged_only}; never launched by CAT. The row exists so
  *       the zip is still checked.</li>
  * </ul>
@@ -66,6 +68,10 @@ public final class Registry {
             .capkFrom("ArbitraryHostSim_v5.00.jar")
             .tcp(41107)
             .adoptOnlyMatch()
+            // Petro Simulator Suite's FEP simulator v2 (PETROCORE-142214) answers the same Buypass UMF on the same
+            // port from its own BUYPASS-41107 instance; v1 cannot (rig owner, 2026-10-12). Its answers come from the
+            // suite's WireMock (HTTPSIM) on 80, which step 3 checks too.
+            .supersededBy("Petro Simulator Suite", 2, "BUYPASS-41107", "BUYPASS", 41107, 80)
             .windowed()
             .build();
 
@@ -90,6 +96,10 @@ public final class Registry {
                     .cwd("Petro_Simulator_Suite")
                     .argv(PETRO_ARGV.toArray(String[]::new))
                     .match("Petro_Simulator_Suite.jar")
+                    // Rewritten by the suite as it runs; cut short twice when C: filled (SimulatorStaging).
+                    .wellFormed("config/fuelPosTotals.xml")
+                    // The tank level simulator: on the rig's controller.tls_port, or off (PetroTls).
+                    .tls("config/simulator_common_config.properties", "config/TLS_config.properties")
                     .log("log4j-application.log")
                     .windowed()
                     .tcp(9001)
@@ -150,6 +160,37 @@ public final class Registry {
     /** The rows CAT may launch: every row but the staged-only Terminal Connector. */
     public static List<SimEntry> launchable(boolean olderBase) {
         return forBase(olderBase).stream().filter(row -> !row.stagedOnly()).toList();
+    }
+
+    /**
+     * Each row with a base-56-and-earlier form, as the <em>other</em> base reads it: the Python's
+     * {@code config.other_variants}. For an older-base run that is each such row's base 57 form (LoySim 9.1, MPPA 04),
+     * and the reverse. Against this Commander, that form is the wrong version ({@link Supervisor#stopWrongVariants}).
+     */
+    public static java.util.Map<String, SimEntry> otherVariants(boolean olderBase) {
+        java.util.Map<String, SimEntry> others = new java.util.LinkedHashMap<>();
+        for (SimEntry row : ROWS) {
+            if (row.olderBaseForm() != null) {
+                others.put(row.name(), olderBase ? row : row.olderBaseForm());
+            }
+        }
+        return others;
+    }
+
+    /**
+     * Both registry forms of every launchable row named, base 57's first: what a Stop must close, since either may be
+     * running (the Python's {@code stop_simulators}, which loads the registry for {@code ""} and {@code "055.02"}).
+     */
+    public static List<SimEntry> bothForms(java.util.Collection<String> names) {
+        List<SimEntry> rows = new java.util.ArrayList<>();
+        for (boolean older : new boolean[] {false, true}) {
+            for (SimEntry row : launchable(older)) {
+                if (names.contains(row.name()) && !rows.contains(row)) {
+                    rows.add(row);
+                }
+            }
+        }
+        return rows;
     }
 
     /** The row with this name, on base 57 and later. */

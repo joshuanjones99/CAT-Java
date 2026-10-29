@@ -42,6 +42,7 @@ class MainTest {
         expected.put("builds", com.verifone.cat.build.BuildsCommand.class);
         expected.put("artifactory-login", com.verifone.cat.build.ArtifactoryLogin.class);
         expected.put("render-payload", ProvisionCommand.class);
+        expected.put("fetch-sims", com.verifone.cat.sims.FetchSimsCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {

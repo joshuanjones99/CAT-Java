@@ -63,4 +63,62 @@ public final class SimRunning {
         }
         return found;
     }
+
+    /** A row's state before anything starts: the Launch Simulators tab's first look. */
+    public record Running(String status, String detail) {
+        /** Listening, or its process is running. */
+        public static final String ALREADY_RUNNING = "already running";
+        /** Neither. */
+        public static final String NOT_RUNNING = "not running";
+        /** The process listing could not be taken, and nothing listens: it may be running. */
+        public static final String UNKNOWN = "unknown";
+        /** A registry row whose placeholders do not resolve. */
+        public static final String FAILED = "failed";
+    }
+
+    /**
+     * Each row's state before anything starts, {@code name -> (status, detail)}: the Python's
+     * {@code sims_launch.probe_running} for the simulator rows (its connector rows, the cloud tunnel and BTT's card
+     * server, are not here). The question {@link Supervisor#start} asks before each start (D9), asked up front: one
+     * process listing for every row, then the row's port and its match token. A listing that could not be taken makes
+     * a row {@code unknown}, never {@code not running}. Blocks up to the listing's 15 s and a 0.5 s connect per port.
+     */
+    public static Map<String, Running> probeRunning(List<SimEntry> entries, SimContext ctx, ProcessOps ops) {
+        return probeRunning(entries, ctx, ops, Supervisor::firstListening);
+    }
+
+    /** {@link #probeRunning(List, SimContext, ProcessOps)} with the port check a test passes. */
+    static Map<String, Running> probeRunning(List<SimEntry> entries, SimContext ctx, ProcessOps ops,
+            BiFunction<List<String>, Integer, String> firstListening) {
+        String cmdlines;
+        String error;
+        try {
+            ProcessOps.Snapshot snapshot = ops.commandLines(Supervisor.processNames(entries, ctx),
+                    Supervisor.PROBE_TIMEOUT);
+            cmdlines = snapshot.text();
+            error = snapshot.error();
+        } catch (IllegalArgumentException e) {
+            cmdlines = "";
+            error = e.getMessage();
+        }
+        Running unknown = new Running(Running.UNKNOWN, "could not list running processes: " + error);
+        Map<String, Running> rows = new LinkedHashMap<>();
+        for (SimEntry entry : entries) {
+            String token;
+            try {
+                token = Supervisor.normalise(ctx.matchToken(entry));
+            } catch (IllegalArgumentException e) {
+                rows.put(entry.name(), new Running(Running.FAILED, "bad registry row: " + e.getMessage()));
+                continue;
+            }
+            if (entry.hasTcpReady() && !firstListening.apply(Supervisor.hosts(ctx), entry.readyTcp()).isEmpty()) {
+                rows.put(entry.name(), new Running(Running.ALREADY_RUNNING, "listening"));
+            } else if (!cmdlines.isEmpty() && Supervisor.normalise(cmdlines).contains(token)) {
+                rows.put(entry.name(), new Running(Running.ALREADY_RUNNING, "its process is running"));
+            } else {
+                rows.put(entry.name(), error.isEmpty() ? new Running(Running.NOT_RUNNING, "") : unknown);
+            }
+        }
+        return rows;
+    }
 }
