@@ -29,8 +29,9 @@ import com.verifone.cat.rig.Rig;
  * <p>The order, and what each part is here:
  * <ol>
  *   <li>Before anything is installed, on a rig run: what the run asks for that CAT-Java does not have
- *       ({@link #unported}: JaCoCo coverage's launch wiring; the cloud tunnel of a run onboarding to Commander
- *       Connect) fails the step as unavailable, one failed row each. Deviation: the Python reaches these after the
+ *       ({@link #unported}: the cloud tunnel of a run onboarding to Commander Connect) fails the step as
+ *       unavailable, one failed row each. JaCoCo coverage is wired ({@link CoverageLaunch#prepare}, before
+ *       {@code provision}). Deviation: the Python reaches these after the
  *       install; CAT-Java cannot do them, so it stops before a PSI install wipes both devices for a run that would
  *       end there anyway. System Checks fails the same run first.</li>
  *   <li>The Commander build download and install ({@link InstallCommanderBuild}, the Python's
@@ -137,10 +138,6 @@ final class CommanderConfigurationStep implements LaunchStep {
         return STAGE_LABELS.getOrDefault(command, command);
     }
 
-    /** What JaCoCo coverage needs that CAT-Java does not have. */
-    static final String COVERAGE_MISSING = "JaCoCo coverage's launch wiring (cat.launch.coverage.prepare_coverage), "
-            + "which runs before provision when the Config tab asks for coverage";
-
     /**
      * Something a rig run asks for that CAT-Java does not have: its row, and what {@link StepEmitter#unavailable} says.
      */
@@ -162,9 +159,7 @@ final class CommanderConfigurationStep implements LaunchStep {
             return List.of();
         }
         List<Gap> gaps = new java.util.ArrayList<>();
-        if (config.coverage()) {
-            gaps.add(new Gap(label("coverage"), PYTHON_MODULE, COVERAGE_MISSING));
-        }
+        // [coverage slice, wave 16] JaCoCo coverage is wired (launch.CoverageLaunch), so it is no longer a gap.
         if (config.commanderConnect() && !tunnelPorted) {
             gaps.add(new Gap("cloud-tunnel", CommanderStages.CLOUD_TUNNEL_MODULE, CommanderStages.CLOUD_TUNNEL_MISSING));
         }
@@ -209,7 +204,11 @@ final class CommanderConfigurationStep implements LaunchStep {
             return step.fail("the rig file did not load, so the Commander cannot be configured");
         }
 
-        // 2. The register, then the Commander's license nags. (Coverage, when asked, ended the step above.)
+        // [coverage slice, wave 16] JaCoCo coverage, when asked: before provision, because getting the agent loaded may
+        // reboot a device and provision brings the register's shim back. A failure costs the run its coverage only.
+        CoverageLaunch.prepare(ctx, step);
+
+        // 2. The register, then the Commander's license nags.
         step.skip(POS_SHIM_BUILD_ROW, "built by the Python CAT (tools/build_pos_shim.py); provision reports a "
                 + "missing or partial payload");
         if (!stage(step, "provision", say -> stages.provision(rig, say))) {

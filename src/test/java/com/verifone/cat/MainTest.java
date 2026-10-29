@@ -37,11 +37,14 @@ class MainTest {
         expected.put("cloud-tunnel", CloudTunnelCommand.class);
         expected.put("psi-init", PsiInitCommand.class);
         expected.put("emv-keys", EmvKeysCommand.class);
+        expected.put("coverage", com.verifone.cat.coverage.CoverageCommand.class);
+        expected.put("xray-attach", com.verifone.cat.xray.Attach.class);
         expected.put("upgrade", com.verifone.cat.upgrade.UpgradeCommand.class);
         expected.put("build", com.verifone.cat.build.BuildCommand.class);
         expected.put("builds", com.verifone.cat.build.BuildsCommand.class);
         expected.put("artifactory-login", com.verifone.cat.build.ArtifactoryLogin.class);
         expected.put("render-payload", ProvisionCommand.class);
+        expected.put("fetch-sims", com.verifone.cat.sims.FetchSimsCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {
