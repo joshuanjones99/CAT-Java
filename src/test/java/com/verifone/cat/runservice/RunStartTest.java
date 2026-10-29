@@ -56,7 +56,22 @@ class RunStartTest {
     }
 
     @Test
-    void aPartialRunIsRefusedBeforeItStarts() throws IOException {
+    void aPartialRunIsCarriedAsTheScopeForTheLauncherToSelect() throws IOException {
+        ConfigForm form = ConfigFixture.form(tmp);
+        form.togglePlan(ConfigFixture.PLAN);
+        form.setScope("tags", "fuel", false);
+
+        RunStart.Plan plan = RunStart.from(form, "lab");
+
+        assertTrue(plan.startable(), plan.refusal());
+        assertTrue(plan.config().partial());
+        assertEquals("fuel", plan.config().scope().tags());
+        assertTrue(plan.readBack().stream().anyMatch(l -> l.warning() && l.text().startsWith("Run scope:")),
+                plan.readBack().toString());
+    }
+
+    @Test
+    void aTagExpressionThatMatchesNothingStillRefuses() throws IOException {
         ConfigForm form = ConfigFixture.form(tmp);
         form.togglePlan(ConfigFixture.PLAN);
         form.setScope("tags", "smoke", false);
@@ -64,7 +79,53 @@ class RunStartTest {
         RunStart.Plan plan = RunStart.from(form, "lab");
 
         assertFalse(plan.startable());
-        assertTrue(plan.refusal().startsWith("Partial runs are not ported"), plan.refusal());
+        assertTrue(plan.refusal().startsWith("Nothing to run yet"), plan.refusal());
+    }
+
+    @Test
+    void theSavedChoicesAndTheDefaultsMakeTheConfigTheWayLaunchDoes() throws IOException {
+        ConfigForm form = ConfigFixture.form(tmp);
+        form.togglePlan(ConfigFixture.PLAN);
+        com.verifone.cat.launch.LastConfig saved = com.verifone.cat.launch.LastConfig.of(java.util.Map.of(
+                "config-upgrade", "new_install", "config-exec", "BDD", "config-tp-branch", "PETROCORE-1",
+                "config-cmd-branch", "Solutions", "config-cmd-build", "134", "config-coverage", true));
+        RunStart.Context ctx = new RunStart.Context("lab", () -> saved, java.util.Map.of(), null, null, null);
+
+        RunStart.Plan plan = RunStart.from(form, ctx);
+
+        assertTrue(plan.startable(), plan.refusal());
+        assertEquals(UpgradeMode.NEW_INSTALL, plan.config().upgradeMode());
+        assertEquals("BDD", plan.config().executionMode());
+        assertEquals("PETROCORE-1", plan.config().testPlanBranch());
+        assertEquals("Solutions", plan.config().commanderBranch());
+        assertEquals("134", plan.config().commanderBuild());
+        assertTrue(plan.config().coverage());
+        assertTrue(plan.config().provisionRegister());
+        // No plan row names simulators, so every launchable one is started, as launch does.
+        assertEquals(com.verifone.cat.launch.LaunchDefaults.defaultSimulators(), plan.config().simulators());
+        List<String> lines = plan.readBack().stream().map(RunStart.Line::text).toList();
+        assertTrue(lines.contains("Upgrade:       new_install"), lines.toString());
+        assertTrue(lines.stream().anyMatch(l -> l.startsWith("Commander:     download Solutions 134 for buypass, "
+                + "install it with PSI (new install), then run psi-init")), lines.toString());
+        assertTrue(lines.stream().anyMatch(l -> l.startsWith("What this run will start: Simulators: ")),
+                lines.toString());
+    }
+
+    @Test
+    void thePagesDownloadsChoiceReplacesTheSavedOne() throws IOException {
+        ConfigForm form = ConfigFixture.form(tmp);
+        form.togglePlan(ConfigFixture.PLAN);
+        com.verifone.cat.launch.LastConfig saved = com.verifone.cat.launch.LastConfig.of(java.util.Map.of(
+                "config-upgrade", "new_install", "config-cmd-branch", "Solutions", "config-cmd-build", "134"));
+        RunStart.Context ctx = new RunStart.Context("lab", () -> saved, java.util.Map.of(), null, null, null)
+                .withDownloads(() -> new com.verifone.cat.launch.LaunchDefaults.Downloads(UpgradeMode.SKIP,
+                        "buypass", "", "", "", "master", ""));
+
+        RunStart.Plan plan = RunStart.from(form, ctx);
+
+        assertEquals(UpgradeMode.SKIP, plan.config().upgradeMode());
+        assertEquals("", plan.config().commanderBranch());
+        assertEquals("", plan.config().simBranch(), "a simulator branch with no build replaces nothing");
     }
 
     @Test

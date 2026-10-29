@@ -1,33 +1,54 @@
 package com.verifone.cat.web;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.atlassian.AtlassianCredentials;
+import com.verifone.cat.authoring.Actions;
 import com.verifone.cat.authoring.Case;
+import com.verifone.cat.authoring.Draft;
+import com.verifone.cat.authoring.Draft.DraftResult;
 import com.verifone.cat.authoring.Ingest;
 import com.verifone.cat.authoring.Publish;
+import com.verifone.cat.authoring.Replay;
+import com.verifone.cat.authoring.ReplayGate;
+import com.verifone.cat.authoring.ReplayGate.Verdict;
+import com.verifone.cat.authoring.ReplayRun;
 import com.verifone.cat.authoring.Session;
 import com.verifone.cat.authoring.SessionException;
+import com.verifone.cat.launch.LaunchConfig;
+import com.verifone.cat.runconfig.ConfigForm;
+import com.verifone.cat.runservice.RunService;
 
 /**
- * What the Authoring page holds: the open session, the selected case, the tab, the step filter and the
- * last message. Port of the state half of {@code cat/web/pages/authoring.py} ({@code AuthoringState}).
+ * What the Authoring page holds: the open session, the selected case, the tab, the step filter, the last message, the
+ * last draft, the running replay and the replayed runs it has read. Port of the state half of
+ * {@code cat/web/pages/authoring.py} ({@code AuthoringState}).
  *
- * <p>Every action is called through {@link #act}: a refusal (a bad ticket, no case selected, an unreadable
- * Jira) becomes the page's message, never a failed request. Nothing here starts a rig, a replay or Claude;
- * the parts that need them are named as not built in {@link AuthoringPage}.
+ * <p>Every action is called through {@link #act}: a refusal (a bad ticket, no case selected, an unreadable Jira, no rig)
+ * becomes the page's message, never a failed request. <b>Draft with Claude</b> runs off the request thread (Claude takes
+ * minutes) and posts its progress as the message; <b>Capture</b> and <b>Replay</b> write the suite
+ * ({@link ReplayGate#writeSuite}) and hand it to the Run page's run service as an ordinary run ({@link AuthoringRuns});
+ * the page notices the run's end when it next draws ({@link #poll}), keeps a capture's baselines
+ * ({@link Session#importCapture}) or records the replay and judges it ({@link ReplayGate#judge}). <b>Publish</b> is the
+ * Python's dry run, behind the real verdict.
  *
- * <p>The session root is injected, so a test never touches {@code ~/.cat}. Opening the page creates nothing:
- * a session is created only by an action that needs one.
+ * <p>The session root, the generated-suite root, Jira, Claude and the run service are injected, so a test never touches
+ * {@code ~/.cat}, Jira, Claude or a rig. Opening the page creates nothing: a session is created only by an action that
+ * needs one.
  *
- * <p>UNVERIFIED AGAINST HARDWARE (Java port): a session is files; Jira is read-only and the dry run sends nothing.
+ * <p>UNVERIFIED AGAINST HARDWARE (Java port): no authored case has been captured or replayed at a rig through this page.
  */
 final class AuthoringService {
 
@@ -36,16 +57,6 @@ final class AuthoringService {
     static final String TAB_SPEC = "spec";
     static final String TAB_REVIEW = "review";
     static final List<String> TABS = List.of(TAB_FEATURE, TAB_STEPS, TAB_SPEC, TAB_REVIEW);
-
-    /** The Python module that would build Draft with Claude. */
-    static final String DRAFT_MODULE = "cat/authoring/draft.py";
-
-    /** The Python module that would build Capture and Replay (write_suite, the replay gate). */
-    static final String REPLAY_MODULE = "cat/authoring/replay.py";
-
-    /** The gate reason a publish carries until the replay gate is ported: nothing has been replayed. */
-    static final String GATE_REASON = "the replay gate is not built yet (" + REPLAY_MODULE
-            + "): nothing has been replayed";
 
     /** The branch a publish would cut its story branch from (the Python's default). */
     static final String BASE_BRANCH = "master";
@@ -59,7 +70,11 @@ final class AuthoringService {
     }
 
     private final Path root;
+    private final Path generatedRoot;
     private final Supplier<AtlassianClient> atlassian;
+    private final AuthoringRuns runs;
+    private final Draft.Asker asker;
+    private final Consumer<Runnable> background;
     private boolean loaded;
     private Session session;
     private int cursor;
@@ -69,21 +84,63 @@ final class AuthoringService {
     private String ticketField = "";
     private String specField = "";
     private List<String> publishLines;
+    private String busy = "";
+    private boolean replaying;
+    private Replay pending;
+    private DraftResult draftResult;
+    /** Replayed runs' folded state by run id; a null value is a run that could not be read. */
+    private final Map<String, ReplayRun> runStates = new HashMap<>();
 
     AuthoringService(Path root, Supplier<AtlassianClient> atlassian) {
+        this(root, root.resolveSibling("generated"), atlassian, AuthoringRuns.unwired(root.resolveSibling("results")),
+                null, AuthoringService::daemon);
+    }
+
+    /**
+     * @param generatedRoot where replayed suites are written
+     * @param runs          the run service a replay goes through
+     * @param asker         who answers a draft; null asks Claude Code
+     * @param background    runs a draft off the request thread (a test passes {@code Runnable::run})
+     */
+    AuthoringService(Path root, Path generatedRoot, Supplier<AtlassianClient> atlassian, AuthoringRuns runs,
+            Draft.Asker asker, Consumer<Runnable> background) {
         this.root = root;
+        this.generatedRoot = generatedRoot;
         this.atlassian = atlassian;
+        this.runs = runs;
+        this.asker = asker;
+        this.background = background;
     }
 
-    /** The operator's own: {@code $CAT_AUTHORING_DIR}, else {@code ~/.cat/java/authoring}; Jira from the credentials file. */
+    /**
+     * The operator's own: {@code $CAT_AUTHORING_DIR}, else {@code ~/.cat/java/authoring}; Jira from the credentials file;
+     * no run service, so Replay and Capture say they need one (see {@link #standard(RunService, ConfigForm)}).
+     */
     static AuthoringService standard() {
-        Path fallback = Path.of(System.getProperty("user.home"), ".cat", "java", "authoring");
-        return new AuthoringService(Session.authoringRoot(System.getenv(), fallback),
-                () -> AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(), JIRA_TIMEOUT));
+        return standard(AuthoringRuns.unwired(AuthoringRuns.resultsRoot(System.getenv())));
     }
 
-    /** Runs {@code view} with the state held still, so one page is drawn from one moment. */
+    /** The operator's own, replaying through the Run page's {@code run} service with the Config tab's choices. */
+    static AuthoringService standard(RunService run, ConfigForm form) {
+        return standard(AuthoringRuns.over(run, form, AuthoringRuns.resultsRoot(System.getenv())));
+    }
+
+    private static AuthoringService standard(AuthoringRuns runs) {
+        Path fallback = Path.of(System.getProperty("user.home"), ".cat", "java", "authoring");
+        return new AuthoringService(Session.authoringRoot(System.getenv(), fallback), ReplayGate.defaultRoot(),
+                () -> AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(), JIRA_TIMEOUT), runs,
+                null, AuthoringService::daemon);
+    }
+
+    private static void daemon(Runnable work) {
+        Thread thread = new Thread(work, "cat-authoring-worker");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /** Runs {@code view} with the state held still, so one page is drawn from one moment; a finished replay is noticed first. */
     synchronized <T> T view(Function<AuthoringService, T> view) {
+        poll();
         return view.apply(this);
     }
 
@@ -145,6 +202,26 @@ final class AuthoringService {
     /** The last dry run's lines, or null before one. Cleared when a draft changes. */
     synchronized List<String> publishLines() {
         return publishLines == null ? null : List.copyOf(publishLines);
+    }
+
+    /** What a background worker is doing ({@code Claude is drafting}), or the empty string. */
+    synchronized String busy() {
+        return busy;
+    }
+
+    /** Whether a replay or capture this page started is still running. */
+    synchronized boolean replaying() {
+        return replaying;
+    }
+
+    /** The last draft's outcome, or null. */
+    synchronized DraftResult draftResult() {
+        return draftResult;
+    }
+
+    /** Whether the page should keep asking for news: a draft or a replay is under way. */
+    synchronized boolean waiting() {
+        return !busy.isEmpty() || replaying;
     }
 
     // ------------------------------------------------------------ the editor
@@ -244,19 +321,26 @@ final class AuthoringService {
     }
 
     synchronized void newSession() {
+        if (replaying || !busy.isEmpty()) {
+            throw new SessionException("wait for the replay or draft to finish first");
+        }
         session = Session.create(root);
         loaded = true;
         cursor = 0;
         publishLines = null;
+        draftResult = null;
         ticketField = "";
         specField = "";
         say("new session " + session.slug());
     }
 
-    // ------------------------------------------------------------ ingest, approve, dry run
+    // ------------------------------------------------------------ ingest and draft
 
     /** Reads a Jira spec ticket into the session (read-only). Creates the session when there is none. */
     synchronized void ingest(String key) {
+        if (!busy.isEmpty()) {
+            throw new SessionException("wait: " + busy + " is still running");
+        }
         String typed = key == null ? "" : key.strip();
         specField = typed;
         if (typed.isEmpty()) {
@@ -267,8 +351,94 @@ final class AuthoringService {
         specField = spec.key();
         int pages = spec.pages().size();
         String more = pages == 0 ? "" : ", " + pages + " Confluence page(s)";
-        say("ingested " + spec.key() + ": " + spec.summary() + more + " — read it on the Spec tab");
+        say("ingested " + spec.key() + ": " + spec.summary() + more + " — read it on the Spec tab, then Draft");
         tab = TAB_SPEC;
+    }
+
+    /** Asks Claude for cases from the spec, off the request thread. */
+    synchronized void draft() {
+        if (!busy.isEmpty()) {
+            throw new SessionException("wait: " + busy + " is still running");
+        }
+        Session s = sessionOrCreate();
+        Path path = s.specPath();
+        if (path == null || !Files.isRegularFile(path)) {
+            throw new SessionException("ingest a ticket first: Draft works from the session's spec");
+        }
+        busy = "Claude is drafting";
+        say("Claude is drafting…");
+        background.accept(() -> {
+            DraftResult result;
+            try {
+                result = Actions.draftInto(s, this::progress, asker);
+            } catch (RuntimeException e) {
+                workerDone("✖ " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), null);
+                return;
+            }
+            drafted(result);
+        });
+    }
+
+    private synchronized void progress(String line) {
+        say(line);
+    }
+
+    private synchronized void drafted(DraftResult result) {
+        draftResult = result;
+        int refused = result.cases.size() - result.clean().size();
+        String more = refused > 0 ? ", " + refused + " still refused by the checker" : "";
+        String missing = result.notDrafted.isEmpty() ? "" : ", " + result.notDrafted.size() + " need a new phrase";
+        workerDone("Claude drafted " + result.cases.size() + " case(s)" + more + missing + " ($"
+                + String.format(java.util.Locale.ROOT, "%.2f", result.costUsd)
+                + ") — review every step before replaying", TAB_REVIEW);
+    }
+
+    private synchronized void workerDone(String text, String showTab) {
+        busy = "";
+        publishLines = null;
+        say(text);
+        if (showTab != null) {
+            tab = showTab;
+        }
+    }
+
+    // ------------------------------------------------------------ capture, approve, replay
+
+    private void launch(boolean capture) {
+        if (replaying) {
+            throw new SessionException("a replay is already running");
+        }
+        if (runs.busy()) {
+            throw new SessionException("a run is in progress; wait for it to finish");
+        }
+        Session s = session();
+        if (s == null || s.cases().isEmpty()) {
+            throw new SessionException("add a case first");
+        }
+        LaunchConfig base = runs.baseConfig();
+        if (capture && base.fakePos()) {
+            throw new SessionException("baselines are only ever captured on a rig, never the fake POS (§3.5)");
+        }
+        Replay suite = ReplayGate.writeSuite(s, generatedRoot, capture);
+        String refusal = runs.start(ReplayGate.replayConfig(base, suite));
+        if (refusal != null) {
+            deleteTree(generatedRoot.resolve(suite.directory()));
+            throw new SessionException(refusal);
+        }
+        replaying = true;
+        pending = suite;
+        String verb = capture ? "capturing baselines for" : "replaying";
+        say(verb + " " + suite.cases().size() + " case(s) from " + suite.directory() + "; follow it on the Run page");
+    }
+
+    /** Replays the session's cases as an ordinary run. */
+    synchronized void replay() {
+        launch(false);
+    }
+
+    /** Runs the session's cases on a rig with {@code --snapshot-update}, to keep what they print. */
+    synchronized void capture() {
+        launch(true);
     }
 
     /** Makes the selected case's captured baselines its reference. */
@@ -278,22 +448,78 @@ final class AuthoringService {
             throw new SessionException("no case selected");
         }
         int count = session.approveBaselines(c);
-        say(c.title() + ": " + count + " baseline(s) approved");
+        say(c.title() + ": " + count + " baseline(s) approved — ▶ Replay to prove them");
     }
 
+    /** Notices that the replay this page started has ended: keeps a capture's baselines, or judges a replay. */
+    synchronized void poll() {
+        if (!replaying || runs.busy()) {
+            return;
+        }
+        replaying = false;
+        Replay suite = pending;
+        pending = null;
+        String runId = runs.lastRunId();
+        if (runId == null || runId.isEmpty() || suite == null) {
+            say("✖ the run did not reach the end; nothing to judge");
+            return;
+        }
+        Replay finished = suite.withRunId(runId);
+        if (session != null) {
+            if (suite.capture()) {
+                int taken = session.importCapture(generatedRoot, finished);
+                say("capture " + runId + " kept " + taken + " baseline file(s); read them on the Review tab and "
+                        + "Approve each case's");
+                session.replay(null);
+                tab = TAB_REVIEW;
+                return;
+            }
+            session.replay(finished);
+        }
+        Verdict verdict = verdict();
+        if (verdict != null && runId.equals(verdict.runId())) {
+            if (verdict.ok()) {
+                say("✔ replay " + runId + " passed the gate; Publish shows what would be sent");
+            } else {
+                int more = verdict.reasons().size() - 1;
+                say("✖ refused after replay " + runId + ": " + verdict.reasons().get(0)
+                        + (more > 0 ? " (+" + more + " more on the Review tab)" : ""));
+            }
+        }
+    }
+
+    /** The replay gate's verdict on the session as it is now, or null when there is no session. */
+    synchronized Verdict verdict() {
+        Session s = session();
+        if (s == null) {
+            return null;
+        }
+        Replay last = s.replay();
+        ReplayRun run = null;
+        if (last != null && !last.runId().isEmpty()) {
+            String id = last.runId();
+            if (!runStates.containsKey(id)) {
+                runStates.put(id, ReplayGate.runState(id, runs.resultsRoot()));
+            }
+            run = runStates.get(id);
+        }
+        return ReplayGate.judge(s.publishBlockers(), ReplayGate.fingerprint(s), last, run);
+    }
+
+    // ------------------------------------------------------------ publish (dry run)
+
     /**
-     * The dry run: what a publish would send, and why it would be refused. Sends nothing; reads the petroapps
-     * checkout for the story branch. The replay gate is not built, so its reason is always listed.
+     * The dry run: what a publish would send, and why it would be refused (the replay gate's verdict first). Sends
+     * nothing; reads the petroapps checkout for the story branch.
      */
     synchronized void publish() {
         Session s = session();
         if (s == null || s.cases().isEmpty()) {
             throw new SessionException("nothing to publish yet");
         }
-        List<String> gate = new ArrayList<>(s.publishBlockers());
-        gate.add(GATE_REASON);
-        Publish.PublishPlan plan = Publish.plan(s, gate, null, BASE_BRANCH);
-        publishLines = new ArrayList<>(plan.lines());
+        Verdict verdict = verdict();
+        Publish.PublishPlan plan = Publish.plan(s, verdict.reasons(), null, BASE_BRANCH);
+        publishLines = plan.lines();
         say("publish dry run: nothing was sent"
                 + (plan.ok() ? "" : "; it would be refused (" + plan.refused().size() + " reason(s))"));
         tab = TAB_REVIEW;
@@ -301,7 +527,7 @@ final class AuthoringService {
 
     // ------------------------------------------------------------ helpers
 
-    private void say(String text) {
+    private synchronized void say(String text) {
         message = text;
     }
 
@@ -325,6 +551,19 @@ final class AuthoringService {
             loaded = true;
         }
         return s;
+    }
+
+    private static void deleteTree(Path path) {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (Stream<Path> walk = Files.walk(path)) {
+            for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(p);
+            }
+        } catch (IOException e) {
+            // best effort: a written suite left behind is never reused
+        }
     }
 
     /** Whether the session folder exists on disk (tests check that opening the page created nothing). */

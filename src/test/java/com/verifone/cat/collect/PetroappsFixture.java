@@ -20,20 +20,20 @@ import java.util.Map;
  * with {@code fast-import} and {@code core.ignorecase=false}. Every repository lives under a {@code @TempDir}; nothing
  * here touches a real checkout or a real remote. The Python CAT's {@code tests/unit/petroapps_repo.py}.
  */
-final class PetroappsFixture {
+public final class PetroappsFixture {
 
-    static final String CASE = "AutomationTests/testcases";
-    static final String BDD = "AutomationTests/TestCases";
+    public static final String CASE = "AutomationTests/testcases";
+    public static final String BDD = "AutomationTests/TestCases";
 
     /** A committer identity for the one command that needs one ({@code commit-tree}, {@code commit}). */
-    static final String[] IDENTITY = {"-c", "user.name=f", "-c", "user.email=f@example.invalid"};
+    public static final String[] IDENTITY = {"-c", "user.name=f", "-c", "user.email=f@example.invalid"};
 
     private static final Duration TIMEOUT = Duration.ofSeconds(120);
 
     private PetroappsFixture() {}
 
     /** Whether a {@code git} executable is on PATH. Tests that need one are skipped when it is not. */
-    static boolean gitAvailable() {
+    public static boolean gitAvailable() {
         try {
             Process process = new ProcessBuilder("git", "--version").redirectErrorStream(true).start();
             process.getInputStream().readAllBytes();
@@ -48,17 +48,17 @@ final class PetroappsFixture {
     }
 
     /** {@code git -C <repo> <args>}, stdout as text, stripped. Fails the test on a non-zero exit. */
-    static String git(Path repo, String... args) {
+    public static String git(Path repo, String... args) {
         return new String(gitBytes(repo, args), StandardCharsets.UTF_8).strip();
     }
 
     /** {@code git -C <repo> <args>}, stdout as bytes. Fails the test on a non-zero exit. */
-    static byte[] gitBytes(Path repo, String... args) {
+    public static byte[] gitBytes(Path repo, String... args) {
         return gitWithInput(repo, null, args);
     }
 
     /** {@code git -C <repo> <args>} with {@code stdin} written to git's standard input. */
-    static byte[] gitWithInput(Path repo, byte[] stdin, String... args) {
+    public static byte[] gitWithInput(Path repo, byte[] stdin, String... args) {
         List<String> command = new ArrayList<>(List.of("git", "-C", repo.toString()));
         command.addAll(List.of(args));
         try {
@@ -89,7 +89,7 @@ final class PetroappsFixture {
      * One root commit on a new {@code ref} holding exactly {@code files}, via one {@code fast-import}. Returns the
      * commit ID.
      */
-    static String commit(Path repo, String ref, Map<String, byte[]> files) {
+    public static String commit(Path repo, String ref, Map<String, byte[]> files) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         write(stream, "commit " + ref + "\ncommitter fixture <fixture@example.invalid> 0 +0000\ndata 7\nfixture\n");
         for (Map.Entry<String, byte[]> file : files.entrySet()) {
@@ -102,7 +102,7 @@ final class PetroappsFixture {
     }
 
     /** {@code pairs} as path, content, path, content...: the content UTF-8 encoded, in order. */
-    static Map<String, byte[]> files(String... pairs) {
+    public static Map<String, byte[]> files(String... pairs) {
         Map<String, byte[]> files = new LinkedHashMap<>();
         for (int i = 0; i < pairs.length; i += 2) {
             files.put(pairs[i], pairs[i + 1].getBytes(StandardCharsets.UTF_8));
@@ -111,7 +111,7 @@ final class PetroappsFixture {
     }
 
     /** {@code base} with {@code pairs} added (or replaced), in order. */
-    static Map<String, byte[]> with(Map<String, byte[]> base, String... pairs) {
+    public static Map<String, byte[]> with(Map<String, byte[]> base, String... pairs) {
         Map<String, byte[]> merged = new LinkedHashMap<>(base);
         merged.putAll(files(pairs));
         return merged;
@@ -121,7 +121,7 @@ final class PetroappsFixture {
      * A bare "remote" and a dirty local checkout whose {@code origin} is that remote, in {@code tmp}: one committed
      * file, a modified tracked file and an untracked one, and it has never fetched. Returns {remote, local}.
      */
-    static Path[] remoteAndCheckout(Path tmp) throws IOException {
+    public static Path[] remoteAndCheckout(Path tmp) throws IOException {
         Path remote = tmp.resolve("remote.git");
         git(tmp, "init", "-q", "--bare", remote.toString());
         Path local = tmp.resolve("petroapps");
@@ -139,7 +139,7 @@ final class PetroappsFixture {
      * Makes {@code local} current with its remote's {@code branch} and leaves it dirty. Fetches, then points
      * {@code HEAD} at the branch by reference only: the working tree and the index stay as they were.
      */
-    static void track(Path local, String branch) {
+    public static void track(Path local, String branch) {
         git(local, "fetch", "-q", "origin", "+refs/heads/" + branch + ":refs/remotes/origin/" + branch);
         git(local, "update-ref", "refs/heads/" + branch, "refs/remotes/origin/" + branch);
         git(local, "symbolic-ref", "HEAD", "refs/heads/" + branch);

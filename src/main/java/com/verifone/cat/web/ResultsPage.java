@@ -48,9 +48,11 @@ final class ResultsPage {
         String segment = ResultsView.segment(ctx.queryParam("segment"));
         String tab = "stats".equals(ctx.queryParam("tab")) ? "stats" : "runs";
         String filter = ctx.queryParam("q") == null ? "" : ctx.queryParam("q").strip();
+        String sort = ctx.queryParam("sort") == null ? "" : ctx.queryParam("sort");
+        boolean descending = !"asc".equals(ctx.queryParam("dir"));
         try {
             RunIndex.IndexResult result = library.index();
-            ctx.html(fragment(library, result, segment, tab, filter));
+            ctx.html(fragment(library, result, segment, tab, filter, sort, descending));
         } catch (RuntimeException e) {
             ctx.html("<div id=\"results\">" + controls(segment, tab, filter)
                     + "<p class=\"error\">The results index could not be read: " + esc(e.getMessage()) + "</p></div>");
@@ -60,6 +62,12 @@ final class ResultsPage {
     /** The whole section: controls, then either the runs or the statistics. */
     static String fragment(ResultsLibrary library, RunIndex.IndexResult result,
             String segment, String tab, String filter) {
+        return fragment(library, result, segment, tab, filter, "", true);
+    }
+
+    /** The section with the runs sorted by {@code sort} (a column; "" keeps the index's newest-first order). */
+    static String fragment(ResultsLibrary library, RunIndex.IndexResult result,
+            String segment, String tab, String filter, String sort, boolean descending) {
         StringBuilder out = new StringBuilder("<div id=\"results\">");
         out.append(controls(segment, tab, filter));
         int count = result.rows().size();
@@ -72,7 +80,7 @@ final class ResultsPage {
         if ("stats".equals(tab)) {
             out.append(statistics(RunStats.compute(result.rows(), segment, library.placeholder(), RunStats.WINDOW)));
         } else {
-            out.append(runs(result.rows(), segment, filter));
+            out.append(runs(result.rows(), segment, filter, sort, descending));
         }
         return out.append("</div>").toString();
     }
@@ -115,6 +123,28 @@ final class ResultsPage {
 
     /** The runs of one segment whose plan, rig, result, date or run id match the filter. */
     static String runs(List<RunSummary> rows, String segment, String filter) {
+        return runs(rows, segment, filter, "", true);
+    }
+
+    /** The sortable columns (the Python table's {@code sortable}): their keys, labels and numeric flag. */
+    static final String[][] COLUMNS = {
+        {"started", "Started", ""}, {"plan", "Plan(s)", ""}, {"rig", "Rig", ""}, {"status", "Result", ""},
+        {"passed", "Pass", "num"}, {"failed", "Fail", "num"}, {"not_run", "Not run", "num"}};
+
+    static java.util.Comparator<RunSummary> order(String sort) {
+        return switch (sort) {
+            case "started" -> java.util.Comparator.comparing(RunSummary::startedAt);
+            case "plan" -> java.util.Comparator.comparing(row -> ResultsView.plans(row).toLowerCase(Locale.ROOT));
+            case "rig" -> java.util.Comparator.comparing(row -> ResultsView.rig(row).toLowerCase(Locale.ROOT));
+            case "status" -> java.util.Comparator.comparing(RunSummary::status);
+            case "passed" -> java.util.Comparator.comparingInt(row -> row.passed() + row.warned());
+            case "failed" -> java.util.Comparator.comparingInt(RunSummary::failed);
+            case "not_run" -> java.util.Comparator.comparingInt(RunSummary::notRun);
+            default -> null;
+        };
+    }
+
+    static String runs(List<RunSummary> rows, String segment, String filter, String sort, boolean descending) {
         List<RunSummary> shown = new ArrayList<>();
         String needle = filter.toLowerCase(Locale.ROOT);
         for (RunSummary row : rows) {
@@ -126,10 +156,23 @@ final class ResultsPage {
             boolean any = rows.stream().anyMatch(r -> segment.equals(r.segment()));
             return "<p class=\"muted\">" + (any ? "No run matches the filter." : "No runs in this segment.") + "</p>";
         }
-        StringBuilder out = new StringBuilder("<table class=\"results-table\"><thead><tr>")
-                .append("<th>Started</th><th>Plan(s)</th><th>Rig</th><th>Result</th>")
-                .append("<th class=\"num\">Pass</th><th class=\"num\">Fail</th><th class=\"num\">Not run</th>")
-                .append("<th class=\"num\">Elapsed</th><th>Run</th></tr></thead><tbody>");
+        java.util.Comparator<RunSummary> order = order(sort);
+        if (order != null) {
+            shown.sort(descending ? order.reversed() : order);
+        }
+        StringBuilder out = new StringBuilder("<table class=\"results-table\"><thead><tr>");
+        for (String[] column : COLUMNS) {
+            boolean current = column[0].equals(sort);
+            boolean nextDescending = !current || !descending;
+            String target = "/results/view?segment=" + ResultsView.query(segment) + "&amp;tab=runs&amp;q="
+                    + ResultsView.query(filter) + "&amp;sort=" + column[0] + "&amp;dir=" + (nextDescending ? "desc" : "asc");
+            out.append("<th").append(column[2].isEmpty() ? "" : " class=\"num\"")
+                    .append(current ? " aria-sort=\"" + (descending ? "descending" : "ascending") + "\"" : "")
+                    .append("><a href=\"").append(target).append("\" hx-get=\"").append(target)
+                    .append("\" hx-target=\"#results\" hx-swap=\"outerHTML\">").append(column[1])
+                    .append(current ? (descending ? " ▾" : " ▴") : "").append("</a></th>");
+        }
+        out.append("<th class=\"num\">Elapsed</th><th>Run</th></tr></thead><tbody>");
         for (RunSummary row : shown) {
             out.append("<tr><td>").append(esc(ResultsView.local(row.startedAt()))).append("</td>")
                     .append("<td>").append(esc(ResultsView.plans(row))).append("</td>")

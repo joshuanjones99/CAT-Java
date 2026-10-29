@@ -46,6 +46,11 @@ class MainTest {
         expected.put("artifactory-login", com.verifone.cat.build.ArtifactoryLogin.class);
         expected.put("render-payload", ProvisionCommand.class);
         expected.put("fetch-sims", com.verifone.cat.sims.FetchSimsCommand.class);
+        expected.put("record", com.verifone.cat.recorder.RecordCommand.class);
+        expected.put("generate", com.verifone.cat.recorder.GenerateCommand.class);
+        expected.put("steps", com.verifone.cat.authoring.StepsCommand.class);
+        expected.put("authoring", com.verifone.cat.authoring.AuthoringCommand.class);
+        expected.put("publish", com.verifone.cat.publish.PublishCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {
