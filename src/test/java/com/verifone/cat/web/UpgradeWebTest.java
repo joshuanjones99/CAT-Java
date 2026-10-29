@@ -277,14 +277,32 @@ class UpgradeWebTest {
     }
 
     @Test
-    void auIsNotBuiltYetAndNamesItsModule() throws Exception {
+    void auPushesTheBuildAndRunsNoPsiInit() throws Exception {
+        List<Path> pushed = new CopyOnWriteArrayList<>();
+        upgrades.withClassic((r, dir, env, log) -> {
+            pushed.add(dir);
+            return List.of(StepResult.done("auto_upgrade"));
+        });
         set("commanderBranch", "Solutions");
         set("commanderBuild", "1082");
         set("mode", "classic");
+        assertTrue(get("/upgrade").body().contains("Push Solutions 1082 (buypass) to rig lab with Auto_Upgrade.jar"));
 
-        String html = get("/upgrade").body();
+        startInstall();
 
-        assertTrue(html.contains("AU (classic) is not built yet (petrotest/upgrade/classic.py)"), html);
+        assertEquals(List.of(root.resolve("Solutions1082").resolve("buypass")), pushed);
+        assertTrue(installer.rigs.isEmpty(), "AU never runs PSI");
+        assertTrue(psiRigs.isEmpty());
+        String panel = get(UpgradePage.PATH).body();
+        assertTrue(panel.contains("Install it (PSI): done"), panel);
+        assertTrue(panel.contains("psi-init --no-pairing (after PSI): skipped"), panel);
+    }
+
+    @Test
+    void vhqIsRefusedNamingItsModule() throws Exception {
+        set("mode", "vhq");
+        assertTrue(upgrades.refusal().contains("VHQ is not implemented (petrotest/upgrade/vhq.py)"),
+                upgrades.refusal());
     }
 
     @Test

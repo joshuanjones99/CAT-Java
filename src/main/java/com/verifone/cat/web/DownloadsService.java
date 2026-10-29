@@ -25,6 +25,7 @@ import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.ArtifactoryEntry;
 import com.verifone.cat.build.ArtifactoryException;
 import com.verifone.cat.build.BuildCatalogue;
+import com.verifone.cat.build.BuildContents;
 import com.verifone.cat.build.BuildDiscovery;
 import com.verifone.cat.build.BuildDownloads;
 import com.verifone.cat.build.BuildException;
@@ -265,10 +266,10 @@ final class DownloadsService {
         if (!c.commanderBranch().isEmpty() && c.commanderBuild().isEmpty() && installing) {
             missing.add("a Commander Build number on " + c.commanderBranch());
         }
-        List<String> held = c.commanderChosen() ? dists(c.commanderBranch(), c.commanderBuild()) : null;
+        BuildContents contents = contents(c);
         boolean viperOnly = viperOnly(c);
-        if (installing && held != null && !viperOnly
-                && held.stream().noneMatch(name -> name.equalsIgnoreCase(c.dist()))) {
+        if (installing && contents != null && contents.sourceFor(c.dist(), null) == null) {
+            List<String> held = contents.dists();
             missing.add("a Distribution (FEP) that " + c.commanderBranch() + " " + c.commanderBuild() + " holds ("
                     + (held.isEmpty() ? "none: pick another build" : String.join(", ", held)) + ")");
         }
@@ -292,20 +293,20 @@ final class DownloadsService {
      * foundation build is merged under. Read from the build's folders once listed; false until then.
      */
     boolean viperOnly(Choice c) {
+        BuildContents contents = contents(c);
+        return contents != null && contents.viperOnly(c.dist());
+    }
+
+    /** The chosen Commander Build's folders, classified ({@link BuildContents#classify}); null until listed. */
+    BuildContents contents(Choice c) {
         if (!c.commanderChosen()) {
-            return false;
+            return null;
         }
         List<String> raw;
         synchronized (lock) {
             raw = folders.get(distsKey(c.commanderBranch(), c.commanderBuild()));
         }
-        if (raw == null) {
-            return false;
-        }
-        String want = c.dist().toLowerCase(Locale.ROOT);
-        boolean plain = raw.stream().anyMatch(name -> name.equalsIgnoreCase(want));
-        boolean viper = raw.stream().anyMatch(name -> name.toLowerCase(Locale.ROOT).equals("viper-" + want));
-        return !plain && viper;
+        return raw == null ? null : BuildContents.classify(c.commanderBranch(), c.commanderBuild(), raw);
     }
 
     /** The Foundation row: only for a viper-only build, or once a foundation is chosen (the Python's rule). */

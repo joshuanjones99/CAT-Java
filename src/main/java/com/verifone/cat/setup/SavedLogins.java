@@ -24,10 +24,10 @@ import com.verifone.cat.build.StoredArtifactoryCredentials;
  * Python CAT saves the Verifone login to its own {@code .secrets/artifactory.credentials} and the Atlassian login to
  * the shared {@code ~/jira_api_token.properties}; CAT-Java saves them to {@code ~/.cat/java/artifactory.credentials}
  * and {@code ~/.cat/java/jira_api_token.properties} and reads its own first, then the Python's and Monarch's files
- * read-only, as {@link StoredArtifactoryCredentials} does. Until the rest of CAT-Java reads the two
- * {@code ~/.cat/java/} files first (a hook in the wave-16 report: {@code StoredArtifactoryCredentials.defaultFiles}
- * and {@code AtlassianCredentials.defaultPath}), a login saved here is used by the Setup page's own checks and by
- * the parts that take their credentials from here (the Config tab's Refresh, the downloads listings).
+ * read-only, as {@link StoredArtifactoryCredentials} does (its {@code defaultFiles} reads CAT-Java's file first, the
+ * same one {@code cat-java artifactory-login} writes). The Atlassian file in {@code ~/.cat/java/} is read first by the
+ * Setup page and the Config tab's Refresh; the rest of CAT-Java reads {@code AtlassianCredentials.defaultPath} (a
+ * wave-16 hook: read {@code ~/.cat/java/jira_api_token.properties} first there too).
  *
  * <p>A password is never logged, never shown in a result, never written in plain text: the Artifactory file holds
  * a DPAPI blob of it, readable only by this Windows account on this PC.
@@ -77,9 +77,8 @@ public final class SavedLogins {
 
     /** The real stores: CAT-Java's own file, then the Python CAT's and Monarch's (read-only), with DPAPI. */
     public static SavedLogins system(Map<String, String> env, Path home) {
-        List<Path> files = new ArrayList<>();
-        files.add(home.resolve(".cat").resolve("java").resolve(ARTIFACTORY_FILE));
-        files.addAll(StoredArtifactoryCredentials.defaultFiles(env));
+        // CAT-Java's own file first, then the Python CAT's and Monarch's: the list every Artifactory client reads.
+        List<Path> files = new ArrayList<>(StoredArtifactoryCredentials.defaultFiles(env, home.toString()));
         return new SavedLogins(env, home, files, StoredArtifactoryCredentials.DPAPI, DPAPI);
     }
 

@@ -409,8 +409,8 @@ final class DownloadsPanel {
     static String modeHint(UpgradeMode mode) {
         return switch (mode) {
             case SKIP -> "Skip: nothing is installed.";
-            case CLASSIC -> "AU: installs with Auto_Upgrade.jar. Not built yet (petrotest/upgrade/classic.py).";
-            case VHQ -> "VHQ: cloud deployment. Not built yet (petrotest/upgrade/vhq.py).";
+            case CLASSIC -> "AU: pushes the build with Auto_Upgrade.jar.";
+            case VHQ -> "VHQ: cloud deployment. Not implemented (petrotest/upgrade/vhq.py).";
             case NEW_INSTALL -> "PSI: a fresh install with Petro_Suite_Installer.jar and Auto_Upgrade.jar.";
         };
     }

@@ -24,6 +24,8 @@ import com.verifone.cat.sims.SimEntry;
 import com.verifone.cat.sims.SimFetch;
 import com.verifone.cat.sims.SimRunning;
 import com.verifone.cat.sims.ToolsRoot;
+import com.verifone.cat.upgrade.ClassicUpgrade;
+import com.verifone.cat.upgrade.ClassicUpgradeTools;
 import com.verifone.cat.upgrade.NewInstall;
 import com.verifone.cat.upgrade.NewInstallTools;
 import com.verifone.cat.upgrade.PsiInit;
@@ -49,8 +51,8 @@ import com.verifone.cat.upgrade.StepResult;
  * <p>Stop (the Python's {@code stop()}, which cancels the task) interrupts the worker and ends the install before its
  * next stage; a stage already running ends where it next waits, as the Python's cancel does at its next await.
  *
- * <p>Deviations: AU ({@code classic}) and VHQ are unavailable (refused before anything starts, naming their Python
- * modules), as in {@code launch.InstallCommanderBuild}. The Simulator Build is replaced in the base-57 form of the
+ * <p>AU runs the upgrade slice's {@code ClassicUpgrade} (stage "upgrade"; no psi-init after it). Deviations: VHQ is refused
+ * before anything starts (the Python's fails saying it is not implemented). The Simulator Build is replaced in the base-57 form of the
  * registry rows (the Commander's base is not read here; a run's System Checks reads it).
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). A PSI install reformats the Commander's disk and reinstalls every
@@ -101,6 +103,24 @@ final class UpgradeService {
         };
         return PsiInit.forRig(rig, env, say).run(rig, false);
     };
+
+    /** An AU push of the build in {@code dir} to the rig named. */
+    @FunctionalInterface
+    interface ClassicInstaller {
+        List<StepResult> install(String rig, Path dir, Map<String, String> env, Consumer<String> log);
+    }
+
+    /** The real AU push: {@code ClassicUpgrade} with the build's own jars (the upgrade slice's port). */
+    static final ClassicInstaller CLASSIC = (rig, dir, env, log) -> ClassicUpgrade
+            .system(ClassicUpgradeTools.forBuild(dir), log).run(RigLoader.load(rig, RigLoader.rigsDir(env)), env);
+
+    private ClassicInstaller classic = CLASSIC;
+
+    /** The AU push this service runs (tests pass a fake). */
+    UpgradeService withClassic(ClassicInstaller push) {
+        classic = push;
+        return this;
+    }
 
     /** One stage: its name, its status ("", running, done, skipped, failed, stopped) and a detail. */
     record Stage(String name, String status, String detail) {}
@@ -203,16 +223,13 @@ final class UpgradeService {
         if (c.mode() == UpgradeMode.SKIP && !c.simChosen()) {
             problems.add("an Upgrade mode other than Skip, or a Simulator Build");
         }
-        if (c.mode() == UpgradeMode.CLASSIC) {
-            problems.add("another Upgrade mode: AU (classic) is not built yet (petrotest/upgrade/classic.py)");
-        }
         if (c.mode() == UpgradeMode.VHQ) {
-            problems.add("another Upgrade mode: VHQ is not built yet (petrotest/upgrade/vhq.py)");
+            problems.add("another Upgrade mode: VHQ is not implemented (petrotest/upgrade/vhq.py)");
         }
-        if (c.mode() == UpgradeMode.NEW_INSTALL && c.commanderBranch().isEmpty()
-                && downloads.localBuildDir(c).isEmpty()) {
-            problems.add("a Commander Build: none on this PC holds " + c.dist()
-                    + " with the PSI files, so pick a branch to download one from");
+        if (c.installing() && c.commanderBranch().isEmpty() && downloads.localBuildDir(c).isEmpty()) {
+            problems.add("a Commander Build: none on this PC holds " + c.dist() + " with the "
+                    + (c.mode() == UpgradeMode.CLASSIC ? "AU" : "PSI")
+                    + " files, so pick a branch to download one from");
         }
         return String.join(" and ", problems);
     }
@@ -225,8 +242,8 @@ final class UpgradeService {
             case NEW_INSTALL -> "installs with PSI (" + String.join(" and ", DownloadsService.jarsFor(c.mode()))
                     + "), then psi-init --no-pairing resets the Commander's password";
             case SKIP -> "is not installed: Upgrade mode is Skip";
-            case CLASSIC -> "is not installed: AU is not built yet";
-            case VHQ -> "is not installed: VHQ is not built yet";
+            case CLASSIC -> "is pushed with AU (" + String.join(" and ", DownloadsService.jarsFor(c.mode())) + ")";
+            case VHQ -> "is not installed: VHQ is not implemented";
         };
         String simulators = c.simChosen()
                 ? c.simBranch() + " " + (c.simBuild().isEmpty() ? "(pick a build)" : c.simBuild())
@@ -239,6 +256,10 @@ final class UpgradeService {
 
     /** The question Start asks, naming the rig and the build, since the install reinstalls the Commander. */
     String confirmText(DownloadsService.Choice c) {
+        if (c.mode() == UpgradeMode.CLASSIC) {
+            return "Push " + c.commanderLabel() + " (" + c.dist() + ") to rig " + rig.get()
+                    + " with Auto_Upgrade.jar (AU)?";
+        }
         if (c.mode() != UpgradeMode.NEW_INSTALL) {
             return "Replace the simulators on rig " + rig.get() + " with " + c.simBranch() + " " + c.simBuild() + "?";
         }
@@ -367,14 +388,14 @@ final class UpgradeService {
         try {
             log.line("Install Upgrade on rig " + rigName + ": " + summary(c).replace('\n', ' '));
             Path dir = null;
-            if (c.mode() == UpgradeMode.NEW_INSTALL) {
+            if (c.installing()) {
                 if (!c.commanderBranch().isEmpty()) {
                     stage("download", "running", c.commanderLabel());
                     dir = downloads.fetchCommander(c, log);
                     stage("download", "done", dir.toString());
                 } else {
                     Optional<Path> local = downloads.localBuildDir(c);
-                    dir = local.orElseThrow(() -> new BuildException("no build on this PC holds the PSI files"));
+                    dir = local.orElseThrow(() -> new BuildException("no build on this PC holds the install files"));
                     stage("download", "skipped", "already on this PC: " + dir);
                 }
             } else {
@@ -384,7 +405,18 @@ final class UpgradeService {
                 return "";
             }
             current = "upgrade";
-            if (dir != null) {
+            if (dir != null && c.mode() == UpgradeMode.CLASSIC) {
+                stage("upgrade", "running", "AU: " + dir);
+                List<StepResult> results = classic.install(rigName, dir, env, log::line);
+                Optional<StepResult> failed = results.stream().filter(StepResult::failed).findFirst();
+                if (failed.isPresent()) {
+                    String why = failed.get().step() + ": " + failed.get().detail();
+                    stage("upgrade", "failed", why);
+                    return why;
+                }
+                stage("upgrade", "done", results.size() + " steps");
+                stage("psi-init", "skipped", "no PSI install");
+            } else if (dir != null) {
                 stage("upgrade", "running", dir.toString());
                 NewInstallTools tools = toolsFor.apply(dir);
                 List<StepResult> results = installer.install(rigName, tools, env, log::line);

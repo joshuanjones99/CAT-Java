@@ -240,7 +240,7 @@ final class SimulatorsService {
         if (rig != null && rig.pinpad() == Rig.Pinpad.VATS) {
             service.connectors.put(CARD_SERVER, Connector.unported("cat/launch/steps/simulators.py _start_card_server"));
         }
-        service.connectors.put(CLOUD_TUNNEL, Connector.unported("cat/launch/tunnel.py _start_cloud_tunnel"));
+        service.connectors.put(CLOUD_TUNNEL, tunnelRow(rigName, new PowerShellProcessOps()));
         if (rig != null) {
             service.launcher = (chosen, log) -> {
                 CommanderBase.Base base = CommanderBase.of("", () -> {
@@ -261,6 +261,41 @@ final class SimulatorsService {
         }
         service.resetTicks();
         return service;
+    }
+
+    /**
+     * The cloud tunnel's row: running when a process's command line is a {@code cloud-tunnel --rig <rig>} serve (the
+     * Python's {@code _is_tunnel_for}, {@code CloudTunnelProcess.isTunnelFor}); its start waits on step 4's tunnel
+     * start ({@code cat/launch/tunnel.py}), a hook until that port is merged.
+     */
+    static Connector tunnelRow(String rigName, com.verifone.cat.sims.ProcessOps ops) {
+        Connector start = Connector.unported("cat/launch/tunnel.py _start_cloud_tunnel");
+        return new Connector() {
+            @Override
+            public String probe() {
+                if (rigName == null || rigName.isBlank()) {
+                    return "";
+                }
+                com.verifone.cat.sims.ProcessOps.Snapshot snapshot = ops.commandLines(
+                        com.verifone.cat.cloudtunnel.CloudTunnelProcess.EXES, Duration.ofSeconds(15));
+                for (String line : snapshot.text().split("\\R")) {
+                    if (com.verifone.cat.cloudtunnel.CloudTunnelProcess.isTunnelFor(line, rigName)) {
+                        return "cloud-tunnel --rig " + rigName;
+                    }
+                }
+                return "";
+            }
+
+            @Override
+            public Map.Entry<Boolean, String> start(Consumer<String> log) {
+                String running = probe();
+                if (!running.isEmpty()) {
+                    log.accept("Cloud Tunnel: already running (" + running + ")");
+                    return Map.entry(true, "already running: " + running);
+                }
+                return start.start(log);
+            }
+        };
     }
 
     private static Rig loadRig(String rigName) {
