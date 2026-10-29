@@ -125,4 +125,70 @@ class PrinterHoldTest {
         assertTrue(opened.isEmpty());
         assertEquals(List.of(), rows(ctx));
     }
+
+    /** A fake printer: receipts added by the test, read by the relay. */
+    private static final class FakePrinter implements com.verifone.cat.pos.receipt.ReceiptPrinter, AutoCloseable {
+        final List<List<String>> printed = new java.util.concurrent.CopyOnWriteArrayList<>();
+        boolean closed;
+
+        @Override
+        public int receiptCount() {
+            return printed.size();
+        }
+
+        @Override
+        public List<List<String>> receiptsSince(int index) {
+            return List.copyOf(printed.subList(Math.min(index, printed.size()), printed.size()));
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+    }
+
+    private static List<String> receiptLines(RunContext ctx) throws IOException {
+        List<String> lines = new ArrayList<>();
+        for (JsonNode event : LaunchFixtures.events(ctx.runFolder())) {
+            if (event.get("type").asText().equals("log.line")
+                    && event.get("logger").asText().equals(com.verifone.cat.devices.printer.TopazPrinter.RECEIPT_LOGGER)) {
+                lines.add(event.get("message").asText());
+            }
+        }
+        return lines;
+    }
+
+    /** The Python's relay_receipts: what the register prints while CAT holds the port reaches the run's stream. */
+    @Test
+    void theReceiptsPrintedDuringTheHoldAreRelayedIntoTheRun() throws Exception {
+        RunContext ctx = context(false);
+        StepEmitter step = new StepEmitter(ctx, LaunchStepNames.SYSTEM_CHECKS);
+        FakePrinter printer = new FakePrinter();
+        PrinterHold.hold(ctx, step, port -> printer);
+        printer.printed.add(List.of("STORE 1", "TOTAL 1.00"));
+        PrinterHold.release(ctx, true);
+        ctx.closeEvents();
+
+        assertTrue(printer.closed);
+        List<String> lines = receiptLines(ctx);
+        assertEquals("COM3 open: answering the register as its printer", lines.get(0));
+        assertTrue(lines.get(1).startsWith("┌ receipt 1 on COM3, 2 lines ["), lines.toString());
+        assertEquals(List.of("│ STORE 1", "│ TOTAL 1.00", "└ end of receipt 1", "COM3 closed"),
+                lines.subList(2, lines.size()));
+    }
+
+    /** Launch Simulators' row: a listed port is stopped (CAT holds it only in a run), a missing one failed. */
+    @Test
+    void theLaunchRowSaysWhetherThePortIsListed() throws IOException {
+        RunContext ctx = context(false);
+        PrinterHold.launchRow(ctx, target -> new com.verifone.cat.connections.ProbeResult(target.name(),
+                com.verifone.cat.connections.ProbeState.UP, "COM3 is listed", target.kind()));
+        PrinterHold.launchRow(ctx, target -> new com.verifone.cat.connections.ProbeResult(target.name(),
+                com.verifone.cat.connections.ProbeState.DOWN, "COM3 is not listed", target.kind()));
+        PrinterHold.launchRow(ctx, target -> new com.verifone.cat.connections.ProbeResult(target.name(),
+                com.verifone.cat.connections.ProbeState.UNKNOWN, "?", target.kind()));
+
+        assertEquals(List.of("Receipt Printer: stopped COM3", "Receipt Printer: failed COM3",
+                "Receipt Printer: needs attention COM3"), rows(ctx));
+    }
 }

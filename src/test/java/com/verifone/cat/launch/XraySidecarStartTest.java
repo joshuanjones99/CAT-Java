@@ -101,7 +101,8 @@ class XraySidecarStartTest {
     @Test
     void theSidecarIsSpawnedForTheRunAndItsArgvIsTheSidecarsOwnCommandLine() throws IOException {
         RunContext ctx = context(new LaunchConfig.Builder(LaunchFixtures.RIG).xrayReport(true).testPlan(PLAN)
-                .build(), "dddddddddddd");
+                .dist("chevron").testPlanBranch("release").build(), "dddddddddddd");
+        ctx.installedBuild("Solutions134");
 
         XraySidecarStart.start(ctx, recording(4242));
 
@@ -118,6 +119,9 @@ class XraySidecarStartTest {
         assertEquals("dddddddddddd", options.runId());
         assertEquals(LaunchFixtures.paths(dir).resultsRoot(), options.resultsRoot());
         assertEquals(argv.get(argv.indexOf("--upgrade") + 1), options.upgrade());
+        assertEquals("chevron", options.dist());
+        assertEquals("release", options.branch());
+        assertEquals("Solutions134", options.build(), "the build step 4 named, for the execution's title");
 
         String text = eventsText(ctx);
         assertTrue(text.contains("Xray: reporting sidecar started (pid 4242) for " + PLAN), text);

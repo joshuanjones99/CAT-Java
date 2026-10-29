@@ -14,15 +14,18 @@ import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
 
 /**
- * {@code preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]}.
+ * {@code preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--repair]}.
  * The Python counterpart is {@code petrotest/preflight/cli.py}: load the rig, build the context,
  * run the checks, print the report, and map to an exit code.
+ *
+ * <p>Repair is off unless {@code --repair} is given, as the Python's {@code petrotest preflight --repair}: without it
+ * the checks only read the rig. {@code --no-repair}, the old opt-out, is accepted and does nothing.
  *
  * <p>Exit codes follow the Python CLI: 0 when the rig is testable, 1 when it is not, 2 for a usage
  * or load error. "Testable" is {@link PreflightReport#testable()}, so a probe with no source on this
  * port (ERROR) does not fail the run, while a readable check that fails does.
  *
- * <p>Not wired into {@code Main}: the orchestrator decides that. {@link #run(String[])} is the entry.
+ * <p>{@code Main} dispatches {@code cat-java preflight} to it; {@link #run(String[])} is the entry.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -33,7 +36,7 @@ public final class PreflightCommand {
     public static final int EXIT_USAGE = 2;
 
     static final String USAGE =
-            "usage: cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]";
+            "usage: cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--repair]";
 
     private static final Duration VERIFY_BUDGET = PreflightRunner.VERIFY_BUDGET;
 
@@ -106,7 +109,7 @@ public final class PreflightCommand {
         String rig;
         String register;
         int shimPort = PosShimClient.DEFAULT_SHIM_PORT;
-        boolean repair = true;
+        boolean repair;
 
         static Options parse(String[] argv) {
             Options o = new Options();
@@ -117,7 +120,9 @@ public final class PreflightCommand {
                     case "--rig" -> o.rig = value(flag, args);
                     case "--register" -> o.register = value(flag, args);
                     case "--shim-port" -> o.shimPort = port(value(flag, args));
-                    case "--no-repair" -> o.repair = false;
+                    case "--repair" -> o.repair = true;
+                    // Before 2026-10-29 repair was the default and this turned it off; kept as a no-op.
+                    case "--no-repair" -> { }
                     default -> throw new IllegalArgumentException("Unknown option " + flag + ".");
                 }
             }

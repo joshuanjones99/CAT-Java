@@ -28,10 +28,12 @@ import com.verifone.cat.sims.Supervisor;
  * The detail lists every clause, so a Cleanup row never reads "all done" behind a caveat. The {@code run.ended} marker
  * is written by the launcher once the stream is closed, as the Python's {@code launch_run} does.
  *
- * <p>Not ported, so not here: a continuous run's {@code keep_simulators} (CAT-Java's {@link LaunchConfig} has none, so
- * every CAT-started simulator is stopped), and with it {@code keeps_petro_ports}: the run's Petro ports are always
- * released here. The launcher still stops the simulators and the watch and releases the ports after this step,
- * whatever happened; after this step there is nothing left for it to do.
+ * <p>A continuous run ({@link LaunchConfig#keepSimulators}, the Python's {@code keep_simulators}) stops none of the
+ * simulators: a skipped row names them, left running for the next pass to adopt (D9), and the run forgets them so the
+ * launcher's release stops none either. A run that keeps Petro's ports ({@link RunContext#keepsPetroPorts}: a
+ * continuous run, or a caller's sinks) leaves them held for whoever outlives it and says so in the detail. The
+ * launcher still stops the simulators and the watch and releases the ports after this step, whatever happened, on
+ * the same terms. Each kept simulator's log tail ends here ({@code stop_log}), as the Python's.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -78,7 +80,19 @@ final class CleanupStep implements LaunchStep {
         }
 
         List<SimProcess> procs = ctx.simulators();
-        if (procs.isEmpty()) {
+        if (!procs.isEmpty() && ctx.config().keepSimulators()) {
+            // A continuous run's next pass adopts them. Only the log tails end here.
+            List<String> names = new ArrayList<>();
+            for (SimProcess proc : procs) {
+                if (proc.stopLog() != null) {
+                    proc.stopLog().run();
+                }
+                names.add(proc.entry().name());
+            }
+            step.skip("stop simulators", "left running for the next continuous pass: " + String.join(", ", names));
+            ctx.clearSimulators();
+            parts.add("simulators left running (continuous run)");
+        } else if (procs.isEmpty()) {
             step.skip("stop simulators", "none was started by CAT");
             parts.add("no CAT-started simulators");
         } else {
@@ -99,8 +113,18 @@ final class CleanupStep implements LaunchStep {
             }
         }
 
-        // After the simulators, so Petro never pushes to a closed port while it runs.
-        PetroPorts.releaseAll(ctx);
+        if (ctx.keepsPetroPorts()) {
+            // Petro stays up, so its ports stay held: the caller owns the sinks and closes them when the continuous
+            // run ends, or keeps them for the Petro that Launch Simulators left running.
+            if (!ctx.petroSinks().isEmpty()) {
+                List<String> ports = new ArrayList<>();
+                ctx.petroSinks().keySet().stream().sorted().forEach(port -> ports.add(String.valueOf(port)));
+                parts.add("Petro port(s) " + String.join(", ", ports) + " kept held");
+            }
+        } else {
+            // After the simulators, so Petro never pushes to a closed port while it runs.
+            PetroPorts.releaseAll(ctx);
+        }
 
         parts.add(checkRigLease(ctx, step, leaseTimeout));
 

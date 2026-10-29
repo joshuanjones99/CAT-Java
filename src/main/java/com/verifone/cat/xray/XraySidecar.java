@@ -43,8 +43,8 @@ import com.verifone.cat.xray.Summary.Verdict;
  * stream that stops without either ends after {@code idleAfterRunOver} seconds once
  * {@code run.ended} exists, or after {@code idleLimit} seconds of silence in any case.
  *
- * <p>Reached as {@code cat-java xray ...} ({@link #run(String[])}). Nothing spawns it yet: the launcher
- * does not start it.
+ * <p>Reached as {@code cat-java xray ...} ({@link #run(String[])}). The launcher starts it detached after step 4
+ * ({@code launch.XraySidecarStart}), as the Python's {@code start_xray_sidecar}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */

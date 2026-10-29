@@ -3,6 +3,9 @@ package com.verifone.cat.launch;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.devices.printer.TopazPrinter;
+import com.verifone.cat.pos.receipt.ReceiptPrinter;
+
+import java.util.List;
 import com.verifone.cat.report.events.CatEvent;
 import com.verifone.cat.rig.Rig;
 
@@ -27,9 +30,17 @@ import com.verifone.cat.rig.Rig;
  * in the Python, the hold itself never fails a step: the printer's readiness line in System Checks and the session's
  * printer are what fail a run.
  *
- * <p>Deviations from the Python: the receipts the register prints while CAT holds the port go to
- * {@link TopazPrinter#RECEIPT_LOGGER} only; the Python's {@code relay_receipts}, which copies them into the run's
- * event stream, is not ported. The not-held line is a WARNING where the Python's is INFO.
+ * <p>The receipts the register prints while CAT holds the port reach the run's stream ({@link ReceiptRelay}, the
+ * Python's {@code relay_receipts} / {@code _ReceiptRelay}): each as the {@link TopazPrinter#RECEIPT_LOGGER} lines the
+ * printer logs ({@code ┌ receipt N on COM1 ...}, {@code │ <line>}, {@code └ end of receipt N}), with no step, since a
+ * hold spans System Checks to Tests Run, so the Receipt Printer row's view shows them. {@link #launchRow} is Launch
+ * Simulators' row for the printer outside a run (the Python's {@code launch_row}).
+ *
+ * <p>Deviations from the Python: the not-held line is a WARNING where the Python's is INFO. The relay reads the
+ * printer's receipts every {@link ReceiptRelay#POLL} rather than hooking its logger (slf4j-simple has no handlers to
+ * add): the receipt lines and the open and close lines are relayed; the printer's unknown-command and read-failed
+ * records are not (they stay in the process log). HOOK: a receipt listener on {@code TopazPrinter} would make the
+ * relay exact.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): tested with a fake opener only; nothing here has held COM1 or seen
  * Reg101 print.
@@ -88,7 +99,8 @@ final class PrinterHold {
             notHeld(ctx, step, port, "failed", e);
             return;
         }
-        ctx.heldPrinter(printer);
+        ctx.heldPrinter(printer instanceof ReceiptPrinter receipts
+                ? new ReceiptRelay(ctx, port, receipts, printer) : printer);
         step.log("holding " + port + " as the register's printer until the tests start", "INFO");
         row(ctx, "ready", "CAT holds it for the register until the tests start");
     }
@@ -115,6 +127,113 @@ final class PrinterHold {
         }
         if (!lent) {
             row(ctx, "stopped", "released by CAT; nothing holds it");
+        }
+    }
+
+    /**
+     * Launch Simulators' row for the printer, which it does not hold: is the port listed. Outside a run nothing answers
+     * the register's printer, so the row is {@code stopped} and says when CAT does; {@code failed} is the USB-serial
+     * adapter gone from Windows; a probe that could not tell is {@code needs attention}. Read as step 2's Connections
+     * row reads it. Nothing when the rig names no printer port. The Python's {@code launch_row}.
+     */
+    static void launchRow(RunContext ctx, java.util.function.Function<com.verifone.cat.connections.Target,
+            com.verifone.cat.connections.ProbeResult> probe) {
+        if (ctx.rig() == null) {
+            return;
+        }
+        java.util.Optional<com.verifone.cat.connections.Target> target =
+                com.verifone.cat.connections.Endpoints.printerTarget(ctx.rig().rig());
+        if (target.isEmpty()) {
+            return;
+        }
+        com.verifone.cat.connections.ProbeResult result = probe.apply(target.get());
+        String state;
+        String detail;
+        if (result.state() == com.verifone.cat.connections.ProbeState.UP) {
+            state = "stopped";
+            detail = result.detail() + "; CAT holds it during a run's setup and tests";
+        } else if (result.state() == com.verifone.cat.connections.ProbeState.DOWN) {
+            state = "failed";
+            detail = result.detail();
+        } else {
+            state = "needs attention";
+            detail = result.detail();
+        }
+        row(ctx, state, detail);
+    }
+
+    /**
+     * The printer CAT holds, with the relay of what it prints into the run's stream: {@link #close} closes the printer,
+     * then relays its last receipts and its closing line, then ends the relay (the Python's {@code HeldPrinter}).
+     */
+    static final class ReceiptRelay implements AutoCloseable {
+
+        /** How often the relay reads the printer's receipts. */
+        static final java.time.Duration POLL = java.time.Duration.ofMillis(500);
+
+        private final RunContext ctx;
+        private final String port;
+        private final ReceiptPrinter receipts;
+        private final AutoCloseable printer;
+        private final Thread thread;
+        private volatile boolean stopped;
+        private int relayed;
+
+        ReceiptRelay(RunContext ctx, String port, ReceiptPrinter receipts, AutoCloseable printer) {
+            this.ctx = ctx;
+            this.port = port;
+            this.receipts = receipts;
+            this.printer = printer;
+            line(port + " open: answering the register as its printer");
+            this.thread = new Thread(this::loop, "printer-relay-" + port);
+            thread.setDaemon(true);
+            thread.start();
+        }
+
+        private void loop() {
+            while (!stopped) {
+                java.util.concurrent.locks.LockSupport.parkNanos(POLL.toNanos());
+                relay();
+            }
+        }
+
+        /** Relays every receipt printed since the last call. Never throws: a lost port ends the relay. */
+        synchronized void relay() {
+            List<List<String>> fresh;
+            try {
+                if (receipts.receiptCount() <= relayed) {
+                    return;
+                }
+                fresh = receipts.receiptsSince(relayed);
+            } catch (RuntimeException e) {
+                stopped = true;
+                return;
+            }
+            for (List<String> lines : fresh) {
+                relayed++;
+                line(TopazPrinter.RECEIPT_START + "receipt " + relayed + " on " + port + ", " + lines.size()
+                        + " lines [" + TopazPrinter.receiptKey(lines) + "]");
+                for (String text : lines) {
+                    line(TopazPrinter.RECEIPT_LINE + text);
+                }
+                line(TopazPrinter.RECEIPT_END + "end of receipt " + relayed);
+            }
+        }
+
+        private void line(String message) {
+            ctx.emit(new CatEvent.LogLine("INFO", TopazPrinter.RECEIPT_LOGGER, message, ""));
+        }
+
+        @Override
+        public void close() throws Exception {
+            try {
+                printer.close();
+            } finally {
+                stopped = true;
+                thread.interrupt();
+                relay(); // after the close, so its last receipt and its own line are relayed too
+                line(port + " closed");
+            }
         }
     }
 

@@ -15,14 +15,16 @@ import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.atlassian.AtlassianCredentials;
 import com.verifone.cat.atlassian.AtlassianPlanSource;
 import com.verifone.cat.connections.Endpoints;
+import com.verifone.cat.plans.CaseRef;
+import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.plans.PlanCase;
 import com.verifone.cat.plans.PlanCatalogue;
-import com.verifone.cat.plans.Requirements;
 import com.verifone.cat.plans.SeedPlanSource;
+import com.verifone.cat.plans.SelectionError;
 import com.verifone.cat.plans.Snapshot;
+import com.verifone.cat.plans.TagExpressionError;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
-import com.verifone.cat.runconfig.RunScope;
 import com.verifone.cat.sims.Registry;
 import com.verifone.cat.sims.SimEntry;
 
@@ -33,28 +35,35 @@ import com.verifone.cat.sims.SimEntry;
  * <p>Defaults, as {@code run_plan._config}: an explicit flag wins; then the Config tab's last saved choices
  * ({@link LastConfig}: {@code ~/.cat/java/last-config.json}, then the Python CAT's {@code ~/.cat/last-config.json},
  * read-only); then the Python {@code LaunchConfig}'s default. The Commander Connect password comes from the saved
- * file or {@code $COMMANDER_CONNECT_PASSWORD} and is never printed.
+ * file or {@code $COMMANDER_CONNECT_PASSWORD} and is never printed. {@code provision_register} is on, as
+ * {@code run_plan} sets it.
  *
  * <p>The plan's cases are read from Xray first ({@link PlanCatalogue.Mode#REFRESH}, which writes the cache) and from
  * the cache alone only with {@code --cache-only}, because a stale cache once lost a case (the Python's HANDOFF
- * §1.166: run 81bfc9fb1541). Step 5 then reads that fresh cache, as the Python's {@code launch_run} does.
+ * §1.166: run 81bfc9fb1541). Run start then reads that fresh cache, as the Python's {@code launch_run} does.
  *
- * <p>On a rig run, the simulators step 3 starts are the plans' Simulators column when it names any, otherwise every
- * launchable registry row (the Python's {@code default_simulators}); {@code --simulator} replaces both. The optional
- * connections step 2 probes are the plans' Devices column less the printer when it names any, otherwise every extra
- * register and rig device but the physical pinpad ({@code default_connections}). The Python decides both at run start
- * ({@code cat.launch.requirements.apply_requirements}); this port decides them here, before the launch.
+ * <p>On a rig run, the simulators step 3 starts default to every launchable registry row (the Python's
+ * {@code default_simulators}) and the optional connections step 2 probes to every extra register and rig device but the
+ * physical pinpad ({@code default_connections}), as {@code run_plan} hands them over; run start replaces either with
+ * the plans' Simulators or Devices column when it names any ({@link RunRequirements}). {@code --simulator} replaces
+ * the default.
+ *
+ * <p>A partial run ({@code --tags}, {@code --only}, {@code --from}, which combine as the Python's do) is checked before
+ * anything starts, as {@code run_plan._refusal} checks it: a tag expression that does not parse, or a key not among the
+ * plans' migrated cases, prints {@code [run] refused: <why>} and exits 2. The tags are matched at run start, once
+ * collection has pulled the files.
  *
  * <p>Deviations from the Python: {@code --rig} is required (the Python always runs on {@code LAB_RIG}); a
  * {@code --fake-pos} run reads no saved choices and takes no default simulators or connections, so it never starts a
- * real simulator; {@code --tags}, {@code --only} and {@code --from} are one scope at a time (the Java
- * {@link RunScope} holds one mode), and the launcher refuses a partial run until that port lands;
- * {@code --solutions-build} is not accepted; {@code --dist} is accepted (the Python reads the dist only from the
- * saved file); the saved {@code config-xray} is read (see {@link LastConfig}). The Downloads flags
- * ({@code --commander-branch/--commander-build/--sim-branch/--sim-build}) default to the saved Config's Downloads
- * section, a flag's branch taking no saved foundation, as {@code run_plan._config} does.
+ * real simulator; {@code --dist} is accepted (the Python reads the dist only from the saved file); the saved
+ * {@code config-xray} is read (see {@link LastConfig}). The Downloads flags
+ * ({@code --commander-branch/--commander-build/--sim-branch/--sim-build}, {@code --solutions-build N} meaning
+ * {@code --commander-branch Solutions --commander-build N}) default to the saved Config's Downloads section, a flag's
+ * branch taking no saved foundation, as {@code run_plan._config} does. The saved IFSF mode and local build are the
+ * Config tab's ({@link LastConfig#ifsfMode}, {@link LastConfig#localBuild}); {@code run_plan} reads neither, nor does
+ * this.
  *
- * <p>Exit codes: 0 the run completed, 1 a step failed or was unavailable, 2 a usage error.
+ * <p>Exit codes: 0 the run completed, 1 a step failed or was unavailable, 2 a usage error or a refused partial run.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -67,10 +76,11 @@ public final class LaunchCommand {
     static final String USAGE = """
             usage: launch --rig <name|file.yaml> [--plan <key>...]... [--suite <node>]...
                           [--upgrade skip|classic|vhq|new_install] [--exec dev|BDD] [--dist <name>] [--branch <name>]
-                          [--commander-branch <branch> --commander-build <n>] [--sim-branch <branch> --sim-build <n>]
+                          [--commander-branch <branch> --commander-build <n> | --solutions-build <n>]
+                          [--sim-branch <branch> --sim-build <n>]
                           [--fep <name>]... [--simulator <name>]... [--no-xray] [--coverage | --no-coverage]
                           [--cc-onboard] [--waive-cc-requirement] [--capture-snapshot] [--snapshot-update]
-                          [--buypass-host] [--cache-only] [--tags <expr> | --only <key>... | --from <key>]
+                          [--buypass-host] [--cache-only] [--tags <expr>] [--only <key>...] [--from <key>]
                           [--fake-pos] [--fake-pinpad]""";
 
     /** The fake-POS banner, the same words the Python CAT's run log uses. */
@@ -110,6 +120,15 @@ public final class LaunchCommand {
             err.println(USAGE);
             return EXIT_USAGE;
         }
+        String refused = refusal(config, paths.catalogue());
+        if (!refused.isEmpty()) {
+            out.println("[run] refused: " + refused);
+            return EXIT_USAGE;
+        }
+        List<String> unwired = config.unwiredOptions();
+        if (!unwired.isEmpty()) {
+            out.println("[run] Recorded, not wired: " + String.join(", ", unwired));
+        }
 
         RunLauncher launcher = new RunLauncher(paths);
         // Step 5 runs the plan's collected cases through the production handler set, on the fake POS or the rig.
@@ -127,8 +146,34 @@ public final class LaunchCommand {
     }
 
     /**
+     * Why {@code config} cannot start, or "": a partial run whose tag expression does not parse, or whose
+     * {@code --only}/{@code --from} keys are not migrated cases of the plans as the cache has them. The Python's
+     * {@code run_plan._refusal}, checked here so a refused run touches nothing.
+     */
+    static String refusal(LaunchConfig config, PlanCatalogue catalogue) {
+        if (!config.partial()) {
+            return "";
+        }
+        try {
+            PartialRun.parseTags(config.selectionTags());
+            if (!config.selectionOnly().isEmpty() || !config.selectionFrom().isEmpty()) {
+                List<CaseRef> rows = new ArrayList<>();
+                for (String plan : config.testPlans()) {
+                    for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_FIRST).rows()) {
+                        rows.add(new CaseRef(row.key(), row.node()));
+                    }
+                }
+                PartialRun.select(rows, "", config.selectionOnly(), config.selectionFrom(), Path.of("."));
+            }
+        } catch (SelectionError | TagExpressionError e) {
+            return e.getMessage();
+        }
+        return "";
+    }
+
+    /**
      * The config the run starts with: the flags over the saved choices, the plans' cases read (Xray first unless
-     * {@code --cache-only}), and the default simulators and connections from the plans' requirements.
+     * {@code --cache-only}), and the default simulators and connections run start may replace.
      */
     static LaunchConfig resolve(Options o, LaunchPaths paths, LastConfig saved, Map<String, String> env,
             PrintStream out) {
@@ -144,14 +189,10 @@ public final class LaunchCommand {
         List<String> simulators = o.simulators;
         List<String> connections = List.of();
         if (!o.fakePos) {
-            Requirements requirements = Requirements.forPlans(o.plans, o.plans.isEmpty() ? List.of()
-                    : catalogue.requirements(PlanCatalogue.Mode.REFRESH).rows());
             if (simulators.isEmpty()) {
-                simulators = requirements.simulators().isEmpty() ? defaultSimulators() : requirements.simulators();
+                simulators = defaultSimulators();
             }
-            connections = requirements.devices().isEmpty() ? defaultConnections(loadRig(o.rig, paths))
-                    : requirements.devices().stream()
-                            .filter(name -> !name.equalsIgnoreCase(Requirements.PRINTER)).toList();
+            connections = defaultConnections(loadRig(o.rig, paths));
         }
         return o.toConfig(o.fakePos ? LastConfig.none() : saved, env, simulators, connections);
     }
@@ -225,6 +266,7 @@ public final class LaunchCommand {
         boolean buypassHost;
         String commanderBranch = "";
         String commanderBuild = "";
+        String solutionsBuild = "";
         String simBranch = "";
         String simBuild = "";
 
@@ -267,6 +309,7 @@ public final class LaunchCommand {
                     case "--fake-pinpad" -> o.fakePinpad = true;
                     case "--commander-branch" -> o.commanderBranch = value(flag, args);
                     case "--commander-build" -> o.commanderBuild = value(flag, args);
+                    case "--solutions-build" -> o.solutionsBuild = value(flag, args);
                     case "--sim-branch" -> o.simBranch = value(flag, args);
                     case "--sim-build" -> o.simBuild = value(flag, args);
                     default -> throw new IllegalArgumentException("Unknown option " + flag + ".");
@@ -275,25 +318,7 @@ public final class LaunchCommand {
             if (o.rig == null && !o.fakePos) {
                 throw new IllegalArgumentException("--rig is required.");
             }
-            int scopes = (o.tags.isBlank() ? 0 : 1) + (o.only.isEmpty() ? 0 : 1) + (o.fromCase.isBlank() ? 0 : 1);
-            if (scopes > 1) {
-                throw new IllegalArgumentException("--tags, --only and --from are one scope at a time in CAT-Java.");
-            }
             return o;
-        }
-
-        /** The run's scope: the whole plan unless one of {@code --tags}, {@code --only}, {@code --from} was given. */
-        RunScope scope() {
-            if (!only.isEmpty()) {
-                return new RunScope(RunScope.Mode.CASES, "", only, null, "", true);
-            }
-            if (!fromCase.isBlank()) {
-                return new RunScope(RunScope.Mode.FROM, "", List.of(), null, fromCase.strip(), true);
-            }
-            if (!tags.isBlank()) {
-                return new RunScope(RunScope.Mode.TAGS, tags.strip(), List.of(), null, "", true);
-            }
-            return RunScope.whole();
         }
 
         /**
@@ -315,16 +340,26 @@ public final class LaunchCommand {
                     .snapshotUpdate(snapshotUpdate)
                     .captureSnapshot(captureSnapshot)
                     .buypassHost(buypassHost)
+                    // run_plan: a run against the rig always provisions the register in step 4 (never under fake POS).
+                    .provisionRegister(true)
                     .xrayReport(!noXray && saved.xray())
                     .coverage(!noCoverage && (coverage || saved.coverage()))
                     .commanderConnect(ccOnboard || saved.ccOnboard())
                     .commanderConnect(saved.commanderConnect(env))
                     .ccRequirementWaived(waiveCcRequirement)
-                    .scope(scope());
-            // The Downloads section: a flag's branch takes no saved foundation (run_plan._config).
-            LastConfig.Downloads downloads = saved.downloads(commanderBranch, commanderBuild, simBranch, simBuild);
+                    .tags(tags.strip())
+                    .only(only)
+                    .fromCase(fromCase.strip());
+            // The Downloads section: a flag's branch takes no saved foundation (run_plan._config); --solutions-build N
+            // is --commander-branch Solutions --commander-build N.
+            String flagBranch = !commanderBranch.isBlank() ? commanderBranch
+                    : solutionsBuild.isBlank() ? "" : "Solutions";
+            String flagBuild = !commanderBuild.isBlank() ? commanderBuild : solutionsBuild;
+            LastConfig.Downloads downloads = saved.downloads(flagBranch, flagBuild, simBranch, simBuild);
             builder.commanderBranch(downloads.commanderBranch())
                     .commanderBuild(downloads.commanderBuild())
+                    .foundationBranch(downloads.foundationBranch())
+                    .foundationBuild(downloads.foundationBuild())
                     .simBranch(downloads.simBranch())
                     .simBuild(downloads.simBuild());
             suites.forEach(builder::suite);

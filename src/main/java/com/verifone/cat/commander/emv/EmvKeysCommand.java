@@ -18,7 +18,8 @@ import com.verifone.cat.rig.RigLoader;
  *
  * <p>{@code --tables} alone means {@code always}, as the Python's {@code nargs="?", const="always"}. Exit codes,
  * as the Python's {@code _exit_code}: 0 when {@link EmvKeys#cli} succeeded, 1 when it did not or raised, 2 for a
- * usage or rig-loading error. The {@code emv-keys} word is accepted and dropped. Main does not dispatch to it yet.
+ * usage or rig-loading error. The {@code emv-keys} word is accepted and dropped. {@code Main} dispatches
+ * {@code cat-java emv-keys} to it.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
