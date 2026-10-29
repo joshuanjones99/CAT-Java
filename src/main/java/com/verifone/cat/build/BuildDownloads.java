@@ -29,23 +29,41 @@ public final class BuildDownloads {
      * @throws BuildException when the file is not on Artifactory, or the download does not verify
      */
     public static Path fetchFile(ArtifactoryClient client, String repoPath, Path target, Consumer<String> log) {
+        return fetchFile(client, repoPath, target, log, fileInfo(client, repoPath));
+    }
+
+    /** {@link #fetchFile} with the file's size and checksum already asked for (the Python's {@code info=}). */
+    public static Path fetchFile(ArtifactoryClient client, String repoPath, Path target, Consumer<String> log,
+            ArtifactoryClient.FileInfo info) {
         String name = target.getFileName().toString();
-        ArtifactoryClient.FileInfo info;
+        if (Files.isRegularFile(target) && sizeOf(target) == info.size()) {
+            log.accept("  " + name + ": already downloaded (" + bytes(info.size()) + " bytes)");
+            return target;
+        }
+        log.accept("  " + name + ": downloading " + bytes(info.size()) + " bytes");
+        return client.downloadFile(client.fileUrl(repoPath), target, info.size(), info.sha256(),
+                ArtifactoryClient.DEFAULT_WORKERS);
+    }
+
+    /**
+     * A file's size and checksum; a file not there is a {@link BuildException} saying so.
+     *
+     * @throws BuildException {@code <repoPath> is not on Artifactory} for a 404
+     */
+    public static ArtifactoryClient.FileInfo fileInfo(ArtifactoryClient client, String repoPath) {
         try {
-            info = client.fileInfo(repoPath);
+            return client.fileInfo(repoPath);
         } catch (ArtifactoryException e) {
             if (e.status() == 404) {
                 throw new BuildException(repoPath + " is not on Artifactory", e);
             }
             throw e;
         }
-        if (Files.isRegularFile(target) && sizeOf(target) == info.size()) {
-            log.accept("  " + name + ": already downloaded (" + info.size() + " bytes)");
-            return target;
-        }
-        log.accept("  " + name + ": downloading " + info.size() + " bytes");
-        return client.downloadFile(client.fileUrl(repoPath), target, info.size(), info.sha256(),
-                ArtifactoryClient.DEFAULT_WORKERS);
+    }
+
+    /** {@code 1,234,567}: the Python's {@code {size:,}}. */
+    static String bytes(long size) {
+        return String.format(java.util.Locale.ROOT, "%,d", size);
     }
 
     /** Each named file of {@code folder} into {@code dest}, by {@link #fetchFile}. */
