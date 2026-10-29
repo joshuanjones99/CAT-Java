@@ -175,15 +175,28 @@ final class PrinterHold {
         private final String port;
         private final ReceiptPrinter receipts;
         private final AutoCloseable printer;
+        private final java.util.function.Supplier<String> during;
         private final Thread thread;
         private volatile boolean stopped;
         private int relayed;
 
         ReceiptRelay(RunContext ctx, String port, ReceiptPrinter receipts, AutoCloseable printer) {
+            this(ctx, port, receipts, printer, () -> "");
+        }
+
+        /**
+         * @param printer what {@link #close} closes first (the step-5 session's relay passes a no-op: the connector owns
+         *                that printer)
+         * @param during  the key of the case running now, or "": a receipt's start line names it ({@code during
+         *                PETROCORE-61334}), as the Python's {@code _log_receipt} reads {@code case_record.current}
+         */
+        ReceiptRelay(RunContext ctx, String port, ReceiptPrinter receipts, AutoCloseable printer,
+                java.util.function.Supplier<String> during) {
             this.ctx = ctx;
             this.port = port;
             this.receipts = receipts;
             this.printer = printer;
+            this.during = during;
             line(port + " open: answering the register as its printer");
             this.thread = new Thread(this::loop, "printer-relay-" + port);
             thread.setDaemon(true);
@@ -209,10 +222,12 @@ final class PrinterHold {
                 stopped = true;
                 return;
             }
+            String key = during.get();
+            String tag = key == null || key.isEmpty() ? "" : " during " + key;
             for (List<String> lines : fresh) {
                 relayed++;
                 line(TopazPrinter.RECEIPT_START + "receipt " + relayed + " on " + port + ", " + lines.size()
-                        + " lines [" + TopazPrinter.receiptKey(lines) + "]");
+                        + " lines [" + TopazPrinter.receiptKey(lines) + "]" + tag);
                 for (String text : lines) {
                     line(TopazPrinter.RECEIPT_LINE + text);
                 }
@@ -233,6 +248,28 @@ final class PrinterHold {
                 thread.interrupt();
                 relay(); // after the close, so its last receipt and its own line are relayed too
                 line(port + " closed");
+            }
+        }
+    }
+
+    /** A receipt check's verdict line on the printer's log: the Python's {@code topaz_printer.RECEIPT_CHECK}. */
+    static final String RECEIPT_CHECK = "╞ ";
+
+    /** One line of a receipt check's diff on the printer's log: the Python's {@code topaz_printer.RECEIPT_DIFF}. */
+    static final String RECEIPT_DIFF = "┊ ";
+
+    /**
+     * A receipt check's verdict on the printer's log, for the Receipt Printer's roll: {@code ╞ <receipt key> <case>
+     * passed|failed <name>}, then its diff a line at a time as {@code ┊ <line>}. The Python's
+     * {@code case_record.receipt_checked}; the roll puts the verdict beside the receipt with the same key.
+     */
+    static void receiptChecked(RunContext ctx, com.verifone.cat.report.CaseRecord.ReceiptCheck check, String step) {
+        ctx.emit(new CatEvent.LogLine("INFO", TopazPrinter.RECEIPT_LOGGER, RECEIPT_CHECK + check.key() + " "
+                + (check.caseKey().isEmpty() ? "-" : check.caseKey()) + " " + (check.passed() ? "passed" : "failed")
+                + " " + (check.name().isEmpty() ? "-" : check.name()), step));
+        for (String line : check.diff().split("\n", -1)) {
+            if (!check.diff().isEmpty()) {
+                ctx.emit(new CatEvent.LogLine("INFO", TopazPrinter.RECEIPT_LOGGER, RECEIPT_DIFF + line, step));
             }
         }
     }

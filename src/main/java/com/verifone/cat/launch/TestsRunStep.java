@@ -177,6 +177,9 @@ final class TestsRunStep implements LaunchStep {
         PetroSession petro;
         boolean heldPumpPort;
         boolean printerLent;
+        /** The session printer's relay into the run, or null; and the case running now, for its receipts' tag. */
+        PrinterHold.ReceiptRelay relay;
+        volatile String currentCase = "";
     }
 
     @Override
@@ -210,6 +213,14 @@ final class TestsRunStep implements LaunchStep {
                 session.petro.close();
             }
             connector.close();
+            if (session.relay != null) {
+                // After the connector closed the port, so the last receipt is relayed too.
+                try {
+                    session.relay.close();
+                } catch (Exception e) {
+                    LOG.debug("the receipt relay did not close: {}", e.getMessage());
+                }
+            }
             if (fake != null) {
                 fake.close();
             }
@@ -300,6 +311,13 @@ final class TestsRunStep implements LaunchStep {
                 ctx.rig(), null, null, null, pinpad, fake == null ? null : fake.url(), null, null,
                 session.petro.dcr(), session.petro.fuelPumps());
         RunServices services = connector.connect(base);
+        if (services.printer() != null) {
+            // What the register prints during the session reaches the Receipt Printer's roll, each receipt tagged with
+            // the case running as it printed (the Python's log tap and _log_receipt).
+            String port = printerPort(ctx);
+            session.relay = new PrinterHold.ReceiptRelay(ctx, port == null ? "the printer" : port, services.printer(),
+                    () -> { }, () -> session.currentCase);
+        }
         if (registries instanceof StandardRegistry standard) {
             // The Python's fepsim_buypass_env: FEPSIM v2's Buypass listener, when it serves Buypass this run.
             standard.buypassV2(StartSimulatorsStep.fepsimBuypass(ctx).orElse(null));
@@ -325,6 +343,7 @@ final class TestsRunStep implements LaunchStep {
         for (Loaded one : loaded) {
             CaseEntry entry = one.entry();
             pauseBeforeCase(ctx, one.nodeid());
+            session.currentCase = entry.key();
             CaseVerdict verdict = runCase(ctx, one, built, session.petro, state, ladder, earlierFailures, fullPlan,
                     services.pos(), evidence);
             finished++;
@@ -504,7 +523,7 @@ final class TestsRunStep implements LaunchStep {
             run.withEvidence(evidence);
         }
         String nodeid = one.nodeid();
-        int validationsSent = 0;
+        int[] sent = {0, 0}; // validation verdicts, receipt checks
         try {
             run.begin();
             for (int i = 0; i < actions.size(); i++) {
@@ -519,7 +538,7 @@ final class TestsRunStep implements LaunchStep {
                     // Playwright's expect() fails with an Error; the Python's except Exception catches its counterpart.
                     stop = new PatsStepError(e.getMessage(), e);
                 }
-                validationsSent = emitSettled(ctx, nodeid, record, validationsSent);
+                emitSettled(ctx, nodeid, record, sent);
                 if (stop != null) {
                     for (RunnableAction later : actions.subList(i + 1, actions.size())) {
                         record.addUnreachedStep(later.index() + 1, "", later.describe());
@@ -540,10 +559,12 @@ final class TestsRunStep implements LaunchStep {
     }
 
     /**
-     * Emits the step that just settled and the validation verdicts it added. Returns how many verdicts
-     * have now been sent.
+     * Emits the step that just settled, the validation verdicts it added, and its receipt checks as the printer's
+     * {@code ╞}/{@code ┊} lines for the Receipt Printer's roll ({@link PrinterHold#receiptChecked}). {@code sent} holds
+     * how many verdicts and checks have been sent, and is advanced.
      */
-    private static int emitSettled(RunContext ctx, String nodeid, CaseRecord record, int validationsSent) {
+    private static void emitSettled(RunContext ctx, String nodeid, CaseRecord record, int[] sent) {
+        int validationsSent = sent[0];
         List<CaseRecord.StepRecord> steps = record.steps();
         if (!steps.isEmpty()) {
             CaseRecord.StepRecord step = steps.get(steps.size() - 1);
@@ -556,7 +577,12 @@ final class TestsRunStep implements LaunchStep {
             ctx.emit(new CatEvent.TestValidation(nodeid, v.caseKey(), v.kind(), v.name(), v.passed(), v.diff(),
                     v.expected(), v.actual()));
         }
-        return verdicts.size();
+        sent[0] = verdicts.size();
+        List<CaseRecord.ReceiptCheck> checks = record.receiptChecks();
+        for (int i = sent[1]; i < checks.size(); i++) {
+            PrinterHold.receiptChecked(ctx, checks.get(i), LaunchStepNames.TESTS);
+        }
+        sent[1] = checks.size();
     }
 
     // -- pause, stop, the session's end ----------------------------------------------------------
