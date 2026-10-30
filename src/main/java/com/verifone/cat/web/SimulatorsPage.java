@@ -35,7 +35,10 @@ final class SimulatorsPage {
                 + "adopts them instead of starting its own. Stop closes every simulator, whoever started it.</p>"
                 + panel(sims)
                 + "<section id=\"sim-log\" class=\"card wide\"><p class=\"muted\">"
-                + "Choose Log on a simulator to follow its output.</p></section>";
+                + "Choose Log on a simulator to follow its output, or "
+                + "<button type=\"button\" class=\"ghost\" hx-get=\"/fragments/simulators/log?name="
+                + esc(encode(SimulatorsService.LAUNCH_LOG)) + "\" hx-target=\"#sim-log\" hx-swap=\"outerHTML\">"
+                + "the launch's own lines</button>.</p></section>";
     }
 
     /** The polled panel: rows, Start or Stop, and the last message. Swapped whole. */
@@ -61,7 +64,9 @@ final class SimulatorsPage {
                     .append(disabled)
                     .append(" hx-post=\"/simulators/toggle?name=").append(esc(enc)).append('"')
                     .append(" hx-target=\"#sim-panel\" hx-swap=\"outerHTML\"></td>");
-            out.append("<td>").append(esc(entry.name())).append("</td>");
+            out.append("<td>").append(esc(entry.name()))
+                    .append(sims.isFepOnly(entry.name()) ? " <span class=\"muted\">(FEP simulator)</span>" : "")
+                    .append("</td>");
             out.append("<td><span class=\"").append(statusClass(view)).append("\">")
                     .append(esc(view.state())).append("</span>")
                     .append(view.owner().isEmpty() ? "" : " <span class=\"muted\">(" + esc(view.owner()) + ")</span>")
@@ -71,13 +76,29 @@ final class SimulatorsPage {
                     .append(esc(enc)).append("\" hx-target=\"#sim-log\" hx-swap=\"outerHTML\">Log</button></td>");
             out.append("</tr>");
         }
+        for (String name : sims.connectors()) {
+            SimulatorsService.RowView view = sims.connectorView(name);
+            out.append("<tr><td><input type=\"checkbox\" aria-label=\"Launch ").append(esc(name)).append('"')
+                    .append(sims.isTicked(name) ? " checked" : "").append(disabled)
+                    .append(" hx-post=\"/simulators/toggle?name=").append(esc(encode(name))).append('"')
+                    .append(" hx-target=\"#sim-panel\" hx-swap=\"outerHTML\"></td>");
+            out.append("<td>").append(esc(name)).append(" <span class=\"muted\">(connector)</span></td>");
+            out.append("<td><span class=\"").append(statusClass(view)).append("\">").append(esc(view.state()))
+                    .append("</span></td><td class=\"muted\">").append(esc(view.detail())).append("</td><td></td></tr>");
+        }
         out.append("</tbody></table>");
 
         out.append("<div class=\"sim-actions\">");
+        String other = sims.otherBusy();
         if (busy == SimulatorsService.Busy.STARTING) {
             out.append("<span class=\"muted\">Launching…</span>");
+            out.append("<button type=\"button\" class=\"danger\" hx-post=\"/simulators/cancel\""
+                    + " hx-target=\"#sim-panel\" hx-swap=\"outerHTML\">Cancel launch</button>");
         } else if (busy == SimulatorsService.Busy.STOPPING) {
             out.append("<span class=\"muted\">Stopping…</span>");
+        } else if (!other.isEmpty()) {
+            out.append("<span class=\"muted\">").append(esc(other.substring(0, 1).toUpperCase() + other.substring(1)))
+                    .append(" is in progress: Start and Stop wait for it.</span>");
         }
         if (sims.allTickedUp()) {
             out.append("<button type=\"button\" class=\"danger\" hx-post=\"/simulators/stop\""
@@ -104,8 +125,14 @@ final class SimulatorsPage {
 
     /** The Log panel for one simulator: its bounded tail, polled while it is shown. */
     static String log(SimulatorsService sims, SimEntry entry) {
-        String enc = encode(entry.name());
-        List<String> lines = sims.logLines(entry.name());
+        return log(sims, entry.name());
+    }
+
+    /** The Log panel for one simulator, or for the launch itself ({@link SimulatorsService#LAUNCH_LOG}). */
+    static String log(SimulatorsService sims, String name) {
+        String enc = encode(name);
+        List<String> lines = sims.logLines(name);
+        SimEntryName entry = new SimEntryName(name);
         StringBuilder out = new StringBuilder("<section id=\"sim-log\" class=\"card wide\" "
                 + "hx-get=\"/fragments/simulators/log?name=").append(esc(enc))
                 .append("\" hx-trigger=\"every 2s\" hx-swap=\"outerHTML\">");
@@ -121,6 +148,9 @@ final class SimulatorsPage {
         }
         return out.append("</section>").toString();
     }
+
+    /** Just the name, for the log's heading. */
+    private record SimEntryName(String name) {}
 
     private static String statusClass(SimulatorsService.RowView view) {
         if (view.up()) {

@@ -122,7 +122,8 @@ class SetupWebTest {
     void aSignInThatFailsSaysItIsEnteredByHand() throws Exception {
         String html = checkWith(true).body();
 
-        assertTrue(html.contains("CAT does not write it for you"), html);
+        assertTrue(html.contains("run &lt;code&gt;the step&lt;/code&gt;"), html);
+        assertTrue(html.contains("Sign in on Setup · 1 setup item(s)"), html);
     }
 
     @Test

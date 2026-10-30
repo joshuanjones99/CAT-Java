@@ -11,8 +11,8 @@ import java.util.Map;
  * <p>Start asks first, naming the rig and the build, because the PSI install reinstalls the Commander.
  * The panel is one polled fragment, so the stages and the Start button follow the install.
  *
- * <p>Not built yet, named on the page: Stop (no cancel in {@code NewInstall}), AU, VHQ, a Simulator
- * Build, and psi-init.
+ * <p>While an install runs the panel shows Stop, which ends it before its next stage. AU and VHQ are not
+ * built yet, and say so.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -58,6 +58,10 @@ final class UpgradePage {
             out.append("<p class=\"warn\" role=\"status\">").append(esc(notice)).append("</p>");
         }
         out.append("<div class=\"sim-actions\">");
+        if (upgrades.installing()) {
+            out.append("<button type=\"button\" class=\"danger\" hx-post=\"/upgrade/stop\" hx-target=\"#")
+                    .append(PANEL_ID).append("\" hx-swap=\"outerHTML\">Stop</button>");
+        }
         out.append("<button type=\"button\" hx-post=\"/upgrade/start\" hx-confirm=\"")
                 .append(esc(upgrades.confirmText(choice))).append("\" hx-target=\"#" + PANEL_ID + "\"")
                 .append(" hx-swap=\"outerHTML\"").append(why.isEmpty() ? "" : " disabled").append(">")
@@ -75,6 +79,10 @@ final class UpgradePage {
             out.append("</li>");
         }
         out.append("</ul>");
+        String state = upgrades.message();
+        if (!state.isEmpty()) {
+            out.append("<p class=\"muted\" role=\"status\">Install Upgrade: ").append(esc(state)).append("</p>");
+        }
         String message = downloads.job().message();
         if (!message.isEmpty() && !downloads.job().state().isEmpty()) {
             out.append("<p class=\"muted\" role=\"status\">").append(esc(message)).append("</p>");
@@ -89,7 +97,7 @@ final class UpgradePage {
             case "done" -> "&#10003;";
             case "failed" -> "&#10006;";
             case "skipped" -> "-";
-            case "not built" -> "&hellip;";
+            case "stopped" -> "&#9632;";
             default -> "&middot;";
         };
     }

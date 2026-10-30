@@ -141,7 +141,7 @@ class WebAppPagesTest {
 
         int last = -1;
         for (String label : List.of("Run", "Results", "Authoring", "Install Upgrade", "Launch Simulators",
-                "Setup", "Settings", "Tools", "POS")) {
+                "Tools", "POS", "Setup", "Settings")) {
             int at = html.indexOf("<span class=\"label\">" + label + "</span>");
             assertTrue(at > last, label + " is missing or out of order");
             last = at;
@@ -157,8 +157,10 @@ class WebAppPagesTest {
     }
 
     @Test
-    void unbuiltPagesNameThePythonModuleTheyWillBePortedFrom() throws Exception {
-        assertPlaceholder("/settings", "cat/web/pages/settings.py");
+    void settingsIsBuiltWithShutDownAndNotAPlaceholder() throws Exception {
+        String html = get("/settings").body();
+        assertFalse(html.contains("Ported from cat/web/pages/settings.py"), html);
+        assertTrue(html.contains("Shut down CAT"), html);
     }
 
     @Test

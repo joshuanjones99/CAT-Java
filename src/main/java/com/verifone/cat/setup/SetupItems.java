@@ -1,8 +1,6 @@
 package com.verifone.cat.setup;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -11,12 +9,14 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.build.StoredArtifactoryCredentials;
 import com.verifone.cat.collect.Collect;
+import com.verifone.cat.gitauth.GitAuth;
 import com.verifone.cat.preflight.Result;
 import com.verifone.cat.rig.RigLoader;
 import com.verifone.cat.report.ReportPaths;
@@ -27,11 +27,14 @@ import com.verifone.cat.sims.ToolsRoot;
 /**
  * The standard workstation checks, in the order the page shows them.
  *
- * <p>Ported from the Python CAT's {@code cat.setup.items} (the checks, not the repairs). Where the
- * Python checks something only Python has (uv, the venv, pyjab, pre-commit hooks, Python 3.12),
- * the Java check is the JDK, the built {@code target\} and the Playwright Chromium that
- * {@code --fake-pos} needs. Where the Python repaired a thing, the item now says what the operator
- * runs. Nothing here writes a file, sets a variable or starts an installer.
+ * <p>Ported from the Python CAT's {@code cat.setup.items}, checks and repairs. Where the Python checks something
+ * only Python has (uv, the venv, pyjab, pre-commit hooks, Python 3.12), the Java check is the JDK, the built
+ * {@code target\} and the Playwright Chromium that {@code --fake-pos} needs (each detect-only, {@code manual}).
+ * The automatable repairs are the Python's: {@code corpus_root} defaults {@code PETROAPPS_ROOT},
+ * {@code artifacts_writable} creates the results folder, {@code cashier_password} defaults the lab's till password,
+ * {@code java_access_bridge} runs {@code jabswitch -enable}, and {@code ssh_key} points
+ * {@code PETROTEST_COMMANDER_SSH_KEY} at a key JSch loads (a {@code .ppk} included: see {@link #sshKey()}). The two
+ * sign-ins take their values on the Setup page ({@link SetupItem#fields()}) and are checked live.
  *
  * <p>The paths the checks read come from {@link SetupEnv}: {@code CAT_TOOLS_ROOT},
  * {@code PETROAPPS_ROOT}, {@code CAT_RESULTS_DIR}, {@code PETROTEST_RIGS_DIR}, the home directory
@@ -94,6 +97,9 @@ public final class SetupItems {
 
     private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(10);
 
+    /** How long {@code jabswitch -enable} may take, as the Python's. */
+    private static final Duration JABSWITCH_TIMEOUT = Duration.ofSeconds(30);
+
     private static final Pattern JAVA_VERSION = Pattern.compile("version \"(\\d+)(?:\\.(\\d+))?");
 
     /** A URL that carries a password inline: {@code https://user:secret@host}. */
@@ -102,8 +108,13 @@ public final class SetupItems {
 
     private SetupItems() {}
 
-    /** The standard checks, in registration order. Each call returns fresh items. */
+    /** The standard checks, in registration order, with the real live sign-ins. Each call returns fresh items. */
     public static List<SetupItem> standard() {
+        return standard(LiveSignIns.REAL);
+    }
+
+    /** The standard checks with {@code live} as the two sign-ins' {@code check_live()} (tests pass a fake). */
+    public static List<SetupItem> standard(LiveSignIns live) {
         List<SetupItem> items = new ArrayList<>();
         items.add(javaRuntime());
         items.add(toolsRoot());
@@ -116,8 +127,8 @@ public final class SetupItems {
         items.add(cashierPassword());
         items.add(javaAccessBridge());
         items.add(simulatorsStaged());
-        items.add(jiraApiToken());
-        items.add(verifoneLogin());
+        items.add(jiraApiToken().withLiveCheck(live::jira));
+        items.add(verifoneLogin().withLiveCheck(live::verifone));
         return items;
     }
 
@@ -174,7 +185,9 @@ public final class SetupItems {
 
     static SetupItem javaRuntime() {
         return new SetupItem(JAVA_RUNTIME, "Java 17", true, true, false,
-                "Install a Java 17 JDK (Temurin 17.0.5 is what this lab uses) into "
+                "Sign in on this page (Verifone sign-in): once the Verifone login works, CAT downloads Java 17 "
+                        + "(v1.2 into the tools root's Java17, v1.1 into Java17v1.1; C:\\CICD\\Tools by default) from "
+                        + "Artifactory by itself. Or install a Java 17 JDK (Temurin 17.0.5 is what this lab uses) into "
                         + "<tools root>\\Java17\\jdk-17.0.5+8, or point CAT_TOOLS_ROOT at the tools root that holds it.",
                 env -> {
                     Path javaw = javaw(env);
@@ -200,7 +213,7 @@ public final class SetupItems {
     }
 
     static SetupItem toolsRoot() {
-        return new SetupItem(TOOLS_ROOT, "Tools folder", false, true, false,
+        return new SetupItem(TOOLS_ROOT, "Tools folder", true, true, false,
                 "Stage the tools (JDK, simulators, pos-shim dependencies) in C:\\CICD\\Tools, or set "
                         + "CAT_TOOLS_ROOT to the folder that holds them.",
                 env -> {
@@ -219,7 +232,22 @@ public final class SetupItems {
                     return env.isDirectory(root)
                             ? Result.passed(CORPUS_ROOT, "PETROAPPS_ROOT resolves to " + root)
                             : Result.failed(CORPUS_ROOT, "petroapps checkout not found: " + root);
-                });
+                }).withRepair(SetupItems::defaultPetroappsRoot);
+    }
+
+    /** The Python's {@code CorpusRootSet.apply}: export {@code PETROAPPS_ROOT} to the default checkout, if it exists. */
+    static Result defaultPetroappsRoot(SetupEnv env) {
+        if (env.varExists("PETROAPPS_ROOT")) {
+            return Result.unrepairable(CORPUS_ROOT, "PETROAPPS_ROOT='" + env.vars().get("PETROAPPS_ROOT")
+                    + "' does not exist");
+        }
+        Path checkout = Path.of(Collect.DEFAULT_PETROAPPS_ROOT);
+        if (!env.isDirectory(checkout)) {
+            return Result.unrepairable(CORPUS_ROOT, "default petroapps checkout not found: " + checkout
+                    + "; set PETROAPPS_ROOT to your checkout");
+        }
+        env.setEnvVar("PETROAPPS_ROOT", checkout.toString());
+        return Result.passed(CORPUS_ROOT, "PETROAPPS_ROOT defaulted to " + checkout);
     }
 
     static SetupItem artifactsWritable() {
@@ -233,11 +261,25 @@ public final class SetupItems {
                     return env.exists(root)
                             ? Result.passed(ARTIFACTS_WRITABLE, "results folder writable: " + root)
                             : Result.passed(ARTIFACTS_WRITABLE, "results folder will be created: " + root);
-                });
+                }).withRepair(SetupItems::createResultsFolder);
+    }
+
+    /** The Python's {@code ArtifactsWritable.apply}: create the folder and prove it takes a file. */
+    static Result createResultsFolder(SetupEnv env) throws IOException {
+        Path root = ReportPaths.resultsRoot(env.vars());
+        env.mkdir(root);
+        Path probe = root.resolve(".cat_test");
+        env.touch(probe);
+        try {
+            env.delete(probe);
+        } catch (IOException e) {
+            // The folder took the file; leaving the probe behind is harmless.
+        }
+        return Result.passed(ARTIFACTS_WRITABLE, "results folder created: " + root);
     }
 
     static SetupItem rigsDir() {
-        return new SetupItem(RIGS_DIR, "Rig files folder", false, false, false,
+        return new SetupItem(RIGS_DIR, "Rig files folder", true, false, false,
                 "Set PETROTEST_RIGS_DIR to the folder that holds your rig files (lab.yaml and the rest).",
                 env -> {
                     Path dir = RigLoader.rigsDir(env.vars());
@@ -249,7 +291,7 @@ public final class SetupItems {
     }
 
     static SetupItem catJavaBuild() {
-        return new SetupItem(CAT_JAVA_BUILD, "CAT-Java built", false, true, false,
+        return new SetupItem(CAT_JAVA_BUILD, "CAT-Java built", true, true, false,
                 "Run build.cmd from PowerShell, with the full path to the worktree's build.cmd.",
                 env -> {
                     Path jar = env.repoRoot().resolve("target").resolve("cat-java.jar");
@@ -263,7 +305,7 @@ public final class SetupItems {
     }
 
     static SetupItem playwrightInstalled() {
-        return new SetupItem(PLAYWRIGHT_INSTALLED, "Playwright Chromium (for --fake-pos)", false, false, false,
+        return new SetupItem(PLAYWRIGHT_INSTALLED, "Playwright Chromium (for --fake-pos)", true, false, false,
                 "Run: java -cp \"target\\lib\\*\" com.microsoft.playwright.CLI install chromium",
                 env -> {
                     Path browsers = playwrightBrowsers(env);
@@ -285,10 +327,18 @@ public final class SetupItems {
         return local.resolve("ms-playwright");
     }
 
+    /**
+     * The Commander SSH key. The Python's {@code SshKeyValid}, with one deviation: JSch (mwiede 0.2.20) reads an
+     * unencrypted PuTTY {@code .ppk} itself (checked 2026-10-29 with a generated PPK v2 RSA key: {@code KeyPair.load}
+     * and {@code addIdentity} both take it), so {@code rig/ppk.py}'s conversion is not ported. A {@code .ppk} JSch
+     * loads passes once {@code PETROTEST_COMMANDER_SSH_KEY} names it; the repair sets the variable to it, as the
+     * Python's repair points it at the converted {@code .pem}. Contents are never reported.
+     */
     static SetupItem sshKey() {
-        return new SetupItem(SSH_KEY, "Commander SSH key", true, false, false,
-                "Convert the PuTTY .ppk key to OpenSSH PEM (tools\\rig\\ppk_to_pem.py in the Python CAT), then "
-                        + "set PETROTEST_COMMANDER_SSH_KEY to the .pem file.",
+        return new SetupItem(SSH_KEY, "Commander SSH key", false, false, false,
+                "Set PETROTEST_COMMANDER_SSH_KEY to the Commander key (OpenSSH PEM, RSA PEM, or an unencrypted PuTTY "
+                        + ".ppk, which JSch reads as it is). A passphrase-protected key must be converted by hand in "
+                        + "PuTTYgen.",
                 env -> {
                     String configured = env.var(SSH_KEY_ENV);
                     Path key = configured != null ? Path.of(configured)
@@ -307,10 +357,62 @@ public final class SetupItems {
                         return Result.passed(SSH_KEY, "SSH key is RSA PEM format");
                     }
                     if (isPpk(first)) {
-                        return Result.failed(SSH_KEY, "SSH key is PuTTY .ppk format; it must be converted to PEM");
+                        String why = ppkProblem(key);
+                        if (!why.isEmpty()) {
+                            return Result.failed(SSH_KEY, "SSH key is PuTTY .ppk format and JSch cannot load it ("
+                                    + why + "); convert it by hand in PuTTYgen");
+                        }
+                        if (configured == null) {
+                            return Result.failed(SSH_KEY, "SSH key is PuTTY .ppk format, which JSch reads, but "
+                                    + SSH_KEY_ENV + " is not set; setup repair sets it to " + key);
+                        }
+                        return Result.passed(SSH_KEY, "SSH key is PuTTY .ppk format; JSch reads it as it is");
                     }
-                    return Result.failed(SSH_KEY, "SSH key format not recognized: " + first.substring(0, Math.min(40, first.length())));
-                });
+                    return Result.failed(SSH_KEY, "SSH key format not recognized: "
+                            + first.substring(0, Math.min(40, first.length())));
+                }).withRepair(SetupItems::pointAtSshKey);
+    }
+
+    /** The repair: point {@code PETROTEST_COMMANDER_SSH_KEY} at a key JSch loads. Never converts or rewrites the key. */
+    static Result pointAtSshKey(SetupEnv env) {
+        String configured = env.var(SSH_KEY_ENV);
+        Path key = configured != null ? Path.of(configured) : toolsRoot(env).resolve(SSH_KEY_FILE);
+        if (!env.exists(key)) {
+            return Result.unrepairable(SSH_KEY, "SSH key file not found: " + key);
+        }
+        String first = firstLine(env, key);
+        if (first == null) {
+            return Result.unrepairable(SSH_KEY, "SSH key file not readable: " + key);
+        }
+        boolean pem = first.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----")
+                || first.startsWith("-----BEGIN RSA PRIVATE KEY-----");
+        if (!pem && !isPpk(first)) {
+            return Result.unrepairable(SSH_KEY, "SSH key format not recognized: "
+                    + first.substring(0, Math.min(40, first.length())));
+        }
+        if (!pem) {
+            String why = ppkProblem(key);
+            if (!why.isEmpty()) {
+                return Result.unrepairable(SSH_KEY, "cannot load " + key + " with JSch: " + why
+                        + "; convert it by hand in PuTTYgen");
+            }
+        }
+        env.setEnvVar(SSH_KEY_ENV, key.toString());
+        return Result.passed(SSH_KEY, SSH_KEY_ENV + " set to " + key + (pem ? "" : " (JSch reads the .ppk as it is)"));
+    }
+
+    /** Why JSch cannot use the {@code .ppk} at {@code key}, or "" when it loads unencrypted. Reads the file only. */
+    static String ppkProblem(Path key) {
+        try {
+            com.jcraft.jsch.KeyPair pair = com.jcraft.jsch.KeyPair.load(new com.jcraft.jsch.JSch(), key.toString());
+            try {
+                return pair.isEncrypted() ? "it is passphrase-protected" : "";
+            } finally {
+                pair.dispose();
+            }
+        } catch (com.jcraft.jsch.JSchException | RuntimeException e) {
+            return e.getClass().getSimpleName();
+        }
     }
 
     /** Either header a {@code .ppk} file ships with. The contents are never reported, only the header kind. */
@@ -319,17 +421,32 @@ public final class SetupItems {
                 || firstLine.startsWith("---- BEGIN SSH2 ENCRYPTED PRIVATE KEY ----");
     }
 
+    /**
+     * The lab's standing till password, the Python CAT's {@code DEFAULT_CASHIER_PASSWORD}: a fixed fact about this
+     * lab's rig recorded by the rig owner ({@code rigs/lab.yaml}: "ID 1 / password 123", 2026-07-29; the setup default
+     * 2026-09-10), not a per-workstation secret. The repair exports it only when the variable is not set at all.
+     */
+    static final String DEFAULT_CASHIER_PASSWORD = "123";
+
     static SetupItem cashierPassword() {
-        return new SetupItem(CASHIER_PASSWORD, "Cashier password", true, false, false,
-                "Set PETROTEST_CASHIER_PASSWORD in your environment to the till password your rig file names. "
-                        + "CAT never shows or writes it.",
+        return new SetupItem(CASHIER_PASSWORD, "Cashier password", false, false, false,
+                "Set PETROTEST_CASHIER_PASSWORD in your environment to the till password your rig file names, or "
+                        + "let setup default it to the lab's standing till password. CAT never shows its value.",
                 env -> env.var(CASHIER_PASSWORD_ENV) != null
                         ? Result.passed(CASHIER_PASSWORD, CASHIER_PASSWORD_ENV + " is set (value not shown)")
-                        : Result.failed(CASHIER_PASSWORD, CASHIER_PASSWORD_ENV + " not set"));
+                        : Result.failed(CASHIER_PASSWORD, CASHIER_PASSWORD_ENV + " not set"))
+                .withRepair(env -> {
+                    if (env.var(CASHIER_PASSWORD_ENV) != null) {
+                        return Result.passed(CASHIER_PASSWORD, CASHIER_PASSWORD_ENV + " is set");
+                    }
+                    env.setEnvVar(CASHIER_PASSWORD_ENV, DEFAULT_CASHIER_PASSWORD);
+                    return Result.passed(CASHIER_PASSWORD,
+                            CASHIER_PASSWORD_ENV + " defaulted to the lab's standing till password");
+                });
     }
 
     static SetupItem javaAccessBridge() {
-        return new SetupItem(JAVA_ACCESS_BRIDGE, "Java Access Bridge enabled", true, false, false,
+        return new SetupItem(JAVA_ACCESS_BRIDGE, "Java Access Bridge enabled", false, false, false,
                 "Run jabswitch -enable from the Java 17 bin folder (<tools root>\\Java17\\...\\bin), for this Windows user.",
                 env -> {
                     Path file = env.home().resolve(ACCESS_BRIDGE_FILE);
@@ -337,8 +454,25 @@ public final class SetupItems {
                         return Result.passed(JAVA_ACCESS_BRIDGE, "enabled (" + file + ")");
                     }
                     return Result.failed(JAVA_ACCESS_BRIDGE, "Java Access Bridge not enabled for this user "
-                            + "(no assistive_technologies in " + file + ")");
-                });
+                            + "(no assistive_technologies in " + file + "); run `jabswitch -enable`");
+                }).withRepair(SetupItems::enableAccessBridge);
+    }
+
+    /** The Python's {@code AccessBridgeEnabled.apply}: the resolved JDK's own {@code jabswitch -enable}. Idempotent. */
+    static Result enableAccessBridge(SetupEnv env) throws IOException {
+        Path javaw = javaw(env);
+        if (javaw == null) {
+            return Result.failed(JAVA_ACCESS_BRIDGE, "no JDK with bin\\javaw.exe under the tools root");
+        }
+        Path jabswitch = javaw.resolveSibling("jabswitch.exe");
+        if (!Files.isRegularFile(jabswitch)) {
+            return Result.failed(JAVA_ACCESS_BRIDGE, jabswitch + " is not present in the resolved JDK");
+        }
+        SetupEnv.CommandResult run = env.run(List.of(jabswitch.toString(), "-enable"), JABSWITCH_TIMEOUT);
+        if (run.exitCode() != 0) {
+            return Result.failed(JAVA_ACCESS_BRIDGE, "`jabswitch -enable` failed: " + run.stderr().strip());
+        }
+        return Result.passed(JAVA_ACCESS_BRIDGE, "`jabswitch -enable` completed");
     }
 
     /** True when the per-user file names an {@code assistive_technologies} property: the file is the switch. */
@@ -357,8 +491,10 @@ public final class SetupItems {
 
     static SetupItem simulatorsStaged() {
         return new SetupItem(SIMULATORS_STAGED, "Simulators staged", true, false, false,
-                "Stage PATS's simulators under the tools root (CAT_TOOLS_ROOT), or point CAT_TOOLS_ROOT at where "
-                        + "they are. CAT does not install them.",
+                "Sign in on this page (Verifone sign-in): once the Verifone login works, CAT downloads the "
+                        + "simulators from Artifactory's latest master build into the tools root by itself. Or stage "
+                        + "PATS's simulators under the tools root (CAT_TOOLS_ROOT) by hand, or point CAT_TOOLS_ROOT at "
+                        + "where they are.",
                 env -> {
                     Path root = toolsRoot(env);
                     Map<String, String> missing = new LinkedHashMap<>();
@@ -388,56 +524,174 @@ public final class SetupItems {
                 });
     }
 
+    /** The Atlassian card's four inputs, in the Python's order and words. */
+    static final List<ManualField> JIRA_FIELDS = List.of(
+            new ManualField("email", "Atlassian account email", false),
+            new ManualField("jira.token", "API token (id.atlassian.com/manage-profile/security/api-tokens)", true),
+            new ManualField("xray.client.id", "Xray client ID (Xray > API Keys)", false),
+            new ManualField("xray.client.secret", "Xray client secret", true));
+
     static SetupItem jiraApiToken() {
         return new SetupItem(JIRA_API_TOKEN, "Atlassian sign-in (Jira, Confluence, Xray)", true, false, true,
-                "Create the file named in the detail, with email=, jira.token=, xray.client.id= and "
-                        + "xray.client.secret=. Tokens: id.atlassian.com/manage-profile/security/api-tokens; "
+                "Enter the Atlassian email and API token and the Xray client ID and secret on this page "
+                        + "(Save and sign in). Tokens: id.atlassian.com/manage-profile/security/api-tokens; "
                         + "the Xray pair: Xray > API Keys.",
                 env -> {
-                    Path file = env.home().resolve(JIRA_CREDENTIALS_FILE);
+                    Path file = env.logins().jiraFile();
                     if (!env.exists(file)) {
                         return Result.failed(JIRA_API_TOKEN, file + " not found");
                     }
-                    Properties values = new Properties();
-                    try (BufferedReader reader = new BufferedReader(new StringReader(env.read(file)))) {
-                        values.load(reader);
-                    }
-                    List<String> missing = new ArrayList<>();
-                    for (String key : JIRA_KEYS) {
-                        String value = values.getProperty(key);
-                        if (value == null || value.isBlank()) {
-                            missing.add(key);
-                        }
-                    }
+                    List<String> missing = missingJiraKeys(env, file);
                     if (!missing.isEmpty()) {
                         return Result.failed(JIRA_API_TOKEN, file + " is missing " + String.join(", ", missing));
                     }
                     return Result.passed(JIRA_API_TOKEN, file + " names " + String.join(", ", JIRA_KEYS)
                             + " (values not shown)");
-                });
+                }).withFields(JIRA_FIELDS, SetupItems::saveJira, SetupItems::savedJira);
     }
 
+    static List<String> missingJiraKeys(SetupEnv env, Path file) throws IOException {
+        Map<String, String> values = JiraFile.read(env.exists(file) ? env.read(file) : "");
+        List<String> missing = new ArrayList<>();
+        for (String key : JIRA_KEYS) {
+            String value = values.get(key);
+            if (value == null || value.isBlank()) {
+                missing.add(key);
+            }
+        }
+        return missing;
+    }
+
+    /** The Python's {@code JiraApiToken.saved_values}: what the file in use holds for each key; empty with no file. */
+    static Map<String, String> savedJira(SetupEnv env) throws IOException {
+        Path file = env.logins().jiraFile();
+        if (!env.exists(file)) {
+            return Map.of();
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        Path shared = env.logins().sharedJiraFile();
+        if (!file.equals(shared) && env.exists(shared)) {
+            values.putAll(JiraFile.read(env.read(shared)));
+        }
+        JiraFile.read(env.read(file)).forEach((key, value) -> {
+            if (!value.isBlank()) {
+                values.put(key, value);
+            }
+        });
+        Map<String, String> out = new LinkedHashMap<>();
+        for (String key : JIRA_KEYS) {
+            out.put(key, values.getOrDefault(key, "").strip());
+        }
+        return out;
+    }
+
+    /**
+     * The Python's {@code JiraApiToken.apply_manual}: the four keys into CAT-Java's own file, merging. A blank value
+     * keeps the one already saved (in CAT-Java's file, else the shared one), every other line of CAT-Java's file is
+     * kept, and nothing is written when a key would end blank.
+     */
+    static Result saveJira(SetupEnv env, Map<String, String> values) throws IOException {
+        Path own = env.logins().ownJiraFile();
+        Path shared = env.logins().sharedJiraFile();
+        String existing = env.exists(own) ? env.read(own) : "";
+        Map<String, String> saved = new LinkedHashMap<>(JiraFile.read(env.exists(shared) ? env.read(shared) : ""));
+        JiraFile.read(existing).forEach((key, value) -> {
+            if (!value.isBlank()) {
+                saved.put(key, value);
+            }
+        });
+        Map<String, String> merged = new LinkedHashMap<>();
+        List<String> blank = new ArrayList<>();
+        for (String key : JIRA_KEYS) {
+            String typed = values.getOrDefault(key, "").strip();
+            String value = typed.isEmpty() ? saved.getOrDefault(key, "").strip() : typed;
+            merged.put(key, value);
+            if (value.isEmpty()) {
+                blank.add(key);
+            }
+        }
+        if (!blank.isEmpty()) {
+            return Result.failed(JIRA_API_TOKEN, String.join(", ", blank) + " cannot be blank");
+        }
+        env.writeFile(own, JiraFile.merge(existing, JIRA_KEYS, merged));
+        return Result.passed(JIRA_API_TOKEN, "wrote " + own);
+    }
+
+    /** The Verifone card's two inputs, in the Python's words. */
+    static final List<ManualField> VERIFONE_FIELDS = List.of(
+            new ManualField("username", "Verifone username, not your email (Bitbucket and Artifactory)", false),
+            new ManualField("password", "Verifone password", true));
+
+    /**
+     * The Verifone login, stored for Artifactory and for Bitbucket: the Python's {@code VerifoneLogin}. Detecting it
+     * reads both stores locally ({@link SavedLogins#artifactory()}, {@code git credential fill}) and never prompts or
+     * touches the network. An inline password in petroapps' {@code .git/config} is caught from the file too, when git
+     * gives no answer (a deviation: the Python asks git only).
+     */
     static SetupItem verifoneLogin() {
         return new SetupItem(VERIFONE_LOGIN, "Verifone sign-in (Artifactory, Bitbucket)", true, false, true,
-                "Set ARTIFACTORY_USER and ARTIFACTORY_PASSWORD in your environment (the Verifone username, not "
-                        + "your email). If petroapps' origin URL carries a password, remove it: run "
-                        + "git -C <petroapps> remote set-url origin <url without user:password@>.",
+                "Enter the Verifone username (not your email) and password on this page (Save and sign in): CAT "
+                        + "saves them for Artifactory and for petroapps' Bitbucket origin, removing any password "
+                        + "inline in that origin.",
                 env -> {
-                    List<String> problems = new ArrayList<>();
-                    if (env.var(ARTIFACTORY_USER_ENV) == null || env.var(ARTIFACTORY_PASSWORD_ENV) == null) {
-                        problems.add("Artifactory login not set (" + ARTIFACTORY_USER_ENV + " and "
-                                + ARTIFACTORY_PASSWORD_ENV + ")");
+                    List<String> missing = new ArrayList<>();
+                    if (env.logins().artifactory().isEmpty()) {
+                        missing.add("Artifactory (none saved for this Windows account)");
                     }
-                    Path config = petroappsRoot(env).resolve(".git").resolve("config");
-                    if (env.exists(config) && INLINE_PASSWORD.matcher(env.read(config)).find()) {
-                        problems.add("petroapps' origin URL carries a password inline");
+                    Path petroapps = petroappsRoot(env);
+                    Optional<GitAuth.Remote> remote = env.git().origin(petroapps);
+                    boolean inline = remote.map(GitAuth.Remote::embedsPassword).orElse(false)
+                            || remote.isEmpty() && inlinePassword(env, petroapps);
+                    if (inline) {
+                        missing.add("Bitbucket (petroapps' origin URL carries a password inline)");
+                    } else if (remote.isPresent() && remote.get().isHttp() && !env.git().stored(petroapps)) {
+                        missing.add("Bitbucket (no stored login for " + remote.get().host() + ")");
                     }
-                    if (!problems.isEmpty()) {
-                        return Result.failed(VERIFONE_LOGIN, "not signed in: " + String.join("; ", problems));
+                    if (!missing.isEmpty()) {
+                        return Result.failed(VERIFONE_LOGIN, "not signed in to " + String.join("; ", missing));
                     }
-                    return Result.passed(VERIFONE_LOGIN, "Artifactory login set; no password inline in petroapps' origin "
-                            + "(values not shown)");
-                });
+                    return Result.passed(VERIFONE_LOGIN, "Artifactory and Bitbucket logins stored");
+                }).withFields(VERIFONE_FIELDS, SetupItems::saveVerifone, SetupItems::savedVerifone);
+    }
+
+    private static boolean inlinePassword(SetupEnv env, Path petroapps) throws IOException {
+        Path config = petroapps.resolve(".git").resolve("config");
+        return env.exists(config) && INLINE_PASSWORD.matcher(env.read(config)).find();
+    }
+
+    /** The Python's {@code VerifoneLogin.saved_values}: the Artifactory login saved for this account; empty when none. */
+    static Map<String, String> savedVerifone(SetupEnv env) {
+        return env.logins().artifactory()
+                .map(login -> Map.of("username", login.user(), "password", login.password()))
+                .orElse(Map.of());
+    }
+
+    /** The Python's {@code VerifoneLogin.apply_manual}: save the login for Artifactory and petroapps' Bitbucket origin. */
+    static Result saveVerifone(SetupEnv env, Map<String, String> values) {
+        String username = StoredArtifactoryCredentials.normaliseUsername(values.getOrDefault("username", ""));
+        String password = values.getOrDefault("password", "");
+        if (username.isEmpty() || password.isEmpty()) {
+            return Result.failed(VERIFONE_LOGIN, "username and password are both required");
+        }
+        try {
+            env.logins().saveArtifactory(username, password);
+        } catch (IOException | RuntimeException e) {
+            return Result.error(VERIFONE_LOGIN, "saving the Artifactory login failed: " + e.getMessage());
+        }
+        List<String> stored = new ArrayList<>(List.of("Artifactory"));
+        Path petroapps = petroappsRoot(env);
+        try {
+            if (env.git().origin(petroapps).isPresent()) {
+                String why = env.git().store(petroapps, username, password);
+                if (!why.isEmpty()) {
+                    return Result.failed(VERIFONE_LOGIN, "Artifactory saved; Bitbucket not: " + why);
+                }
+                stored.add("Bitbucket");
+            }
+        } catch (GitAuth.GitError e) {
+            return Result.failed(VERIFONE_LOGIN, "Artifactory saved; Bitbucket not: " + e.getMessage());
+        }
+        return Result.passed(VERIFONE_LOGIN, "saved for " + String.join(" and ", stored));
     }
 
     private static String firstLine(SetupEnv env, Path file) {

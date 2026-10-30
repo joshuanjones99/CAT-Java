@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.build.FakeArtifactory;
+import com.verifone.cat.shell.RigBusy;
+import com.verifone.cat.sims.SimFetch;
 import com.verifone.cat.upgrade.NewInstallTools;
 import com.verifone.cat.upgrade.StepResult;
 
@@ -71,13 +73,48 @@ class UpgradeWebTest {
         }
     }
 
+    /** A fake psi-init: records the rigs it reset, and answers {@link #ok}. */
+    final List<String> psiRigs = new CopyOnWriteArrayList<>();
+    volatile boolean psiOk = true;
+
+    /** A fake Simulator Build side: what is running, and what each replacement answers. */
+    final Map<String, String> runningSims = new java.util.concurrent.ConcurrentHashMap<>();
+    final List<String> replaced = new CopyOnWriteArrayList<>();
+    volatile java.util.concurrent.CountDownLatch installGate;
+    private RigBusy busy;
+
+    private UpgradeService service(java.util.function.Function<Path, NewInstallTools> tools) {
+        return new UpgradeService(downloads, () -> rig, busy, installer, tools,
+                (r, env, log) -> {
+                    psiRigs.add(r);
+                    log.accept("psi-init for " + r);
+                    return psiOk;
+                },
+                new UpgradeService.SimReplacer() {
+                    @Override
+                    public Map<String, String> running(String r) {
+                        return Map.copyOf(runningSims);
+                    }
+
+                    @Override
+                    public List<SimFetch.FetchResult> replace(String r, String branch, String build,
+                            Consumer<String> log) {
+                        replaced.add(branch + " " + build);
+                        return List.of(new SimFetch.FetchResult("Petro Simulator Suite", true,
+                                "Petro Simulator Suite: replaced with " + branch + " " + build));
+                    }
+                },
+                Map.of());
+    }
+
     @BeforeEach
     void setUp() {
         fake = new FakeArtifactory(DownloadsWebTest.tree());
         downloads = new DownloadsService(() -> fake.client(), root);
         installer = new FakeInstaller();
-        upgrades = new UpgradeService(downloads, () -> rig, runBusy::get, installer, NewInstallTools::defaults,
-                Map.of());
+        busy = new RigBusy();
+        busy.attachRun(() -> runBusy.get() ? RigBusy.RUN : "");
+        upgrades = service(NewInstallTools::defaults);
         serve(upgrades);
     }
 
@@ -155,8 +192,75 @@ class UpgradeWebTest {
         HttpResponse<String> response = post("/upgrade/start", "", true);
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("A run is in progress: stop it first."), response.body());
+        assertTrue(response.body().contains("A run is already in progress."), response.body());
         assertTrue(installer.rigs.isEmpty());
+    }
+
+    @Test
+    void anInstallHoldsTheOneBusyFlagSoASimulatorLaunchIsRefused() throws Exception {
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch inside = new java.util.concurrent.CountDownLatch(1);
+        UpgradeService.Installer slow = (r, t, env, log) -> {
+            inside.countDown();
+            try {
+                release.await(30, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return List.of(StepResult.done("install_buypass"));
+        };
+        upgrades = new UpgradeService(downloads, () -> rig, busy, slow, NewInstallTools::defaults,
+                (r, env, log) -> true, null, Map.of());
+        serve(upgrades);
+        set("commanderBranch", "Solutions");
+        set("commanderBuild", "1082");
+        set("mode", "new_install");
+
+        post("/upgrade/start", "", true);
+        assertTrue(inside.await(30, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(RigBusy.INSTALL, busy.own());
+        assertEquals("An install is already in progress.", busy.begin(RigBusy.SIMS_LAUNCH));
+        assertTrue(get(UpgradePage.PATH).body().contains("hx-post=\"/upgrade/stop\""), "Stop is offered");
+
+        release.countDown();
+        downloads.awaitIdle(WAIT);
+        assertEquals("", busy.own());
+        assertEquals("", busy.begin(RigBusy.SIMS_LAUNCH));
+    }
+
+    @Test
+    void stopEndsTheInstallBeforeItsNextStage() throws Exception {
+        java.util.concurrent.CountDownLatch inside = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        UpgradeService.Installer slow = (r, t, env, log) -> {
+            inside.countDown();
+            try {
+                release.await(30, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return List.of(StepResult.done("install_buypass"));
+        };
+        upgrades = new UpgradeService(downloads, () -> rig, busy, slow, NewInstallTools::defaults,
+                (r, env, log) -> {
+                    psiRigs.add(r);
+                    return true;
+                }, null, Map.of());
+        serve(upgrades);
+        set("commanderBranch", "Solutions");
+        set("commanderBuild", "1082");
+        set("mode", "new_install");
+        post("/upgrade/start", "", true);
+        assertTrue(inside.await(30, java.util.concurrent.TimeUnit.SECONDS));
+
+        post("/upgrade/stop", "", true);
+        release.countDown();
+        downloads.awaitIdle(WAIT);
+
+        assertTrue(psiRigs.isEmpty(), "psi-init never ran after Stop");
+        assertEquals("stopped", upgrades.message());
+        assertTrue(get(UpgradePage.PATH).body().contains("psi-init --no-pairing (after PSI): stopped"));
+        assertEquals("", busy.own());
     }
 
     @Test
@@ -173,28 +277,65 @@ class UpgradeWebTest {
     }
 
     @Test
-    void auIsNotBuiltYetAndNamesItsModule() throws Exception {
+    void auPushesTheBuildAndRunsNoPsiInit() throws Exception {
+        List<Path> pushed = new CopyOnWriteArrayList<>();
+        upgrades.withClassic((r, dir, env, log) -> {
+            pushed.add(dir);
+            return List.of(StepResult.done("auto_upgrade"));
+        });
         set("commanderBranch", "Solutions");
         set("commanderBuild", "1082");
         set("mode", "classic");
+        assertTrue(get("/upgrade").body().contains("Push Solutions 1082 (buypass) to rig lab with Auto_Upgrade.jar"));
 
-        String html = get("/upgrade").body();
+        startInstall();
 
-        assertTrue(html.contains("AU (classic) is not built yet (petrotest/upgrade/classic.py)"), html);
+        assertEquals(List.of(root.resolve("Solutions1082").resolve("buypass")), pushed);
+        assertTrue(installer.rigs.isEmpty(), "AU never runs PSI");
+        assertTrue(psiRigs.isEmpty());
+        String panel = get(UpgradePage.PATH).body();
+        assertTrue(panel.contains("Install it (PSI): done"), panel);
+        assertTrue(panel.contains("psi-init --no-pairing (after PSI): skipped"), panel);
     }
 
     @Test
-    void aSimulatorBuildIsNotBuiltYet() throws Exception {
-        set("commanderBranch", "Solutions");
-        set("commanderBuild", "1082");
-        set("mode", "new_install");
+    void vhqIsRefusedNamingItsModule() throws Exception {
+        set("mode", "vhq");
+        assertTrue(upgrades.refusal().contains("VHQ is not implemented (petrotest/upgrade/vhq.py)"),
+                upgrades.refusal());
+    }
+
+    @Test
+    void aSimulatorBuildNeedsItsNumberAndIsRefusedWhileOneRuns() throws Exception {
         set("simBranch", "master");
+        assertTrue(upgrades.refusal().contains("a Simulator Build number on master"), upgrades.refusal());
 
-        String html = get("/upgrade").body();
+        set("simBuild", "74");
+        assertEquals("", upgrades.refusal());
+        runningSims.put("Petro Simulator Suite", "listening on 1053");
 
-        assertTrue(html.contains("cat/sims/fetch.py"), html);
-        assertTrue(upgrades.refusal().contains("cat/sims/fetch.py"), upgrades.refusal());
+        post("/upgrade/start", "", true);
+        downloads.awaitIdle(WAIT);
+
+        assertTrue(upgrades.notice().startsWith("simulators are running, so the Simulator Build cannot replace them: "
+                + "Petro Simulator Suite (listening on 1053)"), upgrades.notice());
+        assertTrue(replaced.isEmpty());
         assertTrue(installer.rigs.isEmpty());
+    }
+
+    @Test
+    void skipWithASimulatorBuildReplacesOnlyTheSimulators() throws Exception {
+        set("simBranch", "master");
+        set("simBuild", "74");
+
+        startInstall();
+
+        assertEquals(List.of("master 74"), replaced);
+        assertTrue(installer.rigs.isEmpty());
+        assertTrue(psiRigs.isEmpty());
+        String panel = get(UpgradePage.PATH).body();
+        assertTrue(panel.contains("Replace the simulators: done"), panel);
+        assertTrue(panel.contains("Install it (PSI): skipped"), panel);
     }
 
     @Test
@@ -202,7 +343,8 @@ class UpgradeWebTest {
         set("commanderBranch", "Solutions");
         set("commanderBuild", "1082");
 
-        assertTrue(upgrades.refusal().contains("Skip"), upgrades.refusal());
+        assertTrue(upgrades.refusal().contains("an Upgrade mode other than Skip, or a Simulator Build"),
+                upgrades.refusal());
     }
 
     @Test
@@ -219,10 +361,12 @@ class UpgradeWebTest {
         assertTrue(Files.isRegularFile(root.resolve("Solutions1082/buypass/Petro_Suite_Installer.jar")));
         assertEquals("", downloads.busy());
         assertEquals("done", downloads.job().state());
-        assertTrue(downloads.job().message().contains("psi-init is not built yet"), downloads.job().message());
+        assertEquals("Install Upgrade done. No test was run.", downloads.job().message());
+        assertEquals(List.of(RIG), psiRigs);
         String panel = get(UpgradePage.PATH).body();
         assertTrue(panel.contains("Install it (PSI): done"), panel);
-        assertTrue(panel.contains("psi-init --no-pairing (after PSI): not built"), panel);
+        assertTrue(panel.contains("psi-init --no-pairing (after PSI): done"), panel);
+        assertTrue(panel.contains("Replace the simulators: skipped"), panel);
         String downloadsPanel = get(DownloadsPanel.PATH).body();
         assertTrue(downloadsPanel.contains("fake installer for lab"), downloadsPanel);
     }
@@ -272,8 +416,7 @@ class UpgradeWebTest {
                 "PETROTEST_NETLOADER_JAR", root.resolve("no-netloader.jar").toString(),
                 "PETROTEST_UPGRADE_ROOT_ACCESS_PATH", root.resolve("no-root.tgz").toString(),
                 "PETROTEST_UPGRADE_GEMREG_LICENSE_PATH", root.resolve("no-gemreg.tgz").toString());
-        upgrades = new UpgradeService(downloads, () -> rig, runBusy::get, installer,
-                b -> NewInstallTools.forBuild(b, env), env);
+        upgrades = service(b -> NewInstallTools.forBuild(b, env));
         serve(upgrades);
         set("mode", "new_install");
 

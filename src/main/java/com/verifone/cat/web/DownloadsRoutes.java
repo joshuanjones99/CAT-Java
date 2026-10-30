@@ -18,7 +18,7 @@ final class DownloadsRoutes {
 
     /** The choice fields the pickers post. */
     static final Set<String> FIELDS = Set.of("commanderBranch", "commanderBuild", "simBranch", "simBuild",
-            "mode", "dist");
+            "mode", "dist", "foundationBranch", "foundationBuild");
 
     private DownloadsRoutes() {}
 

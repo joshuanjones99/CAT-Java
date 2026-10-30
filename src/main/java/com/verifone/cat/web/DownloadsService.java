@@ -25,11 +25,13 @@ import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.ArtifactoryEntry;
 import com.verifone.cat.build.ArtifactoryException;
 import com.verifone.cat.build.BuildCatalogue;
+import com.verifone.cat.build.BuildContents;
 import com.verifone.cat.build.BuildDiscovery;
 import com.verifone.cat.build.BuildDownloads;
 import com.verifone.cat.build.BuildException;
 import com.verifone.cat.build.StoredArtifactoryCredentials;
 import com.verifone.cat.launch.UpgradeMode;
+import com.verifone.cat.runconfig.DownloadsState;
 
 /**
  * The Downloads choice both Config and Install Upgrade show, its Artifactory listings, and the
@@ -40,10 +42,13 @@ import com.verifone.cat.launch.UpgradeMode;
  * Artifactory never holds a request open. Each listing is asked once and kept until Refresh.
  *
  * <p>Ported from the Python CAT's {@code cat/web/downloads.py} ({@code DownloadsModel}), for the
- * parts this port has: branches and builds (read-only), this PC's builds, and the Commander download
- * of a {@code <dist>} folder. Not built yet: the flavour folders ({@code viper-}, {@code foundation-},
- * {@code sc-}, {@code retail-}), which need {@code petrotest/build/nightly.py build_contents} and
- * {@code petrotest/build/overlay_merge.py}; a Simulator Build download ({@code cat/sims/fetch.py}).
+ * parts this port has: branches and builds (read-only), this PC's builds, the Commander download of a
+ * {@code <dist>} folder, the Foundation Build picker (shown for a viper-only build, read from its
+ * {@code viper-<dist>} folder) and the blockers ({@link #problems()}, the Python's {@code problems}). The
+ * choice is saved by the Config form ({@link #asState()}), under the Python's keys. Not ported: the
+ * {@code nightly.py build_contents} read (the pairing of a viper build with its foundation, and the merge
+ * itself), so a viper-only build's paired foundation is not looked up and no "no foundation pairs" blocker
+ * is raised.
  *
  * <p>UNVERIFIED AGAINST A REAL ARTIFACTORY SERVER: tests run against {@code FakeArtifactory}.
  */
@@ -69,10 +74,24 @@ final class DownloadsService {
 
     /** One Downloads choice, as a snapshot. */
     record Choice(String commanderBranch, String commanderBuild, String localBuild, String simBranch,
-            String simBuild, UpgradeMode mode, String dist) {
+            String simBuild, UpgradeMode mode, String dist, String foundationBranch, String foundationBuild) {
+
+        /** A choice with no Foundation Build. */
+        Choice(String commanderBranch, String commanderBuild, String localBuild, String simBranch, String simBuild,
+                UpgradeMode mode, String dist) {
+            this(commanderBranch, commanderBuild, localBuild, simBranch, simBuild, mode, dist, "", "");
+        }
 
         boolean commanderChosen() {
             return !commanderBranch.isEmpty() && !commanderBuild.isEmpty();
+        }
+
+        boolean foundationChosen() {
+            return !foundationBranch.isEmpty() && !foundationBuild.isEmpty();
+        }
+
+        boolean installing() {
+            return mode == UpgradeMode.CLASSIC || mode == UpgradeMode.NEW_INSTALL;
         }
 
         boolean simChosen() {
@@ -101,11 +120,17 @@ final class DownloadsService {
     private String localBuild = "";
     private String simBranch = "";
     private String simBuild = "";
+    private String foundationBranch = "";
+    private String foundationBuild = "";
     private UpgradeMode mode = UpgradeMode.SKIP;
     private String dist = DEFAULT_DIST;
     private List<String> branches;
     private final Map<String, List<BuildCatalogue.NightlyBuild>> builds = new HashMap<>();
     private final Map<String, List<String>> dists = new HashMap<>();
+    /** Every folder a build holds, flavour folders ({@code viper-buypass}) included, by {@link #distsKey}. */
+    private final Map<String, List<String>> folders = new HashMap<>();
+    private final List<Runnable> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private Future<?> current;
     private final Set<String> pending = new HashSet<>();
     private final Map<String, String> errors = new HashMap<>();
     private final List<Future<?>> tasks = new ArrayList<>();
@@ -132,7 +157,170 @@ final class DownloadsService {
 
     Choice choice() {
         synchronized (lock) {
-            return new Choice(commanderBranch, commanderBuild, localBuild, simBranch, simBuild, mode, dist);
+            return new Choice(commanderBranch, commanderBuild, localBuild, simBranch, simBuild, mode, dist,
+                    foundationBranch, foundationBuild);
+        }
+    }
+
+    /** A new Artifactory client with the login (the Simulator Build replacement's). */
+    ArtifactoryClient client() {
+        return clients.get();
+    }
+
+    // ------------------------------------------------------------ the Config form's view (DownloadsState)
+
+    /** This choice as the Config form saves it and builds the launch fields from. */
+    DownloadsState.Choice state() {
+        Choice c = choice();
+        return new DownloadsState.Choice(c.commanderBranch(), c.commanderBuild(), c.mode().wire(), c.simBranch(),
+                c.simBuild(), c.foundationBranch(), c.foundationBuild(), c.dist(), c.localBuild());
+    }
+
+    /**
+     * Sets every choice at once, from the saved file, as the Python's {@code _restore}: a value that would not pass
+     * {@link #set} is dropped, a build without its branch is dropped, and the listener is not told.
+     */
+    void restore(DownloadsState.Choice saved) {
+        synchronized (lock) {
+            commanderBranch = validBranch(saved.commanderBranch());
+            commanderBuild = commanderBranch.isEmpty() ? "" : digitsOr(saved.commanderBuild());
+            localBuild = commanderBranch.isEmpty() && LOCAL_NAME.matcher(saved.localBuild()).matches()
+                    && !saved.localBuild().contains("..") ? saved.localBuild() : "";
+            simBranch = validBranch(saved.simBranch());
+            simBuild = simBranch.isEmpty() ? "" : digitsOr(saved.simBuild());
+            foundationBranch = commanderBranch.isEmpty() ? "" : validBranch(saved.foundationBranch());
+            foundationBuild = foundationBranch.isEmpty() ? "" : digitsOr(saved.foundationBuild());
+            try {
+                mode = saved.upgradeMode().isEmpty() ? mode : UpgradeMode.of(saved.upgradeMode());
+            } catch (IllegalArgumentException e) {
+                // An unknown saved mode keeps the default, as the Python's.
+            }
+            dist = DIST.matcher(saved.dist()).matches() ? saved.dist() : DEFAULT_DIST;
+        }
+    }
+
+    private static String validBranch(String branch) {
+        String v = branch == null ? "" : branch.strip();
+        try {
+            checkBranch(v);
+            return v;
+        } catch (RuntimeException e) {
+            return "";
+        }
+    }
+
+    private static String digitsOr(String build) {
+        String v = build == null ? "" : build.strip();
+        return !v.isEmpty() && v.chars().allMatch(Character::isDigit) ? v : "";
+    }
+
+    /** Runs after every change made through {@link #set}. */
+    void onChange(Runnable listener) {
+        listeners.add(listener);
+    }
+
+    private void changed() {
+        for (Runnable listener : listeners) {
+            try {
+                listener.run();
+            } catch (RuntimeException e) {
+                // A listener that fails must not undo the choice.
+            }
+        }
+    }
+
+    /** The Config form's adapter over this service. */
+    DownloadsState asState() {
+        DownloadsService self = this;
+        return new DownloadsState() {
+            @Override
+            public DownloadsState.Choice current() {
+                return self.state();
+            }
+
+            @Override
+            public void restore(DownloadsState.Choice choice) {
+                self.restore(choice);
+            }
+
+            @Override
+            public List<String> problems() {
+                return self.problems();
+            }
+
+            @Override
+            public void onChange(Runnable listener) {
+                self.onChange(listener);
+            }
+        };
+    }
+
+    /**
+     * What these choices lack before a run or an install can start, named precisely: the Python's
+     * {@code DownloadsModel.problems}. Listings not read yet are not guessed at.
+     */
+    List<String> problems() {
+        Choice c = choice();
+        List<String> missing = new ArrayList<>();
+        boolean installing = c.installing();
+        if (!c.commanderBranch().isEmpty() && c.commanderBuild().isEmpty() && installing) {
+            missing.add("a Commander Build number on " + c.commanderBranch());
+        }
+        BuildContents contents = contents(c);
+        boolean viperOnly = viperOnly(c);
+        if (installing && contents != null && contents.sourceFor(c.dist(), null) == null) {
+            List<String> held = contents.dists();
+            missing.add("a Distribution (FEP) that " + c.commanderBranch() + " " + c.commanderBuild() + " holds ("
+                    + (held.isEmpty() ? "none: pick another build" : String.join(", ", held)) + ")");
+        }
+        if (c.commanderChosen() && installing && viperOnly && !c.foundationBranch().isEmpty()
+                && c.foundationBuild().isEmpty()) {
+            missing.add("a Foundation Build number on " + c.foundationBranch());
+        }
+        if (installing && !c.localBuild().isEmpty() && localBuilds(c.mode(), c.dist()).stream()
+                .noneMatch(p -> c.localBuild().equals(p.getParent().getFileName().toString()))) {
+            missing.add("a Commander Build on this PC (" + c.localBuild() + " holds no " + c.dist() + " build "
+                    + (c.mode() == UpgradeMode.CLASSIC ? "AU" : "PSI") + " can install)");
+        }
+        if (!c.simBranch().isEmpty() && c.simBuild().isEmpty()) {
+            missing.add("a Simulator Build number on " + c.simBranch());
+        }
+        return missing;
+    }
+
+    /**
+     * Whether the chosen Commander Build holds the dist only as a viper (SOS) folder ({@code viper-<dist>}), which a
+     * foundation build is merged under. Read from the build's folders once listed; false until then.
+     */
+    boolean viperOnly(Choice c) {
+        BuildContents contents = contents(c);
+        return contents != null && contents.viperOnly(c.dist());
+    }
+
+    /** The chosen Commander Build's folders, classified ({@link BuildContents#classify}); null until listed. */
+    BuildContents contents(Choice c) {
+        if (!c.commanderChosen()) {
+            return null;
+        }
+        List<String> raw;
+        synchronized (lock) {
+            raw = folders.get(distsKey(c.commanderBranch(), c.commanderBuild()));
+        }
+        return raw == null ? null : BuildContents.classify(c.commanderBranch(), c.commanderBuild(), raw);
+    }
+
+    /** The Foundation row: only for a viper-only build, or once a foundation is chosen (the Python's rule). */
+    boolean foundationShown() {
+        Choice c = choice();
+        return c.commanderChosen() && (viperOnly(c) || !c.foundationBranch().isEmpty());
+    }
+
+    /** Stop: interrupts the action in flight (the install's Stop). */
+    void stopWork() {
+        synchronized (lock) {
+            if (current != null) {
+                current.cancel(true);
+            }
         }
     }
 
@@ -144,6 +332,14 @@ final class DownloadsService {
      *              {@code simBuild}, {@code mode}, {@code dist}
      */
     String set(String field, String value) {
+        String refused = apply(field, value);
+        if (refused.isEmpty()) {
+            changed();
+        }
+        return refused;
+    }
+
+    private String apply(String field, String value) {
         String v = value == null ? "" : value.strip();
         synchronized (lock) {
             try {
@@ -154,7 +350,24 @@ final class DownloadsService {
                             commanderBranch = v;
                             commanderBuild = "";
                             localBuild = "";
+                            if (v.isEmpty()) {
+                                foundationBranch = "";
+                                foundationBuild = "";
+                            }
                         }
+                    }
+                    case "foundationBranch" -> {
+                        checkBranch(v);
+                        if (!v.equals(foundationBranch)) {
+                            foundationBranch = v;
+                            foundationBuild = "";
+                        }
+                    }
+                    case "foundationBuild" -> {
+                        if (!DIGITS.matcher(v).matches()) {
+                            throw new BuildException("a Foundation Build is a build number");
+                        }
+                        foundationBuild = v;
                     }
                     case "commanderBuild" -> {
                         if (commanderBranch.isEmpty()) {
@@ -314,6 +527,7 @@ final class DownloadsService {
                 want(BRANCHES, () -> listBranches(clients.get()));
             }
             wantBuilds(commanderBranch);
+            wantBuilds(foundationBranch);
             wantBuilds(simBranch);
             if (!commanderBranch.isEmpty() && !commanderBuild.isEmpty()) {
                 String branch = commanderBranch;
@@ -338,6 +552,7 @@ final class DownloadsService {
             branches = null;
             builds.clear();
             dists.clear();
+            folders.clear();
             errors.clear();
         }
         ensureListings();
@@ -381,7 +596,8 @@ final class DownloadsService {
 
     private void listDists(ArtifactoryClient client, String branch, String number) {
         List<String> names = new ArrayList<>();
-        for (String folder : folderNames(client, buildPath(branch, number))) {
+        List<String> all = folderNames(client, buildPath(branch, number));
+        for (String folder : all) {
             if (DIST.matcher(folder).matches()) {
                 names.add(folder);
             }
@@ -389,6 +605,7 @@ final class DownloadsService {
         names.sort(String.CASE_INSENSITIVE_ORDER);
         synchronized (lock) {
             dists.put(distsKey(branch, number), names);
+            folders.put(distsKey(branch, number), List.copyOf(all));
         }
     }
 
@@ -449,7 +666,7 @@ final class DownloadsService {
             busy = kind;
             job.start(title);
             tasks.removeIf(Future::isDone);
-            tasks.add(work.submit(() -> {
+            current = work.submit(() -> {
                 String error;
                 try {
                     error = task.apply(job);
@@ -459,8 +676,10 @@ final class DownloadsService {
                 job.finish(error, okMessage);
                 synchronized (lock) {
                     busy = "";
+                    current = null;
                 }
-            }));
+            });
+            tasks.add(current);
         }
         return "";
     }
@@ -525,7 +744,7 @@ final class DownloadsService {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
-            } catch (ExecutionException | TimeoutException e) {
+            } catch (ExecutionException | TimeoutException | java.util.concurrent.CancellationException e) {
                 // A failed listing is kept in errors; the caller's assertions show it.
             }
         }

@@ -83,10 +83,12 @@ class SettingsRoutesTest {
     }
 
     @Test
-    void theNotBuiltPartsNameThePythonModule() throws Exception {
+    void shutDownCatAsksFirstAndSaysWhatItStops() throws Exception {
         String page = get("/settings").body();
 
-        assertTrue(page.contains("Ported from cat/web/pages/settings.py — not built yet"), page);
+        assertTrue(page.contains("Shut down CAT?"), page);
+        assertTrue(page.contains("hx-post=\"/_cat/shutdown\""), page);
+        assertTrue(page.contains("Every open CAT page stops working until CAT is started again."), page);
     }
 
     @Test

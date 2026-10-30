@@ -26,5 +26,12 @@ final class UpgradeRoutes {
             upgrades.start();
             ctx.html(UpgradePage.panel(downloads, upgrades));
         });
+        app.post("/upgrade/stop", ctx -> {
+            if (!DownloadsRoutes.fromHtmx(ctx)) {
+                return;
+            }
+            upgrades.setNotice(upgrades.stop());
+            ctx.html(UpgradePage.panel(downloads, upgrades));
+        });
     }
 }

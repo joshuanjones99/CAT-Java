@@ -427,3 +427,35 @@ pre.log { white-space: pre-wrap; overflow-x: auto; font-size: 12px; max-height: 
 .stages li { padding: 2px 0; }
 .stage-mark { display: inline-block; width: 1.2em; text-align: center; }
 .job { margin-top: 12px; }
+
+/* The shell: toasts, the loading line, the Setup marker and warning, the sign-in cards, dialogs. */
+.toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px;
+  max-width: min(28rem, calc(100vw - 32px)); z-index: 50; }
+.toast { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 6px;
+  background: var(--card, #fff); color: var(--text, #111); box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+  border-left: 4px solid #1234ff; }
+.toast.ok { border-left-color: #2bb58a; }
+.toast.warn { border-left-color: #e0a100; }
+.toast.error { border-left-color: #c6263e; }
+.toast .pre { white-space: pre-wrap; flex: 1; }
+.cat-note { display: flex; gap: 8px; align-items: center; padding: 6px 16px; font-size: .9rem; }
+.cat-note[hidden] { display: none; }
+.cat-loader { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(18, 52, 255, .2);
+  border-top-color: #1234ff; animation: cat-spin 1s linear infinite; }
+@keyframes cat-spin { to { transform: rotate(360deg); } }
+.setup-marker { margin-left: auto; }
+.setup-marker[hidden] { display: none; }
+.setup-warning { margin-left: auto; color: #8a5a00; text-decoration: none; font-weight: 600; }
+.nav-image { width: 21px; height: 21px; }
+.brand-icon { vertical-align: middle; margin-right: 6px; border-radius: 6px; }
+.nav-bottom { margin-top: 16px; border-top: 1px solid rgba(255, 255, 255, .15); padding-top: 8px; }
+.setup-cards { display: grid; gap: 12px; }
+.setup-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.setup-form { display: grid; gap: 6px; max-width: 32rem; }
+.setup-input { display: flex; gap: 6px; }
+.setup-input input { flex: 1; min-width: 0; }
+.cat-dialog { border: none; border-radius: 8px; padding: 20px; max-width: min(28rem, calc(100vw - 32px)); }
+.cat-dialog::backdrop { background: rgba(0, 0, 0, .4); }
+button.danger { background: #c6263e; color: #fff; border-color: #c6263e; }
+.config-fields { display: grid; gap: 8px; }
+.config-fields.dim { opacity: .5; }

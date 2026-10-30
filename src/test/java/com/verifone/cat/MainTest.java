@@ -37,6 +37,7 @@ class MainTest {
         expected.put("cloud-tunnel", CloudTunnelCommand.class);
         expected.put("psi-init", PsiInitCommand.class);
         expected.put("emv-keys", EmvKeysCommand.class);
+        expected.put("setup", com.verifone.cat.setup.SetupCommand.class);
         expected.put("commander-prep", com.verifone.cat.commander.CommanderPrepCommand.class);
         expected.put("commander-init", com.verifone.cat.commander.CommanderInitCommand.class);
         expected.put("payment-links", com.verifone.cat.commander.links.PaymentLinksCommand.class);

@@ -52,6 +52,7 @@ public final class Main {
      * {@code commander-trust}, {@code secondary-fep}, {@code csite-reset}, {@code cloud-snapshot},
      * {@code build-pos-shim} (the Python's {@code tools/build_pos_shim.py}) and {@code install-resume} (new).
      * {@code upgrade}, {@code build}, {@code builds}, {@code artifactory-login}, {@code render-payload}: the upgrade slice's (wave 16).
+     * {@code setup}: the webshell slice's (wave 16), the Python's {@code cat-term setup}.
      */
     static final Map<String, Command> COMMANDS = commands();
 
@@ -69,6 +70,7 @@ public final class Main {
         table.put("cloud-tunnel", new Command(CloudTunnelCommand.class, argv -> new CloudTunnelCommand().run(argv)));
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
+        table.put("setup", new Command(com.verifone.cat.setup.SetupCommand.class, argv -> new com.verifone.cat.setup.SetupCommand().run(argv)));
         table.put("commander-prep", new Command(com.verifone.cat.commander.CommanderPrepCommand.class, argv -> new com.verifone.cat.commander.CommanderPrepCommand().run(argv)));
         table.put("commander-init", new Command(com.verifone.cat.commander.CommanderInitCommand.class, argv -> new com.verifone.cat.commander.CommanderInitCommand().run(argv)));
         table.put("payment-links", new Command(com.verifone.cat.commander.links.PaymentLinksCommand.class, argv -> new com.verifone.cat.commander.links.PaymentLinksCommand().run(argv)));

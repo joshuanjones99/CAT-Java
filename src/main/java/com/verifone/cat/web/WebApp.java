@@ -1,7 +1,10 @@
 package com.verifone.cat.web;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import com.verifone.cat.devices.DeviceError;
@@ -11,6 +14,8 @@ import com.verifone.cat.results.ResultsLibrary;
 import com.verifone.cat.results.RunIndex;
 import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
+import com.verifone.cat.shell.RigBusy;
+import com.verifone.cat.shell.Shell;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
@@ -18,20 +23,51 @@ import io.javalin.http.HttpStatus;
 import io.javalin.http.staticfiles.Location;
 
 /**
- * The web UI: the site shell (docs/web-ui.md) and the POS proof of concept.
+ * The web UI: the site shell (docs/web-ui.md) and its pages. The Python CAT's {@code cat/web/app.py} routes and the
+ * shell parts of {@code CatService}.
  *
- * <p>Like the Python CAT's {@code catt web}, it serves localhost only: {@link #start}
- * binds 127.0.0.1, so nothing else on the bench network can press keys on the POS.
+ * <p>Like the Python CAT's {@code catt web}, it serves localhost only: {@link #start} binds 127.0.0.1, so nothing
+ * else on the bench network can press keys on the POS.
  *
- * <p>Pages that are not ported yet render a placeholder naming their Python module; see
- * {@link Placeholder}. Each page's markup lives in its own class.
+ * <p>The shell ({@link Shell}) is one per app: the toasts every page shows, the loading line, the setup status the
+ * Setup marker and the Run page's warning show, the one {@link RigBusy} flag the run, Install Upgrade and Launch
+ * Simulators share, the open pages (each page's {@code /_cat/shell} poll is its heartbeat) and Shut down CAT.
+ * {@code /_cat/ping} answers {@code CAT}, so a second start knows the port is CAT's ({@link WebServe}).
+ *
+ * <p>Start run is gated here, before the run tab's own handler, as the Python's {@code _signed_in_launch}: no run
+ * while a sign-in is missing or Java 17 / the simulators are downloading (unless started with {@code --no-setup}),
+ * nor while an install or a simulator action holds the rig; and Start run pressed while a plan's case list is being
+ * fetched from Jira starts the run when it lands.
  */
 public final class WebApp {
 
     /** The host the UI binds. Never 0.0.0.0: these buttons drive a live register. */
     public static final String BIND_HOST = "127.0.0.1";
 
+    /** What {@link #PING_PATH} answers, so a second start knows the port is CAT's. */
+    public static final String PING_PATH = "/_cat/ping";
+    public static final String PING_REPLY = "CAT";
+
     private WebApp() {}
+
+    /** Everything an app is built from. Tests replace the parts that would reach the machine. */
+    static final class Parts {
+        PosShimClient shim;
+        String title = "CAT-Java";
+        String rig = "";
+        ResultsLibrary results;
+        ConfigForm configForm;
+        RunService run;
+        SimulatorsService sims;
+        Path settingsFile = WebSettings.defaultPath();
+        AuthoringService authoring;
+        Shell shell = new Shell();
+        SetupService setup;
+        DownloadsService downloads;
+        Map<String, String> env = System.getenv();
+        /** What Shut down CAT does after the shutdown hooks: stop the server (and, in {@code serve}, the process). */
+        Runnable exit;
+    }
 
     public static Javalin create(PosShimClient shim, String title) {
         return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
@@ -85,29 +121,83 @@ public final class WebApp {
 
     /** As {@link #create(PosShimClient, String)}, with the web settings file injected (tests use a temp file). */
     static Javalin createWithSettings(PosShimClient shim, String title, Path settingsFile) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()), SimulatorsService.standard(), settingsFile);
-    }
-
-    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
-            RunService run, SimulatorsService sims) {
-        return create(shim, title, results, configForm, run, sims, WebSettings.defaultPath());
+        Parts parts = parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
+                RunService.standard("", System.getenv()), SimulatorsService.standard());
+        parts.settingsFile = settingsFile;
+        return build(parts);
     }
 
     /** As {@link #create(PosShimClient, String)}, with the Authoring page's service injected (tests use a temp folder). */
     static Javalin createWithAuthoring(PosShimClient shim, String title, AuthoringService authoring) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()), SimulatorsService.standard(), WebSettings.defaultPath(),
-                authoring);
+        Parts parts = parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
+                RunService.standard("", System.getenv()), SimulatorsService.standard());
+        parts.authoring = authoring;
+        return build(parts);
     }
 
     private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
-            RunService run, SimulatorsService sims, Path settingsFile) {
-        return create(shim, title, results, configForm, run, sims, settingsFile, AuthoringService.standard());
+            RunService run, SimulatorsService sims) {
+        return build(parts(shim, title, results, configForm, run, sims));
     }
 
-    private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
-            RunService run, SimulatorsService sims, Path settingsFile, AuthoringService authoring) {
+    static Parts parts(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
+            RunService run, SimulatorsService sims) {
+        Parts parts = new Parts();
+        parts.shim = shim;
+        parts.title = title;
+        parts.results = results;
+        parts.configForm = configForm;
+        parts.run = run;
+        parts.sims = sims;
+        return parts;
+    }
+
+    /** The app, from its parts. Nothing here probes the machine; a setup check runs only when {@code serve} asks. */
+    static Javalin build(Parts parts) {
+        Shell shell = parts.shell;
+        RunService run = parts.run;
+        ConfigForm configForm = parts.configForm;
+        SetupService setup = parts.setup != null ? parts.setup : new SetupService(
+                () -> com.verifone.cat.setup.SetupAudit.standard(com.verifone.cat.setup.SetupEnv.system()),
+                env -> com.verifone.cat.setup.ToolStaging.NONE, shell, Runnable::run, Runnable::run, false);
+        DownloadsService downloads = parts.downloads != null ? parts.downloads
+                : DownloadsService.standard(parts.env);
+        // Start run's Downloads are the page's choice, never a saved file's (webrun's hook).
+        RunRoutes.useDownloads(run, downloads);
+        // And every other choice (Execution, the test plan branch, Commander Connect, coverage) is the Config page's
+        // own, as it holds it now: never a saved file's, and never the Python CAT's read-only one.
+        com.verifone.cat.runservice.RunStart.Context started = run.startContext();
+        run.startContext(new com.verifone.cat.runservice.RunStart.Context(started.rig(),
+                () -> com.verifone.cat.launch.LastConfig.of(configForm.savedChoices()), started.env(),
+                started.catalogue(), started.rigsDir(), started.downloads()));
+        // The run service's own start refusals: the sign-ins (when required), and the tools download.
+        run.gates(setup::credentialGapsByName, shell::toolsStaging, () -> false);
+        AuthoringService authoring = parts.authoring != null ? parts.authoring
+                : AuthoringService.standard(run, configForm);
+        SimulatorsService sims = parts.sims.withShell(shell).withCcOnboard(configForm::ccOnboard);
+
+        RigBusy busy = shell.busy();
+        busy.attachRun(() -> {
+            RunService.View view = run.view();
+            return view.busy() ? RigBusy.RUN : view.preflighting() ? RigBusy.PREFLIGHT : "";
+        });
+        shell.holdWhile(() -> {
+            var schedule = run.scheduleView();
+            if (schedule.continuous()) {
+                return "a continuous run";
+            }
+            return schedule.pending().isEmpty() ? "" : "a scheduled run";
+        });
+        configForm.attachDownloads(downloads.asState());
+        UpgradeService upgrades = UpgradeService.standard(downloads, run::rig, busy, parts.env);
+        shell.onShutdown(() -> {
+            if (run.view().busy()) {
+                run.stop();
+            }
+        });
+        shell.onShutdown(upgrades::stop);
+        shell.onShutdown(sims::cancel);
+
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             config.staticFiles.add(files -> {
@@ -116,23 +206,50 @@ public final class WebApp {
                 files.location = Location.CLASSPATH;
             });
         });
+        Runnable exit = parts.exit != null ? parts.exit : () -> stopLater(app);
+
+        app.before(ctx -> Layout.bind(shell));
+        app.after(ctx -> Layout.unbind());
+        app.before("/run/start", ctx -> gateRunStart(ctx, shell, setup, configForm, run));
 
         app.get("/", ctx -> ctx.redirect(Section.RUN.path()));
+        app.get(PING_PATH, ctx -> ctx.contentType("text/plain").result(PING_REPLY));
+        app.get("/_cat/shell", ctx -> {
+            shell.heartbeat(ctx.queryParam("page"), System.nanoTime());
+            long since = parseLong(ctx.queryParam("since"));
+            ctx.json(shellState(shell, since));
+        });
+        app.post("/_cat/page-closed", ctx -> {
+            shell.pageClosed(ctx.queryParam("page"));
+            ctx.status(HttpStatus.NO_CONTENT);
+        });
+        app.post("/_cat/shutdown", ctx -> {
+            if (!"true".equals(ctx.header("HX-Request"))) {
+                ctx.status(HttpStatus.FORBIDDEN).result("Shut down comes from the CAT-Java page only.");
+                return;
+            }
+            shell.notify("Shutting down CAT…", "info", 5);
+            shell.shutdown();
+            ctx.status(HttpStatus.NO_CONTENT);
+            exit.run();
+        });
+
         RunRoutes.register(app, configForm, run);
         RunConfigRoutes.register(app, configForm);
-        ResultsPage.routes(app, results);
+        ConfigSections.register(app, configForm, downloads);
+        ResultsPage.routes(app, parts.results);
         AuthoringRoutes.register(app, authoring);
-        DownloadsService downloads = DownloadsService.standard(System.getenv());
         DownloadsRoutes.register(app, downloads);
-        UpgradeRoutes.register(app, UpgradeService.standard(downloads, run::rig,
-                () -> run.view().busy() || run.view().preflighting(), System.getenv()), downloads);
+        UpgradeRoutes.register(app, upgrades, downloads);
         SimulatorsRoutes.register(app, sims);
-        SetupRoutes.register(app, SetupService.standard());
-        SettingsRoutes.register(app, settingsFile, System.getenv(), System.getProperty("user.home"));
+        SetupRoutes.register(app, setup);
+        SettingsRoutes.register(app, parts.settingsFile, parts.env, System.getProperty("user.home"));
         app.get("/tools", ctx -> ctx.html(Layout.page(Section.TOOLS, "Tools", ToolsPage.body())));
         // The Python CAT's Manual page became Tools; the old address still works.
         app.get("/manual", ctx -> ctx.redirect(Section.TOOLS.path()));
 
+        PosShimClient shim = parts.shim;
+        String title = parts.title;
         app.get("/pos", ctx -> ctx.html(Layout.page(Section.POS, "POS",
                 PosPage.body(title, shim.baseUri().toString()))));
         app.get("/fragments/health", ctx -> fragment(ctx, () -> PosPage.health(shim.health())));
@@ -154,6 +271,82 @@ public final class WebApp {
             fragment(ctx, () -> PosPage.keyResult(shim.pressKeys(List.of(key))));
         });
         return app;
+    }
+
+    /**
+     * The Python's {@code _startable_config} and {@code _signed_in_launch}, ahead of the run tab's Start: a refusal
+     * answers with the Overview panel and the run tab's handler never runs.
+     */
+    static void gateRunStart(Context ctx, Shell shell, SetupService setup, ConfigForm form, RunService run) {
+        if (!"true".equals(ctx.header("HX-Request"))) {
+            return; // the run tab refuses it itself
+        }
+        String held = shell.busy().own();
+        String why = held.isEmpty() ? "" : shell.busy().refusal();
+        if (why.isEmpty()) {
+            why = setup.runRefusal();
+        }
+        if (why.isEmpty() && form.missingRequirements().isEmpty()) {
+            String warning = setup.rejectedWarning();
+            if (!warning.isEmpty()) {
+                shell.notify(warning, "warning", 15);
+            }
+            return;
+        }
+        if (why.isEmpty()) {
+            String waiting = form.runWhenFetched();
+            if (waiting.isEmpty()) {
+                return; // nothing to run: the run tab says what to pick
+            }
+            form.onFetched(() -> {
+                var plan = com.verifone.cat.runservice.RunStart.from(form, run.rig());
+                if (plan.startable()) {
+                    run.start(plan.config());
+                }
+            });
+            shell.notify(waiting, "info", 10);
+            ctx.html(RunRoutes.overview(form, run));
+            ctx.skipRemainingHandlers();
+            return;
+        }
+        shell.notify(why, why.startsWith("Run not started") ? "error" : "warning", 15);
+        run.refuse(why);
+        ctx.html(RunRoutes.overview(form, run));
+        ctx.skipRemainingHandlers();
+    }
+
+    /** What a page's poll gets: the toasts after {@code since}, the loading line and the setup status. */
+    static Map<String, Object> shellState(Shell shell, long since) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("last", shell.lastToast());
+        List<Map<String, Object>> toasts = new ArrayList<>();
+        for (Shell.Toast toast : shell.toastsSince(since)) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", toast.id());
+            row.put("message", toast.message());
+            row.put("kind", toast.kind());
+            row.put("timeout", toast.timeoutSeconds());
+            toasts.add(row);
+        }
+        state.put("toasts", toasts);
+        state.put("loading", shell.loadingLine());
+        state.put("setup", shell.setupStatus());
+        return state;
+    }
+
+    private static long parseLong(String text) {
+        try {
+            return text == null ? 0 : Long.parseLong(text.strip());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /** Stops the server from another thread, so the request that asked can answer first. */
+    private static void stopLater(Javalin app) {
+        Thread thread = new Thread(app::stop, "cat-web-shutdown");
+        thread.setDaemon(false);
+        thread.start();
     }
 
     public static Javalin start(PosShimClient shim, String title, int port) {
