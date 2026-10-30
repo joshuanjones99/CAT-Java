@@ -125,7 +125,7 @@ public final class Main {
               secondary-fep, csite-reset, cloud-snapshot
                                   step 4's stages one at a time, flags as petrotest's (each takes --help)
               build-pos-shim      compile bridge/pos-shim into payload/pos (tools/build_pos_shim.py)
-              install-resume      carry an interrupted PSI install on from its root-access push, then step 4
+              install-resume      carry an interrupted PSI install on from its root-access push to pairing
               fetch-sims          stage the Java 17 sets and every simulator not yet staged (cat-term fetch-sims)
               record              watch the POS page and write each tap to a recording (petrotest record)
               generate            a recording as an authored .feature case (petrotest generate)

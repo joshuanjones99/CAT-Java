@@ -146,7 +146,9 @@ public final class NewInstall {
      * installed (CGILink answers with the PSI password) without root SSH. For each device in turn, the push until root
      * answers with the no-pw key ({@link RootAccess#pushUntilConfirmed}); a device whose root already answers is not
      * pushed and not waited for. Then each pushed device's SSH from a boot after its push, then the Commander's tail
-     * ({@code setenforce 0}, the bypass, a reboot, SSH, CGILink), as {@link #run} ends.
+     * ({@code setenforce 0}, the bypass, a reboot, SSH, CGILink), as {@link #run} ends. When no device was pushed (root
+     * already answered on every one), the tail sets {@code setenforce 0} and the bypass but does not reboot the
+     * Commander: nothing changed on it that a reboot would apply (review, 2026-10-29).
      *
      * <p>No Python counterpart: CAT-Java's {@code install-resume} (HANDOFF section 6 item 1a). It writes no installer
      * config and deletes no breadcrumb; nothing is installed.
@@ -175,6 +177,10 @@ public final class NewInstall {
             if (mark != null && !ledger.add(waitForSsh(target, mark))) {
                 return ledger.results();
             }
+        }
+        if (pushedAt.isEmpty()) {
+            log.accept("nothing was pushed: root already answers on every device, so the Commander is not rebooted");
+            return tail(commander, sshTimeout, ledger, false);
         }
         return tail(commander, sshTimeout, ledger);
     }
@@ -259,6 +265,11 @@ public final class NewInstall {
 
     /** The Commander's tail: {@code setenforce 0}, the bypass, a reboot, then SSH and CGILink. */
     private List<StepResult> tail(Target commander, Duration sshTimeout, Ledger ledger) {
+        return tail(commander, sshTimeout, ledger, true);
+    }
+
+    /** The tail; {@code reboot} false stops after the bypass, with no reboot and so no wait for SSH or CGILink. */
+    private List<StepResult> tail(Target commander, Duration sshTimeout, Ledger ledger, boolean reboot) {
         long rebootedAt;
         try (Transport box = transports.apply(commander.ssh())) {
             try {
@@ -267,7 +278,7 @@ public final class NewInstall {
                 ledger.add(StepResult.failed("setenforce_0", String.valueOf(e.getMessage())));
                 return ledger.results();
             }
-            if (!ledger.add(RootAccess.setBypassMemSizeCheck(box, sshTimeout))) {
+            if (!ledger.add(RootAccess.setBypassMemSizeCheck(box, sshTimeout)) || !reboot) {
                 return ledger.results();
             }
             rebootedAt = System.nanoTime();
