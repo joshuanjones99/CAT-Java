@@ -1112,7 +1112,9 @@ class CommanderConfigurationStepTest {
     void theProductionStepIsTheOneTheLauncherRuns() {
         CommanderConfigurationStep step = new CommanderConfigurationStep();
         assertEquals(LaunchStepNames.COMMANDER, step.name());
-        assertThrows(StageUnavailable.class, () -> CommanderStages.real(Map.of()).pinpadClear(null, null));
+        // pinpad-clear is ported (wave 16, devices.vats.PinpadClear): the real stages implement it themselves.
+        assertTrue(java.util.Arrays.stream(CommanderStages.real(Map.of()).getClass().getDeclaredMethods())
+                .anyMatch(m -> m.getName().equals("pinpadClear")));
         assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
     }
 

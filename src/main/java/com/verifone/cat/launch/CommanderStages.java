@@ -316,6 +316,12 @@ interface CommanderStages {
             this.environ = environ == null ? Map.of() : environ;
         }
 
+        /** {@code petrotest pinpad-clear}: the vats port ({@code devices.vats.PinpadClear}). */
+        @Override
+        public boolean pinpadClear(Rig rig, Say say) {
+            return com.verifone.cat.devices.vats.PinpadClear.run(rig, environ, say);
+        }
+
         @Override
         public Path buildsRoot() {
             return BuildDiscovery.buildsRoot(environ);
