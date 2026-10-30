@@ -194,6 +194,88 @@ class NewInstallTest {
         assertEquals("psi_complete_Reg101", NewInstall.breadcrumbPath(tools(), "192.0.2.101").getFileName().toString());
     }
 
+    // -- resumeRootAccess: an install that stopped at its root-access push ---------------------------------------
+
+    /** Root answers on a device once a jar has pushed to its host: the package's own effect. */
+    private static java.util.function.Predicate<Target> rootAfterPush(ScriptedJars jars, java.util.Set<String> already) {
+        return target -> already.contains(target.name())
+                || jars.calls.stream().anyMatch(argv -> argv.contains(target.host()));
+    }
+
+    private List<StepResult> resume(Jars jars, java.util.function.Predicate<Target> root, InMemoryTransport box,
+            boolean cgilinkAnswers, List<String> log) throws Exception {
+        NewInstall install = new NewInstall(tools(), target -> box, jars, (argv, cwd, file) -> {
+            throw new AssertionError("a resume starts no installer");
+        }, fastSettings(), host -> cgilinkAnswers, root, log::add);
+        return install.resumeRootAccess(rig(), Map.of());
+    }
+
+    @Test
+    void aCommanderThatAnswersCgilinkButNotRootSshIsPushedThenTheTailRuns() throws Exception {
+        // The lab Commander on 2026-10-29: installed, CGILink up with the PSI password, no root SSH; nor the register.
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        InMemoryTransport box = box("0.0");
+        List<String> log = new ArrayList<>();
+        var results = resume(jars, rootAfterPush(jars, java.util.Set.of()), box, true, log);
+
+        assertTrue(results.stream().noneMatch(StepResult::failed), results.toString());
+        assertEquals(List.of(
+                "push_commander_root_access",
+                "push_register_root_access",
+                "ssh_commander",
+                "ssh_topaz101",
+                "bypass_mem_size_check",
+                "reboot_commander_after_bypass",
+                "ssh_commander",
+                "cgilink_commander"), stepsOf(results));
+        assertEquals("gemreg.tgz", Path.of(jars.calls.get(0).get(5)).getFileName().toString());
+        assertEquals("jacoco.tgz", Path.of(jars.calls.get(1).get(5)).getFileName().toString());
+        assertEquals("192.0.2.101", jars.calls.get(2).get(jars.calls.get(2).size() - 2));
+        assertTrue(box.ran().contains("setenforce 0"), box.ran().toString());
+        assertFalse(Files.exists(build.resolve(LabAnswers.PSI_CONFIG_FILE)), "nothing is installed");
+    }
+
+    @Test
+    void aDeviceWhoseRootAlreadyAnswersIsNeitherPushedNorWaitedFor() throws Exception {
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        var results = resume(jars, rootAfterPush(jars, java.util.Set.of("topaz101")), box("0.0"), true,
+                new ArrayList<>());
+
+        assertEquals(List.of(
+                "push_commander_root_access",
+                "push_register_root_access",
+                "ssh_commander",
+                "bypass_mem_size_check",
+                "reboot_commander_after_bypass",
+                "ssh_commander",
+                "cgilink_commander"), stepsOf(results));
+        assertEquals("root access confirmed over SSH", results.get(1).detail());
+        assertEquals(2, jars.calls.size(), "only the Commander's two packages");
+    }
+
+    @Test
+    void aHardFaultOnThePushStopsTheResumeBeforeAnyWait() throws Exception {
+        Jars faulting = (argv, timeout) -> new Jars.Result(500, "",
+                "<faultCode>CGIPortal.InternalError</faultCode><e:message>Uploaded file is corrupt</e:message>");
+        InMemoryTransport box = box("0.0");
+        var results = resume(faulting, target -> false, box, true, new ArrayList<>());
+
+        assertEquals(List.of("push_commander_root_access"), stepsOf(results));
+        assertTrue(results.get(0).failed());
+        assertTrue(results.get(0).detail().contains("Uploaded file is corrupt"), results.get(0).detail());
+        assertTrue(box.ran().isEmpty(), "no tail: " + box.ran());
+    }
+
+    @Test
+    void aCommanderWhoseCgilinkNeverComesBackFailsTheTail() throws Exception {
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        var results = resume(jars, rootAfterPush(jars, java.util.Set.of()), box("0.0"), false, new ArrayList<>());
+
+        StepResult last = results.get(results.size() - 1);
+        assertEquals("cgilink_commander", last.step());
+        assertTrue(last.failed());
+    }
+
     /** Records every jar call and answers each with the given stdout, exit 0. */
     static final class ScriptedJars implements Jars {
         final List<List<String>> calls = new ArrayList<>();

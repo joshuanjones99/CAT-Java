@@ -15,6 +15,8 @@ import com.verifone.cat.commander.RigCommand;
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.commander.links.CommanderLinks;
 import com.verifone.cat.rig.Rig;
+import com.verifone.cat.upgrade.NewInstall;
+import com.verifone.cat.upgrade.NewInstallTools;
 import com.verifone.cat.upgrade.StepResult;
 
 /**
@@ -54,15 +56,22 @@ public final class InstallResume {
         List<StepResult> resume(Rig rig, Path buildDir, Map<String, String> environ, Consumer<String> log);
     }
 
+    /** The step a resume reports when the build's tools are not on this PC: nothing was sent. */
+    static final String STEP_TOOLS = "root_access_tools";
+
     /**
-     * The production resume. {@code upgrade.RootAccess} and {@code NewInstall}'s SSH and CGILink waits are package-
-     * private to the upgrade slice, so until it exposes {@code NewInstall.resumeRootAccess} (the orchestrator's hook)
-     * this says so and the chain stops before anything is sent.
+     * The production resume: {@link NewInstall#resumeRootAccess} with the build's PSI tools
+     * ({@link NewInstallTools#forBuild}, overridable by the {@code PETROTEST_*} variables). Tools that are missing are
+     * one failed step naming them, before anything is sent.
      */
     public static final RootAccessResume PRODUCTION_RESUME = (rig, buildDir, environ, log) -> {
-        throw new StageUnavailable("src/petrotest/upgrade/new_install.py",
-                "NewInstall.resumeRootAccess (upgrade: RootAccess.pushUntilConfirmed per device, the SSH waits and the "
-                        + "Commander tail, public)");
+        NewInstallTools tools;
+        try {
+            tools = NewInstallTools.forBuild(buildDir, environ);
+        } catch (IllegalArgumentException e) {
+            return List.of(StepResult.failed(STEP_TOOLS, e.getMessage()));
+        }
+        return NewInstall.system(tools, log).resumeRootAccess(rig, environ);
     };
 
     static final RigCommand.Spec SPEC = new RigCommand.Spec("install-resume",
