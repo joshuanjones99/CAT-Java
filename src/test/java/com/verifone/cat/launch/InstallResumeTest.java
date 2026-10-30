@@ -28,8 +28,9 @@ import com.verifone.cat.upgrade.StepResult;
 
 /**
  * {@code install-resume} over recording stages and a recorded root-access resume: the order (HANDOFF §6 item 1 from the
- * root-access push on), a stop at the first failure, {@code --stop-after-pairing}, and the production resume's honest
- * "unavailable" until the upgrade slice exposes it. Nothing reaches a rig.
+ * root-access push on), a stop at the first failure, {@code --stop-after-pairing}, and the production resume's check of
+ * the build's tools before anything is sent ({@code NewInstallTest} drives {@code resumeRootAccess} itself). Nothing
+ * reaches a rig.
  */
 class InstallResumeTest {
 
@@ -194,11 +195,23 @@ class InstallResumeTest {
     }
 
     @Test
-    void theProductionResumeSaysWhatItNeedsAndSendsNothing() {
-        Stages stages = new Stages();
-        assertEquals(RigCommand.EXIT_FAILED, run(stages, InstallResume.PRODUCTION_RESUME, "--rig", "bench"));
-        assertEquals(List.of("newest buypass"), ran);
-        assertTrue(err.toString(StandardCharsets.UTF_8).contains("NewInstall.resumeRootAccess"),
-                err.toString(StandardCharsets.UTF_8));
+    void theProductionResumeNamesMissingToolsAndSendsNothing() {
+        // Every tool path overridden into the temp folder, so the check never looks at the real C:\CICD.
+        Map<String, String> env = Map.of(
+                "PETROTEST_JAVA17_BIN", dir.resolve("java.exe").toString(),
+                "PETROTEST_NETLOADER_JAR", dir.resolve("NetLoaderClient.jar").toString(),
+                "PETROTEST_UPGRADE_ROOT_ACCESS_PATH", dir.resolve("root.tgz").toString(),
+                "PETROTEST_UPGRADE_GEMREG_LICENSE_PATH", dir.resolve("gemreg.tgz").toString());
+        Path build = dir.resolve("builds").resolve("Solutions134").resolve("buypass");
+        InstallResume command = new InstallResume((name, environ) -> rig, environ -> new Stages(),
+                InstallResume.PRODUCTION_RESUME);
+        int code = command.run(new String[] {"--rig", "bench", "--build-dir", build.toString()}, env,
+                new PrintStream(out, true, StandardCharsets.UTF_8), new PrintStream(err, true, StandardCharsets.UTF_8));
+
+        assertEquals(RigCommand.EXIT_FAILED, code);
+        assertTrue(ran.isEmpty(), ran.toString());
+        String said = err.toString(StandardCharsets.UTF_8);
+        assertTrue(said.contains("install-resume: root_access_tools failed: the PSI install needs these files, "
+                + "missing: " + build.resolve("overlay.zip")), said);
     }
 }
