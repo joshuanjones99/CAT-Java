@@ -1009,13 +1009,8 @@ public final class ConfigForm {
                         + (f.commanderConnectSettings().email().isEmpty() ? "(no email)"
                                 : f.commanderConnectSettings().email())
                 : "off"));
-        List<String> unwired = new ArrayList<>();
-        if (!"dev".equals(f.executionMode())) {
-            unwired.add("execution mode " + f.executionMode());
-        }
-        if (!f.ifsfMode().isEmpty()) {
-            unwired.add("IFSF " + f.ifsfMode());
-        }
+        // The run's own list (LaunchConfig.unwiredOptions, the Python's unwired_options); the rig is not read.
+        List<String> unwired = f.toConfig("config", List.of(), List.of()).unwiredOptions();
         if (!unwired.isEmpty()) {
             lines.add("Recorded, not wired: " + String.join(", ", unwired));
         }

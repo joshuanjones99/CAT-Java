@@ -209,6 +209,26 @@ class WebShellTest {
     }
 
     @Test
+    void aWebStartTakesThePagesOwnChoicesNotASavedFile() throws Exception {
+        // A saved new_install elsewhere must never reach a web Start: the page's Downloads and Execution do.
+        assertEquals(200, post("/downloads/set?field=mode", "value=skip", true).statusCode());
+        assertEquals(200, post("/config/set", "name=execMode&value=BDD", true).statusCode());
+        assertEquals(200, post("/config/set", "name=tpBranch&value=PETROCORE-1", true).statusCode());
+
+        var plan = com.verifone.cat.runservice.RunStart.from(form, run.startContext());
+        assertTrue(plan.startable(), plan.refusal());
+        assertEquals(com.verifone.cat.launch.UpgradeMode.SKIP, plan.config().upgradeMode());
+        assertEquals("BDD", plan.config().executionMode());
+        assertEquals("PETROCORE-1", plan.config().testPlanBranch());
+
+        assertEquals(200, post("/downloads/set?field=mode", "value=new_install", true).statusCode());
+        assertEquals(com.verifone.cat.launch.UpgradeMode.NEW_INSTALL,
+                com.verifone.cat.runservice.RunStart.from(form, run.startContext()).config().upgradeMode());
+        String overview = get("/run").body();
+        assertTrue(overview.contains("Upgrade:       new_install"), overview);
+    }
+
+    @Test
     void theRunHoldsTheSharedFlagForTheOtherPages() throws Exception {
         assertEquals("", shell.busy().current());
         assertEquals("", shell.holding());

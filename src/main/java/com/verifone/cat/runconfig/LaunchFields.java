@@ -69,6 +69,9 @@ public record LaunchFields(
                 xrayReport, coverage, commanderConnect, commanderConnectSettings, dist, testPlanBranch,
                 executionMode, List.of(), connections, false, false, false, commanderBranch, commanderBuild,
                 simBranch, simBuild, ifsfMode, localBuild, foundationBranch, foundationBuild, provisionRegister,
-                false);
+                false,
+                scope.mode() == RunScope.Mode.TAGS ? scope.tags() : "",
+                scope.mode() == RunScope.Mode.CASES ? scope.cases() : List.of(),
+                scope.mode() == RunScope.Mode.FROM ? scope.fromCase() : "");
     }
 }

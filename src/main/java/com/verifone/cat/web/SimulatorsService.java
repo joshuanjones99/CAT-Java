@@ -62,9 +62,9 @@ import com.verifone.cat.sims.base.JavaSets;
  * read over SSH as a run's System Checks reads it. Each row's state is also published to
  * {@link #onState} listeners (the Python's {@code SimulatorState} events).
  *
- * <p>Deviations: Petro's port holds are not taken outside a run ({@link PortHolds}; {@code launch.PetroPorts.hold}
- * needs a run's context), and the two connectors' starts are hooks ({@link Connector}) until the VATS and tunnel
- * ports provide them; until then their rows say so. The Python marks no registry row {@code fep_only} today; the
+ * <p>The connectors start as a run starts them: BTT through {@code launch.VatsCardServerStart}, the tunnel through
+ * {@code launch.TunnelStart}. Deviation: Petro's port holds are not taken outside a run ({@link PortHolds};
+ * {@code launch.PetroPorts.hold} needs a run's context), so a later run takes them itself. The Python marks no registry row {@code fep_only} today; the
  * label "(FEP simulator)" is drawn for the names in {@code fepOnly}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port). Nothing here has started or stopped a real simulator from this page.
@@ -245,8 +245,8 @@ final class SimulatorsService {
         service.shell = shell;
         service.rigBusy = shell.busy();
         service.ccOnboard = ccOnboard;
-        if (rig != null && rig.pinpad() == Rig.Pinpad.VATS) {
-            service.connectors.put(CARD_SERVER, Connector.unported("cat/launch/steps/simulators.py _start_card_server"));
+        if (rig != null && rig.pinpad() == Rig.Pinpad.VATS && rig.vats() != null) {
+            service.connectors.put(CARD_SERVER, cardServerRow(rig.vats(), com.verifone.cat.launch.VatsCardServerStart.REAL));
         }
         service.connectors.put(CLOUD_TUNNEL, tunnelRow(rigName, new PowerShellProcessOps()));
         if (rig != null) {
@@ -273,11 +273,40 @@ final class SimulatorsService {
 
     /**
      * The cloud tunnel's row: running when a process's command line is a {@code cloud-tunnel --rig <rig>} serve (the
-     * Python's {@code _is_tunnel_for}, {@code CloudTunnelProcess.isTunnelFor}); its start waits on step 4's tunnel
-     * start ({@code cat/launch/tunnel.py}), a hook until that port is merged.
+     * Python's {@code _is_tunnel_for}, {@code CloudTunnelProcess.isTunnelFor}); started as step 4 starts it
+     * ({@code launch.TunnelStart}, the Python's {@code _start_cloud_tunnel}), detached. CAT never stops it.
      */
     static Connector tunnelRow(String rigName, com.verifone.cat.sims.ProcessOps ops) {
-        Connector start = Connector.unported("cat/launch/tunnel.py _start_cloud_tunnel");
+        Rig loaded = loadRig(rigName);
+        Connector start = loaded == null ? Connector.unported("a rig that loads: rig '" + rigName + "' did not")
+                : new Connector() {
+                    @Override
+                    public String probe() {
+                        return "";
+                    }
+
+                    @Override
+                    public Map.Entry<Boolean, String> start(Consumer<String> log) {
+                        String[] last = {""};
+                        com.verifone.cat.commander.Say say = new com.verifone.cat.commander.Say() {
+                            @Override
+                            public void out(String line) {
+                                last[0] = line;
+                                log.accept(line);
+                            }
+
+                            @Override
+                            public void err(String line) {
+                                last[0] = line;
+                                log.accept(line);
+                            }
+                        };
+                        Map<String, String> env = System.getenv();
+                        boolean up = com.verifone.cat.launch.TunnelStart.start(rigName, loaded, env,
+                                Path.of("").toAbsolutePath(), com.verifone.cat.launch.TunnelStart.system(env), say);
+                        return Map.entry(up, last[0]);
+                    }
+                };
         return new Connector() {
             @Override
             public String probe() {
@@ -302,6 +331,26 @@ final class SimulatorsService {
                     return Map.entry(true, "already running: " + running);
                 }
                 return start.start(log);
+            }
+        };
+    }
+
+    /**
+     * BTT's card server row on a VATS rig: up when its port answers (BTT's own first test), started by the vats
+     * slice's {@code VatsCardServerStart} as step 3 starts it. CAT never stops BTT.
+     */
+    static Connector cardServerRow(Rig.Vats vats, com.verifone.cat.launch.VatsCardServerStart.Starter starter) {
+        return new Connector() {
+            @Override
+            public String probe() {
+                Integer port = vats.cardServerPort();
+                return port != null && com.verifone.cat.devices.vats.Ports.listening(port) ? "answers on " + port : "";
+            }
+
+            @Override
+            public Map.Entry<Boolean, String> start(Consumer<String> log) {
+                var result = starter.start(vats, com.verifone.cat.launch.VatsCardServerStart.BTT_START_TIMEOUT, log);
+                return Map.entry(result.ok(), result.detail());
             }
         };
     }

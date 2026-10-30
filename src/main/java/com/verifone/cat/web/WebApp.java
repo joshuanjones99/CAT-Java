@@ -164,6 +164,12 @@ public final class WebApp {
                 : DownloadsService.standard(parts.env);
         // Start run's Downloads are the page's choice, never a saved file's (webrun's hook).
         RunRoutes.useDownloads(run, downloads);
+        // And every other choice (Execution, the test plan branch, Commander Connect, coverage) is the Config page's
+        // own, as it holds it now: never a saved file's, and never the Python CAT's read-only one.
+        com.verifone.cat.runservice.RunStart.Context started = run.startContext();
+        run.startContext(new com.verifone.cat.runservice.RunStart.Context(started.rig(),
+                () -> com.verifone.cat.launch.LastConfig.of(configForm.savedChoices()), started.env(),
+                started.catalogue(), started.rigsDir(), started.downloads()));
         // The run service's own start refusals: the sign-ins (when required), and the tools download.
         run.gates(setup::credentialGapsByName, shell::toolsStaging, () -> false);
         AuthoringService authoring = parts.authoring != null ? parts.authoring
