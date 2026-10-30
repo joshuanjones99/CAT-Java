@@ -135,7 +135,7 @@ class PreflightCommandTest {
     @Test
     void aBusyPosIsNotTestableAndTheRepairIsRecordedAsUnavailable() throws IOException {
         shim.onFixture("GET", "/pos/screen", "screen.json");
-        int code = run("--rig", rigFile(true).toString());
+        int code = run("--rig", rigFile(true).toString(), "--repair");
 
         assertEquals(PreflightCommand.EXIT_FAILED, code, stdout());
         assertTrue(stdout().contains("pos_idle"), stdout());
@@ -144,12 +144,13 @@ class PreflightCommandTest {
     }
 
     @Test
-    void noRepairLeavesTheRepairOutOfTheReport() throws IOException {
+    void withoutRepairTheReportHasNoRepairAndNoRepairIsTheSame() throws IOException {
         shim.onFixture("GET", "/pos/screen", "screen.json");
-        int code = run("--rig", rigFile(true).toString(), "--no-repair");
+        int code = run("--rig", rigFile(true).toString());
 
         assertEquals(PreflightCommand.EXIT_FAILED, code, stdout());
         assertFalse(stdout().contains("repair="), stdout());
+        assertEquals(PreflightCommand.EXIT_FAILED, run("--rig", rigFile(true).toString(), "--no-repair"));
     }
 
     @Test

@@ -19,6 +19,7 @@ import com.verifone.cat.devices.forecourt.PetroPumps;
 import com.verifone.cat.devices.printer.TopazPrinter;
 import com.verifone.cat.pats.PatsCaseLoader;
 import com.verifone.cat.pats.runner.CaseRun;
+import com.verifone.cat.pats.runner.EvidenceSink;
 import com.verifone.cat.pats.runner.FixtureName;
 import com.verifone.cat.pats.runner.FixtureRequirements;
 import com.verifone.cat.pats.runner.FixtureSource;
@@ -30,6 +31,7 @@ import com.verifone.cat.pats.runner.ValidationsFailed;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
 import com.verifone.cat.pats.runner.handlers.posui.PinpadView;
 import com.verifone.cat.plans.PartialRun;
+import com.verifone.cat.pos.driver.CaseArtifacts;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.pos.fake.FakePosBanner;
 import com.verifone.cat.pos.fake.FakePosPinpad;
@@ -63,12 +65,29 @@ import com.verifone.cat.rig.Rig;
  * <p>The state a case carries to the next one is the run's {@link RunState}: a case after a failed one
  * waits for the POS, as PATS does.
  *
- * <p>A {@code @plan_end} case (an end-of-plan report, built from every sale before it) whose validations fail after an
- * earlier case failed is an expected failure, not a failure: {@code xfailed} in its record, {@code skipped} with
- * {@code exc_type} {@code XFailed} on its {@code test.finished}, its detail {@code "plan_end verdict untrusted: N
- * earlier case(s) failed\n..."}, and it counts neither as passed nor as failed. A step that could not be done is still
- * a failure. This is the Python's {@code PatsCase.run} / {@code PatsScenario.finish} ({@code pytest.xfail}) over
+ * <p>A {@code @plan_end} case (an end-of-plan report, built from every sale before it) is judged only in a full,
+ * in-order run of its plan on a rig ({@link PlanStart#isFullPlanRun}, the Python's {@code PETROTEST_FULL_PLAN_RUN}):
+ * in any other run it is skipped before any fixture, {@code exc_type} {@code Skipped}, with the Python plugin's words
+ * ({@link #PLAN_END_SKIP}; rig owner, 2026-09-17). In a full run, one whose validations fail after an earlier case
+ * failed is an expected failure, not a failure: {@code xfailed} in its record, {@code skipped} with {@code exc_type}
+ * {@code XFailed} on its {@code test.finished}, its detail {@code "plan_end verdict untrusted: N earlier case(s)
+ * failed\n..."}, and it counts neither as passed nor as failed. A step that could not be done is still a failure. This
+ * is the Python's {@code PatsCase.run} / {@code PatsScenario.finish} ({@code pytest.xfail}) over
  * {@code validate.plugin.earlier_failures}, which counts cases that failed in setup or call (rig owner, 2026-09-23).
+ *
+ * <p>The cases are those run start resolved ({@link RunContext#caseEntries}) that {@link LaunchConfig#suites} still
+ * names: the whole plan, or a partial selection. A {@code .feature} Scenario Outline with Examples is one case per row
+ * ({@link PatsCaseLoader#loadAll}), its node id the file's with the row's id in brackets and its folder the key with
+ * the id added, as pytest-bdd parametrises it.
+ *
+ * <p>A fixture a case declares that the run cannot give (no pos-shim for {@code legacy_rmi} on a fake-POS run, no
+ * pinpad, no Commander) errors the case at setup, before its first action, naming the fixture, as pytest does with a
+ * fixture that raises: {@code error}, which counts as an earlier failure and walks the ladder as a {@code setup}
+ * failure.
+ *
+ * <p>A failed validation's evidence (the POS screenshot and DOM, {@code PosDriver.capture}) goes to the case's folder:
+ * the connector's driver writes through a {@link CaseArtifacts} ({@link CaseEvidence}) that is pointed at the case's
+ * folder for the case's duration, the Python's {@code pos_artifacts}. A run with no POS driver captures nothing.
  *
  * <p>The verdict: {@code complete}, detailed {@code finished/total tests completed[, N failed]}, when every
  * case ran to a verdict (a failing test is not a failing step, as the Python's {@code _tests_outcome}
@@ -104,9 +123,10 @@ import com.verifone.cat.rig.Rig;
  * {@code _step_tests} sets it first), so Cleanup's day close runs even when the step fails before its first case. Only
  * an unwired step (no registry or case source, which the Python cannot be) leaves it unset.
  *
- * <p>Not done here: failed-validation evidence capture. No {@link com.verifone.cat.pats.runner.EvidenceSink} is
- * given (TODO): {@code PosDriver.capture} writes nothing without an {@code ArtifactSink}, and the connector builds the
- * driver with none, so a sink over it would only pretend. Nothing reports success for it either.
+ * <p>FEPSIM v2: when it serves Buypass this run, its listener is the {@link StandardRegistry}'s {@code buypassV2}
+ * fixture and packet source ({@code StartSimulatorsStep.fepsimBuypass}, the Python's {@code fepsim_buypass_env}); after
+ * the session, what each Secondary FEP's FEPSIM listener heard is one line each ({@code fep_exchange_lines}), WARNING
+ * when it starts {@code WARN}.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
  */
@@ -157,11 +177,14 @@ final class TestsRunStep implements LaunchStep {
         PetroSession petro;
         boolean heldPumpPort;
         boolean printerLent;
+        /** The session printer's relay into the run, or null; and the case running now, for its receipts' tag. */
+        PrinterHold.ReceiptRelay relay;
+        volatile String currentCase = "";
     }
 
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
-        if (registries == null || cases == null) {
+        if (registries == null || (cases == null && ctx.caseEntries() == null)) {
             return step.unavailable(PYTHON_MODULE, "the action registry and the plan's case source, which this run "
                     + "is not wired with yet (pats.runner.handlers and the plan's collected cases)");
         }
@@ -179,7 +202,9 @@ final class TestsRunStep implements LaunchStep {
                 fake = FakePos.open(pinpad == null ? FakePos.Hooks.NONE : FakePosPinpad.wire(pinpad));
                 banner(ctx, FakePosBanner.TITLE, FakePosBanner.LINES);
             }
-            return runCases(ctx, step, fake, pinpad, session);
+            boolean keepGoing = runCases(ctx, step, fake, pinpad, session);
+            fepExchanges(ctx, step);
+            return keepGoing;
         } catch (IOException e) {
             return step.fail("the step could not start: " + e.getMessage());
         } finally {
@@ -188,6 +213,14 @@ final class TestsRunStep implements LaunchStep {
                 session.petro.close();
             }
             connector.close();
+            if (session.relay != null) {
+                // After the connector closed the port, so the last receipt is relayed too.
+                try {
+                    session.relay.close();
+                } catch (Exception e) {
+                    LOG.debug("the receipt relay did not close: {}", e.getMessage());
+                }
+            }
             if (fake != null) {
                 fake.close();
             }
@@ -204,17 +237,41 @@ final class TestsRunStep implements LaunchStep {
 
     // -- the cases -----------------------------------------------------------------------------
 
-    /** A case read before the session starts: its actions, or why it could not be read. */
-    private record Loaded(CaseEntry entry, RunnableCase kase, Exception error) {
+    /**
+     * A case read before the session starts: its node id (the file's, with an Outline row's id in brackets), its
+     * Examples row id ("" for none), its actions, or why it could not be read.
+     */
+    private record Loaded(CaseEntry entry, String nodeid, String param, RunnableCase kase, Exception error) {
+    }
+
+    /**
+     * The run's cases: those run start resolved, kept to the targets run start left in {@link LaunchConfig#suites}
+     * (the whole plan, or a partial selection), Not Run ones included; else, with nothing resolved at run start (a
+     * run with no plan), the step's own source.
+     */
+    private List<CaseEntry> runEntries(RunContext ctx) throws IOException {
+        List<CaseEntry> resolved = ctx.caseEntries();
+        if (resolved == null) {
+            return cases.cases(ctx.config());
+        }
+        Set<String> targets = new java.util.HashSet<>(ctx.config().suites());
+        List<CaseEntry> kept = new ArrayList<>();
+        for (CaseEntry entry : resolved) {
+            if (!entry.runnable() || targets.contains(entry.nodeid())) {
+                kept.add(entry);
+            }
+        }
+        return kept;
     }
 
     private boolean runCases(RunContext ctx, StepEmitter step, FakePos fake, PinpadDouble pinpad, Session session)
             throws IOException {
         List<CaseEntry> toRun = new ArrayList<>();
-        for (CaseEntry entry : cases.cases(ctx.config())) {
+        boolean partial = ctx.config().partial();
+        for (CaseEntry entry : runEntries(ctx)) {
             if (entry.runnable()) {
                 toRun.add(entry);
-            } else {
+            } else if (!partial) {
                 step.log("NOT RUN  " + entry.key() + " — the plan lists it with no migrated test to run", "WARNING");
             }
         }
@@ -224,17 +281,22 @@ final class TestsRunStep implements LaunchStep {
             return true;
         }
         // Every case is read up front, as pytest collects: the session's listeners start for what the cases declare.
+        // An Outline with Examples is one case per row, as pytest-bdd parametrises it.
         List<Loaded> loaded = new ArrayList<>();
         Set<FixtureName> wanted = EnumSet.noneOf(FixtureName.class);
         for (CaseEntry entry : toRun) {
             try {
-                RunnableCase kase = PatsCaseLoader.load(entry.file());
-                wanted.addAll(FixtureRequirements.fixturesFor(kase));
-                loaded.add(new Loaded(entry, kase, null));
+                for (PatsCaseLoader.Variant variant : PatsCaseLoader.loadAll(entry.file())) {
+                    String nodeid = variant.id().isEmpty() ? entry.nodeid() : entry.nodeid() + "[" + variant.id() + "]";
+                    wanted.addAll(FixtureRequirements.fixturesFor(variant.kase()));
+                    loaded.add(new Loaded(entry, nodeid, variant.id(), variant.kase(), null));
+                }
             } catch (IOException | RuntimeException e) {
-                loaded.add(new Loaded(entry, null, e));
+                loaded.add(new Loaded(entry, entry.nodeid(), "", null, e));
             }
         }
+        // The Python's PETROTEST_FULL_PLAN_RUN: a @plan_end case is judged only in a whole, in-order run on a rig.
+        boolean fullPlan = PlanStart.isFullPlanRun(ctx.config(), ctx.planCases());
 
         // The handoffs: the printer's port and PATS's pump port are the session's from here. CAT's setup hold of the
         // printer first, so the connector can open the port.
@@ -249,13 +311,28 @@ final class TestsRunStep implements LaunchStep {
                 ctx.rig(), null, null, null, pinpad, fake == null ? null : fake.url(), null, null,
                 session.petro.dcr(), session.petro.fuelPumps());
         RunServices services = connector.connect(base);
+        if (services.printer() != null) {
+            // What the register prints during the session reaches the Receipt Printer's roll, each receipt tagged with
+            // the case running as it printed (the Python's log tap and _log_receipt).
+            String port = printerPort(ctx);
+            session.relay = new PrinterHold.ReceiptRelay(ctx, port == null ? "the printer" : port, services.printer(),
+                    () -> { }, () -> session.currentCase);
+        }
+        if (registries instanceof StandardRegistry standard) {
+            // The Python's fepsim_buypass_env: FEPSIM v2's Buypass listener, when it serves Buypass this run.
+            standard.buypassV2(StartSimulatorsStep.fepsimBuypass(ctx).orElse(null));
+        }
         RegistryFactory.Built built = registries.build(services);
         step.log("fixtures this run provides: " + declaredFixtures(services), "INFO");
         RecoveryLadder ladder = services.recovery() == null ? null
                 : new RecoveryLadder(services.recovery(), new Capturer(), ctx.runId(),
                         new RunSummary(ctx.runId()), null);
+        // The POS driver's evidence sink, pointed at each case's folder while it runs (the Python's pos_artifacts).
+        CaseArtifacts evidence = connector instanceof CaseEvidence source && services.pos() != null
+                ? source.caseArtifacts() : null;
 
-        ctx.emit(new CatEvent.TestCollected(toRun.size()));
+        int total = loaded.size();
+        ctx.emit(new CatEvent.TestCollected(total));
         RunState state = new RunState();
         int passed = 0;
         int failed = 0;
@@ -265,18 +342,20 @@ final class TestsRunStep implements LaunchStep {
         String drained = "";
         for (Loaded one : loaded) {
             CaseEntry entry = one.entry();
-            pauseBeforeCase(ctx, entry.nodeid());
-            CaseVerdict verdict = runCase(ctx, one, built, session.petro, state, ladder, earlierFailures);
+            pauseBeforeCase(ctx, one.nodeid());
+            session.currentCase = entry.key();
+            CaseVerdict verdict = runCase(ctx, one, built, session.petro, state, ladder, earlierFailures, fullPlan,
+                    services.pos(), evidence);
             finished++;
             if (verdict.passed()) {
                 passed++;
-            } else if (!verdict.xfailed()) {
+            } else if (verdict.failed()) {
                 failed++;
             }
             if (verdict.countsAsFailure()) {
                 earlierFailures++;
             }
-            step.progress(entry.key(), finished, toRun.size());
+            step.progress(entry.key(), finished, total);
             if (!verdict.drainReason().isEmpty()) {
                 drained = verdict.drainReason();
                 break;
@@ -284,34 +363,65 @@ final class TestsRunStep implements LaunchStep {
         }
 
         if (!drained.isEmpty()) {
-            step.fail("stopped after " + finished + "/" + toRun.size() + " tests: " + drained);
+            step.fail("stopped after " + finished + "/" + total + " tests: " + drained);
             endSession(ctx, Outcome.FAILED, passed, failed);
             return true;
         }
-        step.setDetail(finished + "/" + toRun.size() + " tests completed"
+        step.setDetail(finished + "/" + total + " tests completed"
                 + (failed > 0 ? ", " + failed + " failed" : ""));
         endSession(ctx, passed > 0 && failed == 0 ? Outcome.PASSED : Outcome.FAILED, passed, failed);
         return true;
     }
 
-    /** One case, from its start to its verdict, with its events, its folder, any recovery and the pump teardown. */
+    /** The reason a {@code @plan_end} case is skipped outside a full, in-order run: the Python plugin's words. */
+    static final String PLAN_END_SKIP = "plan_end: judged only inside a full, in-order CAT run of its plan "
+            + "($PETROTEST_FULL_PLAN_RUN is not set)";
+
+    /**
+     * One case, from its start to its verdict, with its events, its folder, any recovery and the pump teardown.
+     *
+     * @param fullPlan whether this run is the whole plan in plan order on a rig ({@link PlanStart#isFullPlanRun})
+     * @param pos      the run's POS driver, or null
+     * @param evidence the driver's evidence sink, or null when failed validations capture nothing
+     */
     private CaseVerdict runCase(RunContext ctx, Loaded one, RegistryFactory.Built built, PetroSession petro,
-            RunState state, RecoveryLadder ladder, int earlierFailures) {
+            RunState state, RecoveryLadder ladder, int earlierFailures, boolean fullPlan,
+            com.verifone.cat.pos.driver.PosDriver pos, CaseArtifacts evidence) {
         CaseEntry entry = one.entry();
-        String nodeid = entry.nodeid();
-        Path folder = ctx.runFolder().resolve(entry.key());
+        String nodeid = one.nodeid();
+        Path folder = ctx.runFolder().resolve(caseFolder(entry.key(), one.param()));
         CaseRecord record = new CaseRecord(nodeid, entry.key(), folder, ctx.clock().instant());
         ctx.emit(new CatEvent.TestStarted(nodeid));
         long started = System.nanoTime();
 
         // The fixtures the case's test declares are the ones its actions need (the Python generates the test with
-        // them); a fixture the run cannot provide then fails the action that asks for it, by name.
+        // them); one the run cannot provide errors the case at setup, as a pytest fixture does.
         Set<FixtureName> declared = EnumSet.noneOf(FixtureName.class);
         if (one.kase() != null) {
             declared.addAll(FixtureRequirements.fixturesFor(one.kase()));
         }
-        Attempt attempt = execute(ctx, record, one, built, declared, petro, state);
-        if (attempt.validationOnly() && earlierFailures > 0 && planEnd(entry.file())) {
+        Attempt attempt;
+        boolean planEnd = planEnd(entry.file());
+        if (planEnd && !fullPlan && one.kase() != null) {
+            // validate.plugin's pytest_runtest_setup: before any fixture, so the skip touches nothing on the rig.
+            for (RunnableAction later : one.kase().actions()) {
+                record.addUnreachedStep(later.index() + 1, "", later.describe());
+            }
+            attempt = Attempt.skipped(PLAN_END_SKIP);
+        } else {
+            if (evidence != null) {
+                evidence.pointAt(folder);
+            }
+            try {
+                attempt = execute(ctx, record, one, built, declared, petro, state,
+                        evidence == null ? null : label -> pos.capture(label));
+            } finally {
+                if (evidence != null) {
+                    evidence.restore();
+                }
+            }
+        }
+        if (attempt.validationOnly() && earlierFailures > 0 && planEnd) {
             attempt = Attempt.untrusted(attempt, earlierFailures);
         }
         record.finish(attempt.outcome(), attempt.detail(), "", ctx.clock().instant());
@@ -322,13 +432,32 @@ final class TestsRunStep implements LaunchStep {
             drained = recover(ctx, ladder, nodeid, attempt);
         }
         // The fuel_pumps fixture's teardown: after the ladder, as pytest tears fixtures down after its report hook.
-        PetroSession.DueFuel dueFuel = built.handlers() != null && declared.contains(FixtureName.POS)
-                ? PetroSession.DueFuel.over(built.handlers().pos()) : null;
-        petro.afterCase(declared, attempt.callFailed(), dueFuel);
+        if (!attempt.skipped()) {
+            // A skipped case set no fixture up, so there is nothing to tear down.
+            PetroSession.DueFuel dueFuel = built.handlers() != null && declared.contains(FixtureName.POS)
+                    ? PetroSession.DueFuel.over(built.handlers().pos()) : null;
+            petro.afterCase(declared, attempt.callFailed(), dueFuel);
+        }
         double seconds = (System.nanoTime() - started) / 1_000_000_000.0;
         ctx.emit(new CatEvent.TestFinished(nodeid, attempt.testOutcome(), seconds, 0, attempt.excType(),
                 truncate(attempt.detail())));
-        return new CaseVerdict(attempt.passed(), attempt.xfailed(), attempt.countsAsFailure(), drained);
+        ctx.countTest(attempt.testOutcome(), 0);
+        return new CaseVerdict(attempt.passed(), attempt.failedOrError(), attempt.countsAsFailure(), drained);
+    }
+
+    /**
+     * The case's folder under the run's: its key, with an Outline row's id added ({@code PETROCORE-61338-1-2}), as the
+     * Python's {@code case_folder_name} names a parametrised test's.
+     */
+    static String caseFolder(String key, String param) {
+        if (param == null || param.isEmpty()) {
+            return key;
+        }
+        StringBuilder safe = new StringBuilder();
+        param.codePoints().forEach(c -> safe.appendCodePoint(
+                Character.isLetterOrDigit(c) || c == '-' || c == '.' || c == '_' ? c : '_'));
+        String cleaned = safe.toString().replaceAll("^_+|_+$", "");
+        return cleaned.isEmpty() ? key : key + "-" + cleaned;
     }
 
     /** Whether the case's file carries {@code @plan_end}, on its feature or its scenario (pytest's marker). */
@@ -365,7 +494,7 @@ final class TestsRunStep implements LaunchStep {
      * action that could not be done, recording the rest as not reached, as {@link CaseRun#run} does.
      */
     private static Attempt execute(RunContext ctx, CaseRecord record, Loaded one, RegistryFactory.Built built,
-            Set<FixtureName> declared, PetroSession petro, RunState state) {
+            Set<FixtureName> declared, PetroSession petro, RunState state, EvidenceSink evidence) {
         CaseEntry entry = one.entry();
         RunnableCase kase = one.kase();
         if (kase == null) {
@@ -374,8 +503,12 @@ final class TestsRunStep implements LaunchStep {
         }
         record.setTitle(kase.title());
         List<RunnableAction> actions = kase.actions();
-        // The session fixtures' setup, before the first action: a fixture that cannot be had errors the case.
+        // The fixtures' setup, before the first action, as pytest sets up the fixtures a test declares: one the run
+        // cannot give (no pos-shim on a fake-POS run, no pinpad, no Commander) errors the case, naming it.
         try {
+            for (FixtureName name : declared) {
+                built.fixtures().fixture(name);
+            }
             petro.beginCase(declared);
         } catch (RuntimeException e) {
             for (RunnableAction later : actions) {
@@ -383,12 +516,14 @@ final class TestsRunStep implements LaunchStep {
             }
             return Attempt.setupFailed(e);
         }
-        // TODO(evidence): no EvidenceSink is given; see the class Javadoc.
         CaseRun run = new CaseRun(kase, record, built.registry(), built.fixtures(), declared, state)
                 .withBaselineDir(entry.file().getParent())
                 .withUpdate(ctx.config().snapshotUpdate());
-        String nodeid = entry.nodeid();
-        int validationsSent = 0;
+        if (evidence != null) {
+            run.withEvidence(evidence);
+        }
+        String nodeid = one.nodeid();
+        int[] sent = {0, 0}; // validation verdicts, receipt checks
         try {
             run.begin();
             for (int i = 0; i < actions.size(); i++) {
@@ -403,7 +538,7 @@ final class TestsRunStep implements LaunchStep {
                     // Playwright's expect() fails with an Error; the Python's except Exception catches its counterpart.
                     stop = new PatsStepError(e.getMessage(), e);
                 }
-                validationsSent = emitSettled(ctx, nodeid, record, validationsSent);
+                emitSettled(ctx, nodeid, record, sent);
                 if (stop != null) {
                     for (RunnableAction later : actions.subList(i + 1, actions.size())) {
                         record.addUnreachedStep(later.index() + 1, "", later.describe());
@@ -424,10 +559,12 @@ final class TestsRunStep implements LaunchStep {
     }
 
     /**
-     * Emits the step that just settled and the validation verdicts it added. Returns how many verdicts
-     * have now been sent.
+     * Emits the step that just settled, the validation verdicts it added, and its receipt checks as the printer's
+     * {@code ╞}/{@code ┊} lines for the Receipt Printer's roll ({@link PrinterHold#receiptChecked}). {@code sent} holds
+     * how many verdicts and checks have been sent, and is advanced.
      */
-    private static int emitSettled(RunContext ctx, String nodeid, CaseRecord record, int validationsSent) {
+    private static void emitSettled(RunContext ctx, String nodeid, CaseRecord record, int[] sent) {
+        int validationsSent = sent[0];
         List<CaseRecord.StepRecord> steps = record.steps();
         if (!steps.isEmpty()) {
             CaseRecord.StepRecord step = steps.get(steps.size() - 1);
@@ -440,7 +577,12 @@ final class TestsRunStep implements LaunchStep {
             ctx.emit(new CatEvent.TestValidation(nodeid, v.caseKey(), v.kind(), v.name(), v.passed(), v.diff(),
                     v.expected(), v.actual()));
         }
-        return verdicts.size();
+        sent[0] = verdicts.size();
+        List<CaseRecord.ReceiptCheck> checks = record.receiptChecks();
+        for (int i = sent[1]; i < checks.size(); i++) {
+            PrinterHold.receiptChecked(ctx, checks.get(i), LaunchStepNames.TESTS);
+        }
+        sent[1] = checks.size();
     }
 
     // -- pause, stop, the session's end ----------------------------------------------------------
@@ -461,6 +603,24 @@ final class TestsRunStep implements LaunchStep {
             throw new StepRunner.Cancelled();
         }
         ctx.emit(new CatEvent.LogLine("INFO", "cat.pause", "CONTINUED: running " + nodeid, LaunchStepNames.TESTS));
+    }
+
+    /**
+     * What each Secondary FEP's FEPSIM listener heard during the session, one line each (the Python's
+     * {@code fep_exchange_lines}): a passing fleet sale whose card went to Buypass instead would otherwise look the same.
+     * Never fails the step.
+     */
+    private static void fepExchanges(RunContext ctx, StepEmitter step) {
+        List<String> lines;
+        try {
+            lines = StartSimulatorsStep.fepExchangeLines(ctx);
+        } catch (RuntimeException e) {
+            LOG.warn("the Secondary FEPs' exchanges could not be read: {}", e.getMessage());
+            return;
+        }
+        for (String line : lines) {
+            step.log(line, line.startsWith("WARN") ? "WARNING" : "INFO");
+        }
     }
 
     /** The run's own {@code RunFinished}, with the counts of the cases this step ran. */
@@ -485,8 +645,7 @@ final class TestsRunStep implements LaunchStep {
             // device's keys and prompts are reached through the devices family's PinpadDevice, not this fixture.
             case PINPAD -> {
                 present(services.pinpad(), "pinpad", "no pinpad is connected to this run");
-                yield new PinpadView() {
-                };
+                yield com.verifone.cat.pats.runner.handlers.StandardHandlers.pinpadView(services.pinpad());
             }
             case COMMANDER_CONFIG -> present(services.commander(), "commander_config",
                     "no Commander PDK shim is connected to this run");
@@ -587,10 +746,11 @@ final class TestsRunStep implements LaunchStep {
     }
 
     /**
-     * One case's verdict: whether it passed, whether it was an expected failure, whether it counts towards the
-     * session's earlier failures, and the drain reason ("" when recovery did not drain the rig).
+     * One case's verdict: whether it passed, whether it failed or errored (the step's {@code N failed}: an expected
+     * failure and a skip are neither), whether it counts towards the session's earlier failures, and the drain reason
+     * ("" when recovery did not drain the rig).
      */
-    private record CaseVerdict(boolean passed, boolean xfailed, boolean countsAsFailure, String drainReason) {
+    private record CaseVerdict(boolean passed, boolean failed, boolean countsAsFailure, String drainReason) {
 
         CaseVerdict {
             drainReason = drainReason == null ? "" : drainReason;
@@ -640,6 +800,20 @@ final class TestsRunStep implements LaunchStep {
 
         boolean xfailed() {
             return "xfailed".equals(outcome);
+        }
+
+        /** A {@code @plan_end} case outside a full plan run: pytest's {@code skip} at setup. */
+        static Attempt skipped(String reason) {
+            return new Attempt("skipped", reason, "Skipped", false, "setup");
+        }
+
+        boolean skipped() {
+            return "skipped".equals(outcome);
+        }
+
+        /** Failed or errored: what the step's {@code N failed} counts (the Python's failed, error, timeout). */
+        boolean failedOrError() {
+            return "failed".equals(outcome) || "error".equals(outcome);
         }
 
         /** pytest's {@code report.failed} in setup or call, which {@code earlier_failures} counts. */
@@ -701,7 +875,7 @@ final class TestsRunStep implements LaunchStep {
                 case "passed" -> Outcome.PASSED;
                 case "failed" -> Outcome.FAILED;
                 // pytest reports an xfail as skipped, with wasxfail; the plugin names it XFailed.
-                case "xfailed" -> Outcome.SKIPPED;
+                case "xfailed", "skipped" -> Outcome.SKIPPED;
                 default -> Outcome.ERROR;
             };
         }

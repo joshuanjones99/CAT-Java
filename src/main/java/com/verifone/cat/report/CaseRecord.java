@@ -123,6 +123,7 @@ public final class CaseRecord {
     private final List<Capture> captures = new ArrayList<>();
     private final List<String> pendingFailures = new ArrayList<>();
     private final List<ValidationRecord> validations = new ArrayList<>();
+    private final List<ReceiptCheck> receiptChecks = new ArrayList<>();
     private String title = "";
     private Instant finishedAt;
     private String outcome = "running";
@@ -182,6 +183,26 @@ public final class CaseRecord {
 
     public List<ValidationRecord> validations() {
         return List.copyOf(validations);
+    }
+
+    /**
+     * A receipt check's verdict for the Receipt Printer's roll: the printed receipt's key
+     * ({@code TopazPrinter.receiptKey} of the text as captured), the case, passed or not, the reference's name and the
+     * diff (empty when it passed). The Python's {@code case_record.receipt_checked} log record.
+     */
+    public record ReceiptCheck(String key, String caseKey, boolean passed, String name, String diff) {
+    }
+
+    /** Records a receipt check on {@code text} as captured (before normalising). Never for a snapshot update. */
+    public void receiptChecked(String text, boolean passed, String diff, String name) {
+        receiptChecks.add(new ReceiptCheck(com.verifone.cat.devices.printer.TopazPrinter.receiptKey(
+                java.util.Arrays.asList(text.split("\\R", -1))), key, passed, name == null ? "" : name,
+                diff == null ? "" : diff));
+    }
+
+    /** The receipt checks so far, in order. */
+    public List<ReceiptCheck> receiptChecks() {
+        return List.copyOf(receiptChecks);
     }
 
     /** {@code passed}, {@code failed}, {@code skipped}, {@code error}, {@code xfailed}, or {@code running}. */

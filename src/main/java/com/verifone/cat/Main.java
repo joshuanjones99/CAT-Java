@@ -29,7 +29,8 @@ import com.verifone.cat.xray.XraySidecar;
  * {@code java -jar cat-java.jar --rig lab [--register topaz101] [--port 8090]} starts the web UI;
  * {@code cat-java web --rig lab ...} is the same. Any word in {@link #COMMANDS} ({@code preflight},
  * {@code launch}, {@code provision}, {@code xray}, {@code close-day}, {@code commander-snapshot},
- * {@code commander-connect}, {@code cloud-tunnel}, {@code coverage}, {@code xray-attach}) runs that command instead
+ * {@code commander-connect}, {@code cloud-tunnel}, {@code psi-init}, {@code emv-keys}, {@code coverage},
+ * {@code xray-attach}) runs that command instead
  * and exits with its code.
  *
  * <p>Reads the rig, points a {@link PosShimClient} at the register's shim, and serves
@@ -98,7 +99,7 @@ public final class Main {
 
     private static final String USAGE = """
             usage: cat-java [web] --rig <name|file.yaml> [--register <id>] [--port <n>] [--shim-port <n>]
-                   cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]
+                   cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--repair]
                    cat-java launch --rig <name|file.yaml> [--plan <key>...]... [--upgrade <mode>] [--exec dev|BDD]
                                    [--no-xray] [--no-coverage] [--cc-onboard] [--fep <name>]... (launch --help)
                    cat-java provision --rig <name> [--force] [--no-stage] [--payload-root <dir>]
@@ -109,7 +110,7 @@ public final class Main {
                    cat-java cloud-tunnel --rig <name> [--stop] [--force] [--no-gateway]
 
               web                 the default: the web UI (the word is optional)
-              preflight           check the rig and repair what can be repaired; exits 0 when testable
+              preflight           check the rig (and with --repair, repair it); exits 0 when testable
               launch              one run, headless, through the seven steps (run_plan's flags); exits 0 only
                                   when every step completed
               provision           push, verify and stamp the pos-shim payload on every target; exits 0 when provisioned

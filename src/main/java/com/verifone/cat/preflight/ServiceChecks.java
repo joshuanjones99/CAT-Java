@@ -21,8 +21,9 @@ public final class ServiceChecks {
      * ({@code devices.eps.CommanderLinkEpsProbe}) asks the Commander whether it holds that socket ESTABLISHED.
      * A probe that cannot look raises, and the runner records ERROR rather than a false FAIL.
      *
-     * <p>The repair is the escalation to {@code provision --force} (DESIGN.md 6.1, recovery rung 5). This port
-     * has no reprovision hook on the context, so the repair fails naming the remedy. The one-restart fix
+     * <p>The repair is the escalation to {@code provision --force} (DESIGN.md 6.1, recovery rung 5). The
+     * escalation is the context's reprovision hook ({@link RigContext#reprovision}); without one the repair fails
+     * naming the remedy, as the Python's does when {@code enable_reprovision} is off. The one-restart fix
      * ({@code commander_links.ensure_payment_links}) restarts the Commander's payment controller and is
      * deliberately not something preflight does on its own.
      */
@@ -44,8 +45,16 @@ public final class ServiceChecks {
 
         @Override
         public Result repair(RigContext rig) {
-            return Result.failed(name(), "EPS is not connected and no reprovision hook is wired — escalate to "
-                    + "`petrotest provision --rig X --force` (DESIGN.md 6.1)");
+            java.util.function.BooleanSupplier reprovision = rig.reprovision();
+            if (reprovision == null) {
+                return Result.failed(name(), "EPS is not connected and no reprovision hook is wired — escalate to "
+                        + "`petrotest provision --rig X --force` (DESIGN.md 6.1)");
+            }
+            // The 6.1 escalation, deliberately the last thing preflight does before giving up: it is minutes, not seconds.
+            if (reprovision.getAsBoolean()) {
+                return new Result(name(), Outcome.REPAIRED, "escalated to provision --force");
+            }
+            return Result.failed(name(), "provision --force did not restore EPS");
         }
     }
 }

@@ -23,9 +23,9 @@ import com.verifone.cat.report.events.CatEvent;
  * The launcher starts it only after step 4, so a run that stopped before any test ran creates no Jira
  * execution (the Python's rule, rig owner 2026-10-19).
  *
- * <p>Not passed to the sidecar, because CAT-Java does not carry them yet: {@code --dist},
- * {@code --branch} and {@code --build} (the installed build is not read). The sidecar's titles and
- * summary then show those fields blank.
+ * <p>The sidecar's command line is the Python's {@code sidecar_argv}: the run, the results root, the run's
+ * {@code --dist}, test-plan {@code --branch} and {@code --upgrade} mode, and {@code --build} when step 4 named the
+ * build on the Commander ({@link RunContext#installedBuild}), for the execution's title.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: the tests use a fake {@link Spawner}; no test starts a process.
  */
@@ -77,7 +77,8 @@ final class XraySidecarStart {
         }
         Path log = ctx.runFolder().resolve(LOG_FILE);
         List<String> argv = argv(javaExecutable(), System.getProperty("java.class.path", ""), ctx.runId(),
-                ctx.paths().resultsRoot(), config.upgradeMode().wire());
+                ctx.paths().resultsRoot(), config.dist(), config.testPlanBranch(), config.upgradeMode().wire(),
+                ctx.installedBuild());
         try {
             long pid = spawner.spawn(argv, log, Path.of(System.getProperty("user.dir", ".")));
             info(ctx, "Xray: reporting sidecar started (pid " + pid + ") for "
@@ -101,11 +102,19 @@ final class XraySidecarStart {
      * The sidecar's command line: this build's {@code Main}, run as the {@code xray} subcommand, so the
      * classpath is the one this JVM was started with.
      */
-    static List<String> argv(String java, String classpath, String runId, Path resultsRoot, String upgrade) {
-        return List.of(java, "-cp", classpath, "com.verifone.cat.Main", "xray",
+    static List<String> argv(String java, String classpath, String runId, Path resultsRoot, String dist, String branch,
+            String upgrade, String installedBuild) {
+        List<String> argv = new java.util.ArrayList<>(List.of(java, "-cp", classpath, "com.verifone.cat.Main", "xray",
                 "--run", runId,
                 "--results-root", resultsRoot.toString(),
-                "--upgrade", upgrade);
+                "--dist", dist,
+                "--branch", branch,
+                "--upgrade", upgrade));
+        if (installedBuild != null && !installedBuild.isEmpty()) {
+            argv.add("--build");
+            argv.add(installedBuild);
+        }
+        return List.copyOf(argv);
     }
 
     /** {@code javaw.exe} beside this JVM when there is one (no console window), else {@code java}. */

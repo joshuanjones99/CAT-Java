@@ -10,6 +10,8 @@ import com.verifone.cat.devices.legacyrmi.LegacySaleRmi;
 import com.verifone.cat.devices.printer.PrinterReceipts;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.FixtureSource;
+import com.verifone.cat.pats.runner.PatsStepError;
+import com.verifone.cat.pats.runner.handlers.http.CloudSite;
 import com.verifone.cat.pats.runner.handlers.HandlerFixtures;
 import com.verifone.cat.pats.runner.handlers.StandardHandlers;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
@@ -58,7 +60,10 @@ import org.slf4j.LoggerFactory;
  *       printer; the screen's {@link DomReceiptCapture} otherwise. Its print count is the printer's;</li>
  *   <li>the Commander's SSH and CGILink access ({@link CommanderAccess#forRig}), for the close-day recovery and the
  *       cloud settle's Commander log;</li>
- *   <li>the C-Site client when its settings are in the environment ({@code csite.username}).</li>
+ *   <li>on a rig, the C-Site client, built at its first request (the Python's {@code CsiteSettings.from_env(rig=...)}):
+ *       the environment's {@code CAT_CSITE_*} settings, else the run's Commander Connect account
+ *       ({@code CSiteClient.accountEnv}), over the endpoints the Commander is onboarded to
+ *       ({@code CommanderCloudConfig.forCommander}, read over SSH once per Commander).</li>
  * </ul>
  * The pinpad comes from the connector; the DCR and the pumps from step 5's Petro session ({@link PetroSession}), both
  * through {@link RunServices}.
@@ -78,8 +83,17 @@ public final class StandardRegistry implements RegistryFactory {
     /** The tools root when the environment does not name one: PATS's folder. */
     static final Path DEFAULT_TOOLS_ROOT = Path.of("C:\\CICD\\Tools");
 
-    /** The C-Site settings' key: present, with a value, when the run has C-Site settings. */
-    static final String CSITE_USER_ENV = "csite.username";
+    /** FEPSIM v2 serving Buypass this run, or null: set by step 5 before it builds the registry. */
+    private volatile com.verifone.cat.pats.runner.handlers.configuration.BuypassV2 buypassV2;
+
+    /**
+     * FEPSIM v2's Buypass listener this run ({@code StartSimulatorsStep.fepsimBuypass}, the Python's
+     * {@code fepsim_buypass_env}), or null when BUYPASS Host serves Buypass: the {@code buypassV2} fixture and the
+     * packet folders' source. Step 5 sets it before {@link #build}.
+     */
+    void buypassV2(com.verifone.cat.pats.runner.handlers.configuration.BuypassV2 listener) {
+        buypassV2 = listener;
+    }
 
     @Override
     public ActionRegistry create(RunServices services) {
@@ -97,7 +111,7 @@ public final class StandardRegistry implements RegistryFactory {
             LOG.warn("no POS driver is connected to this run; no action has a handler");
             return new Built(new ActionRegistry(), TestsRunStep.fixtureSource(services), null);
         }
-        HandlerFixtures fixtures = fixtures(services, System.getenv());
+        HandlerFixtures fixtures = fixtures(services, System.getenv(), buypassV2);
         ActionRegistry registry = StandardHandlers.create(fixtures);
         if (fixtures.receipts() instanceof PrinterReceipts printed) {
             // Each case's receipt is picked from the Commander's numbers as they stand when the case begins.
@@ -144,6 +158,12 @@ public final class StandardRegistry implements RegistryFactory {
 
     /** The handler fixtures a run's services give, with the stand-ins for the surfaces it lacks. */
     static HandlerFixtures fixtures(RunServices services, Map<String, String> env) {
+        return fixtures(services, env, null);
+    }
+
+    /** As {@link #fixtures(RunServices, Map)}, with FEPSIM v2's Buypass listener when it serves Buypass this run. */
+    static HandlerFixtures fixtures(RunServices services, Map<String, String> env,
+            com.verifone.cat.pats.runner.handlers.configuration.BuypassV2 buypassV2) {
         PosDriver driver = services.pos();
         Path tools = toolsRoot(env);
         Map<String, String> environment = Map.copyOf(env);
@@ -166,8 +186,8 @@ public final class StandardRegistry implements RegistryFactory {
                 InitsState.production(tools),
                 services.dcr(),
                 services.fuelPumps(),
-                cloudSite(environment),
-                null,
+                cloudSite(services, environment),
+                buypassV2,
                 null,
                 PosUiTimings.defaults(),
                 SaleTiming.DEFAULT,
@@ -176,7 +196,7 @@ public final class StandardRegistry implements RegistryFactory {
                 services.printer(),
                 services.rig() == null ? null : services.rig().rig().cashier(),
                 services.rig() == null || (services.config() != null && services.config().fakePos()) ? null
-                        : StandardHandlers.packetFolders(tools, null));
+                        : StandardHandlers.packetFolders(tools, buypassV2));
     }
 
     /** {@code CAT_TOOLS_ROOT}, else PATS's {@code C:\CICD\Tools}. */
@@ -215,16 +235,63 @@ public final class StandardRegistry implements RegistryFactory {
         return services.rig() == null ? null : CommanderAccess.forRig(services.rig().rig(), env);
     }
 
-    /** The C-Site client over the environment's settings, or null when there are none or they are not ported. */
-    static CSiteCloud cloudSite(Map<String, String> env) {
-        if (env.getOrDefault(CSITE_USER_ENV, "").isBlank()) {
+    /**
+     * The run's C-Site client, or null on a run with no rig. Built at its first use, not here: building it reads the
+     * Commander's cloud settings over SSH, which a session that never sends to the cloud must not pay for. A client
+     * that cannot be built fails the request that asked for it ({@link PatsStepError}).
+     */
+    static CloudSite cloudSite(RunServices services, Map<String, String> env) {
+        if (services.rig() == null) {
             return null;
         }
-        try {
-            return CSiteCloud.of(env, Map.of());
-        } catch (DeviceError e) {
-            LOG.warn("the C-Site settings are not usable here; the CSITE steps will fail by name: {}", e.getMessage());
-            return null;
+        Map<String, String> environ = new java.util.HashMap<>(env);
+        com.verifone.cat.commander.connect.CommanderConnect account = services.config() == null
+                ? LaunchConfig.NO_COMMANDER_CONNECT : services.config().commanderConnectSettings();
+        environ.putAll(com.verifone.cat.devices.csite.CSiteClient.accountEnv(account.lab(), account.email(),
+                account.password(), env));
+        com.verifone.cat.rig.Rig rig = services.rig().rig();
+        return new LazyCloudSite(() -> {
+            com.verifone.cat.commander.CommanderAccess access = new com.verifone.cat.commander.CommanderAccess(rig);
+            return CSiteCloud.of(environ, com.verifone.cat.devices.csite.CommanderCloudConfig.forCommander(
+                    rig.commander().host(), access::connectedTransport, access.sshTimeout()));
+        });
+    }
+
+    /** A {@link CloudSite} built from {@code build} at its first use, and kept. */
+    static final class LazyCloudSite implements CloudSite {
+
+        private final java.util.function.Supplier<CloudSite> build;
+        private CloudSite site;
+
+        LazyCloudSite(java.util.function.Supplier<CloudSite> build) {
+            this.build = build;
+        }
+
+        private synchronized CloudSite site() {
+            if (site == null) {
+                try {
+                    site = build.get();
+                } catch (DeviceError e) {
+                    throw new PatsStepError("the C-Site client could not be built: " + e.getMessage(), e);
+                }
+            }
+            return site;
+        }
+
+        @Override
+        public String environment() {
+            return site().environment();
+        }
+
+        @Override
+        public boolean stripServicePrefix() {
+            return site().stripServicePrefix();
+        }
+
+        @Override
+        public com.verifone.cat.pats.runner.handlers.http.HttpReply send(String method, String endpoint, String body,
+                boolean retry) {
+            return site().send(method, endpoint, body, retry);
         }
     }
 

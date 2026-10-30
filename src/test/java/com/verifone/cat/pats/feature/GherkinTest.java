@@ -68,6 +68,39 @@ class GherkinTest {
         Gherkin.Scenario scenario = feature.scenarios().get(0);
         assertTrue(scenario.outline());
         assertEquals(List.of("pump \"<n>\" fuels \"1.00\""), scenario.steps());
+        assertEquals(List.of(java.util.Map.of("n", "1")), scenario.examples());
+    }
+
+    /** pytest-bdd 9's render: one scenario per row, each {@code <name>} the row names replaced, ids "-".join(values). */
+    @Test
+    void anOutlineRendersOncePerExamplesRowAcrossItsTables() {
+        Gherkin.Feature feature = Gherkin.parse("""
+                Feature: Outline
+                  Scenario Outline: Pump <n> sells <amount>
+                    When pump "<n>" fuels "<amount>" with <unknown>
+                      | a data | table |
+                    @slow
+                    Examples: first
+                      | n | amount |
+                      | 1 | 1.00   |
+                      | 2 | a \\| b |
+                    Examples: second
+                      | n | amount |
+                      | 1 | 1.00   |
+                  Scenario: Next
+                    When something
+                """);
+        Gherkin.Scenario outline = feature.scenarios().get(0);
+        List<Gherkin.Rendered> rows = outline.rendered();
+        assertEquals(3, rows.size());
+        assertEquals("pump \"1\" fuels \"1.00\" with <unknown>", rows.get(0).steps().get(0));
+        assertEquals("pump \"2\" fuels \"a | b\" with <unknown>", rows.get(1).steps().get(0));
+        assertEquals("Pump 2 sells a | b", rows.get(1).name());
+        assertEquals(List.of("1-1.00_0", "2-a | b", "1-1.00_1"), rows.stream().map(Gherkin.Rendered::id).toList(),
+                "duplicate ids are numbered as pytest numbers them");
+        Gherkin.Scenario next = feature.scenarios().get(1);
+        assertTrue(next.tags().isEmpty(), "the Examples' tag is not the next scenario's");
+        assertEquals(List.of(new Gherkin.Rendered("", "Next", List.of("something"))), next.rendered());
     }
 
     @Test

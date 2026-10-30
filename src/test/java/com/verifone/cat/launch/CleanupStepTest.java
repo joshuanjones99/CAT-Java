@@ -164,6 +164,35 @@ class CleanupStepTest {
         assertTrue(events.containsAll(List.of("close 9706")), events.toString());
     }
 
+    /** The Python's keep_simulators: a continuous run leaves its simulators and Petro's ports for the next pass. */
+    @Test
+    void aContinuousRunLeavesItsSimulatorsRunningAndPetrosPortsHeld() throws IOException {
+        RunContext ctx = context("continuous", new LaunchConfig.Builder(LaunchFixtures.RIG).keepSimulators(true)
+                .build(), true);
+        ctx.commanderReached(true);
+        ctx.testsStarted(true);
+        List<String> events = new ArrayList<>();
+        ctx.petroPortOpener(port -> () -> events.add("close " + port));
+        PetroPorts.hold(ctx, new StepEmitter(ctx, LaunchStepNames.SIMULATORS));
+        List<String> tails = new ArrayList<>();
+        SimProcess spawned = FakeSims.spawned(StartSimulatorsStep.PETRO_SIMULATOR);
+        ctx.addSimulator(new SimProcess(spawned.entry(), spawned.status(), spawned.process(),
+                () -> tails.add("tail ended")));
+
+        Outcome out = run(ctx, new Closer());
+
+        assertEquals("skipped", out.rows().get("stop simulators"));
+        assertTrue(out.details().get("stop simulators").startsWith("left running for the next continuous pass: "
+                + StartSimulatorsStep.PETRO_SIMULATOR), out.details().toString());
+        assertTrue(spawned.process().isAlive(), "not stopped");
+        assertEquals(List.of("tail ended"), tails);
+        assertTrue(ctx.simulators().isEmpty(), "forgotten, so the launcher's release stops none");
+        assertTrue(ctx.keepsPetroPorts());
+        assertFalse(ctx.petroSinks().isEmpty(), "Petro's ports stay held");
+        assertTrue(out.result().detail().contains("simulators left running (continuous run)"), out.result().detail());
+        assertTrue(out.result().detail().contains("Petro port(s) 1072, 9706 kept held"), out.result().detail());
+    }
+
     @Test
     void aPsiInstallThatNeverReachedPsiInitIsNotLoggedInto() throws IOException {
         RunContext ctx = reachedTests("psi");

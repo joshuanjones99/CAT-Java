@@ -15,7 +15,7 @@ import com.verifone.cat.rig.RigLoader;
  *
  * <p>Exit codes, as the Python's: 0 when it all succeeded, 1 when it failed (its reason is the last stderr line), 2 for
  * a usage or rig-loading error. The {@code psi-init} word is accepted and dropped, as the other commands accept
- * theirs. Main does not dispatch to it yet.
+ * theirs. {@code Main} dispatches {@code cat-java psi-init} to it.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */

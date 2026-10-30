@@ -22,7 +22,8 @@ import com.verifone.cat.runconfig.SavedChoices;
  * {@code config-tp-branch}, {@code config-cc-onboard}, {@code config-cc-lab}, {@code config-cc-email},
  * {@code config-cc-service-id}, {@code config-cc-password}, {@code config-coverage}, {@code config-xray},
  * {@code config-cmd-branch}/{@code config-cmd-build}, {@code config-fnd-branch}/{@code config-fnd-build} and
- * {@code config-sim-branch}/{@code config-sim-build}.
+ * {@code config-sim-branch}/{@code config-sim-build}, and for the Config tab's runs {@code config-ifsf} and
+ * {@code config-cmd-local-build} ({@code run_plan} reads neither).
  *
  * <p>The Commander Connect password is never printed: {@link #toString} names only the keys present. When
  * no saved file holds it, {@link #commanderConnect} reads {@value CommanderConnect#PASSWORD_ENV}, the variable
@@ -51,6 +52,10 @@ public final class LastConfig {
     public static final String FND_BUILD = "config-fnd-build";
     public static final String SIM_BRANCH = "config-sim-branch";
     public static final String SIM_BUILD = "config-sim-build";
+    /** The Execution section's IFSF mode (recorded, not wired). */
+    public static final String IFSF = "config-ifsf";
+    /** The Downloads section's local build, with no Commander branch. */
+    public static final String CMD_LOCAL_BUILD = "config-cmd-local-build";
 
     /** The Python CAT's saved-choices file name under {@code ~/.cat}. */
     public static final String PYTHON_FILE = "last-config.json";
@@ -146,6 +151,23 @@ public final class LastConfig {
 
     public String simBuild() {
         return text(SIM_BUILD);
+    }
+
+    /**
+     * The saved {@code config-ifsf}, or empty: the Config tab's IFSF mode, recorded and not wired. {@code run_plan}
+     * does not read it; a run built from the Config tab carries it ({@link LaunchConfig#ifsfMode}).
+     */
+    public String ifsfMode() {
+        return text(IFSF);
+    }
+
+    /**
+     * The saved {@code config-cmd-local-build}, or empty: the build folder to install when no Commander branch is
+     * chosen ({@link LaunchConfig#localBuild}), as the Config tab's {@code local_build="" if commander_branch else ...}.
+     * Empty whenever a Commander branch is saved.
+     */
+    public String localBuild() {
+        return commanderBranch().isEmpty() ? text(CMD_LOCAL_BUILD) : "";
     }
 
     /**

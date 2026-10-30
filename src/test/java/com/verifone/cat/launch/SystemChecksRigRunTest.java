@@ -190,6 +190,7 @@ class SystemChecksRigRunTest {
         Path folder = dir.resolve("run");
         ctx = new RunContext(config.build(), paths, "dddddddddddd", folder, RunEvents.open(folder, Clock.systemUTC()),
                 new PauseGate(), Clock.systemUTC());
+        RunRequirements.apply(ctx); // run start, as the launcher does before step 1
         StepEmitter step = new StepEmitter(ctx, LaunchStepNames.SYSTEM_CHECKS);
         boolean keepGoing = new SystemChecksStep(stages).run(ctx, step);
         ctx.closeEvents();
