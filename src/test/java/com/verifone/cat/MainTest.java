@@ -61,6 +61,7 @@ class MainTest {
         expected.put("steps", com.verifone.cat.authoring.StepsCommand.class);
         expected.put("authoring", com.verifone.cat.authoring.AuthoringCommand.class);
         expected.put("publish", com.verifone.cat.publish.PublishCommand.class);
+        expected.put("pinpad-clear", com.verifone.cat.devices.vats.PinpadClearCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {

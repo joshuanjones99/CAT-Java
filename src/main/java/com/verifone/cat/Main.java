@@ -92,6 +92,7 @@ public final class Main {
         table.put("steps", new Command(com.verifone.cat.authoring.StepsCommand.class, argv -> new com.verifone.cat.authoring.StepsCommand().run(argv)));
         table.put("authoring", new Command(com.verifone.cat.authoring.AuthoringCommand.class, argv -> new com.verifone.cat.authoring.AuthoringCommand().run(argv)));
         table.put("publish", new Command(com.verifone.cat.publish.PublishCommand.class, argv -> new com.verifone.cat.publish.PublishCommand().run(argv)));
+        table.put("pinpad-clear", new Command(com.verifone.cat.devices.vats.PinpadClearCommand.class, argv -> new com.verifone.cat.devices.vats.PinpadClearCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
