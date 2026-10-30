@@ -288,11 +288,9 @@ class SystemChecksRigRunTest {
         assertFalse(covered.log().contains("JaCoCo coverage — unavailable"), covered.log());
         ctx.runLock().release();
 
+        // The cloud tunnel's start is ported (launch.TunnelStart, wave 16): an onboarding run is no longer stopped here.
         Outcome onboarding = run(loysim().commanderConnect(true));
-        assertFalse(onboarding.keepGoing());
-        assertTrue(onboarding.log().contains("FAIL  cloud-tunnel — unavailable in CAT-Java: needs the cloud tunnel's "
-                + "serve loop"), onboarding.log());
-        assertTrue(onboarding.step().detail().contains("cloud-tunnel — "), onboarding.step().detail());
+        assertFalse(onboarding.log().contains("FAIL  cloud-tunnel — unavailable"), onboarding.log());
     }
 
     /** The Receipt Printer's {@code simulator.state} rows of the last run: state, bind, detail. */

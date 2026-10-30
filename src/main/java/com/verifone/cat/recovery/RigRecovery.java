@@ -2,6 +2,7 @@ package com.verifone.cat.recovery;
 
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.preflight.RigContext;
 import com.verifone.cat.preflight.RigContextFactory;
+import com.verifone.cat.provision.ProvisionForce;
+import com.verifone.cat.provision.ProvisionReport;
 import com.verifone.cat.rig.Rig;
 
 /**
@@ -22,6 +25,8 @@ import com.verifone.cat.rig.Rig;
  *       register's DOM ({@link LivePosScreen}), as the Python's {@code live_pos_idle} and {@code live_signed_on}.</li>
  *   <li>Rungs 1 and 2 and the testability probe: the context's pos-shim surfaces plus the {@link LivePosScreen}
  *       ({@link LiveRecoveryTarget}).</li>
+ *   <li>Rung 5 is {@link ProvisionForce#run} on the rig (the Python's {@code provision_force(rig)}), then the wait for
+ *       the restarted POS and preflight again ({@link LiveRecoveryTarget#reprovision()}).</li>
  *   <li>Rung 6 logs the drain at ERROR, then tells {@code drain}; the caller stops the run (the Python's
  *       {@code session.shouldstop}).</li>
  * </ul>
@@ -45,12 +50,19 @@ public final class RigRecovery {
     public static LiveRecoveryTarget forRig(Rig rig, Map<String, String> env, RunSummary summary,
             Consumer<String> drain) {
         RigContext context = RigContextFactory.build(rig, rig.primaryRegister(), PosShimClient.DEFAULT_SHIM_PORT, env);
-        return forRig(rig.name(), context, LivePosScreen.forRig(rig), summary, drain);
+        return forRig(rig.name(), context, LivePosScreen.forRig(rig), summary, drain,
+                () -> ProvisionForce.run(rig, env));
     }
 
     /** {@link #forRig(Rig, Map, RunSummary, Consumer)} over a given context and screen. */
     static LiveRecoveryTarget forRig(String rigName, RigContext context, PosScreen screen, RunSummary summary,
             Consumer<String> drain) {
+        return forRig(rigName, context, screen, summary, drain, null);
+    }
+
+    /** {@link #forRig(String, RigContext, PosScreen, RunSummary, Consumer)} with rung 5's provision. */
+    static LiveRecoveryTarget forRig(String rigName, RigContext context, PosScreen screen, RunSummary summary,
+            Consumer<String> drain, Supplier<ProvisionReport> provision) {
         context.setScreenIdle(screen::idle);
         context.setSignedOn(screen::signedOn);
         Consumer<String> hook = reason -> {
@@ -60,6 +72,6 @@ public final class RigRecovery {
             }
         };
         return new LiveRecoveryTarget(rigName, context, context.posStatus(), context.posControl(), screen, summary,
-                hook);
+                hook, provision, LiveRecoveryTarget.POS_RESTART_WAIT, LiveRecoveryTarget.POS_POLL);
     }
 }

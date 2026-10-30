@@ -35,8 +35,8 @@ import com.verifone.cat.devices.csite.CSiteResponse;
 
 /**
  * The Commander Connect golden state: capture, diff and restore of the config datasets the suites address
- * ({@code pcms/v1/config/{service_id}/<name>}). A port of the Python {@code petrotest.cloud_snapshot}, without its
- * command line (whose restore waits on the Commander's log through {@code cloud_settle}).
+ * ({@code pcms/v1/config/{service_id}/<name>}). A port of the Python {@code petrotest.cloud_snapshot}, whose command line
+ * ({@code cloud_snapshot_cli}, with the restore's wait on the Commander's log) is {@link CloudSnapshotCommand}.
  *
  * <p>Each dataset is one of three kinds, read from its GET:
  *

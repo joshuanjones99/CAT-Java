@@ -102,11 +102,11 @@ final class InstallCommanderBuild {
         }
 
         /**
-         * Step 4's stages as these: the PSI path is theirs; the rest is real for {@link CommanderStages.Real} and,
-         * for a test's recorder, throws {@link UnsupportedOperationException} (a failed row naming the stage).
+         * Step 4's stages as these: every stage is theirs ({@link CommanderStages#downloadCommanderBuild(String,
+         * String, String, UpgradeMode, String, String, Say)} and {@link CommanderStages#installUpgrade}, which a test's
+         * recorder leaves throwing {@link UnsupportedOperationException}: a failed row naming the stage).
          */
         static Stages over(CommanderStages stages) {
-            boolean real = stages instanceof CommanderStages.Real;
             return new Stages() {
                 @Override
                 public Path buildsRoot() {
@@ -116,16 +116,8 @@ final class InstallCommanderBuild {
                 @Override
                 public boolean downloadCommanderBuild(String branch, String build, String dist, UpgradeMode mode,
                         String foundationBranch, String foundationBuild, Say say) {
-                    boolean foundation = !foundationBranch.isEmpty() && !foundationBuild.isEmpty();
-                    if (mode == UpgradeMode.NEW_INSTALL && !foundation) {
-                        return stages.downloadCommanderBuild(branch, build, dist, say);
-                    }
-                    if (!real) {
-                        throw new UnsupportedOperationException("downloadCommanderBuild (" + mode.wire()
-                                + (foundation ? ", a foundation" : "") + "): not given to these stages");
-                    }
-                    return realDownload(branch, build, dist, mode, foundationBranch, foundationBuild, buildsRoot(),
-                            System.getenv(), say);
+                    return stages.downloadCommanderBuild(branch, build, dist, mode, foundationBranch,
+                            foundationBuild, say);
                 }
 
                 @Override
@@ -145,11 +137,7 @@ final class InstallCommanderBuild {
 
                 @Override
                 public boolean installUpgrade(Rig rig, UpgradeMode mode, Path buildDir, String dist, Say say) {
-                    if (!real) {
-                        throw new UnsupportedOperationException("installUpgrade (" + mode.wire()
-                                + "): not given to these stages");
-                    }
-                    return realInstall(rig, mode, buildDir, dist, buildsRoot(), System.getenv(), say);
+                    return stages.installUpgrade(rig, mode, buildDir, dist, say);
                 }
             };
         }

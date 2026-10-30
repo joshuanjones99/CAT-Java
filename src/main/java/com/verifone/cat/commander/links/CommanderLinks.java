@@ -91,10 +91,10 @@ public final class CommanderLinks {
     static final String EPS_LOGIN_TEXT = "LogIn *** Success";
 
     /** Socket states that mean the Commander is holding a working connection. CLOSE_WAIT is not one. */
-    static final Set<String> LIVE_STATES = Set.of("ESTABLISHED");
+    static final Set<String> LIVE_STATES = com.verifone.cat.devices.eps.CommanderLinks.LIVE_STATES;
 
     /** States in which a socket never carried a byte to its peer. Every other state is accepted by the far end. */
-    static final Set<String> UNCONNECTED_STATES = Set.of("SYN_SENT", "LISTEN", "CLOSE", "CLOSED");
+    static final Set<String> UNCONNECTED_STATES = com.verifone.cat.devices.eps.CommanderLinks.UNCONNECTED_STATES;
 
     private static final Pattern POP_ADDRESS = Pattern.compile("<IPAddress>\\s*([^<\\s]+)\\s*</IPAddress>");
     private static final Pattern VIPER_ADDRESS = Pattern.compile("(<ipAddress>)[^<]*(</ipAddress>)");
@@ -114,8 +114,9 @@ public final class CommanderLinks {
      * here: it is request/response, and between exchanges its socket sits in {@code CLOSE_WAIT}.
      */
     public static List<CommanderLink> paymentLinks(Rig rig) {
-        int port = rig.commander().epsPort() > 0 ? rig.commander().epsPort() : BUYPASS_FEP_PORT;
-        return List.of(new CommanderLink("buypass fep", rig.controller().host(), port));
+        // The read-only probe's list (devices.eps), so preflight and the bring-up never disagree on what is wanted.
+        return com.verifone.cat.devices.eps.CommanderLinks.paymentLinks(rig).stream()
+                .map(link -> new CommanderLink(link.name(), link.host(), link.port())).toList();
     }
 
     /** Where POP 1 must point: the physical terminal on a {@code pinpad: vats} rig, else the controller. */
@@ -183,32 +184,15 @@ public final class CommanderLinks {
         if (!result.ok()) {
             throw new IllegalStateException("netstat on the Commander exited " + result.exitStatus());
         }
+        // The parse is the read-only probe's (devices.eps), one rule for both.
         List<NetRow> rows = new ArrayList<>();
-        for (String line : result.stdout().split("\\R")) {
-            String[] fields = line.trim().split("\\s+");
-            if (fields.length < 2) {
-                continue;
-            }
-            String peer = fields[fields.length - 2];
-            int colon = peer.lastIndexOf(':');
-            if (colon < 0) {
-                continue;
-            }
-            String port = peer.substring(colon + 1);
-            if (port.isEmpty() || !port.chars().allMatch(Character::isDigit)) {
-                continue;
-            }
-            String local = fields.length >= 3 ? stripMapped(fields[fields.length - 3]) : "";
-            // A dual-stack (tcp6) socket may print an IPv4 peer in mapped form.
-            rows.add(new NetRow(local, stripMapped(peer.substring(0, colon)), Integer.parseInt(port),
-                    fields[fields.length - 1]));
+        for (com.verifone.cat.devices.eps.CommanderLinks.NetstatRow row
+                : com.verifone.cat.devices.eps.CommanderLinks.parse(result.stdout())) {
+            rows.add(new NetRow(row.local(), row.peerHost(), row.peerPort(), row.state()));
         }
         return rows;
     }
 
-    private static String stripMapped(String address) {
-        return address.startsWith("::ffff:") ? address.substring("::ffff:".length()) : address;
-    }
 
     // ----------------------------------------------------------------------------------------------------
     // The gate
