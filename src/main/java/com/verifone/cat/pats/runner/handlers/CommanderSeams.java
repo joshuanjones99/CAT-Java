@@ -85,7 +85,8 @@ final class CommanderSeams {
      * C-Site client wired the send fails by name, after the service ID is read.
      *
      * <p>Known gap: {@link CloudSite#send} takes no headers, so the {@code X-ServiceId} and the other headers the case
-     * sets are not sent through this seam. No C-Site client is ported yet, so no request has gone this way.
+     * sets are not sent through this seam. The run's client is {@code launch.StandardRegistry}'s, over the Commander's
+ * cloud config; no request has gone this way on a rig yet.
      */
     static CloudSender cloudSender(PdkShim pdk, CloudSite cloud, CloudSettle settle) {
         return new CloudSender() {

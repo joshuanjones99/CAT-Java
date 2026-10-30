@@ -65,10 +65,6 @@ interface SystemCheckStages {
         return PrinterHold.Opener.NONE;
     }
 
-    /** Whether step 4's cloud tunnel is ported: the production stages' answer ({@link CommanderStages#cloudTunnelPorted}). */
-    default boolean cloudTunnelPorted() {
-        return CommanderStages.real(Map.of()).cloudTunnelPorted();
-    }
 
     /** The real stages: the rig's addresses, jSerialComm, SSH to the Commander, the environment's Artifactory login. */
     static SystemCheckStages real(ProcessOps ops, Map<String, String> environ) {

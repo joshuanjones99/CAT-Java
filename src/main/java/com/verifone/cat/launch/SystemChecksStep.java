@@ -56,10 +56,7 @@ import com.verifone.cat.sims.base.JavaSets;
  *
  * <p>Not ported: the VATS lines for a {@code pinpad: vats} rig (that rig ends this step as unavailable; the vats
  * slice's hook). Deviations: with a required rig hardware line failed the step already fails, so the
- * Commander's base is not read and nothing is fetched (the Python goes on to read and fetch). A rig run that asks for
- * what step 4 cannot do in CAT-Java ({@link CommanderConfigurationStep#unported}: the cloud tunnel of a Commander
- * Connect onboarding) fails here, one FAIL line, so it stops before step 3 starts simulators and step 4 installs a
- * build; the Python has no such line (it can). JaCoCo coverage is wired ({@link CoverageLaunch}) and is no gap.
+ * Commander's base is not read and nothing is fetched (the Python goes on to read and fetch).
  * {@code --fake-pos} skips what the Python skips: the rig, the rig's hardware lines, the run lock, the Commander's
  * base and the plans' requirements (run start reads none for a fake-POS run).
  *
@@ -131,14 +128,6 @@ final class SystemChecksStep implements LaunchStep {
         String busy = rigOk ? takeRunLock(ctx, step, rig, fakePos) : "";
 
         checkPetroapps(paths, config.testPlanBranch(), ctx.petroappsFetchError(), step, failures);
-
-        // What step 4 cannot do in CAT-Java (the cloud tunnel's serve loop of a Commander Connect onboarding), here so a
-        // mistyped launch stops before step 3 starts simulators and step 4 installs a build.
-        for (CommanderConfigurationStep.Gap gap : CommanderConfigurationStep.unported(config,
-                stages.cloudTunnelPorted())) {
-            step.check(false, gap.row(), gap.detail(), true);
-            failures.add(gap.row() + " — " + gap.detail());
-        }
 
         List<String> hardwareFailures = new ArrayList<>();
         // Read at run start (RunRequirements.apply), as the Python's ctx.requirements; null on a fake-POS run or with

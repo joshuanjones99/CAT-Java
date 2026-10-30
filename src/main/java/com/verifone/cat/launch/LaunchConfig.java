@@ -37,12 +37,12 @@ import com.verifone.cat.runconfig.RunScope;
  * @param scope        the Run tab's scope; {@link RunScope#whole()} unless a partial run was asked for
  * @param xrayReport  report the run to Xray: the Connections step adds the Xray row and the launcher
  *                     starts the reporting sidecar. Never under {@code fakePos}, whatever this says
- * @param coverage    the Config tab's JaCoCo switch, off by default. Read by the coverage package, whose
- *                     wiring into the launch steps is not done yet. Never under {@code fakePos}
+ * @param coverage    the Config tab's JaCoCo switch, off by default. Read by {@link CoverageLaunch} in steps 4 and
+ *                     6. Never under {@code fakePos}
  * @param commanderConnect the Config tab's Commander Connect "Onboard" switch (the Python's {@code cc_onboard}),
  *                     off by default. Read by {@link CommanderConfigurationStep} (the cloud tunnel before the
  *                     inits, then {@link com.verifone.cat.commander.connect.ConnectService#apply} after them, on a
- *                     real rig; the tunnel's serve loop is not ported, so an onboarding run stops there) and by
+ *                     real rig) and by
  *                     System Checks' plan-requirement line
  * @param commanderConnectSettings the lab, email, service id and password the switch onboards with (the Python's
  *                     {@code cc_lab}, {@code cc_email}, {@code cc_service_id}, {@code cc_password}); never null.

@@ -84,6 +84,21 @@ public final class RigContextFactory {
         return build(rig, register, shimPort, env, Sources.live(rig, env));
     }
 
+    /**
+     * {@link #build(Rig, Rig.Register, int, Map, Sources)}, with {@code eps_reachable}'s escalation to
+     * {@code provision --force} ({@code provision.ProvisionForce.hook}) when {@code enableReprovision}: the Python's
+     * {@code rig_context(enable_reprovision=True)}. Off by default, and deliberately: a preflight someone asked for
+     * should not turn into a provisioning run unless they asked for that too.
+     */
+    public static RigContext build(Rig rig, Rig.Register register, int shimPort, Map<String, String> env,
+            Sources sources, boolean enableReprovision) {
+        RigContext context = build(rig, register, shimPort, env, sources);
+        if (enableReprovision) {
+            context.setReprovision(com.verifone.cat.provision.ProvisionForce.hook(rig, env));
+        }
+        return context;
+    }
+
     /** {@link #build(Rig, Rig.Register, int, Map)} with the Commander and forecourt sources given. */
     public static RigContext build(Rig rig, Rig.Register register, int shimPort, Map<String, String> env,
             Sources sources) {

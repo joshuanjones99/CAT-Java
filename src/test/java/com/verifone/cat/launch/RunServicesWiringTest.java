@@ -156,7 +156,7 @@ class RunServicesWiringTest {
         assertSame(printer, f.printer());
         assertInstanceOf(DcrDeviceAdapter.class, f.dcr());
         assertInstanceOf(FuelPumpsAdapter.class, f.fuelPumps());
-        assertNull(f.cloudSite(), "no C-Site settings in this environment");
+        assertInstanceOf(StandardRegistry.LazyCloudSite.class, f.cloudSite(), "built at its first request, not here");
     }
 
     @Test

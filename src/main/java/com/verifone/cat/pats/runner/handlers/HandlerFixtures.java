@@ -35,7 +35,7 @@ import java.util.function.Function;
  * <ul>
  *   <li>{@code dcr}: the DCR; {@code null} means the DCR actions are unavailable.</li>
  *   <li>{@code fuelPumps}: the forecourt's pumps.</li>
- *   <li>{@code cloudSite}: the C-Site client (no Java implementation is ported yet, so production passes {@code null}).</li>
+ *   <li>{@code cloudSite}: the C-Site client ({@code launch.StandardRegistry.cloudSite} on a rig run; {@code null} with no rig).</li>
  *   <li>{@code buypassV2}: FEPSIM v2 serving Buypass this run.</li>
  *   <li>{@code commanderAccess}: SSH and CGILink to the Commander, for the close-day recovery and the cloud settle's
  *       Commander log; {@code null} means the stuck-close recovery is unbound and the cloud waits are skipped.</li>
