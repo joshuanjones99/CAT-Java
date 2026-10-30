@@ -150,8 +150,13 @@ public final class Main {
             System.exit(command.run().applyAsInt(Arrays.copyOfRange(argv, 1, argv.length)));
             return;
         }
-        serveWeb(argv.length > 0 && "web".equals(argv[0]) ? Arrays.copyOfRange(argv, 1, argv.length) : argv);
+        // The Python's `catt web` serve(): flags, browser, auto-close, web log, setup on start (wave 16, WebServe).
+        System.exit(com.verifone.cat.web.WebServe.run(
+                argv.length > 0 && "web".equals(argv[0]) ? Arrays.copyOfRange(argv, 1, argv.length) : argv));
     }
+
+    /** The pre-wave-16 start (a pos_shim rig's register only); kept for reference, no longer called. */
+    @SuppressWarnings("unused")
 
     private static void serveWeb(String[] argv) {
         Options options;

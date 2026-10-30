@@ -64,9 +64,9 @@ class RunConfigRoutesTest {
         assertTrue(page.contains("Filter plans"), page);
         assertTrue(page.contains("Charity Donations"), page);
         assertTrue(page.contains("Automated"), page);
-        assertTrue(page.contains("Refresh from Confluence"), page);
-        assertTrue(page.contains("Ported from cat/web/pages/config.py \u2014 not built yet"), page);
-        assertTrue(page.contains("Ported from cat/web/pages/downloads_ui.py"), page);
+        // Wave 16: the branch, Downloads, Commander Connect, Execution and Refresh load from ConfigSections.
+        assertTrue(page.contains("hx-get=\"/fragments/config/refresh\""), page);
+        assertTrue(page.contains("hx-get=\"/fragments/config/controls\""), page);
     }
 
     @Test

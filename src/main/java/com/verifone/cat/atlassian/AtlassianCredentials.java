@@ -51,9 +51,14 @@ public final class AtlassianCredentials {
 
     private AtlassianCredentials() {}
 
-    /** {@code %USERPROFILE%\jira_api_token.properties}: the file the Python CAT reads. */
+    /**
+     * The Jira token file: CAT-Java's own {@code ~/.cat/java/jira_api_token.properties} (where the Setup page saves a
+     * login) when it exists, else {@code %USERPROFILE%\jira_api_token.properties}, the file the Python CAT reads.
+     */
     public static Path defaultPath() {
-        return Path.of(System.getProperty("user.home"), "jira_api_token.properties");
+        Path home = Path.of(System.getProperty("user.home"));
+        Path own = home.resolve(".cat").resolve("java").resolve("jira_api_token.properties");
+        return java.nio.file.Files.isRegularFile(own) ? own : home.resolve("jira_api_token.properties");
     }
 
     /** The email and token, or {@link AtlassianUnavailable} naming the setup step. */

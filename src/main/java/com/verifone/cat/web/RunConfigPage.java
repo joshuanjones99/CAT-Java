@@ -10,9 +10,9 @@ import com.verifone.cat.runconfig.RunScope;
  * filter, Run scope, the "Needs:" line, and the card that says what Start run will do.
  *
  * <p>Every control posts to {@code /config/...} and the answer replaces {@code #run-config}, so
- * the page is always the server's one reading of the choices. Not built yet, and drawn as
- * {@link Placeholder}s: Downloads, Commander Connect, Execution, the test plan branch and
- * Refresh from Confluence. Every dynamic value goes through {@link Html#esc}.
+ * the page is always the server's one reading of the choices. The test plan branch, Downloads,
+ * Commander Connect, Execution and Refresh from Confluence load from {@code ConfigSections}' fragments.
+ * Every dynamic value goes through {@link Html#esc}.
  */
 final class RunConfigPage {
 
@@ -36,8 +36,7 @@ final class RunConfigPage {
                 .append("aria-label=\"Filter plans\" autocomplete=\"off\" value=\"").append(esc(view.filter()))
                 .append("\" hx-get=\"/fragments/config/plans\" hx-trigger=\"input changed delay:300ms\" ")
                 .append("hx-target=\"#plan-list\" hx-swap=\"innerHTML\">")
-                .append("<button type=\"button\" disabled title=\"Not built yet: the Confluence source is not wired in this build\">")
-                .append("Refresh from Confluence</button>")
+                .append("<span hx-get=\"/fragments/config/refresh\" hx-trigger=\"load\" hx-swap=\"outerHTML\"></span>")
                 .append("<span class=\"muted\">").append(esc(view.catalogueAge())).append("</span>")
                 .append("</div>");
         if (!view.catalogueNote().isEmpty()) {
@@ -61,22 +60,8 @@ final class RunConfigPage {
         out.append(caseList(view));
         out.append("</section>");
 
-        out.append("<section class=\"card config-section\"><h2>Test plan branch</h2>")
-                .append("<div class=\"config-row\"><div class=\"config-label\">Branch</div>")
-                .append("<div class=\"config-body\"><input type=\"text\" value=\"master\" disabled ")
-                .append("aria-label=\"Test plan branch\"> ")
-                .append("<span class=\"placeholder-note\">Ported from cat/web/pages/config.py ")
-                .append("— not built yet</span></div></div></section>");
-
-        out.append(Placeholder.html(
-                "Commander and simulator builds: from Artifactory, or this PC's builds, with *Don't download*.",
-                "cat/web/pages/downloads_ui.py"));
-        out.append(Placeholder.html(
-                "Commander Connect: onboard the Commander to Lab, with an email, a password and a service ID.",
-                "cat/web/pages/config.py"));
-        out.append(Placeholder.html(
-                "Execution: execution mode, IFSF mode, JaCoCo coverage and Report to Xray.",
-                "cat/web/pages/config.py"));
+        // The test plan branch, Downloads, Commander Connect and Execution sections (webshell's ConfigSections).
+        out.append("<div hx-get=\"/fragments/config/controls\" hx-trigger=\"load\" hx-swap=\"outerHTML\"></div>");
 
         out.append("<section class=\"card config-section\"><h2>What Start run will do</h2>");
         if (view.missing().isEmpty()) {

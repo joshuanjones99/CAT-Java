@@ -175,7 +175,7 @@ class WebAppPagesTest {
         assertTrue(overview.contains("Start run"), overview);
         assertTrue(overview.contains("Schedule run"), overview);
         assertFalse(overview.contains("Not built yet: Schedule"), overview);
-        assertTrue(config.contains("Ported from cat/web/pages/config.py " + DASH + " not built yet"), config);
+        assertTrue(config.contains("hx-get=\"/fragments/config/controls\""), config);
         assertTrue(log.contains("No run yet"), log);
         assertTrue(overview.contains("href=\"/run\" aria-current=\"page\""), overview);
         assertTrue(config.contains("href=\"/run/config\" aria-current=\"page\""), config);

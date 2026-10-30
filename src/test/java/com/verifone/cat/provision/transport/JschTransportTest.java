@@ -164,7 +164,7 @@ class JschTransportTest {
         Path ppk = tmp.resolve("automation.ppk");
         Files.writeString(ppk, "PuTTY-User-Key-File-2: ssh-rsa\nEncryption: none\n");
         var error = assertThrows(DeviceError.class, () -> JschTransport.loadIdentity(new JSch(), ppk.toString()));
-        assertTrue(error.getMessage().contains("must be converted"), error.getMessage());
+        assertTrue(error.getMessage().contains("PuTTY .ppk v2"), error.getMessage());
     }
 
     @Test

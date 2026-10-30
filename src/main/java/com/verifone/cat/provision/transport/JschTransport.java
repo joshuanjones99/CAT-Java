@@ -495,15 +495,15 @@ public final class JschTransport implements Transport {
     }
 
     /**
-     * Loads the key file into JSch. A PuTTY {@code .ppk} is not readable here; the rig file's note says so, and
-     * the message says to convert it once to OpenSSH PEM.
+     * Loads the key file into JSch. JSch 0.2.20 reads OpenSSH/PEM keys and PuTTY {@code .ppk} v2 keys itself
+     * (checked 2026-10-29, the webshell slice), so no conversion is needed.
      */
     static void loadIdentity(JSch jsch, String keyFilename) {
         try {
             jsch.addIdentity(keyFilename);
         } catch (JSchException e) {
             throw new DeviceError("ssh key " + keyFilename + " cannot be loaded: " + e.getMessage()
-                    + " (CAT needs an OpenSSH-format key; a PuTTY .ppk must be converted once)", e);
+                    + " (CAT reads OpenSSH/PEM keys and PuTTY .ppk v2 keys)", e);
         }
     }
 
