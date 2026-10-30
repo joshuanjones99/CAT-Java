@@ -80,13 +80,19 @@ public final class DevicesFamily {
 
     /**
      * {@code ViperPay slideCard}, or {@code DCRManager.cardAction} for a DCR. A DCR card is preceded by the input
-     * pause. The Python's CARD_SIMULATION_IMAGE_FILE is not sent: it only reaches a physical VATS pinpad.
+     * pause. The case's CARD_SIMULATION_IMAGE_FILE reaches a physical VATS pinpad ({@code PhysicalPinpad}) only.
      */
     static void insertCard(CaseRun run, RunnableAction action, DevicesContext context) {
         String card = ActionFields.require(action, "CARD_NAME");
         if (ActionFields.device(action).startsWith("DCR")) {
             context.pauses().pause(context.timing().dcrInputPause());
             context.dcr().insertCard(card);
+            return;
+        }
+        if (context.pinpad() instanceof com.verifone.cat.devices.vats.PhysicalPinpad physical) {
+            // A physical VATS pinpad takes the card's image file, as the Python's insert_card(image=...).
+            physical.insertCard(card, action.get("CARD_SIMULATION_IMAGE_FILE"), null,
+                    ActionFields.budget(run, context.timing().pinpadWait()));
             return;
         }
         context.pinpad().insertCard(card, null, ActionFields.budget(run, context.timing().pinpadWait()));
@@ -151,6 +157,12 @@ public final class DevicesFamily {
      */
     static void getDecimal(CaseRun run, RunnableAction action, DevicesContext context) {
         String entry = ActionFields.require(action, "ENTER_DECIMAL");
+        if (context.pinpad() instanceof com.verifone.cat.devices.vats.PhysicalPinpad physical) {
+            // The Python's hasattr(pinpad, "enter_digits"): keyed as written, so a PIN keeps its leading zeros.
+            physical.enterDigits(entry, null, ActionFields.budget(run, context.timing().pinpadWait()));
+            run.setScratch(KEYED_AT, System.nanoTime());
+            return;
+        }
         BigDecimal value = new BigDecimal(entry);
         if (!value.toPlainString().equals(entry)) {
             throw new PatsStepError("ENTER_DECIMAL '" + entry + "' would not survive a BigDecimal (leading zeros, a sign "

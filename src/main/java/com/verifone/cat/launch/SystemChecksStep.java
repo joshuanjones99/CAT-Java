@@ -54,8 +54,8 @@ import com.verifone.cat.sims.base.JavaSets;
  * line for a Secondary FEP the cases' tags name. The tests to run are run start's: a plan whose cases have no test on
  * disk or pulled from petroapps ends the run here ("tests to run"), as the Python's.
  *
- * <p>Not ported: the VATS lines for a {@code pinpad: vats} rig (that rig ends this step as unavailable; the vats
- * slice's hook). Deviations: with a required rig hardware line failed the step already fails, so the
+ * <p>A {@code pinpad: vats} rig's lines (the terminal's VATS port, the SDK and BTT) are among the rig's network
+ * lines ({@link VatsSystemChecks}). Deviations: with a required rig hardware line failed the step already fails, so the
  * Commander's base is not read and nothing is fetched (the Python goes on to read and fetch).
  * {@code --fake-pos} skips what the Python skips: the rig, the rig's hardware lines, the run lock, the Commander's
  * base and the plans' requirements (run start reads none for a fake-POS run).
@@ -98,7 +98,6 @@ final class SystemChecksStep implements LaunchStep {
         LaunchPaths paths = ctx.paths();
         boolean fakePos = config.fakePos();
         List<String> failures = new ArrayList<>();
-        List<String> missing = new ArrayList<>();
 
         auditItems(paths.setupEnv(), step, failures);
 
@@ -138,10 +137,6 @@ final class SystemChecksStep implements LaunchStep {
             boolean[] printerOk = {true};
             hardwareFailures.addAll(rigHardwareReady(step, rig,
                     requirements == null || requirements.needsPrinter(), printerOk));
-            // HOOK (vats slice): the VATS lines of a pinpad: vats rig (the terminal, the SDK and BTT; the Python's
-            // cat.readiness.check_rig through petrotest.devices.vats.readiness.checks) belong beside the rig lines
-            // above. Until they are ported, such a rig ends this step as unavailable.
-            missing.addAll(rigOnlyGaps(rig));
             if (hardwareFailures.isEmpty() && printerOk[0]) {
                 // Answer the register's printer from here, not from step 4: it retests a printer that failed with a
                 // growing back-off, and after a port left unanswered between launches the first cases' receipts never
@@ -183,9 +178,6 @@ final class SystemChecksStep implements LaunchStep {
 
         if (!rigOk || !busy.isEmpty() || !hardwareFailures.isEmpty() || !failures.isEmpty() || nothingToRun) {
             return step.fail(precedence(rigName, rigOk, busy, hardwareFailures, failures, config));
-        }
-        if (!missing.isEmpty()) {
-            return step.unavailable("src/cat/launch/steps/system_checks.py", String.join("; ", missing));
         }
         return true;
     }
@@ -311,15 +303,6 @@ final class SystemChecksStep implements LaunchStep {
         List<T> all = new ArrayList<>(first);
         all.addAll(second);
         return all;
-    }
-
-    /** The rig-only lines this port does not check yet: the VATS pinpad's (the vats slice's hook). */
-    private static List<String> rigOnlyGaps(Rig rig) {
-        List<String> gaps = new ArrayList<>();
-        if (rig.pinpad() == Rig.Pinpad.VATS) {
-            gaps.add("the VATS lines for pinpad: vats (the terminal, the SDK and BTT)");
-        }
-        return gaps;
     }
 
     /** The label of the Commercial Fleet license line: the Python's. */

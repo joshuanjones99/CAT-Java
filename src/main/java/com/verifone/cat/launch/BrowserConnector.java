@@ -95,6 +95,7 @@ public final class BrowserConnector implements RunServices.Connector, CaseEviden
     private Browser browser;
     private ViperPayPinpad viperPay;
     private TopazPrinter printer;
+    private VatsRunPinpad vats;
     private volatile CaseArtifacts artifacts;
 
     /** The connected POS driver's evidence sink, which step 5 points at each case's folder; null with no driver. */
@@ -141,6 +142,11 @@ public final class BrowserConnector implements RunServices.Connector, CaseEviden
         if (clients.viperPay() != null) {
             viperPay = clients.viperPay();
             pinpad = startViperPay(viperPay);
+        }
+        if (pinpad == null && rig.pinpad() == Rig.Pinpad.VATS) {
+            // A pinpad: vats rig's terminal, through the VATS session (devices.vats).
+            vats = VatsRunPinpad.forRig(rig, System.getenv());
+            pinpad = vats;
         }
         printer = openPrinter(register);
         RecoveryTarget recovery = base.recovery() != null ? base.recovery() : recoveryTarget(rig, base.runId());
@@ -229,6 +235,12 @@ public final class BrowserConnector implements RunServices.Connector, CaseEviden
 
     @Override
     public void close() {
+        quietly("the VATS session", () -> {
+            if (vats != null) {
+                vats.close();
+                vats = null;
+            }
+        });
         quietly("the ViperPay display port", () -> {
             if (viperPay != null) {
                 viperPay.close();

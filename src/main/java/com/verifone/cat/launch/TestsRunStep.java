@@ -645,8 +645,7 @@ final class TestsRunStep implements LaunchStep {
             // device's keys and prompts are reached through the devices family's PinpadDevice, not this fixture.
             case PINPAD -> {
                 present(services.pinpad(), "pinpad", "no pinpad is connected to this run");
-                yield new PinpadView() {
-                };
+                yield com.verifone.cat.pats.runner.handlers.StandardHandlers.pinpadView(services.pinpad());
             }
             case COMMANDER_CONFIG -> present(services.commander(), "commander_config",
                     "no Commander PDK shim is connected to this run");

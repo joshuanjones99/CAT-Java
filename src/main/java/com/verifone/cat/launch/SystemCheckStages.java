@@ -78,8 +78,11 @@ interface SystemCheckStages {
             public List<Readiness> rigNetwork(Rig rig) {
                 ExecutorService pool = ConnectionProbe.newProbePool();
                 try {
-                    return new ArrayList<>(new RigReadiness(new ConnectionProbe(pool)).check(Endpoints.of(rig),
-                            READINESS_TIMEOUT));
+                    List<Readiness> lines = new ArrayList<>(new RigReadiness(new ConnectionProbe(pool)).check(
+                            Endpoints.of(rig), READINESS_TIMEOUT));
+                    // A pinpad: vats rig's lines: the terminal's VATS port, the SDK and BTT (cat.readiness.check_rig).
+                    lines.addAll(VatsSystemChecks.lines(rig, environ));
+                    return lines;
                 } finally {
                     pool.shutdownNow();
                 }
