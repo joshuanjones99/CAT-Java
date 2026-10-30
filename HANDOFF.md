@@ -5,16 +5,13 @@ is built, what is proven, and what comes next. Update it whenever work lands.
 
 If this document disagrees with the tree, the tree is right.
 
-State as of **2026-10-29 09:00** (the wave-15 session, paused at the rig owner's request). `main`
-builds clean: **3,568 tests, 0 failures, 0 errors, 0 skipped**, plus the `RootAccess` retry fix
-(05534e2, its tests green). No worktrees or side branches remain; every `wave15/*` branch is merged.
-**The lab Commander is down** (§4's last row and §6 item 1): its AAA service never came back after
-the final proof run's PSI install, so the clean-install proof is not yet recorded; the best Cadence
-run from Java is 258/264 (run `a4eda2bf8602`), the Python's own count.
-
-**Wave 16 is IN FLIGHT (2026-10-29, off-rig, the Commander still down): read §6a first.** The user asked
-for all of the Python CAT to be ported. Ten slices are on `wave16/*` branches in worktrees under
-`C:\gitrepos\CAT-Java-wt\`, none merged yet. §5 below overstates several rows; §6a lists the real gaps.
+State as of **2026-10-29, late** (the wave-16 session). `main` builds clean: **4,120 tests, 0 failures,
+0 errors, 0 skipped**. Wave 16 ported the rest of the Python CAT off-rig (§6a): all ten slices are merged and
+their cross-slice hooks wired. **Everything wave 16 added is fake-backed evidence about this repository; none of
+it has run on a rig.** **The lab Commander is still down** (§4's last rows, §6 item 1): its AAA service never came
+back after the final proof run's PSI install, so the clean-install proof is not yet recorded; the best Cadence run
+from Java is 258/264 (run `a4eda2bf8602`), the Python's own count. `cat-java install-resume` (new) is the way back
+once the rig owner power-cycles it.
 
 ## 1. What this is
 
@@ -30,11 +27,12 @@ run.cmd launch --rig lab --plan PETROCORE-118517 --upgrade new_install
                --commander-branch Solutions --commander-build 134 --no-xray --no-coverage
 ```
 
-Honest progress (2026-10-29): code ported ≈ 90% of the Python by module. **Rig-proven: the whole
-seven-step run.** Step 4 from a clean PSI install ran live three times (runs b34a01ad8176,
+Honest progress (2026-10-29, after wave 16): every Python module is ported or recorded as not applicable (§5),
+but wave 16's half of that is fake-backed only. **Rig-proven: the whole seven-step run** (before wave 16). Step 4 from a clean PSI install ran live three times (runs b34a01ad8176,
 f6b5c0596966 and the final proof run, §4), and Cadence ran end to end from Java four times, the
-last at 258/264 (run a4eda2bf8602), equal to the Python CAT's best. Not yet proven: Commander
-Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
+last at 258/264 (run a4eda2bf8602), equal to the Python CAT's best. Not yet proven on a rig:
+everything wave 16 added (Commander Connect and its tunnel, FEPSIM v2, VATS, coverage, classic AU, install-resume,
+the web Start), Xray, every other plan.
 
 ## 2. Decisions (rig owner unless said)
 
@@ -69,7 +67,7 @@ Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 3,568 tests, 0 failures, 0 errors, 2026-10-29 01:12. Four lint gates run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd test`, 4,120 tests, 0 failures, 0 errors, 2026-10-29 (after wave 16). Four lint gates run as tests |
 | **Charity-Indoor 70960 on the fake POS, from the CLI** | run `fb8382bade89`, 2026-10-28: 39 cases, every one to a verdict (0 passed; the 12 POS+pinpad-only cases stop exactly where the Python's `pytest tests/suites/charity --fake-pos` stops them; the 27 others need devices a fake run has not). Evidence about the repository only |
 | **Cadence 118517 on the fake POS, from the CLI** | run `81eeb3d11883`, 2026-10-28: 264 cases, every one to a verdict in 1 h 51 m, no internal error (0 passed: RMI, pumps, DCR, Commander and most Cadence elements are absent from the fake). Evidence about the repository only |
 | **First rig run from Java: steps 1 and 2 complete live, step 3 started four of five simulators** | run `e272450ee561`, 2026-10-28 15:01 (lab rig, `launch --plan PETROCORE-118517 --upgrade new_install ...`): System Checks complete (rig lines, printer COM1 held, Commander Base_Level 057.02.00 read over SSH, the five staged simulators matched master 129 by their markers, lease taken), Connections complete; **PCATS01/02/03 Loyalty started and their "Start Host" buttons pressed through the Access Bridge, confirmed in each `LoySim_Debug.log` ("Loyalty FEP Simulator is ready. Port: 9010/9020/9030 ... Started VCMG Host")**; Petro Simulator Suite started and listening. BUYPASS Host failed: CAPK re-dating not ported (ported right after: `sims.Capk`, byte-identical entries to the Python's on the real jar; first launch of the built jar pending). Cleanup stopped the four and freed the lease; nothing reached the Commander |
@@ -93,138 +91,124 @@ Connect (the tunnel is not ported), Xray, the FEPSIM v2 path, every other plan.
 
 ## 5. Port map
 
-`ported` = merged, tests pass off-rig. Nothing is `rig-verified` yet.
+`ported` = merged, tests pass off-rig. `rig-verified` only where §4 says so. After wave 16 every Python module has a
+Java counterpart or a recorded reason it has none (the TUI widgets, pytest-only plumbing, `startup.py`, the telemetry
+socket, `rig/ppk.py`: JSch reads `.ppk` v2 itself).
 
 | Python (CAT) | Java package | Status |
 |---|---|---|
-| `petrotest/rig/` | `rig` | ported (strict; ppk.py skipped) |
-| `devices/pos_shim.py` | `posshim` | ported incl. control; read path live-checked |
-| `devices/config_shim.py`, `devices/commander.py` | `devices.commander`, `commander` | ported |
-| `commander_init.py` (+recover_dcr_link, release_pump), `commander_prep.py`, `commander_trust.py`, `payment_ready.py` | `commander` | ported; the init restores the Commander snapshot before the base import; `release_pump` through Petro ported 2026-10-28 |
-| `commander_snapshot.py`, `devices/suiteinfo.py` | `commander.snapshot`, `devices.commander` | ported; capture wired into step 4 (new install or `--capture-snapshot`) |
-| `commander_links.py` | `commander.links` (+ read-only `devices.eps.CommanderLinks`) | ported; wired into step 4 with the drift restart |
-| `commander_connect.py`, `cloud_snapshot.py` | `commander.connect` | ported; wired into step 4 behind the onboarding switch, **unreachable until the cloud tunnel is ported** |
-| `cloud_tunnel.py` | `cloudtunnel` | ported except the serve loop (needs SSH reverse forwards); an onboarding run stops in step 1 |
-| `secondary_fep.py`, `register_app.py` | `fep`, `commander.registerapp` | ported; wired into step 4 (no Commander Connect cloud sender) |
-| `pos/emv_keys.py` | `commander.emv` | **ported 2026-10-28** (tables, cashback row, card-table undo, the downloads confirmed from the host packet log); wired into step 4 and the pinpad link |
-| `close_day.py` | `closeday` | ported **including the register pass** (`PosRegisterPass`, 2026-10-28); `CloseDay.forRig` uses it |
-| `upgrade/new_install.py`, `psi_init.py`, `cat/launch/upgrade.py` | `upgrade`, `launch.InstallCommanderBuild` | **ported 2026-10-28**: download (or the newest staged build), PSI install, `psi-init --no-pairing`, pairing after provision. classic (AU) and VHQ: unavailable |
-| `build/` incl. `installed.py` and the DPAPI credential files | `build` | ported: discovery, listing, verified download, `Installed`, `StoredArtifactoryCredentials` (env, then `.secrets/artifactory.credentials`, then Monarch's) |
-| `collect.py`, `gitutil.py` | `collect` | ported; freshness on the run's test-plan branch, fetch on |
-| `cat/plans.py`, `selection.py`, `requirements.py`, seed | `plans` | ported |
-| `cat/atlassian.py`, `cat/xray/` | `atlassian`, `xray` | ported; never sent live |
-| `report/`, `results/`, `connections.py`, `readiness.py` | `report`, `results`, `connections` | ported; **printer readiness lines and the Receipt Printer serial row ported 2026-10-28** |
-| `preflight/`, `recovery/`, `provision/` | same names | ported |
-| `coverage/` | `coverage` | ported; launch wiring not done (a run asking for coverage stops in step 1) |
-| `pos/` (locators, driver, pages, fake, pinpad double, receipt) | `pos.*` | ported |
-| `pats/` (case, scenario, elements, feature, runner, 71 handlers, bdd) | `pats.*` | ported; **step-library `.feature` cases (`petrotest.authoring.steps`, 46 phrases) run as `CAT_STEP` actions (2026-10-28)**; `VALIDATE_TRANSACTION` reads the Commander's transactions for real; **the receipt read follows `_pos_receipt` (TRAN# rule, print mark, settle) and `REFUND_WITH_TRANS_MAP` reads the STAN from the case's validated TLog (2026-10-28, after run f6b5c0596966)** |
-| `devices/petro_forecourt.py` | `devices.forecourt` | ported; **session listeners, DCR link recovery and pump teardown wired into step 5 (`PetroSession`), Petro port holds (`PetroPorts`) 2026-10-28** |
-| `devices/legacy_rmi.py`, `viperpay.py`, `topaz_printer.py`, `csite.py`, `eps.py`, `suspended.py`, `buypass_host.py`, `fepsim_legacy.py` | `devices.*` | ported; **the printer port is held from step 1 to step 5 (`PrinterHold`)**; FepsimLegacy not bound at launch |
-| `cat/launch/` (seven steps) | `launch` | **all seven steps run on a rig path without an "unavailable" stop for the lab rig** (viperpay pinpad, printer on COM1, no onboarding, no coverage). Step 4 follows `commander.py` stage for stage (§6 item 1 lists the order) |
-| `cat/sims/` incl. `jab.py`, `java.py`, `suite_base.py`, `fetch.py` | `sims`, `sims.base` | **ported 2026-10-28**: Access Bridge clicks over JNA, window minimise, Commander base read, Java 17 set choice, simulator build fetch/replace with the `.cat-build.json` marker |
-| `cat/schedule.py`, `cat/setup/`, `authoring/`, `cat/web/` | `runservice`, `setup`, `authoring`, `web` | ported as before (web: every page; Tools empty) |
-| `tools/rig/run_plan.py` | `launch.LaunchCommand` + `LastConfig` | **ported 2026-10-28**: every flag; defaults from `~/.cat/java/last-config.json` then the Python's `~/.cat/last-config.json` (read-only) |
-| `recorder/` (P11), `cat/telemetry` socket, `cat/state`, `startup.py`, `cat/sims/fepsim.py` (FEPSIM v2 superseding BUYPASS Host) | — | not ported |
+| `petrotest/rig/` | `rig` | ported (strict); ppk not needed |
+| `devices/pos_shim.py` | `posshim` | ported; read path live-checked |
+| `devices/config_shim.py`, `devices/commander.py` | `devices.commander`, `commander` | ported; rig-verified in step 4 (§4) |
+| `commander_init.py`, `commander_prep.py`, `commander_trust.py`, `payment_ready.py` | `commander` | ported; rig-verified in step 4; **CLI commands added in wave 16** (`commander-prep`, `commander-init`, `commander-trust`, `payment-ready`) |
+| `commander_snapshot.py`, `devices/suiteinfo.py` | `commander.snapshot` | ported |
+| `commander_links.py` | `commander.links` (rules in `devices.eps.CommanderLinks`) | ported; `payment-links` command (wave 16) |
+| `commander_connect.py`, `cloud_snapshot.py`, `devices/csite.py` | `commander.connect`, `devices.csite` | ported; **wave 16: `commander_cloud_config`, the csite-reset and cloud-snapshot stages and commands** |
+| `cloud_tunnel.py`, `cat/launch/tunnel.py` | `cloudtunnel`, `launch.TunnelStart` | **ported in wave 16 incl. the serve loop, gateway and SSH reverse forwards**; unverified on hardware |
+| `secondary_fep.py`, `register_app.py` | `fep`, `commander`, `commander.registerapp` | ported; `secondary-fep` (with the C-Site push) and `register-app` commands |
+| `pos/emv_keys.py` | `commander.emv` | ported; rig-verified in step 4; host packets from FEPSIM v2 (wave 16) |
+| `close_day.py` | `closeday` | ported incl. the register pass; rig-verified |
+| `upgrade/` (new_install, psi_init, classic, vhq, cli) | `upgrade` | new_install and psi-init rig-verified; **classic (AU), VHQ (a stub, as in the Python) and the `upgrade` command ported in wave 16**; `NewInstall.resumeRootAccess` + `cat-java install-resume` (no Python equivalent) |
+| `build/` incl. `nightly.py`, `overlay_merge.py`, `credentials.py` | `build` | ported; **wave 16: foundation/viper merge, `build`, `builds`, `artifactory-login`** (saved under `~/.cat/java`) |
+| `collect.py`, `gitutil.py`, `gitauth.py`, `publish.py` | `collect`, `gitauth`, `publish` | ported; gitauth and `publish` (local branch; push only with `--push`) in wave 16 |
+| `cat/plans.py`, `selection.py`, `requirements.py`, seed | `plans`, `launch.RunRequirements` | ported; requirements applied at run start (wave 16) |
+| `cat/atlassian.py`, `cat/xray/` incl. `attach.py` | `atlassian`, `xray` | ported; never sent live; `xray-attach` (wave 16) |
+| `report/`, `results/`, `connections.py`, `readiness.py` | `report`, `results`, `connections` | ported |
+| `preflight/`, `recovery/`, `provision/` incl. `shim_stamp.source_stamp`, `tools/build_pos_shim.py` | same names | ported; **wave 16: recovery rung 5 reprovision, the pos-shim rebuild in step 4 (`build-pos-shim`), preflight repair only with `--repair` (the Python's default)** |
+| `coverage/` and `cat/launch/coverage.py` | `coverage`, `launch.CoverageLaunch` | **ported in wave 16** (classes, sources, summary, report, `coverage` CLI, launch wiring) |
+| `pos/` | `pos.*` | ported; failed-validation evidence (`CaseArtifacts`) in wave 16 |
+| `pats/`, authored `.feature` cases | `pats.*` | ported; Scenario Outline Examples expand per row (wave 16) |
+| `devices/petro_forecourt.py` and the other `devices/*` | `devices.*` | ported |
+| `devices/vats/*`, `btt_agent/MenuAgent.java` | `devices.vats`, `launch.Vats*` | **ported in wave 16**; `agent.py` and `MenuAgent.java` ship verbatim as resources; `pinpad-clear` command |
+| `cat/launch/` (run, plan, config, requirements, steps, printer, xray_sidecar, install_upgrade, sims_launch) | `launch`, `web` | ported; **wave 16: `plan.resolved`, the full-plan gate for `@plan_end`, partial runs, `provisionRegister`, receipt relay, Xray status lines, `keep_simulators`** |
+| `cat/sims/` incl. `fepsim.py`, `petro_tls.py`, `staging.py` | `sims` | ported; **wave 16: FEPSIM v2, Petro TLS + RxtxAgent, SSLUtil on every launch, wrong-variant stop, staging, `fetch-sims`** |
+| `cat/state`, `cat/web/`, `cat/setup/`, `cat/schedule.py`, `cat/web/autoclose.py` | `runservice`, `web`, `setup`, `shell` | **ported in wave 16**: the run board, Validations, receipt roll, Log filters, Config controls, Setup repair and sign-in, `cat-java setup`, auto-close |
+| `recorder/`, `authoring/recorded.py`, `cat/authoring/` (draft, replay, CLI) | `recorder`, `authoring` | **ported in wave 16**: `record`, `generate` (writes a `.feature`, not a pytest module), `authoring`, `steps` |
+| TUI widgets, `startup.py`, `cat/telemetry` socket, `cat/state/listener.py`, `orchestrator.py`, `clipboard.py`, `launch/relay.py` | — | not applicable (web-only; in-process runner) |
 
 ## 6. Open items (priority order)
 
 1. **Record the clean-install proof run.** The Commander must first come back (power cycle or console; §4's
-   last row), then either build item 1a and resume, or rerun the whole clean install once it is healthy.
-   Steps 1-7 have each run live from Java; what is missing is one uninterrupted clean-install run with
-   every fix, recorded here. Run it with the command in §1, from
-   `C:\gitrepos\CAT-Java` as the working directory: pulled tests land under `<cwd>\tests\suites\pulled`).
-   Preconditions checked 2026-10-28: Access Bridge enabled (`~/.accessibility.properties`),
-   `C:\CICD\Builds\Solutions134\buypass\` complete (so no Artifactory login is needed), the
-   staged simulators carry `.cat-build.json` master 129 (quick pass in step 1), the Jira token
-   file present, no PATS or Python CAT run live. Expected step-4 order: install → psi-init
-   --no-pairing → provision → psi-init (pairing) → provision → commander-prep → commander-init
-   → secondary-fep none → payment-links (+drift restart) → emv-keys --tables always →
-   register-app → close-day → pinpad link → payment-ready (warn) → snapshot capture
-   (`Solutions134`) → installed build. Watch first: step 3's LoySim/MPPA clicks (a "clicked"
-   detail on a disabled button is not proof the host started: look at the windows), the
-   pairing, and emv-keys' host-packet confirmation.
-1a. **Resume an install after the Commander is back:** `launch --upgrade new_install` cannot run on a Commander without root SSH (the install's first step is an SSH `bypass.mem.size.check`), and `--upgrade skip` cannot either (provision and prep need SSH). Add a `cat-java install-resume --rig lab` (or a step-4 mode) that, on a Commander answering CGILink with the PSI password, pushes the root-access packages (`RootAccess.pushUntilConfirmed`), runs psi-init (`--no-pairing` then pairing after provision) and carries on with the normal step 4. The Python lacks it too.
-2. **Petro dropped every DCR soft key in run dec5794107fa.** The Java's bytes equal the Python's (parity test `ForecourtWireParityTest`), and after the run the Python's own sender (`petro_forecourt._send(controller, 1053, encode_dcr_key(1,'L2'))`) was dropped the same way: Petro accepted the connection and never logged `handleKeyData`. That Petro instance (started by run b34a01ad8176 at 16:42, kept across a PSI reinstall and three commander-inits) was stopped at 21:40 so the next run starts a fresh one. If a fresh Petro also drops keys, look at Petro's `DcrClientAdapter$ClientRequestHandler` (javap) for the state check.
-3. **Commander Connect:** port `cloud_tunnel.py`'s serve loop (SSH reverse forwards and the
-   gateway mode in `Transport`), then the onboarding path (commander-connect, csite-reset,
-   cloud-snapshot restore) is reachable. Every migration plan must pass onboarded.
-4. **FEPSIM v2 superseding BUYPASS Host** (`cat/sims/fepsim.py`, `simulators.py` 260-290,
-   `emv-keys --host-packets`): not ported; Java always starts BUYPASS Host.
-5. **Coverage** launch wiring (`cat/launch/coverage.py`); a run asking for it stops in step 1.
-6. **Failed-validation evidence capture** in step 5 (`PosDriver.capture` needs an
-   `ArtifactSink`; `BrowserConnector` builds none).
-7. **A step-library case whose fixture is unavailable** is recorded as failed; the Python
-   records a setup error. Consider an `error` outcome.
-8. **`LOGIN`/`LOGOUT` on a fake-POS run** reach the pos-shim stand-in at `localhost:1`
-   (`DeviceUnreachable`), and the report actions have no `RegisterPos` bound.
-9. **Two `CommanderLinks` classes** (`commander.links`, `devices.eps`): consolidate.
-10. **Partial runs** (`--tags/--only/--from`) are parsed but `RunLauncher` refuses them.
-11. **Web UI**: its Start run gets no default simulators/connections (decided in
-    `LaunchCommand`, not at run start); `UpgradeService` still says psi-init is "not built".
-12. **`cat-java preflight` without `--no-repair` drives the live POS**; only with the rig
-    owner's go-ahead.
-13. **Step 3 is stricter than the Python**: a NEEDS_ATTENTION row fails the step (decision in
-    §2). If the Access Bridge click fails on the real LoySims, the run stops before the install.
-14. **Windows PowerShell 5.1 quoting** (`-EncodedCommand` in the sims port) and Playwright's
-    browser download (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` in `run.cmd`/tests) as before.
-15. Incidents, all harmless, kept for honesty: 2026-10-24's three (a `client=nosuch` read of
-    the lab shim; one TCP connect to the example rig's documentation address; a refused
-    kill-by-image command). 2026-10-28: the fakepos agent's first run moved
-    `C:\gitrepos\petroapps` to `master` and back (the freshness check used `master`; fixed,
-    the checkout ended on `PETROCORE-141728` and clean); a leftover CAT-Java web server from
-    10-24 (PID 30372) holds `target\cat-java.jar`, so `build.cmd` cannot repackage until it is
-    closed. Run from the classes instead:
-    `java -cp "target\classes;target\lib\*" com.verifone.cat.Main launch ...`.
+   last row). Then either `cat-java install-resume --rig lab` (wave 16: pushes root access, waits for SSH, reboots
+   and waits for CGILink, then psi-init `--no-pairing`, provision, psi-init with pairing, provision, prep, init,
+   secondary-fep none, payment-links, emv-keys, register-app, close-day, payment-ready, snapshot capture; fake-tested
+   only, including the lab's current state), or rerun the whole clean install once it is healthy. Run the command in
+   §1 from `C:\gitrepos\CAT-Java` as the working directory (pulled tests land under `<cwd>\tests\suites\pulled`).
+   Preconditions checked 2026-10-28: Access Bridge enabled, `C:\CICD\Builds\Solutions134\buypass\` complete, the
+   staged simulators carry `.cat-build.json` master 129, the Jira token file present, no PATS or Python CAT run live.
+   Watch first: step 3's LoySim/MPPA clicks, the pairing, emv-keys' host-packet confirmation.
+2. **First rig run of what wave 16 changed** (all fake-backed so far). In that same run, check that:
+   - step 4 runs its real-rig stages (`provisionRegister` is now set on every CLI and web run; without it step 4
+     provisions nothing);
+   - step 3 still starts BUYPASS Host on master 129's simulators (FEPSIM v2 takes over only when the staged
+     `Petro_Simulator_Suite.jar` is v2);
+   - `plan.resolved` gives the Not Run count and the full-plan gate leaves Cadence's `@plan_end` cases judged;
+   - the receipt relay fills the run log and the web roll;
+   - the pos-shim stamp check does not rebuild a current shim.
+   Then a web Start against the rig: read the Pre-Run card's Upgrade line before pressing Start.
+3. **Commander Connect onboarded.** The tunnel serve loop, `TunnelStart`, csite-reset and cloud-snapshot restore are
+   ported (wave 16) but have never run. Every migration plan must pass onboarded.
+4. **Petro dropped every DCR soft key in run dec5794107fa** (a stale Petro instance; a fresh one worked in run
+   5285e78aa370). If it recurs, look at Petro's `DcrClientAdapter$ClientRequestHandler`.
+5. **Small gaps left by wave 16:**
+   - `AuthoringService` exposes no recording flag, so `run.gates(...)` and the shell's hold get `false` for it.
+   - `PetroPorts` holds need a `RunContext`, so a Launch Simulators start cannot hand Petro's port holds to a later run.
+   - The receipt relay polls the printer every 500 ms (slf4j-simple has no handlers); a listener on `TopazPrinter`
+     would be exact.
+   - The web Downloads' foundation pairing lookup for a viper-only build is not done.
+   - `jab.main` (an at-rig diagnostic) is not ported.
+   - Vestiges to tidy: `CommanderConfigurationStep.unported(config, tunnelPorted)`; `XrayClient.attachFile`'s third
+     parameter (no multipart call in `AtlassianClient`); coverage-ready and sims' FEP hosts kept per run in weak maps
+     instead of `RunContext` fields; `Main.serveWeb` (the pre-wave-16 web start) kept unused.
+6. **Decisions for the rig owner:**
+   - The Setup page's cashier repair defaults `PETROTEST_CASHIER_PASSWORD` to `"123"`, ported from the Python's
+     `cat/setup/items/credentials.py` (the lab's standing till password). The Python CAT's CLAUDE.md lists the cashier
+     PIN as env-var-only, while its own setup exports that default. Confirm, or drop the default.
+   - Logins saved from Java (`artifactory-login`, the Setup page's Jira and Artifactory sign-ins) go under
+     `~/.cat/java`, not the Python's `.secrets`/home files (HANDOFF §2's own-files rule).
+   - The commander-dots logo was not copied (origin unconfirmed); the CAT monogram was.
+7. **Test hygiene:** sims, VATS and PetroTls tests start real child JVMs from `C:\CICD\Tools\Java17` (the pattern
+   predates wave 16; one flaked under the full build and was fixed in d8c450f); the VATS agent tests need a Python
+   3.9+ and skip without one.
+8. **`cat-java preflight --repair` drives the live POS**; only with the rig owner's go-ahead. Without `--repair` it
+   is read-only (the Python's default since wave 16).
+9. **Step 3 is stricter than the Python**: a NEEDS_ATTENTION row fails the step (decision in §2).
+10. **Windows PowerShell 5.1 quoting** (`-EncodedCommand` in the sims port) and Playwright's browser download
+    (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` in `run.cmd`/tests) as before.
+11. Incidents, all harmless, kept for honesty: 2026-10-24's three (a `client=nosuch` read of the lab shim; one TCP
+    connect to the example rig's documentation address; a refused kill-by-image command). 2026-10-28: the fakepos
+    agent's first run moved `C:\gitrepos\petroapps` to `master` and back (fixed). A leftover CAT-Java web server
+    (PID 37424 on 2026-10-29) holds `target\cat-java.jar`, so `build.cmd` on main cannot repackage while it runs;
+    `build.cmd test` works, and so do worktrees.
 
-## 6a. Wave 16: port the rest (in flight, 2026-10-29)
+## 6a. Wave 16: the rest of the port (merged 2026-10-29)
 
-On 2026-10-29, four read-only audits compared the Python with this tree, module by module and command by command. They
-found that §5 overstates several areas.
-- **Web Start run** never wires step 5 and has no Atlassian source.
-- **Plan counts**: `plan.resolved` is never emitted, so Not Run is always 0.
-- **`@plan_end` cases** are judged in any run shape. The Python judges them only in a full plan run.
-- **Partial runs** are refused.
-- **Web board and log**: the Overview board, the Validations view, the receipt roll and the Log filters are placeholders.
-- **Web Config tab**: most of its controls are placeholders.
-- **Setup** only detects. It cannot repair or sign in.
-- **Coverage** lacks the class extraction, sources, summary, CLI and launch wiring.
-- **Upgrade, publish, recorder**: classic (AU) upgrade, the foundation merge, VATS, the recorder, draft/replay,
-  `publish`, gitauth and FEPSIM v2 are absent.
-- **Commander Connect**: the cloud tunnel's serve loop is not ported.
-- **CLI**: about twenty `petrotest` subcommands have no Java command yet.
+The user asked for all of the Python CAT to be ported while the Commander was down. Four read-only audits found the
+gaps (§5 had overstated web, coverage and provision). Ten Opus slices ran in worktrees from the shared brief
+`docs/wave16-brief.md`, with strict file ownership; each merged main before its final build, and the orchestrator
+merged them one at a time with the full suite after each, wired the cross-slice hooks each report listed, and had a
+read-only reviewer compare the merged launch with the Python.
 
-The shared brief, with the rules and the file-ownership table, is `docs/wave16-brief.md`. Before branching,
-`LaunchConfig` gained six fields on main (63437bc): `ifsfMode`, `localBuild`, `foundationBranch`, `foundationBuild`,
-`provisionRegister` and `keepSimulators`.
-
-| Slice (branch `wave16/<slice>`, worktree `C:\gitrepos\CAT-Java-wt\<slice>`) | Scope |
+| Slice | What landed |
 |---|---|
-| launchcore | `PlanResolved`, the `@plan_end` full-plan gate, partial runs, config/requirements gaps, evidence capture, the `error` outcome, Outline Examples, Xray status lines and sidecar args, receipt relay, `keep_simulators`, `preflight --repair` |
-| sims | FEPSIM v2 (`fepsim.py`) and step 3's supersede, Secondary FEP host simulators, the SSLUtil/TLS/RxtxAgent pre-steps, the wrong-variant stop, staging and `fetch-sims`, SimulatorState events |
-| tunnel | `Transport` reverse forwards, `CloudTunnel.serve` and gateway, `cloud-tunnel` start |
-| step4 | `TunnelStart`, `commander_cloud_config`, csite-reset and cloud-snapshot stages, the BDD skip, the pos-shim rebuild (`build_pos_shim.py`), recovery reprovision, **`install-resume` (§6 item 1a)**, and the commander-prep/init, payment-links, register-app, payment-ready, commander-trust, secondary-fep, csite-reset and cloud-snapshot commands |
-| upgrade | classic AU, VHQ, `local_build`, the foundation/overlay merge, and the `upgrade`, `build`, `builds`, `artifactory-login` and `render-payload` commands |
-| coverage | `classes`, `sources`, `summary`, the `coverage` CLI, `launch/CoverageLaunch`, `xray/attach` |
-| webrun | `cat/state` fold, the web Start run as a real run, the Overview board, Validations, the receipt roll, the Log filters, the Results detail |
-| webshell | the shell lifecycle, the Config controls, Setup repair and sign-in, gitauth, the `setup` CLI, Install Upgrade wiring, Launch Simulators parity |
-| vats | `devices/vats/**`, the BTT card server, `agent.py` shipped and spawned, `pinpad-clear` |
-| authoring | the recorder, `record`/`generate`, draft/replay, the authoring CLI, `steps list/check`, `publish` |
+| tunnel | `Transport` reverse forwards (JSch), `CloudTunnelServer` (the serve loop, keepalive, re-plan, gateway health), `cloud-tunnel` serves; `CatNetRelay.java` byte-identical to the Python's |
+| upgrade | classic AU, VHQ, local build, foundation/viper overlay merge, `upgrade`, `build`, `builds`, `artifactory-login`, `render-payload`; later `NewInstall.resumeRootAccess` for `install-resume` |
+| sims | FEPSIM v2, Secondary FEP host simulators (`FepHosts`), Petro TLS + RxtxAgent, SSLUtil on every launch, wrong-variant stop, `probeRunning`, staging and `fetch-sims`, `SimulatorState` events |
+| coverage | class extraction, sources, summary with baseline, the report's running total, `coverage` CLI, `CoverageLaunch`, `xray-attach`; fixed `linePercent` refusing every real JaCoCo report (DOCTYPE) |
+| webrun | the web Start as a real run (step 5 wired, network plan source, gates), `cat/state` fold, Overview board, step/case dialogs, Validations with a `difflib` port, receipt roll, Log filters, Results detail, preflight as a job |
+| authoring | recorder, `record`, `generate` (a `.feature`), Draft with Claude, the replay gate, `authoring` and `steps` CLIs, `publish` to a local petroapps branch |
+| step4 | `TunnelStart`, `CommanderCloudConfig`, csite-reset and cloud-snapshot stages and commands, pos-shim stamp + build, recovery rung 5, BDD skip, `install-resume`, eleven step-4 commands |
+| vats | `devices.vats` (agent shipped verbatim, BTT, card server, relay, readiness, pinpad, session), the step helpers, `pinpad-clear` |
+| launchcore | `PlanStart` (`plan.resolved`, partial selection, the full-plan gate), `RunRequirements`, Outline Examples, case evidence, setup errors for missing fixtures, receipt relay, Xray status lines and sidecar args, `keep_simulators`, `preflight --repair`, `provisionRegister` on every run, and most hooks |
+| webshell | `shell` (one busy flag, auto-close, page heartbeat), `WebServe` (flags, browser, web log, setup on start), Config controls (branch, Downloads, Commander Connect, Execution, Refresh from Confluence, Jira case fetch), Setup repair and sign-in, `gitauth`, `cat-java setup`, Install Upgrade and Launch Simulators parity |
 
-The session ended while the slices were mid-work. Each agent was asked to commit a `WIP wave16:` commit, but some
-may hold uncommitted changes in their worktree.
+Commands after wave 16 (`Main`'s table): preflight, launch, provision, xray, close-day, commander-snapshot,
+commander-connect, cloud-tunnel, psi-init, emv-keys, coverage, xray-attach, upgrade, build, builds,
+artifactory-login, render-payload, fetch-sims, record, generate, steps, authoring, publish, pinpad-clear,
+commander-prep, commander-init, payment-links, register-app, payment-ready, commander-trust, secondary-fep,
+csite-reset, cloud-snapshot, build-pos-shim, install-resume, setup; no command = the web UI.
 
-**To resume:**
-1. In each worktree, run `git status` and `git log main..`. Commit anything left with a WIP message.
-2. Finish each slice: start one agent per worktree with the brief, the slice's scope row above, and "continue from
-   the WIP commit".
-3. Merge one branch at a time and run the full build after each. Merge in this order: tunnel, upgrade, sims,
-   launchcore, step4, coverage, vats, authoring, webshell, webrun. Conflicts are expected in `Main.java`'s table and
-   in the step files that the coverage hooks touch.
-4. Wire the cross-slice hooks each slice reports. Expect these: the sims APIs into `TestsRunStep` and the emv-keys
-   stage; `all_simulators` into the forecourt choice; the VATS calls into steps 1, 3 and 4 and into `LivePosScreen`;
-   `LaunchDefaults` deduplicated with `LaunchCommand`; the webrun routes registered in `WebApp`.
-5. Have a read-only reviewer compare the merged launch with the Python (§7).
-6. Rewrite §5 and §6 from the result.
+REVIEW_PLACEHOLDER
 
 ## 7. Lessons (read before orchestrating again)
 
@@ -257,3 +241,5 @@ may hold uncommitted changes in their worktree.
   step-library cases), closereg (register pass), step1 (printer readiness, Commander base,
   Java sets, simulator fetch), the merge-and-wire pass, prerig (the review's fixes).
   then capk (CAPK re-dating, after the first rig run's step 3 failed on it), bringup (the browser override, after run 2), and after runs 4-5: the shim client name, petroapps reference folders, the pairing navigation race, the receipt read, the sale STAN source, the recovery ladder. 3,111 → 3,568 tests. Goal set by the rig owner: Cadence from a clean install (§1).
+- **2026-10-29, wave 16** (orchestrated, 10 slices on Opus, the Commander down): the rest of the port (§6a).
+  3,568 → 4,120 tests. Two usage-limit interruptions; every slice resumed from its own commits.
