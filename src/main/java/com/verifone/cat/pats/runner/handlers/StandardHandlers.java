@@ -191,8 +191,7 @@ public final class StandardHandlers {
      * the run does not have is its unavailable default, so an action that asks for it fails by name.
      */
     public static FixtureSource fixtureSource(HandlerFixtures f) {
-        PinpadView pinpad = new PinpadView() {
-        };
+        PinpadView pinpad = pinpadView(f.pinpad());
         FuelPumpsView pumps = f.fuelPumps() == null ? unavailablePumps() : pumpsView(f.fuelPumps());
         DcrDevice dcr = f.dcr() == null ? DcrDevice.UNAVAILABLE : f.dcr();
         return name -> switch (name) {
@@ -203,6 +202,29 @@ public final class StandardHandlers {
             case FUEL_PUMPS -> pumps;
             case COMMANDER_CONFIG -> f.commander();
             case CONFIGURATIONS -> f.petroapps().configurations();
+        };
+    }
+
+    /**
+     * The POS UI family's view of the case's pinpad: a physical (VATS) pinpad's settle and last decline, so a SLEEP
+     * after a pinpad action ends on the terminal and a receipt wait ends early on a decline; any other pinpad keeps
+     * the defaults.
+     */
+    public static PinpadView pinpadView(com.verifone.cat.pos.pinpad.PinpadDevice device) {
+        if (device instanceof com.verifone.cat.devices.vats.PhysicalPinpad physical) {
+            return new PinpadView() {
+                @Override
+                public java.util.Optional<Boolean> settle(Duration seconds) {
+                    return java.util.Optional.of(physical.settle(seconds));
+                }
+
+                @Override
+                public java.util.OptionalLong declinedAtNanos() {
+                    return physical.declinedAtNanos();
+                }
+            };
+        }
+        return new PinpadView() {
         };
     }
 

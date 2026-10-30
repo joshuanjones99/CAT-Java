@@ -26,7 +26,7 @@ import com.verifone.cat.sims.Supervisor;
  */
 public final class RunContext {
 
-    private final LaunchConfig config;
+    private volatile LaunchConfig config;
     private final LaunchPaths paths;
     private final String runId;
     private final Path runFolder;
@@ -50,7 +50,18 @@ public final class RunContext {
     private volatile String installedBuild = "";
     private volatile String simsBase = "";
     /** Petro's held pump-state ports, port to sink (the Python's {@code petro_sinks}); see {@link PetroPorts}. */
-    private final Map<Integer, AutoCloseable> petroSinks = new ConcurrentHashMap<>();
+    private volatile Map<Integer, AutoCloseable> petroSinks = new ConcurrentHashMap<>();
+    /** Whether {@link #petroSinks} is the caller's (the Python's {@code caller_sinks}). */
+    private volatile boolean callerSinks;
+    private volatile List<com.verifone.cat.plans.PlanCase> planCases;
+    private volatile List<CaseEntry> caseEntries;
+    private volatile com.verifone.cat.plans.Requirements requirements;
+    private volatile String requirementsNote = "";
+    private volatile String petroappsFetchError;
+    private volatile boolean commanderOptionsSet;
+    private final java.util.concurrent.atomic.AtomicInteger testsPassed = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger testsFailed = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger testsWarned = new java.util.concurrent.atomic.AtomicInteger();
     private volatile PetroPorts.Opener petroPortOpener = PetroPorts.Opener.PORT_SINK;
     private volatile boolean testsStarted;
     private volatile AutoCloseable heldPrinter;
@@ -100,8 +111,119 @@ public final class RunContext {
         this.commanderOptions = CommanderOptions.of(config);
     }
 
+    /** The run's config as it stands now: run start narrows it to the plan's cases and the plan's requirements. */
     public LaunchConfig config() {
         return config;
+    }
+
+    /**
+     * Replaces the run's config (the Python's {@code ctx.config = replace(...)}): the whole plan's targets, a partial
+     * selection, the plan's requirements. Step 4's options follow it unless a caller set its own.
+     */
+    void config(LaunchConfig value) {
+        config = value;
+        if (!commanderOptionsSet) {
+            commanderOptions = CommanderOptions.of(value);
+        }
+    }
+
+    /**
+     * The chosen plans' cases, unmigrated ones included, when every plan resolved to a case list; {@code null} when
+     * any did not (the Python's {@code ctx.plan_cases}). Set at run start.
+     */
+    public List<com.verifone.cat.plans.PlanCase> planCases() {
+        return planCases;
+    }
+
+    void planCases(List<com.verifone.cat.plans.PlanCase> cases) {
+        planCases = cases == null ? null : List.copyOf(cases);
+    }
+
+    /**
+     * The run's cases as run start resolved them, in plan order, Not Run ones included, or {@code null} when run
+     * start resolved none (a run with no plan); step 5 runs the ones {@link LaunchConfig#suites} still names.
+     */
+    public List<CaseEntry> caseEntries() {
+        return caseEntries;
+    }
+
+    void caseEntries(List<CaseEntry> entries) {
+        caseEntries = entries == null ? null : List.copyOf(entries);
+    }
+
+    /** The plans' requirements read at run start (the Python's {@code ctx.requirements}), or {@code null}. */
+    public com.verifone.cat.plans.Requirements requirements() {
+        return requirements;
+    }
+
+    void requirements(com.verifone.cat.plans.Requirements value, String note) {
+        requirements = value;
+        requirementsNote = note == null ? "" : note;
+    }
+
+    /** Why the requirements came from a cache or the seed rather than the page, or "" (the Python's note). */
+    public String requirementsNote() {
+        return requirementsNote;
+    }
+
+    /**
+     * The outcome of the fetch run start's collection made: "" when it fetched, git's reason when it could not, or
+     * {@code null} when no fetch was made, so System Checks' freshness fetches itself (the Python's
+     * {@code petroapps_fetch_error}).
+     */
+    public String petroappsFetchError() {
+        return petroappsFetchError;
+    }
+
+    void petroappsFetchError(String value) {
+        petroappsFetchError = value;
+    }
+
+    /**
+     * Whether this run leaves Petro's ports held at its end, for whoever outlives it: a continuous run
+     * ({@link LaunchConfig#keepSimulators}) or a caller that lent its own sinks. The Python's
+     * {@code keeps_petro_ports}.
+     */
+    public boolean keepsPetroPorts() {
+        return config.keepSimulators() || callerSinks;
+    }
+
+    /**
+     * Uses the caller's sinks for Petro's ports (the Python's {@code launch_run(petro_sinks=...)}): shared across a
+     * continuous run's passes, or held by Launch Simulators for a Petro it left running. The run then closes none of
+     * them, the ones it takes included, and the caller sees every port the run held in the same map.
+     */
+    void useCallerSinks(Map<Integer, AutoCloseable> sinks) {
+        petroSinks = sinks;
+        callerSinks = true;
+    }
+
+    /**
+     * Counts one {@code test.finished} for CAT's own {@code RunFinished}, as the Python's reducer counts them
+     * ({@code _apply_test_finished}): a pass with warnings is warned, a pass without is passed, a failure is failed;
+     * skipped, error and timeout count in none of the three.
+     */
+    void countTest(com.verifone.cat.report.events.Outcome outcome, int warnings) {
+        if (outcome == com.verifone.cat.report.events.Outcome.PASSED) {
+            (warnings > 0 ? testsWarned : testsPassed).incrementAndGet();
+        } else if (outcome == com.verifone.cat.report.events.Outcome.FAILED) {
+            testsFailed.incrementAndGet();
+        }
+    }
+
+    /** The cases passed so far this run. */
+    public int testsPassed() {
+        return testsPassed.get();
+    }
+
+    /** The cases failed so far this run. */
+    public int testsFailed() {
+        return testsFailed.get();
+    }
+
+    /** The cases warned so far this run. */
+    public int testsWarned() {
+        return testsWarned.get();
     }
 
     public LaunchPaths paths() {
@@ -344,6 +466,7 @@ public final class RunContext {
 
     void commanderOptions(CommanderOptions value) {
         commanderOptions = value == null ? CommanderOptions.NONE : value;
+        commanderOptionsSet = true;
     }
 
     /** Writes one event to {@code events.ndjson} and the run log. */

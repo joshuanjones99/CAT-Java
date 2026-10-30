@@ -12,7 +12,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.verifone.cat.report.ArtifactIndex;
+import com.verifone.cat.xray.XrayReporter;
 import com.verifone.cat.report.JunitXmlWriter;
 import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.report.html.HtmlReport;
@@ -26,8 +28,11 @@ import com.verifone.cat.report.html.HtmlReport;
  * written last, so it lists the two reports too. The writers run on one worker thread, bounded by
  * {@link #WRITE_TIMEOUT}; a timeout is a failed step, and what they had written is partial.
  *
- * <p>Not carried, because the steps that feed them are not ported: the event tee's dropped-event count
- * (CAT-Java has no socket tee) and the Xray status lines. A run with either asked for does not get them here.
+ * <p>With Xray reporting on, the sidecar's state so far ({@code xray.json}) is named in the step's log, one line per
+ * execution ({@link XrayReporter#statusLines}), or a WARNING when the sidecar has written none yet: how the operator
+ * finds the execution without leaving CAT. The sidecar is still running here; it closes the execution after Cleanup.
+ *
+ * <p>Not carried: the event tee's dropped-event count (CAT-Java has no socket tee).
  * The JaCoCo coverage report runs first when coverage is on ({@link CoverageLaunch#collect}); asked for and
  * not delivered, it leaves this step failed with {@link CoverageLaunch#FAILED_DETAIL}.
  *
@@ -101,6 +106,16 @@ final class GenerateReportStep implements LaunchStep {
         }
         if (!allWritten) {
             return step.fail("a report file is missing from " + folder);
+        }
+        if (ctx.config().xrayReport()) {
+            JsonNode status = XrayReporter.readStatus(folder);
+            if (status == null) {
+                step.log("Xray: the reporting sidecar has written no status yet", "WARNING");
+            } else {
+                for (String line : XrayReporter.statusLines(status)) {
+                    step.log(line, "INFO");
+                }
+            }
         }
         step.setDetail(folder.toString());
         if (!coverageOk) {

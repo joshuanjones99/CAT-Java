@@ -95,9 +95,14 @@ final class ReceiptHandler implements ActionHandler {
             compare(run, name, got, catPath);
         } catch (ValidationFailure soft) {
             run.record().markNewestReceipt(false);
+            // The Receipt Printer's roll: the verdict beside the receipt that printed (case_record.receipt_checked).
+            String message = soft.getMessage() == null ? "" : soft.getMessage();
+            int newline = message.indexOf('\n');
+            run.record().receiptChecked(text, false, newline < 0 ? "" : message.substring(newline + 1), name);
             throw soft;
         }
         run.record().markNewestReceipt(true);
+        run.record().receiptChecked(text, true, "", name);
     }
 
     /**

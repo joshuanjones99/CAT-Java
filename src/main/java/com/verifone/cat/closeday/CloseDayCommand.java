@@ -17,7 +17,8 @@ import com.verifone.cat.rig.RigLoader;
  * 2 for a usage or rig-loading error.
  *
  * <p>{@link #run(String[])} takes the arguments after the program name. The {@code close-day} word is
- * accepted and dropped, as the other commands accept theirs. Main does not dispatch to it yet.
+ * accepted and dropped, as the other commands accept theirs. {@code Main} dispatches {@code cat-java close-day}
+ * to it.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */

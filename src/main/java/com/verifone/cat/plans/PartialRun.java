@@ -232,6 +232,19 @@ public final class PartialRun {
             Collection<String> only,
             String fromCase,
             Path repoRoot) {
+        return select(plan, tags, only, fromCase, node -> repoRoot.resolve(fileOf(node)));
+    }
+
+    /**
+     * {@link #select(List, String, Collection, String, Path)}, with each node's file given by {@code fileOf}: a run's
+     * cases can sit in more than one tree (the hand-migrated suites and the pulled ones).
+     */
+    public static Selection select(
+            List<CaseRef> plan,
+            String tags,
+            Collection<String> only,
+            String fromCase,
+            java.util.function.Function<String, Path> fileOf) {
         List<CaseRef> ordered = plan.stream()
                 .filter(c -> c.node() != null && !c.node().isEmpty())
                 .distinct()
@@ -263,7 +276,7 @@ public final class PartialRun {
         if (tags != null && !tags.isBlank()) {
             Predicate<Set<String>> predicate = parseTags(tags);
             kept = kept.stream()
-                    .filter(c -> fileTags(repoRoot.resolve(fileOf(c.node()))).stream().anyMatch(predicate))
+                    .filter(c -> fileTags(fileOf.apply(c.node())).stream().anyMatch(predicate))
                     .toList();
         }
         if (kept.isEmpty()) {

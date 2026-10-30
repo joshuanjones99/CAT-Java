@@ -9,7 +9,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Stream;
+
+import com.verifone.cat.plans.PlanRequirements;
+import com.verifone.cat.plans.Requirements;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -63,7 +67,7 @@ class SystemChecksStepTest {
 
         StepResult systemChecks = result.steps().get(0);
         assertEquals(StepResult.FAILED, systemChecks.state());
-        assertTrue(systemChecks.detail().startsWith("2 required check(s) failed: "), systemChecks.detail());
+        assertTrue(systemChecks.detail().startsWith("2 required setup item(s) need attention: "), systemChecks.detail());
         assertTrue(systemChecks.detail().contains("Tools folder — tools root not found: "), systemChecks.detail());
         assertTrue(log(result).contains("FAIL  Tools folder — "), log(result));
         assertEquals(StepResult.SKIPPED, result.steps().get(1).state());
@@ -158,36 +162,98 @@ class SystemChecksStepTest {
         assertTrue(log(result).contains("FAIL  tests to run"), log(result));
     }
 
-    @Test
-    void aPlanThatNeedsCommanderConnectPassesWithOnboardWarnsWhenWaivedAndFailsOtherwise() throws IOException {
-        // PETROCORE-135480 needs Commander Connect (the seed's row). The second, unknown plan stops every run at
-        // step 1, so no case runs.
-        String plans = "PETROCORE-135480";
-        String failed = log(run(LaunchFixtures.paths(dir), new LaunchConfig.Builder("").fakePos(true).testPlan(plans)
-                .testPlan("PETROCORE-0000000").build()));
-        assertTrue(failed.contains("FAIL  Commander Connect onboarding — PETROCORE-135480 need it: turn on Commander "
-                + "Connect > Onboard"), failed);
-
-        String onboard = log(run(LaunchFixtures.paths(dir), new LaunchConfig.Builder("").fakePos(true).testPlan(plans)
-                .testPlan("PETROCORE-0000000").commanderConnect(true).build()));
-        assertTrue(onboard.contains("PASS  Commander Connect onboarding — PETROCORE-135480 need it, and Onboard is on"),
-                onboard);
-
-        String waived = log(run(LaunchFixtures.paths(dir), new LaunchConfig.Builder("").fakePos(true).testPlan(plans)
-                .testPlan("PETROCORE-0000000").ccRequirementWaived(true).build()));
-        assertTrue(waived.contains("WARN  Commander Connect onboarding — PETROCORE-135480 need it; waived for this "
-                + "run, not onboarded"), waived);
+    /** The checks of {@link SystemChecksStep#checkRequirements} over {@code requirements}, as log text. */
+    private String requirementLines(LaunchConfig config, Requirements requirements, String note) throws IOException {
+        Path folder = dir.resolve("req-" + System.nanoTime());
+        RunContext ctx = new RunContext(config, LaunchFixtures.paths(dir), "eeeeeeeeeeee", folder,
+                RunEvents.open(folder, java.time.Clock.systemUTC()), new PauseGate(), java.time.Clock.systemUTC());
+        ctx.requirements(requirements, note);
+        List<String> failures = SystemChecksStep.checkRequirements(ctx, new StepEmitter(ctx, "System Checks"),
+                requirements, null);
+        ctx.closeEvents();
+        StringBuilder out = new StringBuilder();
+        for (com.fasterxml.jackson.databind.JsonNode event : LaunchFixtures.events(folder)) {
+            if (event.has("message")) {
+                out.append(event.get("message").asText()).append('\n');
+            }
+        }
+        return out + "failures=" + failures.size();
     }
 
     @Test
-    void aPlanWithCasesPassesTheTestsToRunLine() throws IOException {
+    void aPlanThatNeedsCommanderConnectPassesWithOnboardWarnsWhenWaivedAndFailsOtherwise() throws IOException {
+        // The Python's check_requirements: the plans that need it, joined, on one line.
+        Requirements needs = new Requirements(List.of(
+                new PlanRequirements("PETROCORE-135480", "", true, List.of(), List.of()),
+                new PlanRequirements("PETROCORE-1", "", true, List.of(), List.of())), List.of());
+        LaunchConfig.Builder base = new LaunchConfig.Builder("lab").testPlan("PETROCORE-135480").testPlan("PETROCORE-1");
+
+        String failed = requirementLines(base.build(), needs, "");
+        assertTrue(failed.contains("FAIL  Commander Connect onboarding — PETROCORE-135480, PETROCORE-1 need it: turn on "
+                + "Commander Connect > Onboard"), failed);
+        assertTrue(failed.endsWith("failures=1"), failed);
+
+        String onboard = requirementLines(base.commanderConnect(true).build(), needs, "");
+        assertTrue(onboard.contains("PASS  Commander Connect onboarding — PETROCORE-135480, PETROCORE-1 need it, and "
+                + "Onboard is on"), onboard);
+
+        String waived = requirementLines(new LaunchConfig.Builder("lab").ccRequirementWaived(true).build(), needs, "");
+        assertTrue(waived.contains("WARN  Commander Connect onboarding — PETROCORE-135480, PETROCORE-1 need it; waived "
+                + "for this run, not onboarded"), waived);
+        assertTrue(waived.endsWith("failures=0"), waived);
+    }
+
+    @Test
+    void anUnlistedPlanAndThePagesReasonAreWarningsAndAnUnknownSimulatorFails() throws IOException {
+        Requirements requirements = new Requirements(List.of(
+                new PlanRequirements("PETROCORE-1", "", false, List.of("No Such Simulator"), List.of())),
+                List.of("PETROCORE-2"));
+        String text = requirementLines(new LaunchConfig.Builder("lab").build(), requirements, "read from the cache");
+        assertTrue(text.contains("WARN  plan requirements — read from the cache"), text);
+        assertTrue(text.contains("WARN  plan requirements — PETROCORE-2 has no row on Supported CAT Test Plans; none "
+                + "checked"), text);
+        assertTrue(text.contains("FAIL  simulator No Such Simulator — not one CAT knows"), text);
+        assertTrue(text.endsWith("failures=1"), text);
+    }
+
+    @Test
+    void aLicenceFepTheCasesNeedRequiresCommanderConnect() throws IOException {
+        String licensed = com.verifone.cat.fep.SecondaryFeps.loadCatalogue().stream()
+                .filter(com.verifone.cat.fep.SecondaryFep::licenseEnabled).findFirst().orElseThrow().name();
+        String text = requirementLines(new LaunchConfig.Builder("lab").secondaryFep(licensed).build(), null, "");
+        assertTrue(text.contains("FAIL  " + SystemChecksStep.LICENSE_LABEL + " — the cases need " + licensed
+                + ": turn on Commander Connect > Onboard on the Config tab"), text);
+        String onboard = requirementLines(new LaunchConfig.Builder("lab").secondaryFep(licensed).commanderConnect(true)
+                .build(), null, "");
+        assertTrue(onboard.endsWith("failures=0"), onboard);
+    }
+
+    @Test
+    void aPlanWhoseCasesHaveNoTestOnDiskOrPulledFailsTheTestsToRunLine() throws IOException {
+        // The fixtures' petroapps is no checkout, so nothing is pulled, and there are no local suites.
         LaunchResult result = run(LaunchFixtures.paths(dir), fakePos("PETROCORE-70960"));
+
+        StepResult systemChecks = result.steps().get(0);
+        assertEquals(StepResult.FAILED, systemChecks.state(), systemChecks.detail());
+        String text = log(result);
+        assertTrue(text.contains("FAIL  tests to run — no case of PETROCORE-70960 has a test on disk or pulled from "
+                + "petroapps"), text);
+        assertEquals("nothing to run: no case of the plan has a test", systemChecks.detail());
+    }
+
+    @Test
+    void aPlanWithResolvedCasesPassesStepOneAndTheRunIsTheWholePlan() throws IOException {
+        Path file = Files.createDirectories(dir.resolve("cases")).resolve("PETROCORE-1-TestCase.xml");
+        Files.writeString(file, "<testscript/>");
+        RunLauncher launcher = new RunLauncher(LaunchFixtures.paths(dir));
+        launcher.wireTests(null, config -> List.of(new CaseEntry("PETROCORE-1", "tests/x/PETROCORE-1-TestCase.xml",
+                file), new CaseEntry("PETROCORE-2", null, null)), null);
+        LaunchResult result = launcher.launch(fakePos("PETROCORE-70960"));
 
         StepResult systemChecks = result.steps().get(0);
         assertEquals(StepResult.COMPLETE, systemChecks.state(), systemChecks.detail());
         String text = log(result);
-        assertTrue(text.contains("PASS  tests to run — "), text);
-        assertTrue(text.contains("the on-disk check is not ported"), text);
+        assertFalse(text.contains("tests to run"), text);
         assertFalse(text.contains("FAIL  simulator"), text);
     }
 

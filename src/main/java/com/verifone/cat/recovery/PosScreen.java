@@ -22,6 +22,18 @@ public interface PosScreen {
     boolean atLogin();
 
     /**
+     * {@code live_pos_drawn}: the POS app is drawn (its login screen, or the sales screen), for rung 5 after a
+     * provision restarted it. A register still starting is "not yet", never an error.
+     */
+    default boolean drawn() {
+        try {
+            return atLogin() || idle();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
      * {@code live_signed_on}: false at the login screen, true on the sales screen; throws when the screen is neither,
      * because that is not an answer.
      */

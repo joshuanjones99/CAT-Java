@@ -42,8 +42,8 @@ import com.verifone.cat.report.ReportPaths;
  * <p>Feed it the same events {@link EventEmitter} writes, with the envelope's {@code at}. Never
  * raises: a full disk costs the log, not the run.
  *
- * <p>Two Python details the port keeps as they are: the step names are copied from
- * {@code cat.state.STEP_NAMES} (the state package is not ported yet, so the list lives here), and
+ * <p>Two Python details the port keeps as they are: the step names are
+ * {@code cat.state.STEP_NAMES} (CAT-Java's {@code runservice.RunState.STEP_NAMES}), and
  * case folder names come from a per-writer {@link ReportPaths.CaseFolders}, one memo per run.
  *
  * <p>UNVERIFIED AGAINST HARDWARE: fake-backed tests only.
@@ -53,15 +53,8 @@ public final class RunLogWriter implements Closeable {
     /** The file beside {@code events.ndjson}. */
     public static final String RUN_LOG = "run.log";
 
-    /** Mirrors {@code cat.state.STEP_NAMES}; a step's tag is its position here. */
-    static final List<String> STEP_NAMES = List.of(
-            "System Checks",
-            "Connections",
-            "Start Simulators",
-            "Commander Configuration",
-            "Tests Run",
-            "Generate Report",
-            "Cleanup");
+    /** {@code cat.state.STEP_NAMES} ({@code runservice.RunState.STEP_NAMES}); a step's tag is its position here. */
+    static final List<String> STEP_NAMES = com.verifone.cat.runservice.RunState.STEP_NAMES;
 
     /** A settled row's word, as {@code steps.log} spells it. */
     private static final Map<String, String> WORDS = Map.of(

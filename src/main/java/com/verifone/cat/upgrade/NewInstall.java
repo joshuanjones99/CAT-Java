@@ -141,6 +141,44 @@ public final class NewInstall {
         return tail(commander, sshTimeout, ledger);
     }
 
+    /**
+     * Carries an interrupted PSI install on from its root-access push: for a Commander (and registers) that came back
+     * installed (CGILink answers with the PSI password) without root SSH. For each device in turn, the push until root
+     * answers with the no-pw key ({@link RootAccess#pushUntilConfirmed}); a device whose root already answers is not
+     * pushed and not waited for. Then each pushed device's SSH from a boot after its push, then the Commander's tail
+     * ({@code setenforce 0}, the bypass, a reboot, SSH, CGILink), as {@link #run} ends.
+     *
+     * <p>No Python counterpart: CAT-Java's {@code install-resume} (HANDOFF section 6 item 1a). It writes no installer
+     * config and deletes no breadcrumb; nothing is installed.
+     *
+     * @return one result per step, in order; the last is the failure, if there was one
+     */
+    public List<StepResult> resumeRootAccess(Rig rig, Map<String, String> environ) {
+        Duration sshTimeout = Timeouts.of(rig.timeouts()).ssh();
+        List<Target> targets = Target.fromRig(rig, environ);
+        Target commander = targets.get(0);
+        Ledger ledger = new Ledger(log);
+        Map<String, Long> pushedAt = new LinkedHashMap<>();
+        for (Target target : targets) {
+            if (!rootSshAnswers.test(target)) {
+                // The mark is taken before the push: the boot the package causes comes after it.
+                pushedAt.put(target.name(), System.nanoTime());
+            }
+            StepResult pushed = RootAccess.pushUntilConfirmed(tools, jars, target, sshTimeout,
+                    settings.pushRetryFor(), settings.pushRetryInterval(), rootSshAnswers, ledger::note);
+            if (!ledger.add(pushed)) {
+                return ledger.results();
+            }
+        }
+        for (Target target : targets) {
+            Long mark = pushedAt.get(target.name());
+            if (mark != null && !ledger.add(waitForSsh(target, mark))) {
+                return ledger.results();
+            }
+        }
+        return tail(commander, sshTimeout, ledger);
+    }
+
     /** The installer's config file, and no breadcrumb left by an earlier run to count for this one. */
     private void prepare(List<Target> targets) {
         try {

@@ -30,8 +30,8 @@ import com.verifone.cat.rig.Rig;
  * <p>A session of its own, not the test run's driver: the ladder runs each rung on a bounded worker thread, and a rung
  * that overruns keeps running while the next starts; Playwright's objects must not be shared across threads that way.
  *
- * <p>Not ported: {@code _live_void}'s VATS pinpad abort ({@code _abort_pinpad_payment}) for a {@code pinpad: vats} rig,
- * which this port has no VATS session for. On such a rig the void still runs, without ending the terminal's payment.
+ * <p>{@code _live_void}'s VATS pinpad abort ({@code _abort_pinpad_payment}) runs through
+ * {@code launch.VatsRecovery} on the run's open VATS session, if there is one; on any other rig it does nothing.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): no rung here has run against a register.
  */
@@ -79,6 +79,23 @@ public final class LivePosScreen implements PosScreen {
         return withDriver(driver -> new Pos(driver).atLogin());
     }
 
+    /**
+     * {@code live_pos_drawn}: the login screen, or the sales screen's CSR key whatever it reads. A register still
+     * starting (CDP down, a page mid-load) is "not yet".
+     */
+    @Override
+    public boolean drawn() {
+        try {
+            return withDriver(driver -> {
+                Pos pos = new Pos(driver);
+                return pos.atLogin() || pos.expressPanel().csrFunction().isPresent();
+            });
+        } catch (RuntimeException e) {
+            LOG.debug("POS not drawn yet: {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            return false;
+        }
+    }
+
     @Override
     public boolean signedOn() {
         return withDriver(driver -> {
@@ -120,6 +137,8 @@ public final class LivePosScreen implements PosScreen {
             if (pos.reviewOverlay().title().isPresent()) {
                 pos.reviewOverlay().close(wait);
             }
+            // _live_void's _abort_pinpad_payment: a pinpad: vats rig's open terminal payment ended first.
+            com.verifone.cat.launch.VatsRecovery.abortPinpadPayment(driver);
             cancelOpenMessage(driver);
             String done = pos.clearOpenSale(wait);
             LOG.info("recovery VOID: open sale {}", done);

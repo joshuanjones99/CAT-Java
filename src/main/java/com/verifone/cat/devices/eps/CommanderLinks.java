@@ -32,6 +32,10 @@ import com.verifone.cat.rig.Rig;
  */
 public final class CommanderLinks {
 
+    // The one home of the link rules (which links a sale needs, the live and unconnected socket states, the
+    // netstat parse): commander.links.CommanderLinks, the bring-up's read-and-fix half, reads them from here
+    // (CAT-Java HANDOFF §6 item 9, wave 16).
+
     /** Buypass over UMF: the port the FEP config sets, a property of the protocol, not of a rig. */
     public static final int BUYPASS_FEP_PORT = Checklist.BUYPASS_UMF_PORT;
 
@@ -43,10 +47,10 @@ public final class CommanderLinks {
      * deliberately excluded: the POP socket sat in it on 2026-09-21, dialled correctly then half-closed by
      * the far end, which is a link that will not carry a transaction.
      */
-    static final Set<String> LIVE_STATES = Set.of("ESTABLISHED");
+    public static final Set<String> LIVE_STATES = Set.of("ESTABLISHED");
 
     /** States in which a socket never carried a byte to its peer: a dial in progress, or a listener. */
-    static final Set<String> UNCONNECTED_STATES = Set.of("SYN_SENT", "LISTEN", "CLOSE", "CLOSED");
+    public static final Set<String> UNCONNECTED_STATES = Set.of("SYN_SENT", "LISTEN", "CLOSE", "CLOSED");
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern DIGITS = Pattern.compile("[0-9]{1,5}");

@@ -60,7 +60,7 @@ build.cmd test            :: tests only
 run.cmd --rig lab         :: the web UI on http://127.0.0.1:8090/
 run.cmd web --rig lab --register topaz101 --port 8091   :: the same, with the word "web"
 run.cmd preflight --rig lab               :: the preflight checks; exit 0 when the rig is testable
-run.cmd preflight --rig lab --register topaz101 --no-repair
+run.cmd preflight --rig lab --register topaz101
 run.cmd launch --rig lab --plan PETROCORE-135127   :: one run, headless, through the seven steps
 run.cmd provision --rig lab               :: push, verify and stamp the pos-shim payload; exit 0 when provisioned
 run.cmd xray --run <run-id> [--once] [--dry-run]    :: the Xray reporting sidecar for one run
@@ -72,7 +72,7 @@ run.cmd cloud-tunnel --rig lab [--stop]   :: the Commander's cloud tunnel (petro
 
 `web` is the default, so `run.cmd --rig lab` and `run.cmd web --rig lab` are the same. The web UI
 knows the rig it was started with, so its Start run launches on it. `preflight`
-takes `--rig`, `--register`, `--shim-port` and `--no-repair`, and exits 0 when the rig is testable,
+takes `--rig`, `--register`, `--shim-port` and `--repair` (off by default, as in the Python; `--no-repair` is accepted and does nothing), and exits 0 when the rig is testable,
 1 when it is not, 2 for a usage or load error.
 
 `launch` takes the Python `tools/rig/run_plan.py`'s flags: `--rig`, `--plan` (one or more keys, repeatable,

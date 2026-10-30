@@ -26,7 +26,7 @@ skip when it is absent.
 
 ```bat
 run.cmd --rig lab                       :: web UI on http://127.0.0.1:8090/
-run.cmd preflight --rig lab --no-repair :: read-only preflight (without --no-repair it drives the POS)
+run.cmd preflight --rig lab             :: read-only preflight (--repair drives the POS; the Python default)
 run.cmd launch --rig lab --plan PETROCORE-70960   :: add --fake-pos for the off-rig fake POS
 run.cmd provision --rig lab
 run.cmd xray --run <run-id> --dry-run
@@ -84,7 +84,8 @@ src/main/java/com/verifone/cat/
                    handlers/* families, StandardHandlers)
   launch/          the seven run steps, RunLauncher, LaunchCommand, StandardRegistry
   devices/         commander (CGILink), forecourt, legacyrmi, viperpay, printer, csite,
-                   eps, suspended, fep
+                   eps, suspended, fep, vats (physical pinpad: BTT, KM4 relay, agent.py shipped
+                   as a resource and spawned under the staged Python 3.9)
   commander/       init, prep, trust, links, snapshot, connect, registerapp
   preflight/ recovery/ provision/ upgrade/ build/ collect/ closeday/ coverage/
   plans/ runconfig/ runservice/ report/ results/ validate/ xray/ atlassian/

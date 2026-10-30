@@ -15,7 +15,7 @@ import com.verifone.cat.preflight.Bounded;
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
-final class Poll {
+public final class Poll {
 
     /** The shortest park between checks, so a zero interval cannot spin. */
     private static final long MIN_INTERVAL_NANOS = 1_000_000L;
@@ -26,7 +26,7 @@ final class Poll {
      * @return the first non-null value {@code check} gives
      * @throws Bounded.TimeoutExpired when the deadline passes first; {@code what} names the wait
      */
-    static <T> T until(Supplier<T> check, Duration timeout, Duration interval, String what) {
+    public static <T> T until(Supplier<T> check, Duration timeout, Duration interval, String what) {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (true) {
             T value = check.get();

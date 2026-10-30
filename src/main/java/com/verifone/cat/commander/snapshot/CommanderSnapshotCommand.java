@@ -53,7 +53,8 @@ import com.verifone.cat.rig.RigLoader;
  * ignored (the git-object case store is not ported).</li>
  * </ul>
  *
- * <p>Main does not dispatch to it yet; {@link #run(String[])} takes the arguments after the program name, the
+ * <p>{@code Main} dispatches {@code cat-java commander-snapshot} to it; {@link #run(String[])} takes the arguments
+ * after the program name, the
  * {@code commander-snapshot} word optional.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).

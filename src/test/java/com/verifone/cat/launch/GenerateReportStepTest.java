@@ -69,4 +69,29 @@ class GenerateReportStepTest {
             assertFalse(Files.exists(folder.resolve(name)), name);
         }
     }
+
+    /** With Xray on, the sidecar's state so far is named in the step's log, or a WARNING when it wrote none. */
+    @Test
+    void theXraySidecarsStatusIsNamedInTheLog() throws IOException {
+        for (boolean written : new boolean[] {false, true}) {
+            String id = written ? "cccccccccccc" : "dddddddddddd";
+            Path folder = dir.resolve(id);
+            RunContext ctx = new RunContext(new LaunchConfig.Builder(LaunchFixtures.RIG).xrayReport(true).build(),
+                    LaunchFixtures.paths(dir), id, folder, RunEvents.open(folder, Clock.systemUTC()), new PauseGate(),
+                    Clock.systemUTC());
+            if (written) {
+                Files.writeString(folder.resolve("xray.json"), "{\"executions\":{\"PETROCORE-1\":{\"key\":"
+                        + "\"PETROCORE-9\",\"url\":\"https://jira.invalid/PETROCORE-9\",\"pushed\":2,\"cases\":3}}}");
+            }
+            assertTrue(new GenerateReportStep().run(ctx, new StepEmitter(ctx, LaunchStepNames.REPORT)));
+            ctx.closeEvents();
+            String events = Files.readString(folder.resolve("events.ndjson"));
+            if (written) {
+                assertTrue(events.contains("Xray: PETROCORE-1 -> test execution PETROCORE-9 "
+                        + "(https://jira.invalid/PETROCORE-9), 2 of 3 case(s) pushed"), events);
+            } else {
+                assertTrue(events.contains("Xray: the reporting sidecar has written no status yet"), events);
+            }
+        }
+    }
 }

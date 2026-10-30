@@ -140,7 +140,7 @@ final class StartSimulatorsStep implements LaunchStep {
     Function<Boolean, List<SimEntry>> registry = Registry::forBase;
 
     /** The VATS card server's hook. */
-    CardServer cardServer = StartSimulatorsStep::cardServerNotPorted;
+    CardServer cardServer = VatsCardServerStart::start;
 
     /** Whether {@code host:port} accepts a connection. */
     BiPredicate<String, Integer> accepts = StartSimulatorsStep::acceptsConnection;

@@ -24,11 +24,14 @@ import com.verifone.cat.sims.Supervisor;
  * Drives one run through the seven steps: the Python CAT's {@code cat.launch.run.launch_run} and its
  * {@code prepare_rig} and {@code release_rig}.
  *
- * <p>Order: {@code RunStarted}; steps 1 to 4 (a step that ends the run marks the rest of 1 to 5
- * skipped with {@code not reached: <step> failed}); step 5 (unavailable unless wired, so the run ends
- * with CAT's own {@code RunFinished}, {@code error}, unless step 5 wrote the session's own, see
- * {@link #wireTests}); steps 6 and 7 always. Then the run's locks are
- * released and {@code run.ended} is written, whatever happened.
+ * <p>Order, as the Python's: {@code RunStarted}; run start ({@link PlanStart}: the plan's tests collected, the plan
+ * resolved into {@code plan.resolved}, the run widened to the whole plan in plan order, narrowed to an opt-in partial
+ * selection, then the plans' requirements applied, {@link RunRequirements}); {@code RunStarted} again, restated, when
+ * run start changed the targets; steps 1 to 4 (a step that ends the run marks the rest of 1 to 5 skipped with
+ * {@code not reached: <step> failed}); step 5 (unavailable unless wired, so the run ends with CAT's own
+ * {@code RunFinished}, {@code error}, with the counts so far, unless step 5 wrote the session's own, see
+ * {@link #wireTests}); steps 6 and 7 always. Then the run's locks are released and {@code run.ended} is written,
+ * whatever happened.
  *
  * <p>Pause and Stop, as the Python CAT has them. Pause takes effect before the next step. Stop is
  * honoured before the next step or while paused: the run then writes a {@code RunFinished} that is
@@ -36,8 +39,9 @@ import com.verifone.cat.sims.Supervisor;
  * a run the operator stopped). The Python CAT cancels an asyncio task; here {@link #stop()} is a flag,
  * so a step that is already running finishes its own work first.
  *
- * <p>A partial run (tags, cases, from a case) is refused before step 1, as the Python CAT refuses a
- * selection it cannot make: the selection reads petroapps' case files, which are not read here yet.
+ * <p>A partial run (tags, cases, from a case) is made from the whole plan at run start; one whose selection cannot be
+ * made (a key not in the plan, a tag expression that does not parse, nothing selected) is refused before step 1, its
+ * steps 1 to 5 skipped with {@code partial run refused: <why>}, as the Python's.
  *
  * <p>One launcher launches one run. Methods are thread-safe for pause and stop; {@link #launch} blocks
  * for the whole run and is called from one thread.
@@ -46,9 +50,8 @@ import com.verifone.cat.sims.Supervisor;
  */
 public final class RunLauncher {
 
-    /** The partial-run refusal, named once so a test and the log say the same thing. */
-    static final String PARTIAL_REFUSED = "partial run refused: partial runs are not ported to CAT-Java yet "
-            + "(the Python CAT reads petroapps' case files to make the selection)";
+    /** The skipped steps' reason when a partial selection cannot be made: {@code partial run refused: <why>}. */
+    static final String PARTIAL_REFUSED = "partial run refused: ";
 
     private final LaunchPaths paths;
     private final Clock clock;
@@ -62,6 +65,7 @@ public final class RunLauncher {
     private volatile RegistryFactory registries;
     private volatile CaseSource cases;
     private volatile RunServices.Connector connector = RunServices.Connector.NONE;
+    private volatile java.util.Map<Integer, AutoCloseable> callerSinks;
 
     /** A launcher on the system UTC clock, driving the simulators through PowerShell. */
     public RunLauncher(LaunchPaths paths) {
@@ -107,6 +111,15 @@ public final class RunLauncher {
         this.registries = registries;
         this.cases = cases;
         this.connector = connector == null ? RunServices.Connector.NONE : connector;
+    }
+
+    /**
+     * Petro's held pump-state ports are the caller's (the Python's {@code launch_run(petro_sinks=...)}): shared across a
+     * continuous run's passes, or held by Launch Simulators for a Petro it left running. The run then releases none of
+     * them, the ones it takes included, and the caller closes them. Call before {@link #launch}.
+     */
+    public void usePetroSinks(java.util.Map<Integer, AutoCloseable> sinks) {
+        this.callerSinks = sinks;
     }
 
     /** Pauses the run before its next step (or, if it is not started yet, pauses it from the start). */
@@ -163,6 +176,9 @@ public final class RunLauncher {
         }
         RunContext ctx = new RunContext(config, paths, runId, folder, events, pause, clock);
         ctx.supervisor(new Supervisor(processOps));
+        if (callerSinks != null) {
+            ctx.useCallerSinks(callerSinks);
+        }
         active = ctx;
         pause.bind(folder.resolve(PauseGate.PAUSE_FILE));
         if (stopRequested) {
@@ -170,8 +186,20 @@ public final class RunLauncher {
         }
         boolean cancelled = false;
         try {
-            ctx.emit(runStarted(ctx));
-            String stoppedAt = config.partial() ? refuse(ctx) : prepareRig(ctx, List.of(LaunchStepNames.TESTS));
+            ctx.emit(PlanStart.runStarted(ctx, false));
+            PlanStart.resolve(ctx, cases == null ? PlanCases.forRun(paths) : cases);
+            PlanStart.runWholePlan(ctx);
+            // An opt-in partial run narrows the whole plan; a selection that cannot be made stops the run before step
+            // 1 touches anything. No-op unless one was asked for.
+            String refused = PlanStart.applyPartialSelection(ctx);
+            if (refused.isEmpty()) {
+                // The plan dictates the rig: its simulators, devices and FEPs (2026-10-21).
+                RunRequirements.apply(ctx);
+            }
+            if (!ctx.config().suites().equals(config.suites())) {
+                ctx.emit(PlanStart.runStarted(ctx, true));
+            }
+            String stoppedAt = refused.isEmpty() ? prepareRig(ctx, List.of(LaunchStepNames.TESTS)) : refuse(ctx, refused);
             if (stoppedAt.isEmpty()) {
                 // After step 4 and only once the rig is up, as the Python: the sidecar creates the Jira execution.
                 XraySidecarStart.start(ctx, spawner);
@@ -193,8 +221,11 @@ public final class RunLauncher {
             PrinterHold.release(ctx, false);
             ctx.stopWatching();
             stopSimulators(ctx);
-            // After the simulators, so Petro never pushes to a closed port while it runs.
-            PetroPorts.releaseAll(ctx);
+            if (!ctx.keepsPetroPorts()) {
+                // After the simulators, so Petro never pushes to a closed port while it runs. A continuous run's
+                // sinks, or Launch Simulators', are the caller's: they outlive this run.
+                PetroPorts.releaseAll(ctx);
+            }
             releaseRig(ctx);
             events.close();
             RunEnded.mark(folder, clock.instant());
@@ -224,18 +255,18 @@ public final class RunLauncher {
         return "";
     }
 
-    /** A partial run is refused before step 1; the steps it would have run are skipped with the reason. */
-    private static String refuse(RunContext ctx) {
+    /** A partial run that cannot be made is refused before step 1; the steps it would have run are skipped with why. */
+    private static String refuse(RunContext ctx, String why) {
         for (String name : List.of(LaunchStepNames.SYSTEM_CHECKS, LaunchStepNames.CONNECTIONS,
                 LaunchStepNames.SIMULATORS, LaunchStepNames.COMMANDER, LaunchStepNames.TESTS)) {
-            StepRunner.skip(ctx, name, PARTIAL_REFUSED);
+            StepRunner.skip(ctx, name, PARTIAL_REFUSED + why);
         }
         return LaunchStepNames.SYSTEM_CHECKS;
     }
 
     /**
-     * Stops the simulator processes this run spawned, and no others (D9). Cleanup, which does this in
-     * the Python CAT, is not ported, so the launcher does it whatever step ended the run.
+     * Stops the simulator processes this run spawned and Cleanup did not stop or keep, and no others (D9): the
+     * Python's {@code release_rig}, whatever step ended the run.
      */
     static void stopSimulators(RunContext ctx) {
         List<SimProcess> procs = ctx.simulators();
@@ -261,38 +292,16 @@ public final class RunLauncher {
         }
     }
 
-    private static CatEvent.RunStarted runStarted(RunContext ctx) {
-        LaunchConfig config = ctx.config();
-        String rig = config.rig().isEmpty() ? "fake-pos" : config.rig();
-        String suite = config.suiteSummary().isEmpty() ? "(no suites)" : config.suiteSummary();
-        String cmd = String.join(" ", config.pytestArgv("python"));
-        return new CatEvent.RunStarted(
-                ctx.runId(),
-                rig,
-                suite,
-                cmd,
-                1,
-                ctx.startedAt(),
-                catVersion(),
-                config.upgradeMode().wire(),
-                config.testPlans(),
-                List.of(),
-                config.fakePos(),
-                "",
-                false);
-    }
-
-    /** CAT's own {@code RunFinished}, standing in for the pytest session's: the counts so far are zero. */
+    /**
+     * CAT's own {@code RunFinished}, standing in for the session's when step 5 never sent one: the counts so far, as
+     * the Python's {@code _synthetic_run_finished} reads them from the orchestrator. Written before step 6, so the
+     * summary's tiles show the real failures of a run that ended abnormally.
+     */
     private static CatEvent.RunFinished runFinished(RunContext ctx, Outcome outcome, boolean cancelled) {
         Duration elapsed = Duration.between(ctx.startedAt(), ctx.clock().instant());
         double seconds = Math.max(0.0, elapsed.toMillis() / 1000.0);
-        return new CatEvent.RunFinished(ctx.runId(), outcome, 0, 0, 0, List.of(), cancelled, seconds, 0);
-    }
-
-    private static String catVersion() {
-        Package pkg = RunLauncher.class.getPackage();
-        String version = pkg == null ? null : pkg.getImplementationVersion();
-        return version == null || version.isBlank() ? "unversioned" : version;
+        return new CatEvent.RunFinished(ctx.runId(), outcome, ctx.testsPassed(), ctx.testsFailed(),
+                ctx.testsWarned(), List.of(), cancelled, seconds, 0);
     }
 
     /** Twelve lowercase hex characters, the Python CAT's {@code uuid4().hex[:12]}. */

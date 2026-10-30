@@ -65,10 +65,6 @@ interface SystemCheckStages {
         return PrinterHold.Opener.NONE;
     }
 
-    /** Whether step 4's cloud tunnel is ported: the production stages' answer ({@link CommanderStages#cloudTunnelPorted}). */
-    default boolean cloudTunnelPorted() {
-        return CommanderStages.real(Map.of()).cloudTunnelPorted();
-    }
 
     /** The real stages: the rig's addresses, jSerialComm, SSH to the Commander, the environment's Artifactory login. */
     static SystemCheckStages real(ProcessOps ops, Map<String, String> environ) {
@@ -82,8 +78,11 @@ interface SystemCheckStages {
             public List<Readiness> rigNetwork(Rig rig) {
                 ExecutorService pool = ConnectionProbe.newProbePool();
                 try {
-                    return new ArrayList<>(new RigReadiness(new ConnectionProbe(pool)).check(Endpoints.of(rig),
-                            READINESS_TIMEOUT));
+                    List<Readiness> lines = new ArrayList<>(new RigReadiness(new ConnectionProbe(pool)).check(
+                            Endpoints.of(rig), READINESS_TIMEOUT));
+                    // A pinpad: vats rig's lines: the terminal's VATS port, the SDK and BTT (cat.readiness.check_rig).
+                    lines.addAll(VatsSystemChecks.lines(rig, environ));
+                    return lines;
                 } finally {
                     pool.shutdownNow();
                 }

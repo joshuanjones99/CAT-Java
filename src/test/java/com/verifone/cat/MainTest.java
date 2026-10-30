@@ -38,6 +38,17 @@ class MainTest {
         expected.put("psi-init", PsiInitCommand.class);
         expected.put("emv-keys", EmvKeysCommand.class);
         expected.put("setup", com.verifone.cat.setup.SetupCommand.class);
+        expected.put("commander-prep", com.verifone.cat.commander.CommanderPrepCommand.class);
+        expected.put("commander-init", com.verifone.cat.commander.CommanderInitCommand.class);
+        expected.put("payment-links", com.verifone.cat.commander.links.PaymentLinksCommand.class);
+        expected.put("register-app", com.verifone.cat.commander.registerapp.RegisterAppCommand.class);
+        expected.put("payment-ready", com.verifone.cat.commander.PaymentReadyCommand.class);
+        expected.put("commander-trust", com.verifone.cat.commander.CommanderTrustCommand.class);
+        expected.put("secondary-fep", com.verifone.cat.commander.SecondaryFepCli.class);
+        expected.put("csite-reset", com.verifone.cat.commander.connect.CSiteReset.class);
+        expected.put("cloud-snapshot", com.verifone.cat.commander.connect.CloudSnapshotCommand.class);
+        expected.put("build-pos-shim", com.verifone.cat.provision.PosShimBuildCommand.class);
+        expected.put("install-resume", com.verifone.cat.launch.InstallResume.class);
         expected.put("coverage", com.verifone.cat.coverage.CoverageCommand.class);
         expected.put("xray-attach", com.verifone.cat.xray.Attach.class);
         expected.put("upgrade", com.verifone.cat.upgrade.UpgradeCommand.class);
@@ -51,6 +62,7 @@ class MainTest {
         expected.put("steps", com.verifone.cat.authoring.StepsCommand.class);
         expected.put("authoring", com.verifone.cat.authoring.AuthoringCommand.class);
         expected.put("publish", com.verifone.cat.publish.PublishCommand.class);
+        expected.put("pinpad-clear", com.verifone.cat.devices.vats.PinpadClearCommand.class);
 
         assertEquals(List.copyOf(expected.keySet()), List.copyOf(Main.COMMANDS.keySet()));
         expected.forEach((word, type) -> {

@@ -29,7 +29,8 @@ import com.verifone.cat.xray.XraySidecar;
  * {@code java -jar cat-java.jar --rig lab [--register topaz101] [--port 8090]} starts the web UI;
  * {@code cat-java web --rig lab ...} is the same. Any word in {@link #COMMANDS} ({@code preflight},
  * {@code launch}, {@code provision}, {@code xray}, {@code close-day}, {@code commander-snapshot},
- * {@code commander-connect}, {@code cloud-tunnel}, {@code coverage}, {@code xray-attach}) runs that command instead
+ * {@code commander-connect}, {@code cloud-tunnel}, {@code psi-init}, {@code emv-keys}, {@code coverage},
+ * {@code xray-attach}) runs that command instead
  * and exits with its code.
  *
  * <p>Reads the rig, points a {@link PosShimClient} at the register's shim, and serves
@@ -46,9 +47,10 @@ public final class Main {
 
     /**
      * Every command word, in the usage's order. Each Python {@code petrotest <command>} that is ported is a
-     * {@code <Thing>Command.run(String[])} here. Not here yet, because no {@code *Command} class exists in the tree:
-     * {@code secondary-fep}, {@code register-app}, {@code payment-links}, {@code payment-ready},
-     * {@code commander-init}, {@code commander-prep}, {@code psi-init}.
+     * {@code <Thing>Command.run(String[])} here. Step 4's commands (wave 16): {@code commander-prep},
+     * {@code commander-init}, {@code payment-links}, {@code register-app}, {@code payment-ready},
+     * {@code commander-trust}, {@code secondary-fep}, {@code csite-reset}, {@code cloud-snapshot},
+     * {@code build-pos-shim} (the Python's {@code tools/build_pos_shim.py}) and {@code install-resume} (new).
      * {@code upgrade}, {@code build}, {@code builds}, {@code artifactory-login}, {@code render-payload}: the upgrade slice's (wave 16).
      * {@code setup}: the webshell slice's (wave 16), the Python's {@code cat-term setup}.
      */
@@ -69,6 +71,17 @@ public final class Main {
         table.put("psi-init", new Command(PsiInitCommand.class, argv -> new PsiInitCommand().run(argv)));
         table.put("emv-keys", new Command(EmvKeysCommand.class, argv -> new EmvKeysCommand().run(argv)));
         table.put("setup", new Command(com.verifone.cat.setup.SetupCommand.class, argv -> new com.verifone.cat.setup.SetupCommand().run(argv)));
+        table.put("commander-prep", new Command(com.verifone.cat.commander.CommanderPrepCommand.class, argv -> new com.verifone.cat.commander.CommanderPrepCommand().run(argv)));
+        table.put("commander-init", new Command(com.verifone.cat.commander.CommanderInitCommand.class, argv -> new com.verifone.cat.commander.CommanderInitCommand().run(argv)));
+        table.put("payment-links", new Command(com.verifone.cat.commander.links.PaymentLinksCommand.class, argv -> new com.verifone.cat.commander.links.PaymentLinksCommand().run(argv)));
+        table.put("register-app", new Command(com.verifone.cat.commander.registerapp.RegisterAppCommand.class, argv -> new com.verifone.cat.commander.registerapp.RegisterAppCommand().run(argv)));
+        table.put("payment-ready", new Command(com.verifone.cat.commander.PaymentReadyCommand.class, argv -> new com.verifone.cat.commander.PaymentReadyCommand().run(argv)));
+        table.put("commander-trust", new Command(com.verifone.cat.commander.CommanderTrustCommand.class, argv -> new com.verifone.cat.commander.CommanderTrustCommand().run(argv)));
+        table.put("secondary-fep", new Command(com.verifone.cat.commander.SecondaryFepCli.class, argv -> new com.verifone.cat.commander.SecondaryFepCli().run(argv)));
+        table.put("csite-reset", new Command(com.verifone.cat.commander.connect.CSiteReset.class, argv -> new com.verifone.cat.commander.connect.CSiteReset().run(argv)));
+        table.put("cloud-snapshot", new Command(com.verifone.cat.commander.connect.CloudSnapshotCommand.class, argv -> new com.verifone.cat.commander.connect.CloudSnapshotCommand().run(argv)));
+        table.put("build-pos-shim", new Command(com.verifone.cat.provision.PosShimBuildCommand.class, argv -> new com.verifone.cat.provision.PosShimBuildCommand().run(argv)));
+        table.put("install-resume", new Command(com.verifone.cat.launch.InstallResume.class, argv -> new com.verifone.cat.launch.InstallResume().run(argv)));
         table.put("coverage", new Command(com.verifone.cat.coverage.CoverageCommand.class, com.verifone.cat.coverage.CoverageCommand::run));
         table.put("xray-attach", new Command(com.verifone.cat.xray.Attach.class, com.verifone.cat.xray.Attach::run));
         table.put("upgrade", new Command(com.verifone.cat.upgrade.UpgradeCommand.class, argv -> new com.verifone.cat.upgrade.UpgradeCommand().run(argv)));
@@ -82,12 +95,13 @@ public final class Main {
         table.put("steps", new Command(com.verifone.cat.authoring.StepsCommand.class, argv -> new com.verifone.cat.authoring.StepsCommand().run(argv)));
         table.put("authoring", new Command(com.verifone.cat.authoring.AuthoringCommand.class, argv -> new com.verifone.cat.authoring.AuthoringCommand().run(argv)));
         table.put("publish", new Command(com.verifone.cat.publish.PublishCommand.class, argv -> new com.verifone.cat.publish.PublishCommand().run(argv)));
+        table.put("pinpad-clear", new Command(com.verifone.cat.devices.vats.PinpadClearCommand.class, argv -> new com.verifone.cat.devices.vats.PinpadClearCommand().run(argv)));
         return Collections.unmodifiableMap(table);
     }
 
     private static final String USAGE = """
             usage: cat-java [web] --rig <name|file.yaml> [--register <id>] [--port <n>] [--shim-port <n>]
-                   cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--no-repair]
+                   cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--repair]
                    cat-java launch --rig <name|file.yaml> [--plan <key>...]... [--upgrade <mode>] [--exec dev|BDD]
                                    [--no-xray] [--no-coverage] [--cc-onboard] [--fep <name>]... (launch --help)
                    cat-java provision --rig <name> [--force] [--no-stage] [--payload-root <dir>]
@@ -98,7 +112,7 @@ public final class Main {
                    cat-java cloud-tunnel --rig <name> [--stop] [--force] [--no-gateway]
 
               web                 the default: the web UI (the word is optional)
-              preflight           check the rig and repair what can be repaired; exits 0 when testable
+              preflight           check the rig (and with --repair, repair it); exits 0 when testable
               launch              one run, headless, through the seven steps (run_plan's flags); exits 0 only
                                   when every step completed
               provision           push, verify and stamp the pos-shim payload on every target; exits 0 when provisioned
@@ -107,6 +121,11 @@ public final class Main {
               commander-snapshot  capture, restore or check a Commander config snapshot (petrotest commander-snapshot)
               commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
               cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
+              commander-prep, commander-init, payment-links, register-app, payment-ready, commander-trust,
+              secondary-fep, csite-reset, cloud-snapshot
+                                  step 4's stages one at a time, flags as petrotest's (each takes --help)
+              build-pos-shim      compile bridge/pos-shim into payload/pos (tools/build_pos_shim.py)
+              install-resume      carry an interrupted PSI install on from its root-access push, then step 4
               fetch-sims          stage the Java 17 sets and every simulator not yet staged (cat-term fetch-sims)
               record              watch the POS page and write each tap to a recording (petrotest record)
               generate            a recording as an authored .feature case (petrotest generate)

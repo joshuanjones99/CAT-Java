@@ -78,21 +78,53 @@ class LaunchCommandOptionsTest {
     }
 
     @Test
-    void thePartialFlagsAreEachAScope() {
+    void thePartialFlagsReachTheConfigAndCombineAsThePythonsDo() {
         LaunchConfig only = config("--rig", "bench", "--only", "PETROCORE-7,PETROCORE-8", "PETROCORE-9");
-        assertEquals(RunScope.Mode.CASES, only.scope().mode());
-        assertEquals(List.of("PETROCORE-7", "PETROCORE-8", "PETROCORE-9"), only.scope().cases());
+        assertTrue(only.partial());
+        assertEquals(List.of("PETROCORE-7", "PETROCORE-8", "PETROCORE-9"), only.selectionOnly());
 
         LaunchConfig from = config("--rig", "bench", "--from", "PETROCORE-7");
-        assertEquals(RunScope.Mode.FROM, from.scope().mode());
-        assertEquals("PETROCORE-7", from.scope().fromCase());
+        assertEquals("PETROCORE-7", from.selectionFrom());
 
         LaunchConfig tags = config("--rig", "bench", "--tags", "@smoke and not @slow");
-        assertEquals(RunScope.Mode.TAGS, tags.scope().mode());
-        assertEquals("@smoke and not @slow", tags.scope().tags());
+        assertEquals("@smoke and not @slow", tags.selectionTags());
 
-        assertThrows(IllegalArgumentException.class,
-                () -> LaunchCommand.Options.parse(new String[] {"--rig", "b", "--tags", "@a", "--from", "K"}));
+        LaunchConfig both = config("--rig", "b", "--tags", "@a", "--from", "K");
+        assertEquals("@a", both.selectionTags());
+        assertEquals("K", both.selectionFrom());
+        assertEquals(RunScope.Mode.WHOLE, both.scope().mode(), "the flags, not the Run tab's scope");
+        assertFalse(config("--rig", "b").partial());
+    }
+
+    @Test
+    void solutionsBuildIsTheSolutionsBranchAndTheSavedFoundationGoesWithTheSavedBranch() {
+        LaunchConfig c = config("--rig", "b", "--solutions-build", "134");
+        assertEquals("Solutions", c.commanderBranch());
+        assertEquals("134", c.commanderBuild());
+        assertTrue(c.provisionRegister(), "run_plan always provisions the register");
+
+        LaunchConfig saved = LaunchCommand.Options.parse(new String[] {"--rig", "b"}).toConfig(LastConfig.of(Map.of(
+                "config-cmd-branch", "PETROCORE-1", "config-cmd-build", "7", "config-fnd-branch", "Solutions",
+                "config-fnd-build", "130", "config-ifsf", "IFSF-2")), Map.of(), List.of(), List.of());
+        assertEquals("Solutions", saved.foundationBranch());
+        assertEquals("130", saved.foundationBuild());
+        assertEquals("", saved.ifsfMode(), "run_plan reads no IFSF mode");
+    }
+
+    @Test
+    void aPartialRunNamingAKeyNotInThePlanIsRefusedBeforeAnythingStarts() throws IOException {
+        LaunchPaths paths = paths(new CountingSource(List.of()));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int code = new LaunchCommand().run(new String[] {"--fake-pos", "--plan", "PETROCORE-5", "--only", "99"}, paths,
+                LastConfig.none(), Map.of(), sink(out), sink(new ByteArrayOutputStream()));
+        assertEquals(LaunchCommand.EXIT_USAGE, code);
+        assertTrue(out.toString(StandardCharsets.UTF_8).contains("[run] refused: --only PETROCORE-99: not migrated "
+                + "case(s) of the plan"), out.toString(StandardCharsets.UTF_8));
+
+        ByteArrayOutputStream tags = new ByteArrayOutputStream();
+        assertEquals(LaunchCommand.EXIT_USAGE, new LaunchCommand().run(new String[] {"--fake-pos", "--tags", "(@a"},
+                paths, LastConfig.none(), Map.of(), sink(tags), sink(new ByteArrayOutputStream())));
+        assertTrue(tags.toString(StandardCharsets.UTF_8).contains("[run] refused: "), tags.toString());
     }
 
     @Test
@@ -170,7 +202,7 @@ class LaunchCommandOptionsTest {
     }
 
     @Test
-    void thePlansRowNamesTheSimulatorsAndDevicesUnlessSimulatorIsGiven() throws IOException {
+    void thePlansRowNamesTheSimulatorsAndDevicesAtRunStartUnlessSimulatorIsGiven() throws IOException {
         CountingSource network = new CountingSource(List.of(
                 new PlanRequirements("PETROCORE-5", "", false, List.of("BUYPASS Host"), List.of("Printer", "scale"))));
         LaunchPaths paths = paths(network);
@@ -178,8 +210,17 @@ class LaunchCommandOptionsTest {
         LaunchConfig fromRow = LaunchCommand.resolve(LaunchCommand.Options.parse(
                 new String[] {"--rig", "bench", "--plan", "PETROCORE-5"}), paths, LastConfig.none(), Map.of(),
                 sink(new ByteArrayOutputStream()));
-        assertEquals(List.of("BUYPASS Host"), fromRow.simulators());
-        assertEquals(List.of("scale"), fromRow.connections(), "the printer is not a probe row");
+        // run_plan hands the defaults over; run start (cat.launch.requirements.apply_requirements) applies the row.
+        assertEquals(LaunchCommand.defaultSimulators(), fromRow.simulators());
+        Path folder = dir.resolve("apply");
+        RunContext ctx = new RunContext(fromRow, paths, "ffffffffffff", folder,
+                RunEvents.open(folder, java.time.Clock.systemUTC()), new PauseGate(), java.time.Clock.systemUTC());
+        RunRequirements.apply(ctx);
+        ctx.closeEvents();
+        assertEquals(List.of("BUYPASS Host"), ctx.config().simulators());
+        assertEquals(List.of("scale"), ctx.config().connections(), "the printer is not a probe row");
+        assertTrue(Files.readString(folder.resolve("events.ndjson")).contains(
+                "plan requirements: simulators BUYPASS Host; devices Printer, scale"));
 
         LaunchConfig given = LaunchCommand.resolve(LaunchCommand.Options.parse(
                 new String[] {"--rig", "bench", "--plan", "PETROCORE-5", "--simulator", "PCATS01 Loyalty"}), paths,
