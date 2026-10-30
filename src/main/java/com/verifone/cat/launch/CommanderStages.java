@@ -109,6 +109,14 @@ interface CommanderStages {
         throw new UnsupportedOperationException("newestBuild: not given to these stages");
     }
 
+    /**
+     * Every build under {@link #buildsRoot()} holding {@code dist} with the PSI files, newest first. Stages that give
+     * only {@link #newestBuild} stage that one.
+     */
+    default List<Path> stagedBuilds(String dist) {
+        return newestBuild(dist).map(List::of).orElse(List.of());
+    }
+
     /** {@code petrotest upgrade --mode new_install --build-dir <buildDir>}: the PSI install. */
     default boolean installNewInstall(Rig rig, Path buildDir, Say say) {
         throw new UnsupportedOperationException("installNewInstall: not given to these stages");
@@ -365,6 +373,11 @@ interface CommanderStages {
         @Override
         public Optional<Path> newestBuild(String dist) {
             return BuildDiscovery.latestBuildDir(buildsRoot(), dist, CommanderBuildFetch.PSI_FILES);
+        }
+
+        @Override
+        public List<Path> stagedBuilds(String dist) {
+            return BuildDiscovery.localBuildDirs(buildsRoot(), dist, CommanderBuildFetch.PSI_FILES);
         }
 
         @Override

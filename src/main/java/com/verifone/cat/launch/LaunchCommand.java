@@ -59,7 +59,20 @@ import com.verifone.cat.rig.RigLoader;
  * Config tab's ({@link LastConfig#ifsfMode}, {@link LastConfig#localBuild}); {@code run_plan} reads neither, nor does
  * this.
  *
- * <p>Exit codes: 0 the run completed, 1 a step failed or was unavailable, 2 a usage error or a refused partial run.
+ * <p>Before the run starts it prints the choices that change the rig most, each with its source: {@code [run] upgrade
+ * <mode> (from --upgrade | from <file> | default)}, then coverage and Commander Connect's Onboard the same way.
+ * Deliberate deviation from {@code run_plan} (review, 2026-10-29): a destructive upgrade mode ({@code new_install} or
+ * {@code classic}) that comes only from the Python CAT's fallback {@code ~/.cat/last-config.json}, with no
+ * {@code --upgrade} and nothing under that key in CAT-Java's own file, is refused, exit 2, telling the operator to pass
+ * {@code --upgrade new_install} (or {@code classic}) explicitly or {@code --upgrade skip}. {@code run_plan} installs
+ * whatever that file says; here a Python Config tab saved weeks ago must not wipe a Commander unasked.
+ *
+ * <p>A JVM shutdown hook is in place for the run's length: Ctrl+C stops the simulators this run started, releases the
+ * run lock and writes {@code run.ended} ({@link RunLauncher#abandon}), as the Python's {@code KeyboardInterrupt} does.
+ * It never stops any other process.
+ *
+ * <p>Exit codes, as {@code run_plan}'s: 0 the run ended with no failed step and no failed case (skipped steps do not
+ * count), 1 a step or a case failed or the run was stopped, 2 a usage error or a refused run.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -108,12 +121,20 @@ public final class LaunchCommand {
     int run(String[] argv, LaunchPaths paths, LastConfig saved, Map<String, String> env, PrintStream out,
             PrintStream err) {
         LaunchConfig config;
+        Options options;
         try {
-            Options options = Options.parse(argv);
+            options = Options.parse(argv);
             config = resolve(options, paths, saved, env, out);
         } catch (IllegalArgumentException e) {
             err.println(e.getMessage());
             err.println(USAGE);
+            return EXIT_USAGE;
+        }
+        LastConfig used = options.fakePos ? LastConfig.none() : saved;
+        printChoices(options, used, config, out);
+        String fallback = pythonFallbackRefusal(options, used, config);
+        if (!fallback.isEmpty()) {
+            out.println("[run] refused: " + fallback);
             return EXIT_USAGE;
         }
         String refused = refusal(config, paths.catalogue());
@@ -128,7 +149,7 @@ public final class LaunchCommand {
 
         // Step 5 runs the plan's collected cases through the production handler set, on the fake POS or the rig.
         RunLauncher launcher = LaunchDefaults.wiredLauncher(paths);
-        LaunchResult result = launcher.launch(config);
+        LaunchResult result = launchReleasingOnExit(launcher, config);
         if (config.fakePos()) {
             out.println(FAKE_POS_BANNER);
         }
@@ -137,7 +158,74 @@ public final class LaunchCommand {
             out.println(String.format("  %-24s %-9s%s", step.name(), step.state(),
                     step.detail().isEmpty() ? "" : " — " + step.detail()));
         }
+        if (result.testsFailed() > 0) {
+            out.println("[run] " + result.testsFailed() + " case(s) failed");
+        }
         return result.complete() ? EXIT_OK : EXIT_FAILED;
+    }
+
+    /**
+     * Launches with a JVM shutdown hook in place for the run's length, so Ctrl+C releases the rig and writes
+     * {@code run.ended} ({@link RunLauncher#abandon}), as the Python's {@code KeyboardInterrupt} unwinds
+     * {@code launch_run}'s {@code finally}. The hook is removed once the run returns.
+     */
+    static LaunchResult launchReleasingOnExit(RunLauncher launcher, LaunchConfig config) {
+        Thread hook = new Thread(launcher::abandon, "cat-launch-release");
+        Runtime runtime = Runtime.getRuntime();
+        runtime.addShutdownHook(hook);
+        try {
+            return launcher.launch(config);
+        } finally {
+            try {
+                runtime.removeShutdownHook(hook);
+            } catch (IllegalStateException shuttingDown) {
+                // The JVM is already exiting: the hook runs, and abandon() is a no-op once launch returned.
+            }
+        }
+    }
+
+    /**
+     * Prints the choices that change the rig most, each with where it came from: {@code [run] upgrade <mode> (from
+     * --upgrade | <file> | default)}, and the same for coverage and Commander Connect's Onboard.
+     */
+    static void printChoices(Options o, LastConfig saved, LaunchConfig config, PrintStream out) {
+        String upgradeFrom = !o.upgrade.isBlank() ? "from --upgrade" : savedFrom(saved, LastConfig.UPGRADE,
+                !saved.upgrade().isEmpty());
+        out.println("[run] upgrade " + config.upgradeMode().wire() + " (" + upgradeFrom + ")");
+        String coverageFrom = o.noCoverage ? "from --no-coverage" : o.coverage ? "from --coverage"
+                : savedFrom(saved, LastConfig.COVERAGE, saved.isSwitch(LastConfig.COVERAGE));
+        out.println("[run] coverage " + onOff(config.coverage()) + " (" + coverageFrom + ")");
+        String ccFrom = o.ccOnboard ? "from --cc-onboard"
+                : savedFrom(saved, LastConfig.CC_ONBOARD, saved.isSwitch(LastConfig.CC_ONBOARD));
+        out.println("[run] Commander Connect onboard " + onOff(config.commanderConnect()) + " (" + ccFrom + ")");
+    }
+
+    private static String savedFrom(LastConfig saved, String key, boolean present) {
+        if (!present) {
+            return "default";
+        }
+        LastConfig.Source source = saved.source(key);
+        return "from " + (source == null ? "saved choices" : source.file().toString());
+    }
+
+    private static String onOff(boolean on) {
+        return on ? "on" : "off";
+    }
+
+    /**
+     * Why the run is refused because its destructive upgrade mode ({@code new_install} or {@code classic}) came only
+     * from the Python CAT's {@code ~/.cat/last-config.json}, or "". A flag, or CAT-Java's own saved file, is never
+     * refused. A deliberate deviation from {@code run_plan}, which installs whatever that file says.
+     */
+    static String pythonFallbackRefusal(Options o, LastConfig saved, LaunchConfig config) {
+        UpgradeMode mode = config.upgradeMode();
+        if (!o.upgrade.isBlank() || (mode != UpgradeMode.NEW_INSTALL && mode != UpgradeMode.CLASSIC)
+                || !saved.onlyInPythonFile(LastConfig.UPGRADE)) {
+            return "";
+        }
+        return "upgrade " + mode.wire() + " comes only from the Python CAT's " + saved.source(LastConfig.UPGRADE).file()
+                + ", and CAT-Java will not install a build on that file's word. Pass --upgrade " + mode.wire()
+                + " to install it, or --upgrade skip.";
     }
 
     /**

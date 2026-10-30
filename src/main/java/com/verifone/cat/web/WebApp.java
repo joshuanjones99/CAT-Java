@@ -298,12 +298,7 @@ public final class WebApp {
             if (waiting.isEmpty()) {
                 return; // nothing to run: the run tab says what to pick
             }
-            form.onFetched(() -> {
-                var plan = com.verifone.cat.runservice.RunStart.from(form, run.rig());
-                if (plan.startable()) {
-                    run.start(plan.config());
-                }
-            });
+            form.onFetched(startWhenFetched(form, run));
             shell.notify(waiting, "info", 10);
             ctx.html(RunRoutes.overview(form, run));
             ctx.skipRemainingHandlers();
@@ -313,6 +308,19 @@ public final class WebApp {
         run.refuse(why);
         ctx.html(RunRoutes.overview(form, run));
         ctx.skipRemainingHandlers();
+    }
+
+    /**
+     * The run Start waited on, once the case lists land: the page's whole start context (saved choices, requirements,
+     * Downloads), as {@link RunRoutes}' Start reads it, never the rig alone, which would drop every Config choice.
+     */
+    static Runnable startWhenFetched(ConfigForm form, RunService run) {
+        return () -> {
+            var plan = com.verifone.cat.runservice.RunStart.from(form, run.startContext());
+            if (plan.startable()) {
+                run.start(plan.config());
+            }
+        };
     }
 
     /** What a page's poll gets: the toasts after {@code since}, the loading line and the setup status. */

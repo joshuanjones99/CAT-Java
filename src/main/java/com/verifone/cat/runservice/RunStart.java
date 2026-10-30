@@ -128,6 +128,23 @@ public final class RunStart {
         return new Plan(config, "", readBack(config, view, picked, rigProblem), false);
     }
 
+    /**
+     * Every choice on the form but no plan: the base an Authoring replay runs on, the Python's
+     * {@code ConfigForm.replay_config} ({@code _launch_config(suites, ())}). The saved choices, the page's Downloads,
+     * the Xray switch, {@code provision_register} on, and the default simulators and connections (no plan names any).
+     * It needs no ticked plan, so it is not refused for want of one.
+     *
+     * @throws IllegalArgumentException when no rig is named
+     */
+    public static LaunchConfig replayBase(ConfigForm form, Context ctx) {
+        if (ctx.rig().isEmpty()) {
+            throw new IllegalArgumentException("No rig is named, so a run has nowhere to go. Start CAT-Java with --rig.");
+        }
+        LaunchDefaults.Picked picked = LaunchDefaults.pick(List.of(), List.of(), loadRig(ctx));
+        return LaunchDefaults.fromSaved(ctx.rig(), List.of(), null, form.xray(), ctx.saved().get(), ctx.env(), picked,
+                ctx.downloads().get());
+    }
+
     private static Plan refused(String why, boolean fetch) {
         return new Plan(null, why, List.of(new Line(why, true), new Line("Open the Config tab to set it.", false)),
                 fetch);

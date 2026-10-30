@@ -427,34 +427,16 @@ final class CommanderConfigurationStep implements LaunchStep {
         }
         Path repoRoot = stages.posShimRepoRoot();
         Path petroapps = ctx.paths().petroappsRoot();
-        List<String> missing = PosShimBuild.OUTPUTS.stream().filter(name -> !Files.isRegularFile(payload.resolve(name)))
-                .toList();
-        Optional<String> built = ShimStamp.payloadStamp(payload);
-        String current;
-        String unhashable = "";
-        try {
-            current = ShimStamp.sourceStamp(repoRoot, petroapps);
-        } catch (ShimStamp.StampInputMissing e) {
-            current = null;
-            unhashable = e.getMessage();
-        }
-        String why;
-        if (!missing.isEmpty()) {
-            why = payload + " lacks " + String.join(", ", missing);
-        } else if (built.isEmpty()) {
-            why = payload.resolve(ShimStamp.STAMP_NAME) + " is absent: these jars predate build stamps (2026-10-16), "
-                    + "or the build that wrote them did not finish";
-        } else if (current == null) {
-            step.warn(POS_SHIM_BUILD_ROW, "cannot tell whether " + payload + " (build " + head(built.get())
-                    + ") is the sources' build: " + unhashable + ". Provision pushes it as it is.");
-            return;
-        } else if (!built.get().equals(current)) {
-            why = payload + " holds build " + head(built.get()) + ", and the sources are now build " + head(current)
-                    + " (bridge/pos-shim, the retained agent, TopazERP, or the build script changed)";
-        } else {
-            step.log("OK    pos-shim payload is the sources' build " + head(current) + " — " + payload, "INFO");
+        PosShimNeed need = posShimNeed(payload, repoRoot, petroapps);
+        if (!need.unknown().isEmpty()) {
+            step.warn(POS_SHIM_BUILD_ROW, need.unknown());
             return;
         }
+        if (!need.current().isEmpty()) {
+            step.log("OK    " + need.current(), "INFO");
+            return;
+        }
+        String why = need.why();
 
         Path script = ShimStamp.resolve(repoRoot, ShimStamp.BUILD_SCRIPT);
         if (!Files.isRegularFile(script)) {
@@ -487,6 +469,45 @@ final class CommanderConfigurationStep implements LaunchStep {
         String done = now.isPresent() ? "build " + head(now.get()) : "no " + ShimStamp.STAMP_NAME + " written";
         step.log("OK    pos-shim built — " + done + " (" + why + ")", "INFO");
         step.substep(POS_SHIM_BUILD_ROW, SubstepOutcome.PASSED, done, elapsed);
+    }
+
+    /**
+     * Whether the pos-shim payload needs building, exactly one field set: {@code why} it is rebuilt; {@code unknown},
+     * the WARN when its sources cannot be hashed (pushed as it is); {@code current}, the OK line when it is the sources'
+     * build.
+     */
+    record PosShimNeed(String why, String unknown, String current) {}
+
+    /** {@link #buildPosShim}'s decision, shared with {@code install-resume}. */
+    static PosShimNeed posShimNeed(Path payload, Path repoRoot, Path petroapps) {
+        List<String> missing = PosShimBuild.OUTPUTS.stream().filter(name -> !Files.isRegularFile(payload.resolve(name)))
+                .toList();
+        Optional<String> built = ShimStamp.payloadStamp(payload);
+        String current;
+        String unhashable = "";
+        try {
+            current = ShimStamp.sourceStamp(repoRoot, petroapps);
+        } catch (ShimStamp.StampInputMissing e) {
+            current = null;
+            unhashable = e.getMessage();
+        }
+        if (!missing.isEmpty()) {
+            return new PosShimNeed(payload + " lacks " + String.join(", ", missing), "", "");
+        }
+        if (built.isEmpty()) {
+            return new PosShimNeed(payload.resolve(ShimStamp.STAMP_NAME) + " is absent: these jars predate build stamps "
+                    + "(2026-10-16), or the build that wrote them did not finish", "", "");
+        }
+        if (current == null) {
+            return new PosShimNeed("", "cannot tell whether " + payload + " (build " + head(built.get())
+                    + ") is the sources' build: " + unhashable + ". Provision pushes it as it is.", "");
+        }
+        if (!built.get().equals(current)) {
+            return new PosShimNeed(payload + " holds build " + head(built.get()) + ", and the sources are now build "
+                    + head(current) + " (bridge/pos-shim, the retained agent, TopazERP, or the build script changed)",
+                    "", "");
+        }
+        return new PosShimNeed("", "", "pos-shim payload is the sources' build " + head(current) + " — " + payload);
     }
 
     private static String head(String stamp) {

@@ -69,6 +69,7 @@ class WebShellTest {
     private ConfigForm form;
     private RunService run;
     private final AtomicInteger engines = new AtomicInteger();
+    private volatile FakeRunEngine lastEngine;
     private final CountDownLatch exited = new CountDownLatch(1);
     private boolean signedIn;
     private final HttpClient http = HttpClient.newHttpClient();
@@ -81,7 +82,8 @@ class WebShellTest {
         Files.createDirectories(folder);
         run = new RunService("lab", () -> {
             engines.incrementAndGet();
-            return new FakeRunEngine(folder, List.of(), null);
+            lastEngine = new FakeRunEngine(folder, List.of(), null);
+            return lastEngine;
         }, () -> "", Clock.systemDefaultZone());
         shell = new Shell();
         SetupItem login = new SetupItem("verifone_login", "Verifone sign-in", true, false, true, "sign in",
@@ -226,6 +228,37 @@ class WebShellTest {
                 com.verifone.cat.runservice.RunStart.from(form, run.startContext()).config().upgradeMode());
         String overview = get("/run").body();
         assertTrue(overview.contains("Upgrade:       new_install"), overview);
+    }
+
+    @Test
+    void aStartThatWaitedOnTheCaseFetchKeepsThePagesUpgradeBranchAndDownloads() throws Exception {
+        // Review finding 3: the fetched-then-start path once read the rig alone, dropping every Config choice (and on
+        // the rig, step 1's freshness check would have moved petroapps to master).
+        assertEquals(200, post("/downloads/set?field=commanderBranch", "value=Solutions", true).statusCode());
+        assertEquals(200, post("/downloads/set?field=commanderBuild", "value=134", true).statusCode());
+        assertEquals(200, post("/downloads/set?field=mode", "value=new_install", true).statusCode());
+        assertEquals(200, post("/config/set", "name=tpBranch&value=PETROCORE-1", true).statusCode());
+
+        signedIn = true;
+        var plan = com.verifone.cat.runservice.RunStart.from(form, run.startContext());
+        assertTrue(plan.startable(), plan.refusal());
+
+        WebApp.startWhenFetched(form, run).run();
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (lastEngine == null && System.nanoTime() < deadline) {
+            Thread.onSpinWait();
+        }
+        FakeRunEngine engine = lastEngine;
+        assertTrue(engine != null, "the waited-on Start launched: " + run.view());
+        engine.awaitWritten();
+        com.verifone.cat.launch.LaunchConfig config = engine.launchedWith();
+        engine.release();
+        FakeRunEngine.awaitIdle(run);
+
+        assertEquals(com.verifone.cat.launch.UpgradeMode.NEW_INSTALL, config.upgradeMode());
+        assertEquals("PETROCORE-1", config.testPlanBranch());
+        assertEquals("Solutions", config.commanderBranch());
+        assertEquals("134", config.commanderBuild());
     }
 
     @Test

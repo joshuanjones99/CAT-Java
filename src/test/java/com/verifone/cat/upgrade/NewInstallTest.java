@@ -254,6 +254,24 @@ class NewInstallTest {
     }
 
     @Test
+    void whenRootAlreadyAnswersEverywhereNothingIsPushedAndTheCommanderIsNotRebooted() throws Exception {
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        InMemoryTransport box = box("0.0");
+        List<String> log = new ArrayList<>();
+        // CGILink never answering proves no wait for it: a reboot would have waited and failed the tail.
+        var results = resume(jars, target -> true, box, false, log);
+
+        assertTrue(results.stream().noneMatch(StepResult::failed), results.toString());
+        assertEquals(List.of(
+                "push_commander_root_access",
+                "push_register_root_access",
+                "bypass_mem_size_check"), stepsOf(results));
+        assertEquals(0, jars.calls.size(), "nothing pushed");
+        assertTrue(box.ran().contains("setenforce 0"), box.ran().toString());
+        assertTrue(log.stream().anyMatch(l -> l.contains("the Commander is not rebooted")), log.toString());
+    }
+
+    @Test
     void aHardFaultOnThePushStopsTheResumeBeforeAnyWait() throws Exception {
         Jars faulting = (argv, timeout) -> new Jars.Result(500, "",
                 "<faultCode>CGIPortal.InternalError</faultCode><e:message>Uploaded file is corrupt</e:message>");

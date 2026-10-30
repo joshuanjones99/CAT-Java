@@ -207,4 +207,31 @@ class StartSimulatorsStepTest {
         assertEquals("warned", StartSimulatorsStep.outcome(SimStatus.State.NEEDS_ATTENTION));
         assertEquals("failed", StartSimulatorsStep.outcome(SimStatus.State.FAILED));
     }
+
+    @Test
+    void whetherTheRunDrivesAPumpIsReadFromTheCasesStepFiveWillRun() throws IOException {
+        Path pump = java.nio.file.Files.writeString(dir.resolve("PETROCORE-1-TestCase.feature"),
+                "Feature: a\n  Scenario: s\n    When pump \"1\" fuels \"13.14\"\n");
+        Path dry = java.nio.file.Files.writeString(dir.resolve("PETROCORE-2-TestCase.feature"),
+                "Feature: b\n  Scenario: s\n    When the cashier presses \"ENTER\"\n");
+        CaseEntry pumpCase = new CaseEntry("PETROCORE-1", "tests/PETROCORE-1-TestCase.feature", pump);
+        CaseEntry dryCase = new CaseEntry("PETROCORE-2", "tests/PETROCORE-2-TestCase.feature", dry);
+
+        RunContext unresolved = context(new LaunchConfig.Builder("").fakePos(true).build(), "bbbbbbbbbbbb");
+        assertEquals(Optional.empty(), StartSimulatorsStep.casesDrivePumps(unresolved), "no cases resolved: unknown");
+        unresolved.closeEvents();
+
+        RunContext both = context(new LaunchConfig.Builder("").fakePos(true).suite(pumpCase.nodeid())
+                .suite(dryCase.nodeid()).build(), "cccccccccccc");
+        both.caseEntries(List.of(dryCase, pumpCase));
+        assertEquals(Optional.of(true), StartSimulatorsStep.casesDrivePumps(both));
+        both.closeEvents();
+
+        // A partial run that leaves the pump case out of the suites does not drive a pump.
+        RunContext dryOnly = context(new LaunchConfig.Builder("").fakePos(true).suite(dryCase.nodeid()).build(),
+                "dddddddddddd");
+        dryOnly.caseEntries(List.of(dryCase, pumpCase));
+        assertEquals(Optional.of(false), StartSimulatorsStep.casesDrivePumps(dryOnly));
+        dryOnly.closeEvents();
+    }
 }

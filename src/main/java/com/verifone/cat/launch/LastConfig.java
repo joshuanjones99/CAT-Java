@@ -16,7 +16,9 @@ import com.verifone.cat.runconfig.SavedChoices;
  * {@code ~/.cat/java/last-config.json} or {@code $CAT_SAVED_CONFIG}) and, as a read-only fallback, the
  * Python CAT's {@code ~/.cat/last-config.json} (HANDOFF §2: CAT-Java may read the Python's {@code ~/.cat},
  * never write it). They are merged key by key: a key the Java file holds wins, a key only the Python file
- * holds fills in. An explicit flag wins over both; the caller applies that.
+ * holds fills in. An explicit flag wins over both; the caller applies that. Each key remembers which file it came
+ * from ({@link #source}), so {@link LaunchCommand} can print it and refuse a destructive upgrade mode the Python's file
+ * alone supplies.
  *
  * <p>Keys read (the Python CAT's): {@code config-upgrade}, {@code config-dist}, {@code config-exec},
  * {@code config-tp-branch}, {@code config-cc-onboard}, {@code config-cc-lab}, {@code config-cc-email},
@@ -61,34 +63,61 @@ public final class LastConfig {
     public static final String PYTHON_FILE = "last-config.json";
 
     private final Map<String, Object> saved;
+    /** Which file each key came from; empty for {@link #of}. */
+    private final Map<String, Source> sources;
 
-    private LastConfig(Map<String, Object> saved) {
+    /** Where a saved key was read from: CAT-Java's own file, or the Python CAT's read-only fallback. */
+    public record Source(Path file, boolean pythonFallback) {
+    }
+
+    private LastConfig(Map<String, Object> saved, Map<String, Source> sources) {
         this.saved = Collections.unmodifiableMap(new LinkedHashMap<>(saved));
+        this.sources = Collections.unmodifiableMap(new LinkedHashMap<>(sources));
     }
 
     /** No saved choices: every default is the Python {@code LaunchConfig}'s. */
     public static LastConfig none() {
-        return new LastConfig(Map.of());
+        return new LastConfig(Map.of(), Map.of());
     }
 
-    /** From explicit values, for tests and callers that already hold the map. */
+    /** From explicit values, for tests and callers that already hold the map. No key has a file source. */
     public static LastConfig of(Map<String, ?> saved) {
-        return new LastConfig(new LinkedHashMap<>(saved));
+        return new LastConfig(new LinkedHashMap<>(saved), Map.of());
     }
 
     /**
      * The Java file's keys over the Python file's. Either path may be null or absent; a file that will not
-     * read as a JSON object is no choices, as {@link SavedChoices#read} has it.
+     * read as a JSON object is no choices, as {@link SavedChoices#read} has it. Each key remembers its file
+     * ({@link #source}).
      */
     public static LastConfig load(Path javaFile, Path pythonFile) {
         Map<String, Object> merged = new LinkedHashMap<>();
+        Map<String, Source> sources = new LinkedHashMap<>();
         if (pythonFile != null) {
-            merged.putAll(SavedChoices.read(pythonFile));
+            Map<String, Object> python = SavedChoices.read(pythonFile);
+            merged.putAll(python);
+            python.keySet().forEach(key -> sources.put(key, new Source(pythonFile, true)));
         }
         if (javaFile != null) {
-            merged.putAll(SavedChoices.read(javaFile));
+            Map<String, Object> java = SavedChoices.read(javaFile);
+            merged.putAll(java);
+            java.keySet().forEach(key -> sources.put(key, new Source(javaFile, false)));
         }
-        return new LastConfig(merged);
+        return new LastConfig(merged, sources);
+    }
+
+    /**
+     * The file {@code key}'s saved value came from, or null when nothing was saved under it or it was given by
+     * {@link #of}.
+     */
+    public Source source(String key) {
+        return saved.containsKey(key) ? sources.get(key) : null;
+    }
+
+    /** Whether {@code key} is saved only in the Python CAT's fallback file, not CAT-Java's own. */
+    public boolean onlyInPythonFile(String key) {
+        Source source = source(key);
+        return source != null && source.pythonFallback();
     }
 
     /** The real files: {@link SavedChoices#defaultPath(Map, String)} and {@code <home>/.cat/last-config.json}. */
@@ -222,6 +251,11 @@ public final class LastConfig {
             return n.toString();
         }
         return "";
+    }
+
+    /** Whether a switch (a boolean) is saved under {@code key}. */
+    boolean isSwitch(String key) {
+        return saved.get(key) instanceof Boolean;
     }
 
     /** The value at {@code key} as a switch; {@code absent} when it is not a boolean. */
