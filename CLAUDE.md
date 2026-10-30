@@ -26,7 +26,7 @@ skip when it is absent.
 
 ```bat
 run.cmd --rig lab                       :: web UI on http://127.0.0.1:8090/
-run.cmd preflight --rig lab --no-repair :: read-only preflight (without --no-repair it drives the POS)
+run.cmd preflight --rig lab             :: read-only preflight (--repair drives the POS; the Python default)
 run.cmd launch --rig lab --plan PETROCORE-70960   :: add --fake-pos for the off-rig fake POS
 run.cmd provision --rig lab
 run.cmd xray --run <run-id> --dry-run
