@@ -79,7 +79,22 @@ class SupervisorPreLaunchTest {
                 assertTrue(lines.stream().anyMatch(line -> line.contains("tank level simulator")), lines.toString());
             } finally {
                 sup.stop(List.of(proc), Duration.ofSeconds(5));
+                if (proc.process() != null) {
+                    proc.process().onExit().join();
+                }
             }
+            // The child ran with its working directory in the temp folder, and Windows lets go of it a moment after
+            // the JVM is gone; under a full parallel build the @TempDir cleanup lost that race (2026-10-29).
+            assertTrue(await(() -> {
+                try (java.util.stream.Stream<Path> walk = Files.walk(suite)) {
+                    for (Path p : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                        Files.deleteIfExists(p);
+                    }
+                    return true;
+                } catch (IOException | java.io.UncheckedIOException e) {
+                    return false;
+                }
+            }), "the child's working directory is released");
         }
     }
 
