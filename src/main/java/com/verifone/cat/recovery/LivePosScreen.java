@@ -79,6 +79,23 @@ public final class LivePosScreen implements PosScreen {
         return withDriver(driver -> new Pos(driver).atLogin());
     }
 
+    /**
+     * {@code live_pos_drawn}: the login screen, or the sales screen's CSR key whatever it reads. A register still
+     * starting (CDP down, a page mid-load) is "not yet".
+     */
+    @Override
+    public boolean drawn() {
+        try {
+            return withDriver(driver -> {
+                Pos pos = new Pos(driver);
+                return pos.atLogin() || pos.expressPanel().csrFunction().isPresent();
+            });
+        } catch (RuntimeException e) {
+            LOG.debug("POS not drawn yet: {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            return false;
+        }
+    }
+
     @Override
     public boolean signedOn() {
         return withDriver(driver -> {

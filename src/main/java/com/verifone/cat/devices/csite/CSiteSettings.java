@@ -9,8 +9,8 @@ import java.util.Set;
 
 /**
  * C-Site's settings: the login (from the environment, as the Python reads {@code cloudcredentials.prop}), and the
- * endpoints the Commander's Commander Connect files name (the Python's {@code commander_cloud_config}, which is an SSH
- * read and is not ported here: the caller passes the endpoints in as {@code app}).
+ * endpoints the Commander's Commander Connect files name ({@code app}: {@link CommanderCloudConfig}, the Python's
+ * {@code commander_cloud_config}, reads them over SSH).
  *
  * <p>The variables are {@link CSiteClient#ENV_VARS}, renamed from PATS's keys as CLAUDE.md's credential rule asks. A
  * credential is never hard-coded here, and never printed: {@link #toString()} omits the username and the password.
