@@ -8,6 +8,7 @@ import com.verifone.cat.launch.UpgradeMode;
 import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
+import com.verifone.cat.runservice.RunStart;
 
 /**
  * How the Authoring page starts a replay or a capture as an ordinary run, and learns when it has ended. The Python's
@@ -17,6 +18,11 @@ import com.verifone.cat.runservice.RunService;
  * {@link ConfigForm}: a replay goes through the same service, so it shows on the Run page and in Results, and is refused
  * while another run is going. The page notices the end by asking {@link #busy} when it is drawn (the Python's pages draw
  * on a timer too), then reads the run's id.
+ *
+ * <p>The replay's base is the form's whole config ({@link RunStart#replayBase}: the saved choices, the page's Downloads,
+ * the default simulators and connections, {@code provision_register} on), as the Python's {@code replay_config}.
+ * Deviation: the Python's replay takes the form's upgrade mode; here a replay is always {@code upgrade skip}, so
+ * replaying an authored case never installs a build.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): a replay has run only against fakes.
  */
@@ -81,7 +87,15 @@ interface AuthoringRuns {
                 if (rig == null || rig.isBlank()) {
                     throw new SessionException("No rig is named, so a run has nowhere to go. Start CAT-Java with --rig.");
                 }
-                return new LaunchConfig.Builder(rig).upgradeMode(UpgradeMode.SKIP).xrayReport(form.xray()).build();
+                // The form's whole config, as the Python's replay_config (provision_register on, the simulators and
+                // connections, the branch, the Downloads), but never an install: a replay runs on the rig as it is.
+                LaunchConfig whole;
+                try {
+                    whole = RunStart.replayBase(form, run.startContext());
+                } catch (IllegalArgumentException e) {
+                    throw new SessionException("The saved run choices will not make a run: " + e.getMessage());
+                }
+                return whole.toBuilder().upgradeMode(UpgradeMode.SKIP).build();
             }
 
             @Override
