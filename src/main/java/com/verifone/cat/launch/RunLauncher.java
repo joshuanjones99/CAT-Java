@@ -61,6 +61,7 @@ public final class RunLauncher {
     private final PauseGate pause = new PauseGate();
     private final AtomicBoolean launched = new AtomicBoolean();
     private volatile boolean stopRequested;
+    private volatile boolean finished;
     private volatile RunContext active;
     private volatile RegistryFactory registries;
     private volatile CaseSource cases;
@@ -156,6 +157,27 @@ public final class RunLauncher {
     }
 
     /**
+     * The JVM is going down mid-run (Ctrl+C on {@code launch}): the Python's {@code KeyboardInterrupt} path, whose
+     * {@code finally} runs {@code release_rig} and marks {@code run.ended}. A shutdown hook calls this; it asks the run to
+     * stop, stops only the simulators this run started, releases the run lock and writes {@code run.ended}. It never
+     * stops any other process (a PSI installer step 4 started runs on). A no-op once {@link #launch} has returned or
+     * before it made its folder.
+     */
+    public void abandon() {
+        if (finished) {
+            return;
+        }
+        stop();
+        RunContext ctx = active;
+        if (ctx == null) {
+            return;
+        }
+        stopSimulators(ctx);
+        releaseRig(ctx);
+        RunEnded.mark(ctx.runFolder(), clock.instant());
+    }
+
+    /**
      * Runs the whole launch and returns what it came to. Never throws for a step's failure: a failed
      * step is a result. It throws only when the run folder cannot be opened at all.
      *
@@ -229,8 +251,9 @@ public final class RunLauncher {
             releaseRig(ctx);
             events.close();
             RunEnded.mark(folder, clock.instant());
+            finished = true;
         }
-        return new LaunchResult(runId, folder, ctx.stepResults(), cancelled);
+        return new LaunchResult(runId, folder, ctx.stepResults(), cancelled, ctx.testsFailed());
     }
 
     /** Steps 1 to 4, in order. Returns the step that ended the run, or "" when all four let it go on. */
