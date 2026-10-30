@@ -25,6 +25,9 @@ import java.util.function.Function;
 
 import com.verifone.cat.devices.fep.FepsimLegacy;
 import com.verifone.cat.fep.SecondaryFep;
+import com.verifone.cat.pats.PatsCaseLoader;
+import com.verifone.cat.pats.runner.FixtureName;
+import com.verifone.cat.pats.runner.FixtureRequirements;
 import com.verifone.cat.report.events.CatEvent;
 import com.verifone.cat.report.events.SubstepOutcome;
 import com.verifone.cat.rig.Rig;
@@ -58,7 +61,8 @@ import com.verifone.cat.sims.base.JavaSets;
  *   <li>each chosen Secondary FEP with a {@code fepsim_instance:} (WEX-OTR, Comdata) gets its instance written, and
  *       the step fails when its host's FEPSIM is older than v2;</li>
  *   <li>Petro's pump-state ports are held ({@link PetroPorts#hold}) and the step fails when another process holds
- *       PATS's 1072 and the run drives pumps ({@link PetroPorts#patsPortFreeForPumps});</li>
+ *       PATS's 1072 and the run drives pumps ({@link PetroPorts#patsPortFreeForPumps}, the cases read by
+ *       {@link #casesDrivePumps});</li>
  *   <li>once the base is known, a simulator left running in the other base's version is closed
  *       ({@link Supervisor#stopWrongVariants}).</li>
  * </ul>
@@ -155,9 +159,40 @@ final class StartSimulatorsStep implements LaunchStep {
     /** The chosen Secondary FEPs' table rows. */
     Function<List<String>, List<SecondaryFep>> fepRows = FepHosts::secondaryFepRows;
 
-    /** The production step: the run's cases are collected in step 5, so whether they drive a pump is not known here. */
+    /**
+     * The production step: whether the run's cases drive a pump is read from the cases run start resolved
+     * ({@link #casesDrivePumps}), as the Python's {@code _suites_drive_pumps} reads {@code config.suites}.
+     */
     StartSimulatorsStep() {
-        this(ctx -> Optional.empty());
+        this(StartSimulatorsStep::casesDrivePumps);
+    }
+
+    /**
+     * Whether a case step 5 will run declares the {@code fuel_pumps} fixture ({@link FixtureRequirements#fixturesFor}),
+     * read from {@link RunContext#caseEntries} filtered to the run's suites as step 5 filters them; empty when run start
+     * resolved no cases. A case that will not read counts as no pump (step 5 reports it).
+     */
+    static Optional<Boolean> casesDrivePumps(RunContext ctx) {
+        List<CaseEntry> entries = ctx.caseEntries();
+        if (entries == null) {
+            return Optional.empty();
+        }
+        java.util.Set<String> targets = new java.util.HashSet<>(ctx.config().suites());
+        for (CaseEntry entry : entries) {
+            if (!entry.runnable() || !targets.contains(entry.nodeid())) {
+                continue;
+            }
+            try {
+                for (PatsCaseLoader.Variant variant : PatsCaseLoader.loadAll(entry.file())) {
+                    if (FixtureRequirements.fixturesFor(variant.kase()).contains(FixtureName.FUEL_PUMPS)) {
+                        return Optional.of(true);
+                    }
+                }
+            } catch (IOException | RuntimeException e) {
+                // Unreadable here is unreadable in step 5 too, which says so for the case.
+            }
+        }
+        return Optional.of(false);
     }
 
     /** @param drivesPumps whether the run's cases drive a pump, or empty when unknown */
