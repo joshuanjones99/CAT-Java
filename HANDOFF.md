@@ -5,7 +5,7 @@ is built, what is proven, and what comes next. Update it whenever work lands.
 
 If this document disagrees with the tree, the tree is right.
 
-State as of **2026-10-29, late** (the wave-16 session). `main` builds clean: **4,120 tests, 0 failures,
+State as of **2026-10-29, late** (the wave-16 session). `main` builds clean: **4,139 tests, 0 failures,
 0 errors, 0 skipped**. Wave 16 ported the rest of the Python CAT off-rig (§6a): all ten slices are merged and
 their cross-slice hooks wired. **Everything wave 16 added is fake-backed evidence about this repository; none of
 it has run on a rig.** **The lab Commander is still down** (§4's last rows, §6 item 1): its AAA service never came
@@ -67,7 +67,7 @@ the web Start), Xray, every other plan.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd test`, 4,120 tests, 0 failures, 0 errors, 2026-10-29 (after wave 16). Four lint gates run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 4,139 tests, 0 failures, 0 errors, 2026-10-29 (after wave 16 and its review fixes). Four lint gates run as tests |
 | **Charity-Indoor 70960 on the fake POS, from the CLI** | run `fb8382bade89`, 2026-10-28: 39 cases, every one to a verdict (0 passed; the 12 POS+pinpad-only cases stop exactly where the Python's `pytest tests/suites/charity --fake-pos` stops them; the 27 others need devices a fake run has not). Evidence about the repository only |
 | **Cadence 118517 on the fake POS, from the CLI** | run `81eeb3d11883`, 2026-10-28: 264 cases, every one to a verdict in 1 h 51 m, no internal error (0 passed: RMI, pumps, DCR, Commander and most Cadence elements are absent from the fake). Evidence about the repository only |
 | **First rig run from Java: steps 1 and 2 complete live, step 3 started four of five simulators** | run `e272450ee561`, 2026-10-28 15:01 (lab rig, `launch --plan PETROCORE-118517 --upgrade new_install ...`): System Checks complete (rig lines, printer COM1 held, Commander Base_Level 057.02.00 read over SSH, the five staged simulators matched master 129 by their markers, lease taken), Connections complete; **PCATS01/02/03 Loyalty started and their "Start Host" buttons pressed through the Access Bridge, confirmed in each `LoySim_Debug.log` ("Loyalty FEP Simulator is ready. Port: 9010/9020/9030 ... Started VCMG Host")**; Petro Simulator Suite started and listening. BUYPASS Host failed: CAPK re-dating not ported (ported right after: `sims.Capk`, byte-identical entries to the Python's on the real jar; first launch of the built jar pending). Cleanup stopped the four and freed the lease; nothing reached the Commander |
@@ -129,10 +129,17 @@ socket, `rig/ppk.py`: JSch reads `.ppk` v2 itself).
 ## 6. Open items (priority order)
 
 1. **Record the clean-install proof run.** The Commander must first come back (power cycle or console; §4's
-   last row). Then either `cat-java install-resume --rig lab` (wave 16: pushes root access, waits for SSH, reboots
-   and waits for CGILink, then psi-init `--no-pairing`, provision, psi-init with pairing, provision, prep, init,
-   secondary-fep none, payment-links, emv-keys, register-app, close-day, payment-ready, snapshot capture; fake-tested
-   only, including the lab's current state), or rerun the whole clean install once it is healthy. Run the command in
+   last row). Then either resume, or rerun the whole clean install once the Commander is healthy. To resume:
+   ```
+   run.cmd install-resume --rig lab --build-dir C:\CICD\Builds\Solutions134\buypass
+   run.cmd launch --rig lab --plan PETROCORE-118517 --upgrade skip --capture-snapshot --no-xray --no-coverage
+   ```
+   `install-resume` was added in wave 16 and is fake-tested only, including the lab's current state. It takes the
+   run lease, pushes root access, waits for SSH, then reboots and waits for CGILink. It skips the reboot when nothing
+   needed a push. Then it checks the pos-shim, runs psi-init `--no-pairing`, provision, psi-init with pairing and
+   provision, and **stops after pairing by default**. `--continue` runs the rest of step 4 only when Petro (9001) and
+   BUYPASS Host (41107) are listening. `launch` refuses a `new_install` that comes only from the Python CAT's saved
+   file, so pass `--upgrade` explicitly. Run the command in
    §1 from `C:\gitrepos\CAT-Java` as the working directory (pulled tests land under `<cwd>\tests\suites\pulled`).
    Preconditions checked 2026-10-28: Access Bridge enabled, `C:\CICD\Builds\Solutions134\buypass\` complete, the
    staged simulators carry `.cat-build.json` master 129, the Jira token file present, no PATS or Python CAT run live.
@@ -208,7 +215,29 @@ artifactory-login, render-payload, fetch-sims, record, generate, steps, authorin
 commander-prep, commander-init, payment-links, register-app, payment-ready, commander-trust, secondary-fep,
 csite-reset, cloud-snapshot, build-pos-shim, install-resume, setup; no command = the web UI.
 
-REVIEW_PLACEHOLDER
+**The review of the merged launch (2026-10-29)** found nothing that would break the §1 clean-install command. It
+found four problems and some smaller ones; the `reviewfix` branch fixed all of the following:
+- **Saved upgrade mode.** A `launch` without `--upgrade` inherited the Python CAT's saved `new_install`, which would
+  have meant a 45-minute PSI wipe. The CLI now prints the upgrade, coverage and Commander Connect choices with their
+  source. It refuses `new_install` or `classic` when that comes only from the Python CAT's file. This is a deliberate
+  deviation from run_plan.
+- **`install-resume`** ran the post-pairing chain with no simulators up, took no run lease and always rebooted the
+  Commander. It now stops after pairing, takes the lease, skips a needless reboot and refuses an ambiguous build.
+- **Web Start after a Jira case fetch** dropped the Config page's choices, which would have moved petroapps to
+  `master`.
+- **The authoring replay** ran with a bare config. It now uses `RunStart.replayBase`, the Python's `replay_config`.
+- **Exit code:** a run with failed cases now exits 1, as run_plan does. Before, it exited 0.
+- **Ctrl+C:** a shutdown hook releases the run lease, stops only this run's simulators and writes `run.ended`.
+- **PATS port 1072:** step 3's check now reads the resolved cases.
+
+Left as low-severity notes:
+- Step 2 ends the run on a fixed row that is down. The Python fails the step and goes on.
+- The web Downloads drops a foundation pick.
+- Web continuous runs restart the simulators each pass. The Python keeps them, using `keep_simulators` and Petro
+  sinks.
+- Three config builders coexist and may drift: `LaunchCommand.Options.toConfig`, `LaunchDefaults.fromSaved` and
+  `ConfigForm.launchFields`.
+- Some web tests build `ConfigForm.standard()` over the real `~/.cat/java/last-config.json`. They only read it.
 
 ## 7. Lessons (read before orchestrating again)
 
@@ -242,4 +271,4 @@ REVIEW_PLACEHOLDER
   Java sets, simulator fetch), the merge-and-wire pass, prerig (the review's fixes).
   then capk (CAPK re-dating, after the first rig run's step 3 failed on it), bringup (the browser override, after run 2), and after runs 4-5: the shim client name, petroapps reference folders, the pairing navigation race, the receipt read, the sale STAN source, the recovery ladder. 3,111 → 3,568 tests. Goal set by the rig owner: Cadence from a clean install (§1).
 - **2026-10-29, wave 16** (orchestrated, 10 slices on Opus, the Commander down): the rest of the port (§6a).
-  3,568 → 4,120 tests. Two usage-limit interruptions; every slice resumed from its own commits.
+  3,568 → 4,139 tests, then a read-only review and its fixes. Two usage-limit interruptions; every slice resumed from its own commits.
