@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -169,9 +168,8 @@ public final class ClassicUpgrade {
             String token = CgiReplies.upgradeToken(summary);
             client.closeDay(readOtp);
             client.beginUpgrade(token, readOtp);
-            Bounded.pollUntil(() -> CgiReplies.isUpgradeComplete(client.upgradeSummary(readOtp))
-                    ? Optional.of(Boolean.TRUE) : Optional.empty(), pollTimeout, pollInterval,
-                    "Commander AU upgrade completion (vupgradesummary)");
+            Bounded.pollUntilTrue(() -> CgiReplies.isUpgradeComplete(client.upgradeSummary(readOtp)),
+                    pollTimeout, pollInterval, "Commander AU upgrade completion (vupgradesummary)");
         } catch (DeviceError | Bounded.TimedOut e) {
             return StepResult.failed(STEP_DANCE, String.valueOf(e.getMessage()));
         }

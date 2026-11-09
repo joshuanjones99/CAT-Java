@@ -3,6 +3,7 @@ package com.verifone.cat.upgrade;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -50,5 +51,10 @@ final class Bounded {
             }
             LockSupport.parkNanos(Math.min(interval.toNanos(), remaining));
         }
+    }
+
+    /** {@link #pollUntil} for a yes/no probe: returns once it holds, or throws {@link TimedOut}. */
+    static void pollUntilTrue(BooleanSupplier probe, Duration timeout, Duration interval, String what) {
+        pollUntil(() -> probe.getAsBoolean() ? Optional.of(Boolean.TRUE) : Optional.empty(), timeout, interval, what);
     }
 }

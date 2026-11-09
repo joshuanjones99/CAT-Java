@@ -278,11 +278,9 @@ public final class PsiInit {
             }
             boolean accepted = false;
             for (int attempt = 1; attempt <= PAIR_ATTEMPTS; attempt++) {
-                boolean started = Bounded.pollUntil(
-                        () -> "true".equals(rootText(client.send("cpairingsvc", ""))) ? Optional.of(Boolean.TRUE)
-                                : Optional.empty(),
+                Bounded.pollUntilTrue(() -> "true".equals(rootText(client.send("cpairingsvc", ""))),
                         PAIRING_POLL_TIMEOUT, PATS_SLEEP_5, "cpairingsvc answering true");
-                say.out("pairing service started: " + started);
+                say.out("pairing service started: true");
                 pause.accept(PATS_SLEEP_2);
                 if (screen.isRefused()) {
                     screen.backToStart(TAP_TIMEOUT);
@@ -291,9 +289,8 @@ public final class PsiInit {
                 // A 1097 Commander answered cpairingsvc true and still refused the tap (2026-09-29): then
                 // vpairingotp never has a code. Wait for either page, and try again.
                 try {
-                    Bounded.pollUntil(() -> screen.isRefused() || screen.awaitingCode() ? Optional.of(Boolean.TRUE)
-                            : Optional.empty(), REFUSED_CHECK_SECONDS, REFUSED_CHECK_INTERVAL,
-                            "the pairing keypad or the refused page");
+                    Bounded.pollUntilTrue(() -> screen.isRefused() || screen.awaitingCode(), REFUSED_CHECK_SECONDS,
+                            REFUSED_CHECK_INTERVAL, "the pairing keypad or the refused page");
                 } catch (Bounded.TimedOut e) {
                     // Neither: ask for the code, as before.
                 }
@@ -318,17 +315,20 @@ public final class PsiInit {
         }
         // The register reboots itself after pairing, which closes the browser this was reading: each look
         // reconnects, and a connection refused or closed under it is "not yet".
-        Bounded.pollUntil(() -> registers.atLoginScreen(rig, register) ? Optional.of(Boolean.TRUE) : Optional.empty(),
-                REGISTER_BACK_TIMEOUT, REGISTER_BACK_INTERVAL, register.id() + "'s login screen after pairing");
+        Bounded.pollUntilTrue(() -> registers.atLoginScreen(rig, register), REGISTER_BACK_TIMEOUT, REGISTER_BACK_INTERVAL, register.id() + "'s login screen after pairing");
         say.out(register.id() + ": back at its login screen");
     }
 
     /** The registers over CDP: the {@link PairingPage} on a connected {@link PosDriver}. */
     static final Registers CDP_REGISTERS = new Registers() {
+        private PosDriver connect(Rig rig, Rig.Register register) {
+            return PosDriver.connect(RegisterEndpoint.of(register), Timeouts.of(rig.timeouts()),
+                    rig.build() == null ? null : rig.build().expectedVersion(), null, null, false);
+        }
+
         @Override
         public PairingScreen open(Rig rig, Rig.Register register) {
-            PosDriver driver = PosDriver.connect(RegisterEndpoint.of(register), Timeouts.of(rig.timeouts()),
-                    rig.build() == null ? null : rig.build().expectedVersion(), null, null, false);
+            PosDriver driver = connect(rig, register);
             PairingPage page = new PairingPage(driver);
             return new PairingScreen() {
                 @Override
@@ -375,8 +375,7 @@ public final class PsiInit {
 
         @Override
         public boolean atLoginScreen(Rig rig, Rig.Register register) {
-            try (PosDriver driver = PosDriver.connect(RegisterEndpoint.of(register), Timeouts.of(rig.timeouts()),
-                    rig.build() == null ? null : rig.build().expectedVersion(), null, null, false)) {
+            try (PosDriver driver = connect(rig, register)) {
                 return driver.isPresent(Locators.IDLE_SCREEN_VIEW_IDLE_MSG)
                         || driver.isPresent(Locators.USER_ID_PASSWORD_SCREEN_VIEW_PROMPT_TEXT);
             } catch (PlaywrightException | UncheckedIOException e) {

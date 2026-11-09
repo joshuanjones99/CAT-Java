@@ -16,6 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.verifone.cat.commander.CommanderInit;
 import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.Transport;
@@ -83,9 +84,6 @@ public final class CloseDay {
 
     /** The Python's {@code BUYPASS_FEP_FILE}: base's Buypass FEP, branded BUYPASS_GENERIC. */
     static final String BUYPASS_FEP_FILE = "fepcfg&fep=buypass.xml";
-
-    /** The default petroapps checkout, as the Python's {@code DEFAULT_PETROAPPS_ROOT}. */
-    static final Path DEFAULT_PETROAPPS_ROOT = Path.of("C:/gitrepos/petroapps");
 
     /** The JVM's own verdict in a thread dump. */
     static final String DEADLOCK = "Found one Java-level deadlock";
@@ -157,9 +155,7 @@ public final class CloseDay {
 
     /** {@code $PETROAPPS_ROOT/AutomationTests/configurations/base}, with the Python's default root. */
     public static Path baseConfigFolder(Map<String, String> env) {
-        String configured = env.getOrDefault("PETROAPPS_ROOT", "").strip();
-        Path root = configured.isEmpty() ? DEFAULT_PETROAPPS_ROOT : Path.of(configured);
-        return root.resolve("AutomationTests").resolve("configurations").resolve("base");
+        return CommanderInit.baseConfigFolder(env);
     }
 
     /** Where the last deadlocked coresvcs's thread dump was kept, or null. For the failed step's report. */

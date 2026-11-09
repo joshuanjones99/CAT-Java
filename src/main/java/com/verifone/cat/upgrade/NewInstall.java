@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -349,10 +350,14 @@ public final class NewInstall {
 
     /** Polls until {@code target} accepts SSH from a boot later than {@code bootedAfter} (a System.nanoTime reading). */
     private StepResult waitForSsh(Target target, long bootedAfter) {
-        String step = "ssh_" + target.name();
+        return waitFor("ssh_" + target.name(), () -> sshBootedAfter(target, bootedAfter), settings.sshBackTimeout(),
+                "SSH on " + target.name());
+    }
+
+    /** A step that is done once {@code ready} holds, polled every {@code sshInterval}; failed at {@code timeout}. */
+    private StepResult waitFor(String step, BooleanSupplier ready, Duration timeout, String what) {
         try {
-            Bounded.pollUntil(() -> sshBootedAfter(target, bootedAfter) ? Optional.of(Boolean.TRUE) : Optional.empty(),
-                    settings.sshBackTimeout(), settings.sshInterval(), "SSH on " + target.name());
+            Bounded.pollUntilTrue(ready, timeout, settings.sshInterval(), what);
             return StepResult.done(step);
         } catch (Bounded.TimedOut e) {
             return StepResult.failed(step, e.getMessage());
@@ -370,13 +375,7 @@ public final class NewInstall {
 
     /** Polls until the Commander's application tier answers; every later step needs it. */
     private StepResult waitForCgilink(String host) {
-        try {
-            Bounded.pollUntil(() -> cgilinkAnswers.test(host) ? Optional.of(Boolean.TRUE) : Optional.empty(),
-                    settings.cgilinkTimeout(), settings.sshInterval(), "CGILink");
-            return StepResult.done(STEP_CGILINK);
-        } catch (Bounded.TimedOut e) {
-            return StepResult.failed(STEP_CGILINK, e.getMessage());
-        }
+        return waitFor(STEP_CGILINK, () -> cgilinkAnswers.test(host), settings.cgilinkTimeout(), "CGILink");
     }
 
     /** Whether {@code target} already takes the no-pw key as root: the package's own effect. */

@@ -21,7 +21,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.verifone.cat.commander.snapshot.Restore;
@@ -282,11 +281,6 @@ public final class CommanderInit {
         return petroapps.resolve("AutomationTests").resolve("configurations").resolve("base");
     }
 
-    /** {@link #baseConfigFolder(Map)} with the process environment. */
-    public static Path baseConfigFolder() {
-        return baseConfigFolder(System.getenv());
-    }
-
     /** Petro Simulator Suite's own log, as CAT's simulator registry tails it, under the tools root. */
     public static Path petroLog(Path toolsRoot) {
         return toolsRoot.resolve("Petro_Simulator_Suite").resolve("log4j-application.log");
@@ -356,19 +350,7 @@ public final class CommanderInit {
         Set<String> recovered = new HashSet<>(); // "not idle" lines already acted on
         try {
             restoreSnapshot(snapshot, base);
-            List<Path> files = filesOf(base);
-            say.out("importing " + files.size() + " files from " + base);
-            Map<String, String> applied = client.importConfigurationFolder(base);
-            say.out("imported " + applied.size() + " of " + files.size() + " files");
-            for (String name : RESET_CONFIGURATIONS) {
-                Path folder = base.resolveSibling(name);
-                if (Files.isDirectory(folder)) {
-                    client.importConfigurationFolder(folder);
-                    say.out("imported " + name + " (reset on every run)");
-                } else {
-                    say.err("no " + folder + ": " + name + " not reset");
-                }
-            }
+            importConfigurations(client, base);
             disableRegisterScreensavers();
             if (!forecourt) {
                 say.out("no forecourt simulator: skipping the fuel and DCR driver inits");
@@ -424,11 +406,38 @@ public final class CommanderInit {
         }
     }
 
-    private static List<Path> filesOf(Path folder) {
+    /** The base folder, then each of {@link #RESET_CONFIGURATIONS} beside it that exists. */
+    private void importConfigurations(CommanderClient client, Path base) {
+        long files = fileCount(base);
+        say.out("importing " + files + " files from " + base);
+        Map<String, String> applied = client.importConfigurationFolder(base);
+        say.out("imported " + applied.size() + " of " + files + " files");
+        for (String name : RESET_CONFIGURATIONS) {
+            Path folder = base.resolveSibling(name);
+            if (Files.isDirectory(folder)) {
+                client.importConfigurationFolder(folder);
+                say.out("imported " + name + " (reset on every run)");
+            } else {
+                say.err("no " + folder + ": " + name + " not reset");
+            }
+        }
+    }
+
+    private static long fileCount(Path folder) {
         try (Stream<Path> listing = Files.list(folder)) {
-            return listing.filter(Files::isRegularFile).sorted().collect(Collectors.toList());
+            return listing.filter(Files::isRegularFile).count();
         } catch (IOException e) {
             throw new UncheckedIOException("the base configuration folder cannot be listed", e);
+        }
+    }
+
+    /** One command on the Commander over its own SSH connection, closed afterwards. */
+    private CommandResult onCommander(String command) {
+        Transport transport = commanderSsh.get();
+        try {
+            return transport.run(command, sshTimeout);
+        } finally {
+            transport.close();
         }
     }
 
@@ -517,12 +526,7 @@ public final class CommanderInit {
     public String printCommanderErrors() {
         CommandResult result;
         try {
-            Transport transport = commanderSsh.get();
-            try {
-                result = transport.run(SYSLOG_ERRORS_COMMAND, sshTimeout);
-            } finally {
-                transport.close();
-            }
+            result = onCommander(SYSLOG_ERRORS_COMMAND);
         } catch (RuntimeException e) { // diagnostics only; never mask the fault being reported
             say.err("could not read the Commander's syslog: " + e.getMessage());
             return "";
@@ -667,12 +671,7 @@ public final class CommanderInit {
     public String unacceptedFuelLink() {
         String out;
         try {
-            Transport transport = commanderSsh.get();
-            try {
-                out = transport.run(FUEL_LINK_COMMAND, sshTimeout).stdout();
-            } finally {
-                transport.close();
-            }
+            out = onCommander(FUEL_LINK_COMMAND).stdout();
         } catch (RuntimeException e) { // a diagnostic; the inits themselves answered
             say.out("pump-status link not checked: " + e.getMessage());
             return null;
