@@ -2,7 +2,6 @@ package com.verifone.cat.launch;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -96,12 +95,6 @@ public final class LaunchCommand {
     /** The fake-POS banner, the same words the Python CAT's run log uses. */
     static final String FAKE_POS_BANNER = "[FAKE POS: evidence about CAT, not about a rig]";
 
-    /** The device {@code default_connections} leaves out: the physical pinpad ({@link LaunchDefaults}). */
-    static final String DEFAULT_EXCLUDED_DEVICE = LaunchDefaults.DEFAULT_EXCLUDED_DEVICE;
-
-    /** A bound on each Atlassian request the plan and requirements reads make (the Python's 30 s). */
-    static final Duration ATLASSIAN_TIMEOUT = LaunchDefaults.ATLASSIAN_TIMEOUT;
-
     /**
      * Runs the command with the environment's paths, a catalogue that reads Xray and Confluence, the saved choices
      * in the home directory and the process streams.
@@ -109,8 +102,8 @@ public final class LaunchCommand {
     public int run(String[] argv) {
         Map<String, String> env = System.getenv();
         String home = System.getProperty("user.home");
-        return run(argv, withNetwork(LaunchPaths.fromEnv(env), Path.of(home)), LastConfig.fromHome(env, home), env,
-                System.out, System.err);
+        return run(argv, LaunchDefaults.withNetwork(LaunchPaths.fromEnv(env), Path.of(home)),
+                LastConfig.fromHome(env, home), env, System.out, System.err);
     }
 
     /** The test seam with no saved choices and no environment. */
@@ -292,9 +285,9 @@ public final class LaunchCommand {
         List<String> connections = List.of();
         if (!o.fakePos) {
             if (simulators.isEmpty()) {
-                simulators = defaultSimulators();
+                simulators = LaunchDefaults.defaultSimulators();
             }
-            connections = defaultConnections(loadRig(o.rig, paths));
+            connections = LaunchDefaults.defaultConnections(loadRig(o.rig, paths));
         }
         return o.toConfig(o.fakePos ? LastConfig.none() : saved, env, simulators, connections);
     }
@@ -302,16 +295,6 @@ public final class LaunchCommand {
     /** Xray first, which writes the cache; the cache (then the seed) alone only with {@code --cache-only}. */
     static PlanCatalogue.Mode casesMode(Options o) {
         return o.cacheOnly ? PlanCatalogue.Mode.CACHE_ONLY : PlanCatalogue.Mode.REFRESH;
-    }
-
-    /** Every simulator CAT starts when the plans name none: the launchable registry rows (the Python's). */
-    static List<String> defaultSimulators() {
-        return LaunchDefaults.defaultSimulators();
-    }
-
-    /** Every optional target step 2 probes when the plans name no devices: all but the physical pinpad. */
-    static List<String> defaultConnections(Rig rig) {
-        return LaunchDefaults.defaultConnections(rig);
     }
 
     private static Rig loadRig(String rig, LaunchPaths paths) {
@@ -323,11 +306,6 @@ public final class LaunchCommand {
         } catch (RuntimeException e) {
             return null; // the launcher's own rig load reports why
         }
-    }
-
-    /** {@code paths} with a catalogue whose network source is Xray and Confluence, over the same caches and seed. */
-    static LaunchPaths withNetwork(LaunchPaths paths, Path home) {
-        return LaunchDefaults.withNetwork(paths, home);
     }
 
     /** The parsed command line: only what was typed; {@link #toConfig} applies the saved choices and defaults. */
@@ -428,52 +406,36 @@ public final class LaunchCommand {
          */
         LaunchConfig toConfig(LastConfig saved, Map<String, String> env, List<String> simulators,
                 List<String> connections) {
-            String upgradeText = first(upgrade, saved.upgrade(), UpgradeMode.SKIP.wire());
-            LaunchConfig.Builder builder = new LaunchConfig.Builder(rig == null ? "" : rig)
-                    .upgradeMode(UpgradeMode.of(upgradeText))
-                    .executionMode(execMode(first(exec, saved.exec(), LaunchConfig.DEFAULT_EXECUTION_MODE)))
-                    .dist(first(dist, saved.dist(), LaunchConfig.DEFAULT_DIST))
-                    .testPlanBranch(first(branch, saved.testPlanBranch(), LaunchConfig.DEFAULT_TEST_PLAN_BRANCH))
-                    .fakePos(fakePos)
-                    .fakePinpad(fakePinpad)
-                    .snapshotUpdate(snapshotUpdate)
-                    .captureSnapshot(captureSnapshot)
-                    .buypassHost(buypassHost)
-                    // run_plan: a run against the rig always provisions the register in step 4 (never under fake POS).
-                    .provisionRegister(true)
-                    .xrayReport(!noXray && saved.xray())
-                    .coverage(!noCoverage && (coverage || saved.coverage()))
-                    .commanderConnect(!noCcOnboard && (ccOnboard || saved.ccOnboard()))
-                    .commanderConnect(saved.commanderConnect(env))
-                    .ccRequirementWaived(waiveCcRequirement)
-                    .tags(tags.strip())
-                    .only(only)
-                    .fromCase(fromCase.strip());
             // The Downloads section: a flag's branch takes no saved foundation (run_plan._config); --solutions-build N
             // is --commander-branch Solutions --commander-build N.
             String flagBranch = !commanderBranch.isBlank() ? commanderBranch
                     : solutionsBuild.isBlank() ? "" : "Solutions";
             String flagBuild = !commanderBuild.isBlank() ? commanderBuild : solutionsBuild;
-            LastConfig.Downloads downloads = saved.downloads(flagBranch, flagBuild, simBranch, simBuild);
-            builder.commanderBranch(downloads.commanderBranch())
-                    .commanderBuild(downloads.commanderBuild())
-                    .foundationBranch(downloads.foundationBranch())
-                    .foundationBuild(downloads.foundationBuild())
-                    .simBranch(downloads.simBranch())
-                    .simBuild(downloads.simBuild());
+            // run_plan: a run against the rig always provisions the register in step 4 (never under fake POS); that,
+            // the branch and the Commander Connect settings are LaunchDefaults.savedBase's, shared with the web.
+            LaunchConfig.Builder builder = LaunchDefaults.savedDownloads(
+                    LaunchDefaults.savedBase(rig, branch, saved, env), saved, upgrade, dist, flagBranch, flagBuild,
+                    simBranch, simBuild)
+                    .executionMode(execMode(LaunchDefaults.first(exec, saved.exec(),
+                            LaunchConfig.DEFAULT_EXECUTION_MODE)))
+                    .fakePos(fakePos)
+                    .fakePinpad(fakePinpad)
+                    .snapshotUpdate(snapshotUpdate)
+                    .captureSnapshot(captureSnapshot)
+                    .buypassHost(buypassHost)
+                    .xrayReport(!noXray && saved.xray())
+                    .coverage(!noCoverage && (coverage || saved.coverage()))
+                    .commanderConnect(!noCcOnboard && (ccOnboard || saved.ccOnboard()))
+                    .ccRequirementWaived(waiveCcRequirement)
+                    .tags(tags.strip())
+                    .only(only)
+                    .fromCase(fromCase.strip());
             suites.forEach(builder::suite);
             plans.forEach(builder::testPlan);
             simulators.forEach(builder::simulator);
             connections.forEach(builder::connection);
             feps.forEach(builder::secondaryFep);
             return builder.build();
-        }
-
-        private static String first(String flag, String saved, String fallback) {
-            if (flag != null && !flag.isBlank()) {
-                return flag.strip();
-            }
-            return saved != null && !saved.isBlank() ? saved.strip() : fallback;
         }
 
         private static String execMode(String value) {

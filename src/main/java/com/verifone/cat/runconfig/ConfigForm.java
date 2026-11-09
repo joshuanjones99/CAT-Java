@@ -26,6 +26,8 @@ import com.verifone.cat.collect.CollectOptions;
 import com.verifone.cat.collect.CollectResult;
 import com.verifone.cat.collect.CaseResult;
 import com.verifone.cat.commander.connect.CommanderConnect;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.launch.LaunchConfig;
 import com.verifone.cat.launch.UpgradeMode;
 import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.plans.PlanCase;
@@ -149,10 +151,9 @@ public final class ConfigForm {
      */
     public ConfigForm online() {
         Map<String, String> env = System.getenv();
-        Path home = Path.of(System.getProperty("user.home"));
-        Path own = home.resolve(".cat").resolve("java").resolve("jira_api_token.properties");
-        Path jira = Files.isRegularFile(own) ? own : home.resolve("jira_api_token.properties");
-        PlanCatalogue networkCatalogue = new PlanCatalogue(home.resolve(".cat").resolve("java"), home.resolve(".cat"),
+        Path own = CatHome.java().resolve("jira_api_token.properties");
+        Path jira = Files.isRegularFile(own) ? own : CatHome.user().resolve("jira_api_token.properties");
+        PlanCatalogue networkCatalogue = new PlanCatalogue(CatHome.java(), CatHome.python(),
                 new AtlassianPlanSource(AtlassianClient.forCredentialsFile(jira, ATLASSIAN_TIMEOUT)),
                 new SeedPlanSource(), repoRoot);
         withNetwork(networkCatalogue, Executors.newSingleThreadExecutor(runnable -> {
@@ -295,15 +296,8 @@ public final class ConfigForm {
                 values.get(3).isEmpty() ? "" : values.get(4),
                 cmdBranch.isEmpty() ? "" : fndBranch,
                 !cmdBranch.isEmpty() && !fndBranch.isEmpty() ? values.get(6) : "",
-                values.get(7).isEmpty() ? LaunchConfigDefaults.DIST : values.get(7),
+                values.get(7).isEmpty() ? LaunchConfig.DEFAULT_DIST : values.get(7),
                 cmdBranch.isEmpty() ? values.get(8) : ""));
-    }
-
-    /** The defaults the Python's form starts from. */
-    static final class LaunchConfigDefaults {
-        static final String DIST = "buypass";
-
-        private LaunchConfigDefaults() {}
     }
 
     // ------------------------------------------------------------------ changes
@@ -647,14 +641,9 @@ public final class ConfigForm {
         return Optional.of(fields(runnableNodes(), plans));
     }
 
-    /** Every choice, but no plan and no suite: the Install Upgrade page's (the Python's {@code install_config}). */
-    public synchronized LaunchFields installFields() {
-        return fields(List.of(), List.of());
-    }
-
     private LaunchFields fields(List<String> suites, List<String> planIds) {
         DownloadsState.Choice d = downloads == null
-                ? new DownloadsState.Choice("", "", "skip", "", "", "", "", LaunchConfigDefaults.DIST, "")
+                ? new DownloadsState.Choice("", "", "skip", "", "", "", "", LaunchConfig.DEFAULT_DIST, "")
                 : downloads.current();
         UpgradeMode mode;
         try {
@@ -753,7 +742,7 @@ public final class ConfigForm {
         List<ScopeCase> out = new ArrayList<>();
         for (String plan : plans) {
             for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY).rows()) {
-                if (row.node() != null && !row.node().isEmpty() && seen.add(row.key())) {
+                if (row.migrated() && seen.add(row.key())) {
                     out.add(new ScopeCase(row.key(), row.node(), row.summary()));
                 }
             }
@@ -766,7 +755,7 @@ public final class ConfigForm {
         Set<String> nodes = new LinkedHashSet<>();
         for (String plan : plans) {
             for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY).rows()) {
-                if (row.node() != null && !row.node().isEmpty()) {
+                if (row.migrated()) {
                     nodes.add(row.node());
                 }
             }
@@ -784,7 +773,7 @@ public final class ConfigForm {
         Set<String> keys = new LinkedHashSet<>();
         for (String plan : plans) {
             for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY).rows()) {
-                if (row.node() == null || row.node().isEmpty()) {
+                if (!row.migrated()) {
                     keys.add(row.key());
                 }
             }
@@ -792,7 +781,7 @@ public final class ConfigForm {
         if (keys.isEmpty() || petroappsRoot == null) {
             return Map.entry(List.of(), "");
         }
-        String dist = downloads == null ? LaunchConfigDefaults.DIST : downloads.current().dist();
+        String dist = downloads == null ? LaunchConfig.DEFAULT_DIST : downloads.current().dist();
         return petroappsTests(List.copyOf(keys), tpBranch.isBlank() ? "master" : tpBranch.strip(), dist);
     }
 
@@ -929,7 +918,7 @@ public final class ConfigForm {
         if (rows.isEmpty()) {
             return "cases not fetched";
         }
-        long runnable = rows.stream().filter(c -> c.node() != null && !c.node().isEmpty()).count();
+        long runnable = rows.stream().filter(PlanCase::migrated).count();
         return runnable > 0 ? runnable + " runnable" : "none runnable";
     }
 
@@ -948,7 +937,7 @@ public final class ConfigForm {
 
     /** {@code 39 cases · 13 runnable · 26 not migrated}, as the Python CAT counts them. */
     static String caseSummary(List<PlanCase> cases) {
-        int runnable = (int) cases.stream().filter(c -> c.node() != null && !c.node().isEmpty()).count();
+        int runnable = (int) cases.stream().filter(PlanCase::migrated).count();
         return cases.size() + " cases \u00b7 " + runnable + " runnable \u00b7 "
                 + (cases.size() - runnable) + " not migrated";
     }

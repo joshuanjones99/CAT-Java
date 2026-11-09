@@ -5,8 +5,6 @@ import java.util.Map;
 
 import com.verifone.cat.collect.Collect;
 import com.verifone.cat.plans.PlanCatalogue;
-import com.verifone.cat.plans.PlanSource;
-import com.verifone.cat.plans.SeedPlanSource;
 import com.verifone.cat.provision.ProvisionPaths;
 import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.rig.RigLease;
@@ -49,21 +47,19 @@ public record LaunchPaths(Path resultsRoot, Path rigsDir, Path leaseDir, Path re
 
     /**
      * The paths the environment names, with the documented defaults. The catalogue writes to {@code ~/.cat/java}
-     * and reads the Python CAT's {@code ~/.cat} behind it, as {@link PlanCatalogue#offline} does; the setup
+     * and reads the Python CAT's {@code ~/.cat} behind it ({@link PlanCatalogue#offline}); the setup
      * environment is the real process's (the map only feeds the folders above).
      */
     public static LaunchPaths fromEnv(Map<String, String> env) {
         Path repoRoot = Path.of("").toAbsolutePath();
         String petroapps = env.getOrDefault("PETROAPPS_ROOT", "").strip();
-        Path home = Path.of(System.getProperty("user.home"));
         return new LaunchPaths(
                 ReportPaths.resultsRoot(env),
                 RigLoader.rigsDir(env),
                 RigLease.resolveLeaseDir(null, env),
                 repoRoot,
                 petroapps.isEmpty() ? Path.of(Collect.DEFAULT_PETROAPPS_ROOT) : Path.of(petroapps),
-                new PlanCatalogue(home.resolve(".cat").resolve("java"), home.resolve(".cat"),
-                        PlanSource.unavailable("no Atlassian source in this build"), new SeedPlanSource(), repoRoot),
+                PlanCatalogue.offline(repoRoot),
                 SetupEnv.system(),
                 ProvisionPaths.pythonRoot(env));
     }

@@ -7,8 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 
 /**
  * The Config tab's saved choices: {@code ~/.cat/java/last-config.json}.
@@ -35,8 +35,6 @@ public final class SavedChoices {
             "config-emit-reports", "config-download", "config-branch", "config-solutions",
             "config-upgrade-sims", "config-connections", "config-simulators", "config-secondary-feps");
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
     private static final TypeReference<LinkedHashMap<String, Object>> OBJECT =
             new TypeReference<>() {};
 
@@ -49,7 +47,7 @@ public final class SavedChoices {
     public static Path defaultPath(Map<String, String> env, String userHome) {
         String override = env.get(ENV_OVERRIDE);
         return override == null || override.isBlank()
-                ? Path.of(userHome, ".cat", "java", FILE_NAME)
+                ? CatHome.java(Path.of(userHome)).resolve(FILE_NAME)
                 : Path.of(override);
     }
 
@@ -64,7 +62,7 @@ public final class SavedChoices {
             return out;
         }
         try {
-            LinkedHashMap<String, Object> saved = MAPPER.readValue(file.toFile(), OBJECT);
+            LinkedHashMap<String, Object> saved = Json.MAPPER.readValue(file.toFile(), OBJECT);
             if (saved != null) {
                 saved.entrySet().stream()
                         .filter(entry -> !RETIRED_KEYS.contains(entry.getKey()))
@@ -89,7 +87,7 @@ public final class SavedChoices {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            MAPPER.writeValue(file.toFile(), choices);
+            Json.PRETTY.writeValue(file.toFile(), choices);
             return true;
         } catch (IOException | RuntimeException e) {
             return false;

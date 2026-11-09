@@ -11,6 +11,7 @@ import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.atlassian.AtlassianCredentials;
 import com.verifone.cat.atlassian.AtlassianPlanSource;
 import com.verifone.cat.connections.Endpoints;
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.plans.PlanCatalogue;
 import com.verifone.cat.plans.PlanRequirements;
 import com.verifone.cat.plans.Requirements;
@@ -37,9 +38,14 @@ import com.verifone.cat.sims.SimEntry;
  *       registry, the plan's cases and the browser connector ({@link #wiredLauncher}).</li>
  * </ul>
  *
- * <p>Extracted for the web without editing {@link LaunchCommand}, whose {@code defaultSimulators},
- * {@code defaultConnections}, {@code withNetwork}, its wiring and its {@code Options.toConfig} hold the same rules: the
- * two are to be deduplicated (LaunchCommand calling these).
+ * <p>{@link LaunchCommand} takes the same defaults from here, and its {@code Options.toConfig} builds on the same two
+ * mappings from the saved choices as {@link #fromSaved} ({@link #savedBase}, {@link #savedDownloads}), a typed flag
+ * winning over each. The two differ on purpose where they must: {@code launch} refuses a saved execution mode it does
+ * not know (a usage error) where the web falls back to the default rather than failing the page; {@code launch} reads
+ * the saved Xray switch where the web is told it; the web carries the Run tab's scope where {@code launch} carries
+ * {@code --tags/--only/--from}; and the web's page may hand over its own Downloads choice, which replaces the saved
+ * one unread. The Config tab's own form is a third source ({@code runconfig.LaunchFields}): it maps the form's
+ * in-memory choices, not the saved file, and is not merged with these.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): the launcher {@link #wiredLauncher} makes drives a rig.
  */
@@ -119,30 +125,19 @@ public final class LaunchDefaults {
      */
     public static LaunchConfig fromSaved(String rig, List<String> plans, RunScope scope, boolean xray,
             LastConfig saved, Map<String, String> env, Picked picked, Downloads downloads) {
-        LaunchConfig.Builder builder = new LaunchConfig.Builder(rig == null ? "" : rig)
-                .executionMode(execMode(first(saved.exec(), LaunchConfig.DEFAULT_EXECUTION_MODE)))
-                .testPlanBranch(first(saved.testPlanBranch(), LaunchConfig.DEFAULT_TEST_PLAN_BRANCH))
+        LaunchConfig.Builder builder = savedBase(rig, "", saved, env)
+                .executionMode(execMode(first("", saved.exec(), LaunchConfig.DEFAULT_EXECUTION_MODE)))
                 .xrayReport(xray)
                 .coverage(saved.coverage())
                 .commanderConnect(saved.ccOnboard())
-                .commanderConnect(saved.commanderConnect(env))
-                .provisionRegister(true)
                 .scope(scope == null ? RunScope.whole() : scope);
         if (downloads == null) {
-            builder.upgradeMode(UpgradeMode.of(first(saved.upgrade(), UpgradeMode.SKIP.wire())))
-                    .dist(first(saved.dist(), LaunchConfig.DEFAULT_DIST));
-            LastConfig.Downloads chosen = saved.downloads("", "", "", "");
-            builder.commanderBranch(chosen.commanderBranch())
-                    .commanderBuild(chosen.commanderBuild())
-                    .foundationBranch(chosen.foundationBranch())
-                    .foundationBuild(chosen.foundationBuild())
-                    .simBranch(chosen.simBranch())
-                    .simBuild(chosen.simBuild());
+            savedDownloads(builder, saved, "", "", "", "", "", "");
         } else {
             boolean commander = !downloads.commanderBranch().isEmpty() && !downloads.commanderBuild().isEmpty();
             boolean sims = !downloads.simBranch().isEmpty() && !downloads.simBuild().isEmpty();
             builder.upgradeMode(downloads.mode() == null ? UpgradeMode.SKIP : downloads.mode())
-                    .dist(first(downloads.dist(), LaunchConfig.DEFAULT_DIST))
+                    .dist(first("", downloads.dist(), LaunchConfig.DEFAULT_DIST))
                     .commanderBranch(commander ? downloads.commanderBranch() : "")
                     .commanderBuild(commander ? downloads.commanderBuild() : "")
                     .localBuild(downloads.commanderBranch().isEmpty() ? downloads.localBuild() : "")
@@ -155,7 +150,41 @@ public final class LaunchDefaults {
         return builder.build();
     }
 
-    private static String first(String saved, String fallback) {
+    /**
+     * What every run built from the saved choices starts from, for {@code launch} and the web alike: the rig, the
+     * test-plan branch ({@code branch} when typed), the Commander Connect settings (the password from the file, else
+     * the environment) and {@code provision_register} on.
+     */
+    static LaunchConfig.Builder savedBase(String rig, String branch, LastConfig saved, Map<String, String> env) {
+        return new LaunchConfig.Builder(rig == null ? "" : rig)
+                .testPlanBranch(first(branch, saved.testPlanBranch(), LaunchConfig.DEFAULT_TEST_PLAN_BRANCH))
+                .commanderConnect(saved.commanderConnect(env))
+                .provisionRegister(true);
+    }
+
+    /**
+     * The saved Downloads section onto {@code builder}, a typed value winning over each (the web types none): the
+     * upgrade mode, the dist, and the builds as {@link LastConfig#downloads} resolves them. A saved upgrade mode
+     * nobody knows is an {@link IllegalArgumentException}.
+     */
+    static LaunchConfig.Builder savedDownloads(LaunchConfig.Builder builder, LastConfig saved, String upgrade,
+            String dist, String commanderBranch, String commanderBuild, String simBranch, String simBuild) {
+        builder.upgradeMode(UpgradeMode.of(first(upgrade, saved.upgrade(), UpgradeMode.SKIP.wire())))
+                .dist(first(dist, saved.dist(), LaunchConfig.DEFAULT_DIST));
+        LastConfig.Downloads chosen = saved.downloads(commanderBranch, commanderBuild, simBranch, simBuild);
+        return builder.commanderBranch(chosen.commanderBranch())
+                .commanderBuild(chosen.commanderBuild())
+                .foundationBranch(chosen.foundationBranch())
+                .foundationBuild(chosen.foundationBuild())
+                .simBranch(chosen.simBranch())
+                .simBuild(chosen.simBuild());
+    }
+
+    /** {@code typed} when it is not blank, else {@code saved} when it is not, each stripped; else {@code fallback}. */
+    static String first(String typed, String saved, String fallback) {
+        if (typed != null && !typed.isBlank()) {
+            return typed.strip();
+        }
         return saved != null && !saved.isBlank() ? saved.strip() : fallback;
     }
 
@@ -168,7 +197,7 @@ public final class LaunchDefaults {
     public static LaunchPaths withNetwork(LaunchPaths paths, Path home) {
         AtlassianClient client = AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(),
                 ATLASSIAN_TIMEOUT);
-        PlanCatalogue catalogue = new PlanCatalogue(home.resolve(".cat").resolve("java"), home.resolve(".cat"),
+        PlanCatalogue catalogue = new PlanCatalogue(CatHome.java(home), CatHome.python(home),
                 new AtlassianPlanSource(client), new SeedPlanSource(), paths.repoRoot());
         return new LaunchPaths(paths.resultsRoot(), paths.rigsDir(), paths.leaseDir(), paths.repoRoot(),
                 paths.petroappsRoot(), catalogue, paths.setupEnv(), paths.pythonRoot());
