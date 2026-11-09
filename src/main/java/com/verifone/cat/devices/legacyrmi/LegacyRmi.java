@@ -7,10 +7,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.posshim.ShimReplies.KeyPressResult;
@@ -436,16 +436,7 @@ public final class LegacyRmi {
 
     /** A bounded pause: parks until the deadline, never past it, and keeps an interrupt for the caller. */
     static void park(Duration duration) {
-        long deadline = System.nanoTime() + duration.toNanos();
-        long left = deadline - System.nanoTime();
-        while (left > 0) {
-            LockSupport.parkNanos(left);
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            left = deadline - System.nanoTime();
-        }
+        Waits.pause(duration);
     }
 
     /**

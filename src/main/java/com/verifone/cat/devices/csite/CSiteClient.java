@@ -2,6 +2,7 @@ package com.verifone.cat.devices.csite;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceProtocolError;
 import com.verifone.cat.devices.DeviceUnreachable;
@@ -86,7 +87,7 @@ public final class CSiteClient {
     /** The JSON headers every request carries. */
     static final Map<String, String> ACCEPT_JSON = Map.of("Accept", "application/json");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final String WHAT = "C-Site";
 
     private final CSiteSettings settings;

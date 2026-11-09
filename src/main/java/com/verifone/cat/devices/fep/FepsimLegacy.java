@@ -16,6 +16,7 @@ import java.util.Optional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceUnreachable;
 import com.verifone.cat.pats.runner.handlers.configuration.BuypassV2;
@@ -54,7 +55,7 @@ public record FepsimLegacy(String admin, String fep, int port, Path packets) imp
     /** Each admin call is a local round trip; v2 answered these in well under a second. */
     public static final Duration ADMIN_TIMEOUT = Duration.ofSeconds(10);
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(ADMIN_TIMEOUT)
             .followRedirects(HttpClient.Redirect.NEVER)
