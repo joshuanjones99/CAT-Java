@@ -51,9 +51,4 @@ final class Bounded {
             LockSupport.parkNanos(Math.min(interval.toNanos(), remaining));
         }
     }
-
-    /** A bounded pause between attempts of a retry loop: a park, not {@code Thread.sleep}. */
-    static void pause(Duration pause) {
-        LockSupport.parkNanos(pause.toNanos());
-    }
 }

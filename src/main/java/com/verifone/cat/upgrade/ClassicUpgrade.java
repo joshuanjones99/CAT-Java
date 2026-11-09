@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 
 import org.w3c.dom.Element;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.commander.CgiReplies;
 import com.verifone.cat.devices.commander.PdkShim;
@@ -117,7 +118,7 @@ public final class ClassicUpgrade {
             // CICDScript.bat's :InitiateUpgrade waits here before the Commander's CGI surface will answer at all.
             log.accept("overlay pushed; waiting " + settings.overlaySettle().toSeconds()
                     + " s for the Commander's CGI surface");
-            Bounded.pause(settings.overlaySettle());
+            Waits.pause(settings.overlaySettle());
             Supplier<String> readOtp = () -> box.run("cat /var/logins/tat", ssh).stdout().strip();
             try {
                 results.add(runCgiUpgradeDance(cgi.apply(commander.host()), readOtp, settings.pollTimeout(),

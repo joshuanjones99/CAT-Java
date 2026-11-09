@@ -23,6 +23,7 @@ import org.xml.sax.SAXException;
 import com.microsoft.playwright.PlaywrightException;
 import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.commander.Say;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.commander.PdkShim;
 import com.verifone.cat.pos.Locators;
@@ -166,7 +167,7 @@ public final class PsiInit {
                     : new PdkShim(host, PdkShim.COMMANDER_READ_TIMEOUT, readOtp, password, mayBeExpired);
             return shim::sendCommand;
         };
-        return new PsiInit(cgi, CDP_REGISTERS, defaultPsiMessageFile(), Bounded::pause, say);
+        return new PsiInit(cgi, CDP_REGISTERS, defaultPsiMessageFile(), Waits::pause, say);
     }
 
     /** {@code ~/psi_message.txt}. */

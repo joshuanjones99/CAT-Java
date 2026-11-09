@@ -12,6 +12,7 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -112,11 +113,7 @@ public final class CommanderTrust {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("no SHA-256 in this JDK", e);
         }
-        List<String> pairs = new ArrayList<>();
-        for (byte b : digest) {
-            pairs.add(String.format("%02X", b & 0xff));
-        }
-        return String.join(":", pairs);
+        return HexFormat.ofDelimiter(":").withUpperCase().formatHex(digest);
     }
 
     /** {@code shlex.quote}: a word as the shell reads it back unchanged. */

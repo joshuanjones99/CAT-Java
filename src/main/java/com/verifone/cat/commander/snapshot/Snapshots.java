@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * Where snapshots live, what a snapshot folder holds, and which one a Commander build may restore. A port of
@@ -54,7 +55,7 @@ public final class Snapshots {
     /** suiteinfo.dat's key for the build's own time. */
     public static final String BUILD_TIME = "Timestamp";
 
-    static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private static final DefaultPrettyPrinter PRETTY = new DefaultPrettyPrinter()
             .withObjectIndenter(new DefaultIndenter("  ", "\n"));

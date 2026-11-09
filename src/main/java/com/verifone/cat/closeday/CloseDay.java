@@ -16,6 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.Transport;
 import com.verifone.cat.report.ReportPaths;
@@ -107,6 +108,8 @@ public final class CloseDay {
     private static final Pattern FORCE_AEOD = Pattern.compile("<forceAEOD>\\s*true\\s*</forceAEOD>");
     private static final Pattern BRAND = Pattern.compile("<brandSelection>([^<]*)</brandSelection>");
     private static final Pattern WAITING = Pattern.compile("^\"([^\"]+)\":\\n  waiting to lock", Pattern.MULTILINE);
+    private static final DateTimeFormatter DUMP_DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DUMP_TIME = DateTimeFormatter.ofPattern("HHmmss");
 
     private final CommanderAccess commander;
     private final RegisterPass register;
@@ -369,10 +372,7 @@ public final class CloseDay {
     private void restartCoresvcs(Transport ssh, String before) {
         ssh.run(CORESVCS_RESTART, CommanderAccess.SSH_TIMEOUT);
         Waits.pause(timing.restartWait());
-        Optional<Boolean> back = Waits.<Boolean>until(
-                () -> coresvcsBack(ssh, before) ? Optional.of(Boolean.TRUE) : Optional.<Boolean>empty(),
-                timing.restartTimeout(), timing.restartPoll());
-        if (back.isEmpty()) {
+        if (!Waits.poll(() -> coresvcsBack(ssh, before), timing.restartTimeout(), timing.restartPoll())) {
             throw new DeviceError("coresvcs to come back (a new coresvcs VM that answers CGILink reads) did not happen "
                     + "within " + Durations.format(timing.restartTimeout()));
         }
@@ -398,8 +398,8 @@ public final class CloseDay {
     /** Saves a deadlocked coresvcs's thread dump for the defect report. Best effort. */
     private void keepDump(String dump) {
         LocalDateTime now = LocalDateTime.now();
-        Path folder = resultsRoot.resolve("defect-evidence").resolve(now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-        Path path = folder.resolve("coresvcs-deadlock-jstack-" + now.format(DateTimeFormatter.ofPattern("HHmmss")) + ".txt");
+        Path folder = resultsRoot.resolve("defect-evidence").resolve(now.format(DUMP_DAY));
+        Path path = folder.resolve("coresvcs-deadlock-jstack-" + now.format(DUMP_TIME) + ".txt");
         try {
             Files.createDirectories(folder);
             Files.writeString(path, dump, StandardCharsets.UTF_8);

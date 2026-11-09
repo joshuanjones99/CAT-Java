@@ -3,11 +3,11 @@ package com.verifone.cat.upgrade;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
@@ -118,7 +118,7 @@ final class RootAccess {
     /** One {@code -q lic} push; {@code null} on success, else the failed result. */
     private static StepResult pushLic(UpgradePushTools tools, Jars jars, String host, String packagePath,
             Duration timeout) {
-        List<String> argv = jarArgv(tools.javaBin(), tools.autoUpgradeJarPath(),
+        List<String> argv = List.of(tools.javaBin(), "-jar", tools.autoUpgradeJarPath(),
                 "-q", "lic", packagePath, host, "443", "0");
         Jars.Result result;
         try {
@@ -201,13 +201,7 @@ final class RootAccess {
                 return StepResult.failed(step, "root access on " + target.name() + " not confirmed within "
                         + retryFor.toSeconds() + " s; last: " + result.detail());
             }
-            Bounded.pause(Duration.ofNanos(Math.min(retryInterval.toNanos(), remaining)));
+            Waits.pause(Duration.ofNanos(Math.min(retryInterval.toNanos(), remaining)));
         }
-    }
-
-    private static List<String> jarArgv(String java, String jar, String... args) {
-        List<String> argv = new ArrayList<>(List.of(java, "-jar", jar));
-        argv.addAll(List.of(args));
-        return argv;
     }
 }

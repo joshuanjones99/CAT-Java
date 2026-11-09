@@ -24,6 +24,7 @@ import com.verifone.cat.collect.Collect;
 import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.commander.CommanderInit;
 import com.verifone.cat.commander.Pauser;
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.devices.commander.CgiReplies.CgiFunction;
 import com.verifone.cat.pats.PatsCaseLoader;
 import com.verifone.cat.pats.runner.RunnableAction;
@@ -129,8 +130,7 @@ public final class CommanderSnapshotCommand {
 
     /** {@code ~/.cat/java/cases-<plan>.json}, else the Python CAT's {@code ~/.cat}, else the shipped seed. */
     private static Optional<List<String>> caseList(String plan) {
-        Path home = Path.of(System.getProperty("user.home"), ".cat");
-        Optional<Path> file = Collect.defaultCaseFile(plan, home.resolve("java"), home);
+        Optional<Path> file = Collect.defaultCaseFile(plan, CatHome.java(), CatHome.python());
         if (file.isPresent()) {
             return Optional.of(Collect.readCaseList(file.get()));
         }

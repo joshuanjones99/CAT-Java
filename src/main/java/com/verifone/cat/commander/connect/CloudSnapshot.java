@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.devices.csite.CSiteClient;
 import com.verifone.cat.devices.csite.CSiteResponse;
 
@@ -64,7 +65,8 @@ public final class CloudSnapshot {
     public static final List<String> SITE_KEYS = List.of("site");
 
     private static final Pattern DATASET = Pattern.compile("pcms/v1/config/\\{service_id\\}/([A-Za-z]+)");
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
+    private static final DateTimeFormatter CAPTURED_AT = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx");
     private static final JsonNodeFactory NODES = JsonNodeFactory.instance;
 
     private CloudSnapshot() {}
@@ -331,7 +333,7 @@ public final class CloudSnapshot {
                     continue;
                 }
                 Files.writeString(directory.resolve(name + ".json"),
-                        JSON.writerWithDefaultPrettyPrinter().writeValueAsString(sorted(reading.body())) + "\n",
+                        Json.PRETTY.writeValueAsString(sorted(reading.body())) + "\n",
                         StandardCharsets.UTF_8);
                 Items found = itemsAt(reading.body());
                 if (found == null) {
@@ -352,10 +354,10 @@ public final class CloudSnapshot {
             manifest.put("format", FORMAT);
             manifest.put("service_id", cloud.serviceId());
             manifest.put("captured_at", OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC)
-                    .truncatedTo(ChronoUnit.SECONDS).format(DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx")));
+                    .truncatedTo(ChronoUnit.SECONDS).format(CAPTURED_AT));
             manifest.set("datasets", datasets);
             Files.writeString(directory.resolve(MANIFEST),
-                    JSON.writerWithDefaultPrettyPrinter().writeValueAsString(manifest) + "\n", StandardCharsets.UTF_8);
+                    Json.PRETTY.writeValueAsString(manifest) + "\n", StandardCharsets.UTF_8);
             return manifest;
         } catch (IOException e) {
             throw new UncheckedIOException(e);

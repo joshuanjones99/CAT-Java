@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import com.verifone.cat.commander.Pauser;
+import com.verifone.cat.core.Hashes;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceUnreachable;
 import com.verifone.cat.devices.commander.CgiReplies.CgiFunction;
@@ -282,7 +283,7 @@ public final class Capture {
                 }
                 byte[] data = Files.readAllBytes(path);
                 Object content = entry.get("content_sha256");
-                if (content instanceof String sha && !sha.isEmpty() && !Normalise.sha256Hex(data).equals(sha)) {
+                if (content instanceof String sha && !sha.isEmpty() && !Hashes.sha256Hex(data).equals(sha)) {
                     throw new IllegalArgumentException("area file checksum mismatch");
                 }
                 StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
@@ -437,7 +438,7 @@ public final class Capture {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("file", name);
             entry.put("sha256", Normalise.digest(area, text));
-            entry.put("content_sha256", Normalise.sha256Hex(data));
+            entry.put("content_sha256", Hashes.sha256Hex(data));
             entry.put("bytes", data.length);
             entry.put("parsed", parses(text));
             entry.put("otp", otp.getOrDefault("v" + Areas.baseArea(area), false));
