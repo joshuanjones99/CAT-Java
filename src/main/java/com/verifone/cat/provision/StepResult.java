@@ -1,5 +1,7 @@
 package com.verifone.cat.provision;
 
+import com.verifone.cat.provision.transport.CommandResult;
+
 /**
  * One checklist step's outcome. A port of {@code petrotest.provision.checklist.StepResult}.
  *
@@ -11,6 +13,12 @@ public record StepResult(String step, StepStatus status, String detail, boolean 
 
     public StepResult(String step, StepStatus status, String detail) {
         this(step, status, detail, false);
+    }
+
+    /** FAILED for a remote command that exited non-zero: {@code "<what> exited <status>: <its stderr>"}. */
+    static StepResult exited(String step, String what, CommandResult result) {
+        return new StepResult(step, StepStatus.FAILED, what + " exited " + result.exitStatus() + ": "
+                + result.stderr().strip());
     }
 
     /** DONE, ALREADY and SKIPPED pass; only FAILED does not. A skipped step is reported, not hidden. */

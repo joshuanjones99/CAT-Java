@@ -28,11 +28,6 @@ public enum Rung {
         return ordinal() + ":" + name();
     }
 
-    /** DESIGN.md 6.3: "Rungs 1-3 should cost seconds and handle the common cases." */
-    public boolean isCheap() {
-        return this.compareTo(SOFT) >= 0 && this.compareTo(RESET) <= 0;
-    }
-
     /** DESIGN.md 6.3: a drift toward rungs 4-5 "is a hardware or design signal, not noise". */
     public boolean isStructuralSignal() {
         return this == PREFLIGHT || this == REPROVISION;

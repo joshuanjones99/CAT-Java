@@ -370,7 +370,7 @@ public final class PosShimBuild {
                 out.closeEntry();
             }
         }
-        say.accept("  wrote " + jar + " (" + String.format(Locale.ROOT, "%,d", Files.size(jar)) + " bytes)");
+        sayWrote(jar, say);
     }
 
     /** The launcher, LF only: run by {@code /bin/sh} on the register, a CR breaks its shebang line. */
@@ -379,13 +379,17 @@ public final class PosShimBuild {
         String text = Files.readString(source, StandardCharsets.UTF_8).replace("\r\n", "\n");
         Path dest = payload.resolve(ShimStamp.LAUNCHER_NAME);
         Files.write(dest, text.getBytes(StandardCharsets.UTF_8));
-        say.accept("  wrote " + dest + " (" + String.format(Locale.ROOT, "%,d", Files.size(dest)) + " bytes)");
+        sayWrote(dest, say);
     }
 
     static void writeTokenRmiProp(Path payload, Consumer<String> say) throws IOException {
         Path dest = payload.resolve("tokenRMI.prop");
         Files.write(dest, TOKEN_RMI_PROP.getBytes(StandardCharsets.UTF_8));
-        say.accept("  wrote " + dest + " (" + String.format(Locale.ROOT, "%,d", Files.size(dest)) + " bytes)");
+        sayWrote(dest, say);
+    }
+
+    private static void sayWrote(Path file, Consumer<String> say) throws IOException {
+        say.accept("  wrote " + file + " (" + String.format(Locale.ROOT, "%,d", Files.size(file)) + " bytes)");
     }
 
     private static void printed(String output, Consumer<String> say) {

@@ -112,7 +112,8 @@ public final class BrowserOverride {
 
     private static final Duration VERIFY_INTERVAL = Duration.ofSeconds(1);
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** The shared mapper, by its full name: this package has its own {@code Json}. */
+    private static final ObjectMapper JSON = com.verifone.cat.core.Json.MAPPER;
 
     /** One client for every probe: a JDK 17 client cannot be closed, so one per probe would leak its selector. */
     private static final HttpClient HTTP = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
@@ -180,8 +181,7 @@ public final class BrowserOverride {
             CommandResult launched = transport.run("nohup " + RELAY_BOOT_SCRIPT_PATH
                     + " < /dev/null > /dev/null 2>&1 &", timeout);
             if (!launched.ok()) {
-                return new StepResult(step, StepStatus.FAILED, RELAY_BOOT_SCRIPT_PATH + " exited "
-                        + launched.exitStatus() + ": " + launched.stderr().strip());
+                return StepResult.exited(step, RELAY_BOOT_SCRIPT_PATH, launched);
             }
             return new StepResult(step, StepStatus.DONE, RELAY_BOOT_SCRIPT_PATH + " run: the relay 0.0.0.0:"
                     + relayPort + " -> 127.0.0.1:" + cdpPort + " is kept running (restarted if it exits, replaced"
@@ -202,8 +202,7 @@ public final class BrowserOverride {
         CommandResult launch = transport.run("nohup su - topaz -c '" + inner + "' < /dev/null > /dev/null 2>&1 &",
                 timeout);
         if (!launch.ok()) {
-            return new StepResult(step, StepStatus.FAILED, "launching the relay exited " + launch.exitStatus() + ": "
-                    + launch.stderr().strip());
+            return StepResult.exited(step, "launching the relay", launch);
         }
         return new StepResult(step, StepStatus.DONE, "relay launch requested: 0.0.0.0:" + relayPort
                 + " -> 127.0.0.1:" + cdpPort + " — not yet confirmed reachable off-box (nor that it has actually"
@@ -441,8 +440,7 @@ public final class BrowserOverride {
         }
         CommandResult chmod = transport.run("chmod -x " + RUNBROWSER_PATH, timeout);
         if (!chmod.ok()) {
-            return new StepResult(step, StepStatus.FAILED, "chmod -x " + RUNBROWSER_PATH + " exited "
-                    + chmod.exitStatus() + ": " + chmod.stderr().strip());
+            return StepResult.exited(step, "chmod -x " + RUNBROWSER_PATH, chmod);
         }
 
         boolean restarted = false;

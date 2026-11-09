@@ -15,6 +15,7 @@ import java.util.concurrent.locks.LockSupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * Exclusive use of one rig, so that two shards cannot drive the same Commander at once.
@@ -44,7 +45,7 @@ public final class RigLease implements AutoCloseable {
     public static final Duration DEFAULT_POLL_INTERVAL = Duration.ofMillis(250);
 
     private static final String LEASE_DIRNAME = "petrotest-leases";
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private final String rigName;
     private final Path leaseDir;
@@ -70,11 +71,6 @@ public final class RigLease implements AutoCloseable {
             } catch (IOException e) {
                 throw new IllegalStateException("cannot render a lease record", e);
             }
-        }
-
-        /** How long the lease has been held. */
-        public Duration heldFor() {
-            return Duration.between(acquiredAt, Instant.now());
         }
     }
 
@@ -158,7 +154,7 @@ public final class RigLease implements AutoCloseable {
                 Duration remaining = Duration.between(Instant.now(), deadline);
                 if (remaining.isZero() || remaining.isNegative()) {
                     throw new RigBusyException("rig '" + rigName + "' is leased by another shard and did not free within "
-                            + Durations.format(window) + " (" + describeCurrentHolder() + "). "
+                            + Durations.format(window) + " (" + describeHolder() + "). "
                             + "DESIGN.md §5.5: one shard at a time per rig. Either add rigs (§9) or reduce -n.");
                 }
                 Duration nap = interval.compareTo(remaining) < 0 ? interval : remaining;
@@ -201,7 +197,13 @@ public final class RigLease implements AutoCloseable {
 
     /** Who last recorded holding this lease and since when, for an error message. */
     public String describeHolder() {
-        return describeCurrentHolder();
+        try {
+            JsonNode record = JSON.readTree(Files.readString(holderPath));
+            return "last recorded holder: " + record.path("holder").asText() + " since "
+                    + record.path("acquired_at").asText();
+        } catch (IOException | RuntimeException e) {
+            return "holder unknown";
+        }
     }
 
     private FileLock tryLock(FileChannel fc) {
@@ -228,16 +230,6 @@ public final class RigLease implements AutoCloseable {
             Files.deleteIfExists(holderPath);
         } catch (IOException ignored) {
             // Advisory only.
-        }
-    }
-
-    private String describeCurrentHolder() {
-        try {
-            JsonNode record = JSON.readTree(Files.readString(holderPath));
-            return "last recorded holder: " + record.path("holder").asText() + " since "
-                    + record.path("acquired_at").asText();
-        } catch (IOException | RuntimeException e) {
-            return "holder unknown";
         }
     }
 
