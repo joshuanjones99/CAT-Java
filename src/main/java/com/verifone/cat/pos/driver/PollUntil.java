@@ -1,15 +1,16 @@
 package com.verifone.cat.pos.driver;
 
 import java.time.Duration;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+
+import com.verifone.cat.core.Waits;
 
 /**
  * Wait for an observable condition, bounded. Port of {@code recovery.timeouts.poll_until}: the
  * shape every wait in the POS layer takes (DESIGN.md 4.2 rule 2, 6.3). The gap between probes is
- * a bounded latch wait, not a sleep.
+ * a bounded park ({@link Waits#until}), not a sleep.
  *
  * <p>A predicate that throws propagates at once: a broken probe is not a condition that is not
  * yet true (the Python's rule).
@@ -28,23 +29,13 @@ public final class PollUntil {
      * and fetch in one step.
      */
     public static <T> T value(Supplier<T> predicate, Duration timeout, Duration interval, String what) {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        CountDownLatch tick = new CountDownLatch(1);
-        while (true) {
-            T result = predicate.get();
-            if (result != null) {
-                return result;
-            }
-            long remaining = deadline - System.nanoTime();
-            if (remaining <= 0) {
-                throw new DriverTimeout(what + ": not true within " + timeout.toMillis() + " ms");
-            }
-            try {
-                tick.await(Math.min(interval.toNanos(), remaining), TimeUnit.NANOSECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new DriverTimeout(what + " (interrupted)");
-            }
+        Optional<T> result = Waits.until(() -> Optional.ofNullable(predicate.get()), timeout, interval);
+        if (result.isPresent()) {
+            return result.get();
         }
+        if (Thread.currentThread().isInterrupted()) {
+            throw new DriverTimeout(what + " (interrupted)");
+        }
+        throw new DriverTimeout(what + ": not true within " + timeout.toMillis() + " ms");
     }
 }

@@ -1,6 +1,6 @@
 package com.verifone.cat.pos.fake;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -43,8 +43,6 @@ public final class FakePos implements AutoCloseable {
         /** No hooks: the fake POS runs with no pinpad behind it. */
         public static final Hooks NONE = new Hooks(null, null);
     }
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final Hooks hooks;
     private final FakePosState state = new FakePosState();
@@ -147,7 +145,7 @@ public final class FakePos implements AutoCloseable {
     }
 
     private static void json(HttpExchange exchange, Map<String, Object> body) throws IOException {
-        respond(exchange, 200, "application/json", JSON.writeValueAsString(body));
+        respond(exchange, 200, "application/json", Json.MAPPER.writeValueAsString(body));
     }
 
     private static void respond(HttpExchange exchange, int status, String type, String text)

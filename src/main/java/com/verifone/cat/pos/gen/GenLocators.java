@@ -1,7 +1,7 @@
 package com.verifone.cat.pos.gen;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -120,7 +120,7 @@ public final class GenLocators {
                 }
             }
         }
-        JsonNode data = new ObjectMapper().readTree(Files.readString(source, StandardCharsets.UTF_8));
+        JsonNode data = Json.MAPPER.readTree(Files.readString(source, StandardCharsets.UTF_8));
         String text = build(data);
         if (check) {
             String existing = Files.exists(target)

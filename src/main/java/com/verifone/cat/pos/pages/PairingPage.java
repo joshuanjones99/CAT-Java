@@ -2,9 +2,9 @@ package com.verifone.cat.pos.pages;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.locks.LockSupport;
 
 import com.microsoft.playwright.PlaywrightException;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
 import com.verifone.cat.pos.driver.PosDriver;
@@ -40,7 +40,7 @@ public class PairingPage extends BasePage {
                     throw e;
                 }
                 last = e;
-                LockSupport.parkNanos(NAVIGATION_PAUSE.toNanos());
+                Waits.pause(NAVIGATION_PAUSE);
             }
         }
         throw last;
