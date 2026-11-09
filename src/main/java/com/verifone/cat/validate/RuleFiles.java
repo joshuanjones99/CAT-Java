@@ -1,5 +1,8 @@
 package com.verifone.cat.validate;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -40,6 +43,20 @@ public final class RuleFiles {
             return existing(Path.of(root).resolve(relpath));
         }
         return Optional.empty();
+    }
+
+    /** A rule file's text, decoded as UTF-8 (malformed bytes are replaced, not refused). */
+    public static String readText(Path file) {
+        return new String(readBytes(file), StandardCharsets.UTF_8);
+    }
+
+    /** A rule file's bytes. */
+    public static byte[] readBytes(Path file) {
+        try {
+            return Files.readAllBytes(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException("cannot read " + file, e);
+        }
     }
 
     private static Optional<Path> existing(Path candidate) {

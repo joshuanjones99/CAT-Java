@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.atlassian.AtlassianCredentials;
 import com.verifone.cat.atlassian.AtlassianUnavailable;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.coverage.CoverageSummary;
 
 /**
@@ -59,9 +60,10 @@ public final class Attach {
             "  --summary   the coverage summary.json",
             "  --issue     a Jira key; repeatable");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final DateTimeFormatter ISO =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSxxx");
+    private static final DateTimeFormatter LOG_STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss,SSS");
 
     /** Attaches a bundle to issues: issue to {@code "ok"} or the error. The seam {@link #main} calls. */
     @FunctionalInterface
@@ -113,12 +115,12 @@ public final class Attach {
      * never stops the others.
      */
     public static Map<String, String> attach(List<String> issues, Path bundle, Path summaryPath, XrayClient client,
-            AttachUpload upload, Consumer<String> log) {
+            Consumer<String> log) {
         Map<String, String> outcome = new LinkedHashMap<>();
         JsonNode body = Adf.toAdf(commentBlocks(summaryPath));
         for (String issue : issues) {
             try {
-                client.attachFile(issue, bundle, upload);
+                client.attachFile(issue, bundle);
                 client.addComment(issue, body);
                 outcome.put(issue, "ok");
                 log.accept(line("INFO", issue + ": attached " + bundle.getFileName()));
@@ -147,8 +149,7 @@ public final class Attach {
                     throw new AtlassianUnavailable("the coverage upload never calls Xray");
                 }, Duration.ofSeconds(30));
         XrayClient client = new XrayClient(atlassian, Duration.ofSeconds(20), null);
-        AttachUpload upload = new AttachUpload(AtlassianClient.SITE, () -> jira, AttachUpload.DEFAULT_TIMEOUT);
-        return attach(issues, bundle, summary, client, upload, line -> System.out.println(line));
+        return attach(issues, bundle, summary, client, line -> System.out.println(line));
     }
 
     /** Parses the arguments, attaches, writes {@code coverage-attach.json}; 0 whatever Jira did, 2 on a usage error. */
@@ -195,7 +196,7 @@ public final class Attach {
         try {
             Path dir = Path.of(runDir);
             Files.createDirectories(dir);
-            Files.writeString(dir.resolve(STATUS_FILE), JSON.writerWithDefaultPrettyPrinter().writeValueAsString(status),
+            Files.writeString(dir.resolve(STATUS_FILE), Json.PRETTY.writeValueAsString(status),
                     StandardCharsets.UTF_8);
         } catch (IOException e) {
             log.accept(line("ERROR", "could not write " + STATUS_FILE + ": " + e.getMessage()));
@@ -220,7 +221,7 @@ public final class Attach {
 
     /** One log line in the Python's {@code %(asctime)s %(levelname)s %(name)s: %(message)s} shape. */
     private static String line(String level, String message) {
-        return OffsetDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss,SSS")) + " " + level + " "
+        return OffsetDateTime.now().format(LOG_STAMP) + " " + level + " "
                 + LOGGER + ": " + message;
     }
 }

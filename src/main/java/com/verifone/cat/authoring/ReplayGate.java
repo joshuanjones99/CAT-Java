@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.launch.LaunchConfig;
 import com.verifone.cat.launch.UpgradeMode;
 import com.verifone.cat.runconfig.RunScope;
@@ -83,7 +84,7 @@ public final class ReplayGate {
 
     /** {@code ~/.cat/java/generated}: where replayed suites are written. */
     public static Path defaultRoot() {
-        return Path.of(System.getProperty("user.home"), ".cat", "java", "generated");
+        return CatHome.java().resolve("generated");
     }
 
     /**

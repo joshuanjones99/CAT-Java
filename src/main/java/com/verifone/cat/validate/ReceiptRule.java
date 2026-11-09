@@ -1,9 +1,5 @@
 package com.verifone.cat.validate;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,7 +11,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -253,7 +248,7 @@ public record ReceiptRule(
         if (source.isEmpty()) {
             return new SeedDrift(false, null, Set.of(), Set.of());
         }
-        Set<String> live = new LinkedHashSet<>(parseReceiptRuleText(readText(source.get())));
+        Set<String> live = new LinkedHashSet<>(parseReceiptRuleText(RuleFiles.readText(source.get())));
         Set<String> seed = new LinkedHashSet<>(SEEDED.tokens());
         Set<String> added = new LinkedHashSet<>(live);
         added.removeAll(seed);
@@ -261,13 +256,5 @@ public record ReceiptRule(
         Set<String> removed = new LinkedHashSet<>(seed);
         removed.removeAll(live);
         return new SeedDrift(true, source.get(), added, removed);
-    }
-
-    private static String readText(Path file) {
-        try {
-            return new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException("cannot read " + file, e);
-        }
     }
 }

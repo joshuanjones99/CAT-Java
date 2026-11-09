@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import com.verifone.cat.core.CatHome;
+
 /**
  * The Atlassian credentials file, read the way the Python CAT's {@code cat.atlassian} reads it.
  *
@@ -56,8 +58,8 @@ public final class AtlassianCredentials {
      * login) when it exists, else {@code %USERPROFILE%\jira_api_token.properties}, the file the Python CAT reads.
      */
     public static Path defaultPath() {
-        Path home = Path.of(System.getProperty("user.home"));
-        Path own = home.resolve(".cat").resolve("java").resolve("jira_api_token.properties");
+        Path home = CatHome.user();
+        Path own = CatHome.java(home).resolve("jira_api_token.properties");
         return java.nio.file.Files.isRegularFile(own) ? own : home.resolve("jira_api_token.properties");
     }
 

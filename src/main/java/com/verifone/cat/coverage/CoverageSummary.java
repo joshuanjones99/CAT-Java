@@ -26,6 +26,7 @@ import org.w3c.dom.NodeList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * A coverage report's numbers: each component's counters, and the change from a baseline. The Python's
@@ -52,7 +53,7 @@ public final class CoverageSummary {
     /** The counters shown, in column order. */
     public static final List<String> SHOWN = List.of("LINE", "BRANCH", "METHOD", "CLASS");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     public String runId = "";
     public String build = "";
@@ -148,7 +149,7 @@ public final class CoverageSummary {
     public void write(Path directory) {
         try {
             Files.writeString(directory.resolve(SUMMARY_JSON),
-                    JSON.writerWithDefaultPrettyPrinter().writeValueAsString(toJson()), StandardCharsets.UTF_8);
+                    Json.PRETTY.writeValueAsString(toJson()), StandardCharsets.UTF_8);
             Files.writeString(directory.resolve(SUMMARY_MD), markdown(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);

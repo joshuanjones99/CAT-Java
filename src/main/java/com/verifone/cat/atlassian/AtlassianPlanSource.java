@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.plans.PlanCase;
 import com.verifone.cat.plans.PlanRequirements;
 import com.verifone.cat.plans.PlanSource;
@@ -56,7 +57,7 @@ public final class AtlassianPlanSource implements PlanSource {
               } }
             }""";
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private final AtlassianClient client;
     private final int pageSize;

@@ -32,6 +32,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.verifone.cat.authoring.Check.Analysis;
 import com.verifone.cat.authoring.Check.Diagnostic;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.validate.PyRepr;
 
 /**
@@ -71,7 +73,7 @@ public final class Draft {
     public static final Map<String, Object> ANSWER_SCHEMA = schema();
 
     private static final List<String> KEYWORDS = List.of("Given ", "When ", "Then ", "And ", "But ");
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final String RULES = "/com/verifone/cat/authoring/drafting.md";
 
     private Draft() {}
@@ -242,7 +244,7 @@ public final class Draft {
     /** One {@code claude -p} request with the process environment: {@code $CAT_CLAUDE} or {@code claude} on PATH. */
     public static ClaudeAnswer runClaude(String prompt, String model, Double budgetUsd, Duration timeout) {
         Map<String, String> env = System.getenv();
-        Path tmp = Path.of(System.getProperty("user.home"), ".cat", "java", "tmp");
+        Path tmp = CatHome.java().resolve("tmp");
         return runClaude(claudeCommand(env), prompt, model, budgetUsd, timeout, tmp);
     }
 

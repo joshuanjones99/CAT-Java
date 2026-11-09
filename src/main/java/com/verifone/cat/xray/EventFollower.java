@@ -1,6 +1,5 @@
 package com.verifone.cat.xray;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
@@ -18,6 +17,7 @@ import java.util.function.DoublePredicate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * Follows a run's {@code events.ndjson} as the controller's tee appends to it. Port of the Python
@@ -35,7 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public final class EventFollower {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final byte[] LOG_LINE_TAIL = "\"type\": \"log.line\"}".getBytes(StandardCharsets.UTF_8);
     private static final Set<String> SKIPPED_TYPES = Set.of("log.line");
 
@@ -196,9 +196,11 @@ public final class EventFollower {
     }
 
     private static byte[] concat(byte[] head, byte[] tail) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream(head.length + tail.length);
-        out.write(head, 0, head.length);
-        out.write(tail, 0, tail.length);
-        return out.toByteArray();
+        if (head.length == 0) {
+            return tail;
+        }
+        byte[] out = Arrays.copyOf(head, head.length + tail.length);
+        System.arraycopy(tail, 0, out, head.length, tail.length);
+        return out;
     }
 }

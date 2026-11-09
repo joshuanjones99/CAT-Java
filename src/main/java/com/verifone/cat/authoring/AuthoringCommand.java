@@ -17,6 +17,7 @@ import com.verifone.cat.atlassian.AtlassianCredentials;
 import com.verifone.cat.authoring.Check.Diagnostic;
 import com.verifone.cat.authoring.Draft.DraftException;
 import com.verifone.cat.authoring.Draft.DraftResult;
+import com.verifone.cat.core.CatHome;
 
 /**
  * {@code cat-java authoring [--session latest|new|<dir>] (ingest <KEY> | add --title <t> --file <f> [--source
@@ -54,7 +55,7 @@ public final class AuthoringCommand {
     /** The production command: the operator's session root, Jira from the credentials file, Claude Code. */
     public AuthoringCommand() {
         this(Session.authoringRoot(System.getenv(),
-                Path.of(System.getProperty("user.home"), ".cat", "java", "authoring")),
+                CatHome.java().resolve("authoring")),
                 () -> AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(), JIRA_TIMEOUT), null);
     }
 

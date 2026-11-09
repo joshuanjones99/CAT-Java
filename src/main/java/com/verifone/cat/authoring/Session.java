@@ -1,14 +1,16 @@
 package com.verifone.cat.authoring;
 
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.verifone.cat.authoring.Check.Analysis;
 import com.verifone.cat.collect.Selection;
+import com.verifone.cat.core.Hashes;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.recorder.Recording;
 import com.verifone.cat.recorder.RecordingException;
 import com.verifone.cat.validate.PyRepr;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -16,8 +18,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -69,7 +70,7 @@ public final class Session {
     private static final Pattern TICKET = Pattern.compile("^PETROCORE-[1-9]\\d*$");
     private static final Pattern KEY_TAG = Pattern.compile("@PETROCORE-\\d+");
     private static final Pattern SCENARIO_NAME = Pattern.compile("^(\\s*Scenario(?: Outline)?:).*$", Pattern.MULTILINE);
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final DateTimeFormatter ISO_MILLIS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
     private static final DateTimeFormatter LOCAL_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -325,7 +326,7 @@ public final class Session {
             data.set("replay", JSON.valueToTree(replay.toJson()));
         }
         try {
-            String text = JSON.writer(new DefaultPrettyPrinter()).writeValueAsString(data) + "\n";
+            String text = Json.PRETTY.writeValueAsString(data) + "\n";
             writeAtomic(directory.resolve(SESSION_FILE), text);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -521,14 +522,18 @@ public final class Session {
 
     /** The case's baseline files, by name. */
     public List<Path> baselineFiles(Case c) {
-        Path folder = baselinesDir(c);
+        return filesByName(baselinesDir(c), name -> true);
+    }
+
+    /** The regular files of {@code folder} whose name passes {@code wanted}, by name; none when it is no folder. */
+    private static List<Path> filesByName(Path folder, Predicate<String> wanted) {
         List<Path> out = new ArrayList<>();
         if (!Files.isDirectory(folder)) {
             return out;
         }
         try (DirectoryStream<Path> listed = Files.newDirectoryStream(folder)) {
             for (Path p : listed) {
-                if (Files.isRegularFile(p)) {
+                if (Files.isRegularFile(p) && wanted.test(p.getFileName().toString())) {
                     out.add(p);
                 }
             }
@@ -604,23 +609,8 @@ public final class Session {
     }
 
     private static List<Path> capturedBaselines(Path directory, String key) {
-        List<Path> out = new ArrayList<>();
-        if (!Files.isDirectory(directory)) {
-            return out;
-        }
-        try (DirectoryStream<Path> listed = Files.newDirectoryStream(directory)) {
-            for (Path p : listed) {
-                String name = p.getFileName().toString();
-                if (Files.isRegularFile(p) && name.regionMatches(true, 0, key + "-", 0, key.length() + 1)
-                        && Selection.isBaseline(name, key)) {
-                    out.add(p);
-                }
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        out.sort(Comparator.comparing((Path p) -> p.getFileName().toString()));
-        return out;
+        return filesByName(directory, name -> name.regionMatches(true, 0, key + "-", 0, key.length() + 1)
+                && Selection.isBaseline(name, key));
     }
 
     /**
@@ -640,26 +630,19 @@ public final class Session {
 
     /** The SHA-256 of what a replay runs for this case: its rendered draft, and its approved baselines. */
     public String digest(Case c) {
-        try {
-            MessageDigest sha = MessageDigest.getInstance("SHA-256");
-            sha.update(rendered(c).getBytes(StandardCharsets.UTF_8));
-            if (Boolean.TRUE.equals(baselines.getOrDefault(c.id(), Map.of()).get("approved"))) {
-                for (Path path : baselineFiles(c)) {
-                    String tail = path.getFileName().toString().substring(BASE.length());
-                    sha.update(tail.getBytes(StandardCharsets.UTF_8));
-                    sha.update(Files.readAllBytes(path));
+        ByteArrayOutputStream content = new ByteArrayOutputStream();
+        content.writeBytes(rendered(c).getBytes(StandardCharsets.UTF_8));
+        if (Boolean.TRUE.equals(baselines.getOrDefault(c.id(), Map.of()).get("approved"))) {
+            for (Tail baseline : baselineTails(c)) {
+                content.writeBytes(baseline.tail().getBytes(StandardCharsets.UTF_8));
+                try {
+                    content.writeBytes(Files.readAllBytes(baseline.path()));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
             }
-            StringBuilder hex = new StringBuilder();
-            for (byte b : sha.digest()) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is required by every JVM", e);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
+        return Hashes.sha256Hex(content.toByteArray());
     }
 
     // -------------------------------------------------------------- helpers

@@ -16,6 +16,8 @@ import java.util.logging.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.report.ReportPaths;
 
 /**
@@ -59,7 +61,7 @@ public final class RunIndex {
 
     private record Entry(long size, long mtimeNs, RunSummary row) {}
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = Json.MAPPER;
 
     private RunIndex() {}
 
@@ -67,7 +69,7 @@ public final class RunIndex {
     public static Path indexPath(Map<String, String> env) {
         String configured = env.getOrDefault(INDEX_ENV, "").strip();
         return configured.isEmpty()
-                ? Path.of(System.getProperty("user.home"), ".cat", "java", INDEX_FILE)
+                ? CatHome.java().resolve(INDEX_FILE)
                 : Path.of(configured);
     }
 

@@ -11,6 +11,7 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.verifone.cat.core.Json;
 
 /**
  * Writes {@code index.json}: every file under a run folder, with its size in bytes and in
@@ -32,7 +33,7 @@ public final class ArtifactIndex {
 
     private static final String[] UNITS = {"B", "KB", "MB", "GB", "TB"};
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = Json.MAPPER;
 
     private ArtifactIndex() {}
 
@@ -71,7 +72,7 @@ public final class ArtifactIndex {
         index.put("total_size_human", formatSize(total));
         index.set("artifacts", entries);
 
-        MAPPER.writerWithDefaultPrettyPrinter().writeValue(indexPath.toFile(), index);
+        Json.PRETTY.writeValue(indexPath.toFile(), index);
     }
 
     /**

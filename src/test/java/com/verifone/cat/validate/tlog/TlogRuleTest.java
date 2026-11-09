@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.verifone.cat.core.Hashes;
+
 /**
  * {@code TLOG-RULE.txt}: the grammar, the seed, path resolution and the drift check (DESIGN.md §5.4).
  *
@@ -127,7 +129,7 @@ class TlogRuleTest {
         TlogRule parsed = TlogRule.parseLive(rule, "deadbeef");
         assertEquals(TlogRule.parseText(RULE_TEXT).get("TAG_NAMES"), parsed.tagNames());
         assertEquals("deadbeef", parsed.commit());
-        assertEquals(TlogRule.sha256Hex(bytes), parsed.sha256());
+        assertEquals(Hashes.sha256Hex(bytes), parsed.sha256());
     }
 
     @Test
