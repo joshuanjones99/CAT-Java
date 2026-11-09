@@ -81,16 +81,9 @@ public final class SetupItems {
     /** The cashier password variable the Python CAT reads. Its value is never shown. */
     public static final String CASHIER_PASSWORD_ENV = "PETROTEST_CASHIER_PASSWORD";
 
-    /** The Atlassian credentials file, in the home directory, as the Python CAT names it. */
-    public static final String JIRA_CREDENTIALS_FILE = "jira_api_token.properties";
-
     /** The Jira keys the credentials file must name, with the Xray pair. */
     public static final List<String> JIRA_KEYS =
             List.of("email", "jira.token", "xray.client.id", "xray.client.secret");
-
-    /** The Artifactory login variables (the Verifone login is one login for Artifactory and Bitbucket). */
-    public static final String ARTIFACTORY_USER_ENV = "ARTIFACTORY_USER";
-    public static final String ARTIFACTORY_PASSWORD_ENV = "ARTIFACTORY_PASSWORD";
 
     /** The per-user file the Java Access Bridge switch writes. */
     public static final String ACCESS_BRIDGE_FILE = ".accessibility.properties";

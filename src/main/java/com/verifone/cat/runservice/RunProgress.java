@@ -13,6 +13,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.report.ReportPaths;
 
 /**
@@ -34,7 +35,7 @@ public final class RunProgress {
     /** A test's statuses the Failures card lists: failed, error, timeout and warned. */
     static final List<String> LISTED = List.of("failed", "error", "timeout", "warned");
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = Json.MAPPER;
     private static final int READ_CHUNK = 1 << 20;
 
     /** A test that failed or warned: its node id, its case label, its status and its reason. */
@@ -151,14 +152,18 @@ public final class RunProgress {
             return;
         }
         try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
-            if (raf.length() < offset) {
+            long length = raf.length();
+            if (length < offset) {
                 // The file was replaced under us: start again rather than fold from the middle.
                 offset = 0;
                 carry.reset();
                 reducer = new RunStateReducer();
             }
+            if (length == offset) {
+                return; // nothing new: the usual answer to a poll, so it allocates nothing
+            }
             raf.seek(offset);
-            byte[] buf = new byte[READ_CHUNK];
+            byte[] buf = new byte[(int) Math.min(READ_CHUNK, length - offset)];
             int n;
             while ((n = raf.read(buf)) != -1) {
                 offset += n;

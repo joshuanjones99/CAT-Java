@@ -14,6 +14,8 @@ import java.util.Optional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.verifone.cat.build.ArtifactoryCredentials;
 import com.verifone.cat.build.StoredArtifactoryCredentials;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 
 /**
  * Where the two sign-ins live: the Verifone login for Artifactory (Monarch's DPAPI file format) and the Atlassian
@@ -51,7 +53,7 @@ public final class SavedLogins {
     /** The Atlassian credentials file's name: the same name in {@code ~/.cat/java/} and in the home directory. */
     public static final String JIRA_FILE = "jira_api_token.properties";
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private final Map<String, String> env;
     private final Path home;
@@ -93,7 +95,7 @@ public final class SavedLogins {
 
     /** {@code ~/.cat/java/artifactory.credentials}. */
     public Path ownArtifactoryFile() {
-        return home.resolve(".cat").resolve("java").resolve(ARTIFACTORY_FILE);
+        return CatHome.java(home).resolve(ARTIFACTORY_FILE);
     }
 
     /** The credentials every Artifactory client CAT-Java builds from here uses: the variables, then the files. */
@@ -108,11 +110,6 @@ public final class SavedLogins {
         } catch (RuntimeException e) { // ArtifactoryAuthError: none saved
             return Optional.empty();
         }
-    }
-
-    /** Whether this store can save a login (the real one can; a test's env-only one cannot). */
-    public boolean canSave() {
-        return protector != null;
     }
 
     /**
@@ -139,7 +136,7 @@ public final class SavedLogins {
 
     /** {@code ~/.cat/java/jira_api_token.properties}: where CAT-Java saves the Atlassian login. */
     public Path ownJiraFile() {
-        return home.resolve(".cat").resolve("java").resolve(JIRA_FILE);
+        return CatHome.java(home).resolve(JIRA_FILE);
     }
 
     /** {@code ~/jira_api_token.properties}: the file Monarch and the Python CAT share; read-only here. */

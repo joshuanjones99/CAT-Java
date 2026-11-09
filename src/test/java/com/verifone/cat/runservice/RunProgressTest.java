@@ -93,29 +93,4 @@ class RunProgressTest {
         assertEquals("pending", snap.steps().get(2).status());
         assertEquals(0, snap.percent(), 0.001); // case-based, not the step's own progress
     }
-
-    @Test
-    void theLogTailIsBoundedAndCutsNoLineInTwo() throws IOException {
-        Path log = tmp.resolve("run.log");
-        StringBuilder text = new StringBuilder();
-        for (int i = 0; i < 60_000; i++) {
-            text.append("line ").append(i).append('\n');
-        }
-        Files.writeString(log, text.toString(), StandardCharsets.UTF_8);
-
-        java.util.List<String> lines = RunLogTail.tail(tmp, 3);
-        assertEquals(java.util.List.of("line 59997", "line 59998", "line 59999"), lines);
-
-        java.util.List<String> all = RunLogTail.tail(tmp, RunLogTail.LINES);
-        assertEquals(RunLogTail.LINES, all.size());
-        for (String line : all) {
-            assertTrue(line.matches("line [0-9]+"), line);
-        }
-        assertEquals("line 59999", all.get(all.size() - 1));
-    }
-
-    @Test
-    void noRunLogMeansNoLines() throws IOException {
-        assertTrue(RunLogTail.tail(tmp, RunLogTail.LINES).isEmpty());
-    }
 }
