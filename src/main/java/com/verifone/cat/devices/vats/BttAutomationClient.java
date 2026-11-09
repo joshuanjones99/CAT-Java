@@ -16,6 +16,7 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * BTT's automation protocol: a 4-byte big-endian length, then UTF-8 JSON, each way. A port of the Python CAT's
@@ -43,7 +44,7 @@ public final class BttAutomationClient {
     /** The Python's default timeout. */
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
 
     private final String host;

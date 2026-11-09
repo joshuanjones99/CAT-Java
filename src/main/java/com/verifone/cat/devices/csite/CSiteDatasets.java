@@ -2,6 +2,7 @@ package com.verifone.cat.devices.csite;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceProtocolError;
@@ -30,7 +31,7 @@ public final class CSiteDatasets {
     /** The tips dataset: the golden (onboarded, fresh) service has none enabled. */
     public static final String TIPS = "pcms/v1/config/{service_id}/tips";
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final Set<Integer> DELETED_OK = Set.of(200, 204, 404);
     private static final Set<Integer> PUT_OK = Set.of(200, 204);
 

@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  */
 public record Endpoint(String host, int port) {
 
-    private static final Pattern IPV4 = Pattern.compile("\\d{1,3}(\\.\\d{1,3}){3}");
+    static final Pattern IPV4 = Pattern.compile("\\d{1,3}(\\.\\d{1,3}){3}");
 
     /** Whether {@link #host} is an IP literal rather than a name. */
     public boolean isIp() {

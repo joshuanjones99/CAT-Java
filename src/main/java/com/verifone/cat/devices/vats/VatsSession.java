@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import com.verifone.cat.collect.Collect;
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.devices.DeviceUnreachable;
 import com.verifone.cat.recovery.Timeouts;
 import com.verifone.cat.report.ReportPaths;
@@ -50,10 +51,10 @@ public final class VatsSession implements AutoCloseable {
         public static Environment forThisMachine(Map<String, String> env) {
             Path tools = ToolsRoot.resolve(env.get(ToolsRoot.ENV), null);
             String petroapps = env.getOrDefault("PETROAPPS_ROOT", "");
-            Path home = Path.of(System.getProperty("user.home"));
+            Path home = CatHome.user();
             return new Environment(tools,
                     Path.of(petroapps.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : petroapps),
-                    home.resolve(".cat").resolve("java").resolve("vats"),
+                    CatHome.java(home).resolve("vats"),
                     Btt.forThisMachine(home, tools), null);
         }
 

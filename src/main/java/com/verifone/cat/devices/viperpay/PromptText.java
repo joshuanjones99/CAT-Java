@@ -97,7 +97,7 @@ public final class PromptText {
         return text.toString();
     }
 
-    private static String lower(String text) {
+    static String lower(String text) {
         return text.toLowerCase(Locale.ROOT);
     }
 }

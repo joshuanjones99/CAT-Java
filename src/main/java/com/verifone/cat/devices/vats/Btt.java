@@ -37,6 +37,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import com.verifone.cat.commander.Pauser;
+import com.verifone.cat.core.CatHome;
 
 /**
  * The Brand Test Tool: find the newest install, configure it, start its card server. A port of the Python CAT's
@@ -233,7 +234,7 @@ public final class Btt {
 
     /** {@code <home>/.cat/java/btt-agent}: CAT-Java's own folder for the menu agent. */
     public static Path agentCacheUnder(Path home) {
-        return home.resolve(".cat").resolve("java").resolve("btt-agent");
+        return CatHome.java(home).resolve("btt-agent");
     }
 
     // -- installs ----------------------------------------------------------------------

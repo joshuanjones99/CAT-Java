@@ -9,13 +9,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceProtocolError;
 import com.verifone.cat.devices.DeviceUnreachable;
@@ -65,13 +65,8 @@ final class CgiLink {
 
         /** The production pauser: parks until the deadline; an interrupt becomes a {@link DeviceError}. */
         Pauser REAL = duration -> {
-            long deadline = System.nanoTime() + duration.toNanos();
-            for (long left = duration.toNanos(); left > 0; left = deadline - System.nanoTime()) {
-                LockSupport.parkNanos(left);
-                if (Thread.interrupted()) {
-                    Thread.currentThread().interrupt();
-                    throw new DeviceError("interrupted during a pause in the Commander's retry schedule");
-                }
+            if (!Waits.pause(duration)) {
+                throw new DeviceError("interrupted during a pause in the Commander's retry schedule");
             }
         };
 

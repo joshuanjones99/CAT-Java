@@ -10,11 +10,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.Attributes;
@@ -25,6 +22,8 @@ import java.util.stream.Stream;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+
+import com.verifone.cat.core.Hashes;
 
 /**
  * The java agent that presses BTT's {@code Start Card Simulation Server} menu item from inside BTT's own JVM, built
@@ -63,11 +62,7 @@ public final class BttMenuAgent {
 
     /** The first 12 hex digits of the source's SHA-256: the jar's revision. */
     static String digest(byte[] source) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source)).substring(0, 12);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return Hashes.sha256Hex(source).substring(0, 12);
     }
 
     /**
