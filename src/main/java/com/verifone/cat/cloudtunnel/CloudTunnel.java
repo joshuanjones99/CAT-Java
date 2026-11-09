@@ -73,7 +73,7 @@ public final class CloudTunnel {
     private static final Set<String> NOT_CLOUD = Set.of("localhost", "sitecontroller");
     private static final Pattern URL = Pattern.compile("\\bhttps?://([A-Za-z0-9.-]+)(?::(\\d+))?",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern IPV4 = Pattern.compile("\\d{1,3}(\\.\\d{1,3}){3}");
+    private static final Pattern IPV4 = Endpoint.IPV4;
     private static final String LISTENER_PID = "ps -eo pid,args | grep '[s]shd: /usr/sbin/sshd \\[listener\\]'"
             + " | sed -E 's/^ *([0-9]+).*/\\1/'";
 

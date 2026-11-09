@@ -41,6 +41,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.verifone.cat.commander.CommanderAccess;
 import com.verifone.cat.commander.CommanderTrust;
 import com.verifone.cat.commander.Say;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.commander.CgiReplies.CloudConnectStatus;
 import com.verifone.cat.devices.commander.CgiReplies.FepDetail;
@@ -96,7 +97,7 @@ public final class SecondaryFeps {
     private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
     private static final Pattern FLEET_ROUTE = Pattern.compile("commercialFleetRoute\\s*=\\s*(\\w+)");
     private static final ObjectMapper YAML = new ObjectMapper(new YAMLFactory());
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private SecondaryFeps() {}
 
@@ -633,6 +634,41 @@ public final class SecondaryFeps {
             return false;
         }
 
+        boolean changed = switchOffOthers(client, chosen, catalogue, details, say);
+
+        for (SecondaryFep row : chosen) {
+            if (row.trustTls().isEmpty()) {
+                continue;
+            }
+            if (ctx.trust() == null) {
+                say.err(row.name() + ": needs " + row.trustTls() + " trusted; no Commander shell");
+                return false;
+            }
+            ctx.trust().trust(resolveHost(row.trustTls(), ctx.controllerHost()),
+                    "cat-" + row.name().toLowerCase(Locale.ROOT));
+        }
+
+        pointCloudAtController(chosen, ctx, say);
+
+        for (SecondaryFep row : chosen) {
+            boolean sent = enable(client, row, ctx.petroappsRoot(), ctx.controllerHost(), say);
+            changed = sent || changed;
+        }
+
+        if (changed) {
+            client.refreshConfiguration();
+            say.out("crefreshcfg sent");
+        }
+        if (chosen.isEmpty()) {
+            say.out("secondary FEPs: none");
+            return true;
+        }
+        return verify(client, chosen, ctx, say);
+    }
+
+    /** Switches off every table FEP left on that is not chosen; whether anything was sent. */
+    private static boolean switchOffOthers(FepClient client, List<SecondaryFep> chosen, List<SecondaryFep> catalogue,
+            Map<String, FepDetail> details, Say say) {
         boolean changed = false;
         for (SecondaryFep row : catalogue) {
             FepDetail detail = details.get(row.name());
@@ -648,45 +684,29 @@ public final class SecondaryFeps {
             changed = true;
             say.out(row.name() + ": switched off (an earlier run, or a person, left it on)");
         }
+        return changed;
+    }
 
-        for (SecondaryFep row : chosen) {
-            if (row.trustTls().isEmpty()) {
-                continue;
-            }
-            if (ctx.trust() == null) {
-                say.err(row.name() + ": needs " + row.trustTls() + " trusted; no Commander shell");
-                return false;
-            }
-            ctx.trust().trust(resolveHost(row.trustTls(), ctx.controllerHost()),
-                    "cat-" + row.name().toLowerCase(Locale.ROOT));
-        }
-
+    /** The chosen cloud-owned FEPs pointed at the controller in Commander Connect, or a warning that they were not. */
+    private static void pointCloudAtController(List<SecondaryFep> chosen, Context ctx, Say say) {
         List<SecondaryFep> clouded = chosen.stream().filter(r -> !r.cloudProvider().isEmpty()).toList();
-        if (!clouded.isEmpty() && ctx.cloudSend() != null && !ctx.serviceId().isEmpty()) {
+        if (clouded.isEmpty()) {
+            return;
+        }
+        if (ctx.cloudSend() != null && !ctx.serviceId().isEmpty()) {
             for (String problem : pushCloudProviders(clouded, ctx.controllerHost(), ctx.serviceId(), ctx.cloudSend(),
                     say)) {
                 say.out("WARNING " + problem + "; the Commander is pointed directly instead");
             }
-        } else if (!clouded.isEmpty()) {
+        } else {
             say.out("WARNING " + clouded.stream().map(SecondaryFep::name).collect(Collectors.joining(", "))
                     + ": Commander Connect not updated (no C-Site account or service ID); a later cloud push could "
                     + "point it elsewhere");
         }
+    }
 
-        for (SecondaryFep row : chosen) {
-            boolean sent = enable(client, row, ctx.petroappsRoot(), ctx.controllerHost(), say);
-            changed = sent || changed;
-        }
-
-        if (changed) {
-            client.refreshConfiguration();
-            say.out("crefreshcfg sent");
-        }
-        if (chosen.isEmpty()) {
-            say.out("secondary FEPs: none");
-            return true;
-        }
-
+    /** Reads back each chosen FEP: where it points and whether the Commander kept it enabled. */
+    private static boolean verify(FepClient client, List<SecondaryFep> chosen, Context ctx, Say say) {
         Map<String, FepDetail> after = client.fepDetails();
         boolean ok = true;
         for (SecondaryFep row : chosen) {

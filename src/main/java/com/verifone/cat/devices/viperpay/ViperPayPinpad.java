@@ -270,7 +270,7 @@ public final class ViperPayPinpad implements PinpadDevice, AutoCloseable {
         String needle = prompt.strip().toLowerCase(Locale.ROOT);
         String what = "pinpad " + id + " clearing prompt '" + prompt + "'";
         Display shown = locked(() -> waitFor(
-                () -> currentIf(d -> !lower(d.text()).contains(needle), -1),
+                () -> currentIf(d -> !PromptText.lower(d.text()).contains(needle), -1),
                 budget(timeout),
                 () -> what));
         return shown.text();
@@ -359,7 +359,7 @@ public final class ViperPayPinpad implements PinpadDevice, AutoCloseable {
         }
         String needle = waitForPrompt.strip().toLowerCase(Locale.ROOT);
         Display shown = locked(() -> waitFor(
-                () -> currentIf(d -> lower(d.text()).contains(needle), sentAt),
+                () -> currentIf(d -> PromptText.lower(d.text()).contains(needle), sentAt),
                 budget,
                 () -> "pinpad " + id + " prompt '" + waitForPrompt + "'"));
         return shown.text();
@@ -461,10 +461,6 @@ public final class ViperPayPinpad implements PinpadDevice, AutoCloseable {
 
     private static boolean inSet(Set<String> set, String value) {
         return value != null && set.contains(value);
-    }
-
-    private static String lower(String text) {
-        return text.toLowerCase(Locale.ROOT);
     }
 
     /** The EPS says POP "001" where PATS and the rig say "1". */

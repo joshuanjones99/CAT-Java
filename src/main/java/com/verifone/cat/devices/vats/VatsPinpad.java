@@ -265,14 +265,19 @@ public final class VatsPinpad implements PhysicalPinpad, AutoCloseable {
         Inserted card = inserted != null ? inserted : new Inserted("", Path.of(""));
         LOG.warn("pinpad: the terminal could not read {} (CHIP NOT READ) while waiting for {}; taking it out and "
                 + "inserting it again", PyText.repr(card.label()), PyText.repr(waitingFor));
-        double budget = seconds(promptWait);
-        agent.call("wait", budget, args("pattern", "(?i)remove card", "timeout_ms", (int) (budget * 1000)));
+        awaitScreen("(?i)remove card");
         agent.call("remove");
-        agent.call("wait", budget, args("pattern", "(?i)insert|tap or swipe", "timeout_ms", (int) (budget * 1000)));
+        awaitScreen("(?i)insert|tap or swipe");
         server().load(card.path());
         if (!VatsAgent.truthy(agent.call("insert"), "status")) {
             throw new DeviceError("the terminal did not register the reinserted card " + PyText.repr(card.label()));
         }
+    }
+
+    /** Waits, at most the prompt wait, for a screen matching {@code pattern}; goes on whether or not it came. */
+    private void awaitScreen(String pattern) {
+        double budget = seconds(promptWait);
+        agent.call("wait", budget, args("pattern", pattern, "timeout_ms", (int) (budget * 1000)));
     }
 
     /**
@@ -408,8 +413,7 @@ public final class VatsPinpad implements PhysicalPinpad, AutoCloseable {
     @Override
     public void removeCard() {
         inserted = null;
-        double budget = seconds(promptWait);
-        agent.call("wait", budget, args("pattern", "(?i)remove card", "timeout_ms", (int) (budget * 1000)));
+        awaitScreen("(?i)remove card");
         agent.call("remove");
         if (VatsAgent.truthy(agent.call("card_state"), "state")) {
             agent.call("remove"); // PATS always removes twice; once more only if needed
@@ -442,7 +446,7 @@ public final class VatsPinpad implements PhysicalPinpad, AutoCloseable {
                 done.add("CANCEL");
             }
         } catch (RuntimeException e) {
-            done.add("CANCEL failed (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")");
+            done.add("CANCEL" + failed(e));
         }
         boolean told;
         try {
@@ -462,7 +466,7 @@ public final class VatsPinpad implements PhysicalPinpad, AutoCloseable {
                     done.add("card removed");
                 }
             } catch (RuntimeException e) {
-                done.add("card removed failed (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")");
+                done.add("card removed" + failed(e));
             }
         }
         if (cardServer != null) {
@@ -470,7 +474,7 @@ public final class VatsPinpad implements PhysicalPinpad, AutoCloseable {
                 cardServer.stop(ABORT_CARD_STOP_WAIT);
                 done.add("simulated card stopped");
             } catch (RuntimeException e) {
-                done.add("simulated card stop failed (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")");
+                done.add("simulated card stop" + failed(e));
             }
         }
         return done;
@@ -564,6 +568,10 @@ public final class VatsPinpad implements PhysicalPinpad, AutoCloseable {
     }
 
     // -- helpers --------------------------------------------------------------------------------
+
+    private static String failed(RuntimeException e) {
+        return " failed (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")";
+    }
 
     static String pending(String keys) {
         if (keys == null) {
