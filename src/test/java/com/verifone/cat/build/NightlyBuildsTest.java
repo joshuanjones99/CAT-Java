@@ -70,7 +70,7 @@ class NightlyBuildsTest {
 
             assertEquals("foundation", both.sourceFor("buypass", null).flavour());
             assertEquals("viper-buypass", both.sourceFor("buypass", "viper").folder());
-            assertTrue(both.describe("buypass").contains("published separately"));
+            assertTrue(both.describe("buypass").contains("its viper-buypass build is merged onto it to install"));
 
             assertEquals("sc", sc.sourceFor("buypass", null).flavour());
             assertEquals("sc-testFep", sc.sourceFor("testfep", null).folder(), "the dist is matched case-blind");
