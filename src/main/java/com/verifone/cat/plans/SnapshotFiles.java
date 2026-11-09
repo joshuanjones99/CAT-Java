@@ -1,5 +1,6 @@
 package com.verifone.cat.plans;
 
+import com.verifone.cat.core.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +30,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 final class SnapshotFiles {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
+    private static final ObjectMapper MAPPER = Json.MAPPER.copy()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 

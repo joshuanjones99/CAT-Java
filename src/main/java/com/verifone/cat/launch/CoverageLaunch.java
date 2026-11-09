@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -50,8 +48,7 @@ import com.verifone.cat.xray.XrayReporter;
  *   <li>"Touches the rig" is {@code !fakePos} with a rig named, the rule {@link CommanderConfigurationStep} uses for
  *       every non-fake run; the Python also requires {@code provision_register}, which every one of its real entry
  *       points sets.</li>
- *   <li>Step 4's {@code coverage_ready} is kept here, per run ({@link #ready}), not on {@link RunContext}, which
- *       another slice owns. {@code report} is passed {@code --results-root} (the launch's), where the Python relies on
+ *   <li>{@code report} is passed {@code --results-root} (the launch's), where the Python relies on
  *       the same default.</li>
  * </ul>
  *
@@ -89,14 +86,6 @@ public final class CoverageLaunch {
         }
     }
 
-    /** Per run: the ops it uses, and whether step 4 got the devices ready. */
-    private static final class State {
-        Ops ops;
-        boolean ready;
-    }
-
-    private static final Map<RunContext, State> STATES = Collections.synchronizedMap(new WeakHashMap<>());
-
     private CoverageLaunch() {}
 
     /** The production ops for a run: {@link CoverageCommand} with the run's rigs folder, a detached process. */
@@ -120,13 +109,12 @@ public final class CoverageLaunch {
 
     /** Uses {@code ops} for this run instead of the real ones. Tests only. */
     static void use(RunContext ctx, Ops ops) {
-        state(ctx).ops = ops;
+        ctx.coverageOps(ops);
     }
 
     /** Whether step 4's {@code prepare} left every device ready: the Python's {@code ctx.coverage_ready}. */
     public static boolean ready(RunContext ctx) {
-        State state = STATES.get(ctx);
-        return state != null && state.ready;
+        return ctx.coverageReady();
     }
 
     /** Coverage asked for, on a run that touches the rig (see the class comment). */
@@ -144,7 +132,7 @@ public final class CoverageLaunch {
             return;
         }
         boolean ok = task(ctx, step, List.of("coverage", "prepare", "--rig", ctx.config().rig()));
-        state(ctx).ready = ok;
+        ctx.coverageReady(ok);
         if (!ok) {
             step.warn(LABEL, "the devices are not ready, so this run collects none; the tests run as usual");
         }
@@ -298,16 +286,11 @@ public final class CoverageLaunch {
     }
 
     private static Ops ops(RunContext ctx) {
-        State state = state(ctx);
-        if (state.ops == null) {
-            state.ops = real(ctx);
+        Ops ops = ctx.coverageOps();
+        if (ops == null) {
+            ops = real(ctx);
+            ctx.coverageOps(ops);
         }
-        return state.ops;
-    }
-
-    private static State state(RunContext ctx) {
-        synchronized (STATES) {
-            return STATES.computeIfAbsent(ctx, k -> new State());
-        }
+        return ops;
     }
 }

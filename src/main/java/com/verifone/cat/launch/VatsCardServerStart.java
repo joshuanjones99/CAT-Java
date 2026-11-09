@@ -1,5 +1,6 @@
 package com.verifone.cat.launch;
 
+import com.verifone.cat.core.CatHome;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.function.Consumer;
@@ -42,7 +43,7 @@ public final class VatsCardServerStart {
 
     /** This controller's BTT: the real install folders, the menu agent under {@code ~/.cat/java/btt-agent}. */
     public static final Starter REAL = (config, timeout, log) -> Btt
-            .forThisMachine(Path.of(System.getProperty("user.home")), ToolsRoot.resolve(null))
+            .forThisMachine(CatHome.user(), ToolsRoot.resolve(null))
             .startCardServer(config.cardServerPort(), config.interfaceKind(), config.automationPort(),
                     config.bttVersion(), timeout, log);
 

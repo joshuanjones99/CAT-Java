@@ -1,5 +1,6 @@
 package com.verifone.cat.plans;
 
+import com.verifone.cat.core.CatHome;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -86,10 +87,9 @@ public final class PlanCatalogue {
      * back read-only to the Python CAT's {@code ~/.cat}, no network source, and the shipped seed.
      */
     public static PlanCatalogue offline(Path repoRoot) {
-        Path home = Path.of(System.getProperty("user.home"));
         return new PlanCatalogue(
-                home.resolve(".cat").resolve("java"),
-                home.resolve(".cat"),
+                CatHome.java(),
+                CatHome.python(),
                 PlanSource.unavailable("no Atlassian source in this build"),
                 new SeedPlanSource(),
                 repoRoot);

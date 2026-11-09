@@ -1,5 +1,6 @@
 package com.verifone.cat.launch;
 
+import com.verifone.cat.core.Waits;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.LockSupport;
 
 import com.verifone.cat.cloudtunnel.CloudTunnel;
 import com.verifone.cat.cloudtunnel.CloudTunnelProcess;
@@ -79,7 +79,7 @@ public final class TunnelStart {
 
         /** Parks the caller between log reads. */
         default void pause(Duration duration) {
-            LockSupport.parkNanos(duration.toNanos());
+            Waits.pause(duration);
         }
     }
 
