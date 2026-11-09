@@ -84,6 +84,49 @@ public final class WebSettings {
         }
     }
 
+    /** The key holding where CAT opens: its own window or the browser. CAT-Java's own key; the Python has none. */
+    public static final String OPEN_IN_KEY = "open_in";
+
+    /**
+     * Where CAT opens when it starts (or when the shortcut is clicked while it runs): {@link #WINDOW}, an app window
+     * of its own (the default, and what a missing file means), or {@link #BROWSER}, a tab in the default browser.
+     */
+    public enum OpenIn {
+        WINDOW("window", "Its own window"),
+        BROWSER("browser", "The browser");
+
+        private final String value;
+        private final String label;
+
+        OpenIn(String value, String label) {
+            this.value = value;
+            this.label = label;
+        }
+
+        /** The stored and submitted name: {@code window} or {@code browser}. */
+        public String value() {
+            return value;
+        }
+
+        /** The words the Settings page shows. */
+        public String label() {
+            return label;
+        }
+
+        /** The choice {@code text} names, or {@code null} when it names none. */
+        public static OpenIn parse(String text) {
+            if (text == null) {
+                return null;
+            }
+            for (OpenIn choice : values()) {
+                if (choice.value.equals(text.trim())) {
+                    return choice;
+                }
+            }
+            return null;
+        }
+    }
+
     /** {@code $CAT_WEB_SETTINGS}, else {@code ~/.cat/java/web-settings.json}. A blank variable counts as unset. */
     public static Path defaultPath(Map<String, String> env, String userHome) {
         String override = env.get(ENV_OVERRIDE);
@@ -119,6 +162,13 @@ public final class WebSettings {
         Object value = read(file).get(APPEARANCE_KEY);
         Appearance saved = value instanceof String text ? Appearance.parse(text) : null;
         return saved == null ? Appearance.AUTO : saved;
+    }
+
+    /** The saved Open CAT in choice; {@link OpenIn#WINDOW} when none is saved or the value is not one. */
+    public static OpenIn openIn(Path file) {
+        Object value = read(file).get(OPEN_IN_KEY);
+        OpenIn saved = value instanceof String text ? OpenIn.parse(text) : null;
+        return saved == null ? OpenIn.WINDOW : saved;
     }
 
     /**

@@ -36,6 +36,22 @@ final class Layout {
             "/tools", "tools-simple.webp",
             "/setup", "setup-left.webp");
 
+    /**
+     * Inline glyphs for the links with no image: simple 24-unit outline drawings in the navigation's white, drawn
+     * for CAT-Java (the Python uses Material icons for these, which this port does not bundle). Same 21px box as the
+     * images, so every row lines up.
+     */
+    static final Map<String, String> NAV_SVGS = Map.of(
+            "/upgrade", "<path d=\"M12 3v11m0 0-4.5-4.5M12 14l4.5-4.5\"/><path d=\"M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0"
+                    + " 2-2v-3\"/>",
+            "/simulators", "<rect x=\"3.5\" y=\"4\" width=\"17\" height=\"6.5\" rx=\"1.5\"/><rect x=\"3.5\" y=\"13.5\""
+                    + " width=\"17\" height=\"6.5\" rx=\"1.5\"/><path d=\"M7 7.25h.01M7 16.75h.01M11 7.25h6M11 16.75h6\"/>",
+            "/pos", "<rect x=\"3\" y=\"3.5\" width=\"18\" height=\"12\" rx=\"1.5\"/><path d=\"M9 20.5h6M12 15.5v5"
+                    + "M6.5 7.5h5M6.5 11h8\"/>",
+            "/settings", "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 2.75v2.5M12 18.75v2.5M2.75 12h2.5M18.75 12"
+                    + "h2.5M5.46 5.46l1.77 1.77M16.77 16.77l1.77 1.77M5.46 18.54l1.77-1.77M16.77 7.23l1.77-1.77\"/>"
+                    + "<circle cx=\"12\" cy=\"12\" r=\"7\"/>");
+
     private static final ThreadLocal<Shell> SHELL = new ThreadLocal<>();
 
     private Layout() {}
@@ -83,6 +99,8 @@ final class Layout {
                   <title>%1$s · CAT-Java</title>
                   <link rel="icon" href="/static/icons/cat.ico" sizes="any">
                   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+                  <link rel="preload" href="/static/fonts/SourceSans3-Variable.ttf" as="font" type="font/ttf" crossorigin>
+                  <link rel="preload" href="/static/fonts/BarlowSemiCondensed-SemiBold.ttf" as="font" type="font/ttf" crossorigin>
                   <link rel="stylesheet" href="/static/cat.css">
                   <script src="/static/htmx.min.js"></script>
                   <script src="/static/cat.js" defer></script>
@@ -92,7 +110,7 @@ final class Layout {
                   <aside class="sidebar">
                     <div class="brand">
                       <a class="wordmark" href="/run" aria-label="CAT home"><img src="/static/icons/cat-192.png"
-                         class="brand-icon" alt="" aria-hidden="true" width="28" height="28"><span>CAT</span></a>
+                         class="brand-icon" alt="" aria-hidden="true" width="36" height="36"><span>CAT</span></a>
                       <button type="button" class="icon-btn collapse" data-action="collapse"
                               aria-expanded="true" aria-controls="nav" aria-label="Collapse navigation">&#8249;</button>
                     </div>
@@ -129,9 +147,14 @@ final class Layout {
                 .append(" aria-label=\"").append(esc(s.label())).append("\" title=\"").append(esc(s.label()))
                 .append("\"><span class=\"glyph\" aria-hidden=\"true\">");
         String image = NAV_IMAGES.get(s.path());
+        String svg = NAV_SVGS.get(s.path());
         if (image != null) {
             nav.append("<img src=\"/static/icons/navigation/").append(esc(image))
                     .append("\" class=\"nav-image\" width=\"21\" height=\"21\" alt=\"\">");
+        } else if (svg != null) {
+            nav.append("<svg viewBox=\"0 0 24 24\" width=\"21\" height=\"21\" fill=\"none\" stroke=\"currentColor\""
+                    + " stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">").append(svg)
+                    .append("</svg>");
         } else {
             nav.append(esc(s.label().substring(0, 1)));
         }

@@ -92,4 +92,17 @@ class WebSettingsTest {
         assertNull(Appearance.parse(null));
         assertEquals("Match Windows", Appearance.AUTO.label());
     }
+
+    @Test
+    void openInIsItsOwnWindowUntilTheBrowserIsSaved() throws Exception {
+        Path file = tmp.resolve("web-settings.json");
+        assertEquals(WebSettings.OpenIn.WINDOW, WebSettings.openIn(file));
+
+        Files.writeString(file, "{\"open_in\": \"tray\"}", StandardCharsets.UTF_8);
+        assertEquals(WebSettings.OpenIn.WINDOW, WebSettings.openIn(file), "an unknown value is the default");
+
+        assertTrue(WebSettings.update(file, WebSettings.OPEN_IN_KEY, "browser"));
+        assertEquals(WebSettings.OpenIn.BROWSER, WebSettings.openIn(file));
+        assertNull(WebSettings.OpenIn.parse("Browser"));
+    }
 }

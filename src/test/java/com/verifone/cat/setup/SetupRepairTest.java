@@ -387,6 +387,34 @@ class SetupRepairTest {
         assertEquals(2, new SetupCommand(() -> new SetupAudit(List.of(), f.env), out).run(new String[] {"--x"}));
     }
 
+    @Test
+    void theSetupCommandAddsTheShortcutAfterTheChecksUnlessSkipped() throws Exception {
+        SetupFixture f = new SetupFixture(tmp);
+        SetupItem needed = new SetupItem("needed", "", true, true, false, "", env -> Result.failed("needed", "install"));
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        PrintStream out = new PrintStream(bytes, true, StandardCharsets.UTF_8);
+        int[] added = {0};
+        java.util.function.Supplier<com.verifone.cat.desktop.Shortcuts.Outcome> shortcuts = () -> {
+            added[0]++;
+            return new com.verifone.cat.desktop.Shortcuts.Outcome(false,
+                    List.of("Could not add the CAT-Java shortcut to D:\\Programs: Access is denied"));
+        };
+
+        int code = new SetupCommand(() -> new SetupAudit(List.of(needed), f.env), out, shortcuts).run(new String[0]);
+
+        String text = bytes.toString(StandardCharsets.UTF_8);
+        assertEquals(1, code, "the checks decide the exit code, not the shortcut");
+        assertEquals(1, added[0]);
+        assertTrue(text.contains("Adding the CAT-Java shortcut to the Desktop and the Start menu"), text);
+        assertTrue(text.contains("Access is denied"), text);
+
+        int skipped = new SetupCommand(() -> new SetupAudit(List.of(), f.env), out, shortcuts)
+                .run(new String[] {"--skip-shortcuts"});
+        assertEquals(0, skipped);
+        assertEquals(1, added[0], "--skip-shortcuts adds none");
+        assertTrue(bytes.toString(StandardCharsets.UTF_8).contains("Skipping the CAT-Java shortcuts"));
+    }
+
     // ---- a PPK v2 key, generated here -----------------------------------------------------------
 
     /** An unencrypted {@code PuTTY-User-Key-File-2: ssh-rsa} key with its MAC, as puttygen writes it. */

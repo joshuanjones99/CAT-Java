@@ -50,6 +50,8 @@ the web Start), Xray, every other plan.
 | Nothing proprietary | No Verifone jars, petroapps sources, private keys or real credentials. The only hardcoded credentials are the Python CAT's two documented lab carve-outs (Commander CGILink login, PSI answers). |
 | Simulator needs attention | FAILS Start Simulators with one concise line per simulator (stricter than the Python, which warns). |
 | Blocked slices | Any slice Haiku 5.5's cyber safeguard blocks is rerun on Opus 5.5 without asking. Wave 15 ran every slice on Opus. |
+| CAT's own window (2026-11-09, at the operator's request) | By default CAT opens as a Microsoft Edge (else Chrome) **app window**: `--app=<url>` on its own profile `~/.cat/java/window-profile`, so it has no tabs or address bar and its own taskbar entry; the pages are unchanged. Settings → Opening CAT switches it to the default browser (`open_in` in `web-settings.json`) and has Open in the browser now. `com.verifone.cat.desktop` (`AppWindow`, `DesktopHost`). No new dependency: Edge ships with Windows. Rejected: JavaFX WebView (an old WebKit, and a new dependency), JCEF (100 MB+ of native libraries), WebView2 through JNA (new bindings for the same Edge engine). The NoUiImports gate (no AWT) rules out a tray icon. **UNVERIFIED on a controller**: checked only on a development PC. |
+| No console window (2026-11-09) | `cat-java setup` (and Settings' button) adds `CAT-Java.lnk` to the Desktop and Start menu: the Python `setup.ps1` step 7b, `conhost.exe --headless cmd.exe /c run.cmd web`, so neither CAT nor any console child it starts shows a window. Named `CAT-Java` so it never replaces the Python's `CAT.lnk`; `--skip-shortcuts` leaves them. It is a step of the command, not a setup item, because the web UI runs setup repairs on every start. **UNVERIFIED on a controller**: the script is tested as text only. |
 | Success criterion | Cadence from a clean install (§1), un-onboarded first (the saved Config has Commander Connect off), then onboarded as the Python migration requires. |
 
 ## 3. How to work here
@@ -325,3 +327,6 @@ Left as low-severity notes:
 - **2026-11-09, on-rig Cadence loop on TPA-AUTOLAB3** (one session, six runs, §4 and §6 item 0): cloud-snapshot's
   `PUSH_LAG` 600 s; CSITE token retries 429/5xx; `launch --no-cc-onboard`; BUYPASS packets read from FEPSIM v2's
   `legacyPackets/<instance>` and reset over its admin API. 106 → 221 → 227 of 264 passed.
+- **2026-11-09** CAT's own window and the no-console shortcut (§2): `desktop/`, Settings → Opening CAT,
+  `cat-java setup --skip-shortcuts`. Built on a development PC with a portable Temurin 17.0.5 through
+  `CAT_TOOLS_ROOT`; the app window was seen opening there, never on a controller.

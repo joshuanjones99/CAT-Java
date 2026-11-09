@@ -90,7 +90,7 @@ final class RunBoardHtml {
                 + "<input type=\"search\" id=\"run-filter\" placeholder=\"Filter\" aria-label=\"Filter the cases\" "
                 + "oninput=\"catRun.filter(this.value)\"></div>"
                 + cases(state, links, casesUrl)
-                + "<p class=\"muted\" style=\"padding: 0 12px 8px; font-size: 12px;\">Click a case to see its steps.</p>"
+                + "<p class=\"muted run-board-note\">Click a case to see its steps.</p>"
                 + "</div>" + side(state, links, sideUrl) + "</div>";
     }
 
@@ -102,7 +102,7 @@ final class RunBoardHtml {
     static String casesInner(RunState state, RunLinks links) {
         List<RunView.CaseRow> rows = RunView.caseRows(state);
         StringBuilder out = new StringBuilder();
-        out.append("<p class=\"muted\" style=\"padding: 0 12px; margin: 0; font-size: 13px;\">").append(rows.size())
+        out.append("<p class=\"muted run-board-note\">").append(rows.size())
                 .append(" · ").append(state.cases().isEmpty() ? "start order" : "plan order").append("</p>");
         out.append("<table class=\"run-case-table\"><thead><tr><th>Case</th><th>Result</th>")
                 .append("<th class=\"num\">Time</th></tr></thead><tbody>");
@@ -117,7 +117,7 @@ final class RunBoardHtml {
         }
         out.append("</tbody></table>");
         if (rows.isEmpty()) {
-            out.append("<p class=\"muted\" style=\"padding: 0 12px;\">No cases yet: the plan resolves when the tests start.</p>");
+            out.append("<p class=\"muted run-board-note\">No cases yet: the plan resolves when the tests start.</p>");
         }
         return out.toString();
     }

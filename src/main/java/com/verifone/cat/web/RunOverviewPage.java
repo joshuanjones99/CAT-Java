@@ -63,7 +63,7 @@ final class RunOverviewPage {
         }
         RunLinks links = RunLinks.live(view.busy());
         RunState state = view.state();
-        return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\" style=\"max-width: 90rem;\">"
+        return "<section id=\"" + PANEL_ID + "\" class=\"run-panel\">"
                 + head(view, schedule)
                 + RunBoardHtml.board(state, links, "/fragments/run/cases", "/fragments/run/side")
                 + post(view)

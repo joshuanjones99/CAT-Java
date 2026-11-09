@@ -20,7 +20,10 @@ import java.util.concurrent.CountDownLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.verifone.cat.desktop.DesktopHost;
 import com.verifone.cat.posshim.PosShimClient;
+import com.verifone.cat.prefs.WebSettings;
+import com.verifone.cat.prefs.WebSettings.OpenIn;
 import com.verifone.cat.results.ResultsLibrary;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
@@ -47,6 +50,8 @@ import io.javalin.Javalin;
  *       nothing is running ({@link AutoClose}), and logs to {@link #LOG_NAME} under {@code ~/.cat/java} (CAT-Java's own
  *       place; the Python writes {@code catt-web.log} to the results folder), fresh each start.</li>
  *   <li>{@code --no-browser} opens no browser and never closes by itself.</li>
+ *   <li>"The browser" is CAT's own app window by default ({@link com.verifone.cat.desktop.AppWindow}), or a tab in
+ *       the default browser when Settings' Open CAT in says so.</li>
  * </ul>
  *
  * <p>Blocks until the server stops (Shut down CAT, or the auto-close) and returns the exit code.
@@ -139,6 +144,7 @@ public final class WebServe {
         /** What answers is a CAT (its ping says so). */
         boolean catServing(int port);
 
+        /** Opens CAT on {@code url}: its own window or the default browser, as Settings' Open CAT in says. */
         void openBrowser(String url);
 
         /** The app for these options, not started. */
@@ -245,11 +251,10 @@ public final class WebServe {
 
             @Override
             public void openBrowser(String url) {
-                try {
-                    new ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", url).start();
-                } catch (IOException e) {
-                    log().warn("could not open the browser on {}: {}", url, e.getMessage());
-                }
+                // Settings' Open CAT in: its own window (the default) or the browser. Read on every open, so a
+                // second click on the shortcut follows a choice made since CAT started.
+                OpenIn how = WebSettings.openIn(WebSettings.defaultPath());
+                log().info("{}", DesktopHost.system().open(url, how));
             }
 
             @Override

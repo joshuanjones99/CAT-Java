@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import com.verifone.cat.desktop.DesktopHost;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.prefs.WebSettings;
@@ -60,6 +61,8 @@ public final class WebApp {
         RunService run;
         SimulatorsService sims;
         Path settingsFile = WebSettings.defaultPath();
+        /** Opening CAT and adding its shortcut: the Settings page's Opening CAT card. */
+        DesktopHost desktop = DesktopHost.system();
         AuthoringService authoring;
         Shell shell = new Shell();
         SetupService setup;
@@ -121,9 +124,15 @@ public final class WebApp {
 
     /** As {@link #create(PosShimClient, String)}, with the web settings file injected (tests use a temp file). */
     static Javalin createWithSettings(PosShimClient shim, String title, Path settingsFile) {
+        return createWithSettings(shim, title, settingsFile, DesktopHost.system());
+    }
+
+    /** As {@link #createWithSettings(PosShimClient, String, Path)}, with the desktop injected (tests pass a fake). */
+    static Javalin createWithSettings(PosShimClient shim, String title, Path settingsFile, DesktopHost desktop) {
         Parts parts = parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
                 RunService.standard("", System.getenv()), SimulatorsService.standard());
         parts.settingsFile = settingsFile;
+        parts.desktop = desktop;
         return build(parts);
     }
 
@@ -243,7 +252,7 @@ public final class WebApp {
         UpgradeRoutes.register(app, upgrades, downloads);
         SimulatorsRoutes.register(app, sims);
         SetupRoutes.register(app, setup);
-        SettingsRoutes.register(app, parts.settingsFile, parts.env, System.getProperty("user.home"));
+        SettingsRoutes.register(app, parts.settingsFile, parts.env, System.getProperty("user.home"), parts.desktop);
         app.get("/tools", ctx -> ctx.html(Layout.page(Section.TOOLS, "Tools", ToolsPage.body())));
         // The Python CAT's Manual page became Tools; the old address still works.
         app.get("/manual", ctx -> ctx.redirect(Section.TOOLS.path()));
