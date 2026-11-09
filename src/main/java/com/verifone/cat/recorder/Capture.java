@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
@@ -140,6 +142,9 @@ public final class Capture {
             (id) => { const el = document.getElementById(id);
                       return el ? (el.textContent || '').replace(/\\s+/g, ' ').trim() : null; }
             """;
+
+    /** A URL's scheme and its colon, as {@code urlsplit} takes it off. */
+    private static final Pattern URL_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:");
 
     private Capture() {}
 
@@ -401,7 +406,7 @@ public final class Capture {
             return "";
         }
         String rest = url;
-        java.util.regex.Matcher scheme = java.util.regex.Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:").matcher(rest);
+        Matcher scheme = URL_SCHEME.matcher(rest);
         if (scheme.find()) {
             rest = rest.substring(scheme.end());
         }

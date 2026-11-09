@@ -26,10 +26,6 @@ public class InputOverlay extends BasePage {
         return element(Locators.INPUT_OVERLAY_VIEW_LABEL1);
     }
 
-    public BaseElement label2() {
-        return element(Locators.INPUT_OVERLAY_VIEW_LABEL2);
-    }
-
     /** Wait until the overlay is asking for {@code text} (for example "ENTER AMOUNT"). */
     public InputOverlay expectPrompt(String text, Duration timeout) {
         label1().expectText(text, false, timeout);

@@ -9,7 +9,7 @@ import com.verifone.cat.pos.driver.PosDriver;
 /**
  * One resolved POS element. Port of the Python {@code petrotest.pos.pages.base.Element}: the small
  * verb set the corpus uses on elements (TOUCH_EVENT, VALIDATION_BY_TEXT, IS_ELEMENT_PRESENT,
- * IS_ELEMENT_CLICKABLE, WIDGET_VALIDATION). Every wait takes the rig's budget unless a caller
+ * WIDGET_VALIDATION). Every wait takes the rig's budget unless a caller
  * overrides it (DESIGN.md 6.3).
  *
  * <p>Takes a resolved catalogue {@code Locator} (see {@code PosDriver.resolve}). The verbs carry
@@ -57,12 +57,6 @@ public record BaseElement(PosDriver driver, com.verifone.cat.pos.Locator locator
 
     public BaseElement expectHidden(Duration timeout) {
         driver.expectHiddenWithin(timeout, locator);
-        return this;
-    }
-
-    /** IS_ELEMENT_CLICKABLE. */
-    public BaseElement expectEnabled(Duration timeout) {
-        driver.expectation(pw(), timeout).toBeEnabled();
         return this;
     }
 

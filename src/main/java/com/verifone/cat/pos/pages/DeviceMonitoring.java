@@ -58,22 +58,6 @@ public class DeviceMonitoring extends BasePage {
 
     // -- basket --------------------------------------------------------------
 
-    public BaseElement itemDescription(int row) {
-        return element(Locators.XP_DIV_ITEM_DESCRIPTION_IS_BORDER_BOX_ROW, row);
-    }
-
-    public BaseElement itemAmount(int row) {
-        return element(Locators.XP_DIV_ITEM_AMOUNT_IS_ALIGN_RIGHT_ROW, row);
-    }
-
-    public BaseElement itemQuantity(int row) {
-        return element(Locators.XP_DIV_ITEM_QTY_ROW, row);
-    }
-
-    public BaseElement subItemDescription(int row) {
-        return element(Locators.XP_DIV_ITEM_DESCRIPTION_SUB_IS_BORDER_BOX_ROW, row);
-    }
-
     public BaseElement totalAmount() {
         return totalAmount(1);
     }
@@ -95,26 +79,6 @@ public class DeviceMonitoring extends BasePage {
 
     public void voidLine(Duration timeout) {
         element(Locators.XP_BUTTON_TEXT_VOID_LINE).tap(timeout);
-    }
-
-    public void bypassId(Duration timeout) {
-        element(Locators.XP_BUTTON_TEXT_BYPASS_ID).tap(timeout);
-    }
-
-    public BaseElement confirmationTitle() {
-        return element(Locators.XP_DIV_CONFIRMATION_TITLE);
-    }
-
-    public BaseElement confirmationMessage() {
-        return element(Locators.XP_DIV_CONFIRMATION_MESSAGE);
-    }
-
-    public void confirmYes(Duration timeout) {
-        element(Locators.XP_BUTTON_TEXT_YES).tap(timeout);
-    }
-
-    public void confirmCancel(Duration timeout) {
-        element(Locators.XP_BUTTON_TEXT_CANCEL).tap(timeout);
     }
 
     public BaseElement errorMessage() {

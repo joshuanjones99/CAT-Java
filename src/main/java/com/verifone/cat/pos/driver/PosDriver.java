@@ -377,16 +377,11 @@ public final class PosDriver implements AutoCloseable {
     private List<Target> overlayFrames() {
         List<Target> targets = new ArrayList<>();
         targets.add(page::evaluate);
-        Frame nested = null;
         for (Frame frame : page.frames()) {
             if (DEFAULT_NESTED_FRAME.equals(frame.name())) {
-                nested = frame;
+                targets.add(frame::evaluate);
                 break;
             }
-        }
-        if (nested != null) {
-            final Frame target = nested;
-            targets.add(target::evaluate);
         }
         return targets;
     }
@@ -802,8 +797,8 @@ public final class PosDriver implements AutoCloseable {
     // -- rung 0: capture before recovery (DESIGN.md 6.3) ------------------
 
     /**
-     * Begins a Playwright trace, recorded in chunks so {@link #beginTest} can drop what came before
-     * a test. No screencast and no DOM snapshots: they grew the trace past the controller's disk.
+     * Begins a Playwright trace, recorded in chunks so {@link #capture} saves only what came since
+     * the last one. No screencast and no DOM snapshots: they grew the trace past the controller's disk.
      */
     public void startTrace() {
         BrowserContext context = page.context();
@@ -814,20 +809,6 @@ public final class PosDriver implements AutoCloseable {
                 .setScreenshots(false).setSnapshots(false).setSources(false));
         context.tracing().startChunk();
         tracing = true;
-    }
-
-    /** Drops the trace recorded so far; a failure in this test saves only its own. */
-    public void beginTest() {
-        if (!tracing) {
-            return;
-        }
-        try {
-            page.context().tracing().stopChunk();
-            page.context().tracing().startChunk();
-        } catch (RuntimeException e) {
-            // tracing is evidence, never a reason to fail a test
-            tracing = false;
-        }
     }
 
     /**
@@ -973,8 +954,6 @@ public final class PosDriver implements AutoCloseable {
         return results;
     }
 
-            /** Settle, in the page, as the Python's {@code _SETTLE_SCRIPT}. */
-    
     private List<Map<String, Object>> elements(Locator locator) {
         PressTarget target = pressTarget(locator);
         List<Map<String, Object>> out = new ArrayList<>();
@@ -995,7 +974,7 @@ public final class PosDriver implements AutoCloseable {
         return locator.value().contains("{") ? locator.prefixSelector() : locator.selector();
     }
 
-        /** Milliseconds for a Playwright timeout: the override, else the rig's default. Never zero. */
+    /** Milliseconds for a Playwright timeout: the override, else the rig's default. Never zero. */
     double ms(Duration override) {
         Duration value = override == null ? timeouts.defaultWait() : override;
         return Durations.milliseconds(requirePositive(value));
@@ -1014,10 +993,6 @@ public final class PosDriver implements AutoCloseable {
     }
 
     private static Duration elapsed(long fromNanos, long toNanos) {
-        return Duration.ofNanos(toNanos - fromNanos);
-    }
-
-    private static Duration elapsed(Long fromNanos, long toNanos) {
         return Duration.ofNanos(toNanos - fromNanos);
     }
 

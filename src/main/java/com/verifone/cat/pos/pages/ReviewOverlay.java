@@ -39,10 +39,6 @@ public class ReviewOverlay extends BasePage {
         return element(Locators.REVIEW_OVERLAY_VIEW_HEADER_TEXT);
     }
 
-    public BaseElement footnote() {
-        return element(Locators.REVIEW_OVERLAY_VIEW_FOOT_NOTE);
-    }
-
     /** One reviewable item, by the POS-generated item id (the 26 in the corpus). */
     public BaseElement item(int itemId) {
         return element(Locators.REVIEW_OVERLAY_VIEW_ITEM_N, itemId);

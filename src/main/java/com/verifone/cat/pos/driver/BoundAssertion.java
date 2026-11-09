@@ -27,10 +27,6 @@ public final class BoundAssertion {
         assertion.isHidden(new LocatorAssertions.IsHiddenOptions().setTimeout(timeoutMs));
     }
 
-    public void toBeEnabled() {
-        assertion.isEnabled(new LocatorAssertions.IsEnabledOptions().setTimeout(timeoutMs));
-    }
-
     public void toHaveText(String text) {
         assertion.hasText(text, new LocatorAssertions.HasTextOptions().setTimeout(timeoutMs));
     }

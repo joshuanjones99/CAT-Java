@@ -62,10 +62,6 @@ public class ExpressPanel extends BasePage {
         return element(Locators.EXPRESS_PANEL_VIEW_KEYPAD_ICON);
     }
 
-    public BaseElement exitIcon() {
-        return element(Locators.EXPRESS_PANEL_VIEW_EXIT_ICON);
-    }
-
     /** No sale in progress. Retries until slot 7 reads "CSR Func", bounded by the timeout. */
     public void expectIdle(Duration timeout) {
         csrFunction().expectText(IDLE_TEXT, false, timeout);
