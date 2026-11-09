@@ -42,6 +42,7 @@ public record SimContext(Path toolsRoot, String controllerHost, String javaDir, 
     public static final String JAVA_DIR = "Java17";
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^{}]*)\\}");
+    private static final Pattern DIGITS = Pattern.compile("\\d+");
 
     public SimContext {
         Objects.requireNonNull(toolsRoot, "toolsRoot");
@@ -246,7 +247,7 @@ public record SimContext(Path toolsRoot, String controllerHost, String javaDir, 
     /** The numbers in a folder name, in order: {@code jdk-17.0.5+8} gives 17, 0, 5, 8. */
     static List<Long> versionKey(Path folder) {
         List<Long> key = new ArrayList<>();
-        Matcher digits = Pattern.compile("\\d+").matcher(folder.getFileName().toString());
+        Matcher digits = DIGITS.matcher(folder.getFileName().toString());
         while (digits.find()) {
             key.add(Long.parseLong(digits.group()));
         }

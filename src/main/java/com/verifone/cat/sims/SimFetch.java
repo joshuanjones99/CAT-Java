@@ -1,7 +1,6 @@
 package com.verifone.cat.sims;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystemException;
@@ -26,6 +25,7 @@ import java.util.stream.Stream;
 import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.ArtifactoryErrors;
 import com.verifone.cat.build.ArtifactoryException;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.sims.SimSources.ArtifactorySource;
 import com.verifone.cat.sims.base.JavaSets;
 import com.verifone.cat.sims.base.NightlyBuilds;
@@ -375,7 +375,7 @@ public final class SimFetch {
                 if (e.status() != ArtifactoryException.NO_RESPONSE || attempt == DOWNLOAD_ATTEMPTS) {
                     throw e;
                 }
-                Park.park(downloadRetryPause);
+                Waits.pause(downloadRetryPause);
             }
         }
         Path unpacked = scratch.resolve("unpacked");
@@ -523,7 +523,7 @@ public final class SimFetch {
                     throw e;
                 }
             }
-            Park.park(renameInterval);
+            Waits.pause(renameInterval);
         }
     }
 
@@ -584,13 +584,8 @@ public final class SimFetch {
     private static int execute(List<String> argv, Path cwd, Duration timeout, StringBuilder err) throws IOException {
         Process process = new ProcessBuilder(argv).directory(cwd.toFile())
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
-        CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> {
-            try (InputStream in = process.getErrorStream()) {
-                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                return "";
-            }
-        });
+        CompletableFuture<String> stderr = CompletableFuture.supplyAsync(
+                () -> ChildOutput.read(process.getErrorStream(), StandardCharsets.UTF_8));
         try {
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();

@@ -1,7 +1,7 @@
 package com.verifone.cat.collect;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -54,7 +54,6 @@ public final class Collect {
     private static final Duration GIT_TIMEOUT = Duration.ofSeconds(120);
     private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(300);
     private static final Map<String, String> NO_PROMPT = GitUtil.NO_PROMPT;
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     /** The branch a run reads: what was asked for, and the ref actually read. */
     public record Ref(String ref, String commit) {}
@@ -288,7 +287,7 @@ public final class Collect {
             document.put("fetched", collection.fetched);
             document.put("fetch_error", collection.fetchError);
             document.put("written", written);
-            Files.writeString(manifest, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(document),
+            Files.writeString(manifest, Json.PRETTY.writeValueAsString(document),
                     StandardCharsets.UTF_8);
             Path base = target.toAbsolutePath().normalize();
             Set<Path> keep = new HashSet<>();
@@ -312,7 +311,7 @@ public final class Collect {
             return previous;
         }
         try {
-            JsonNode written = JSON.readTree(Files.readString(manifest, StandardCharsets.UTF_8)).path("written");
+            JsonNode written = Json.MAPPER.readTree(Files.readString(manifest, StandardCharsets.UTF_8)).path("written");
             if (written.isArray()) {
                 for (JsonNode name : written) {
                     if (name.isTextual()) {
@@ -330,7 +329,7 @@ public final class Collect {
     /** Case keys, in order, from a {@code cases-<plan>.json} cache file ({@code rows[].key}). */
     public static List<String> readCaseList(Path path) {
         try {
-            JsonNode rows = JSON.readTree(Files.readString(path, StandardCharsets.UTF_8)).path("rows");
+            JsonNode rows = Json.MAPPER.readTree(Files.readString(path, StandardCharsets.UTF_8)).path("rows");
             List<String> keys = new ArrayList<>();
             for (JsonNode row : rows) {
                 JsonNode key = row.get("key");

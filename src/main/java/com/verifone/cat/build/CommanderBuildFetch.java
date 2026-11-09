@@ -13,8 +13,8 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.launch.UpgradeMode;
 
 /**
@@ -47,7 +47,6 @@ public final class CommanderBuildFetch {
     /** Written beside a merged {@code overlay.zip}: the two overlays it came from, and its package type. */
     public static final String MERGE_STAMP = ".cat-merge.json";
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private CommanderBuildFetch() {}
 
@@ -221,7 +220,7 @@ public final class CommanderBuildFetch {
             } finally {
                 Files.deleteIfExists(merging);
             }
-            Files.writeString(stampFile, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(record) + "\n",
+            Files.writeString(stampFile, Json.PRETTY.writeValueAsString(record) + "\n",
                     StandardCharsets.UTF_8);
             // The inputs are two overlays of up to 1.2 GB each; the stamp is what skips a repeat.
             deleteTree(inputs);
@@ -241,7 +240,7 @@ public final class CommanderBuildFetch {
     /** The stamp a merge writes: the Python's record, its keys in sorted order. */
     private static ObjectNode stamp(OverlayMerge.PackageType type, String viperPath, ArtifactoryClient.FileInfo viper,
             String basePath, ArtifactoryClient.FileInfo base) {
-        ObjectNode record = JSON.createObjectNode();
+        ObjectNode record = Json.MAPPER.createObjectNode();
         record.set("foundation", input(basePath, base));
         record.put("package_type", type.name());
         record.set("viper", input(viperPath, viper));
@@ -249,7 +248,7 @@ public final class CommanderBuildFetch {
     }
 
     private static ObjectNode input(String path, ArtifactoryClient.FileInfo info) {
-        ObjectNode node = JSON.createObjectNode();
+        ObjectNode node = Json.MAPPER.createObjectNode();
         node.put("path", path);
         node.put("sha256", info.sha256());
         node.put("size", info.size());
@@ -258,7 +257,7 @@ public final class CommanderBuildFetch {
 
     private static JsonNode readStamp(Path file) {
         try {
-            return JSON.readTree(Files.readString(file, StandardCharsets.UTF_8));
+            return Json.MAPPER.readTree(Files.readString(file, StandardCharsets.UTF_8));
         } catch (IOException | RuntimeException e) {
             return null;
         }
@@ -270,7 +269,7 @@ public final class CommanderBuildFetch {
             return false;
         }
         try {
-            return JSON.readTree(JSON.writeValueAsString(record)).equals(previous);
+            return Json.MAPPER.readTree(Json.MAPPER.writeValueAsString(record)).equals(previous);
         } catch (IOException e) {
             return false;
         }

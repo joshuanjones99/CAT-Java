@@ -19,10 +19,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.ArtifactoryException;
+import com.verifone.cat.core.Json;
 
 /**
  * Which Commander base a staged simulator was built for, and which nightly build matches a Commander: the Python
@@ -46,8 +45,6 @@ public final class SuiteBase {
 
     /** CAT's record of what it installed into a simulator's folder. */
     public static final String MARKER = ".cat-build.json";
-
-    private static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     /** The jar namespace per (path, mtime, size): about a second for the 10 MB suite, once per copy. */
     private static final Map<String, Optional<String>> NAMESPACES = new ConcurrentHashMap<>();
@@ -83,13 +80,13 @@ public final class SuiteBase {
         record.put("branch", trimmed.substring(trimmed.lastIndexOf('/') + 1));
         record.put("build", String.valueOf(build));
         record.put("installed", Instant.now().truncatedTo(ChronoUnit.SECONDS).toString());
-        Files.writeString(folder.resolve(MARKER), JSON.writeValueAsString(record) + "\n", StandardCharsets.UTF_8);
+        Files.writeString(folder.resolve(MARKER), Json.PRETTY.writeValueAsString(record) + "\n", StandardCharsets.UTF_8);
     }
 
     /** The folder's install record, or empty when there is none, it is unreadable, or it names no branch. */
     public static Optional<Marker> readMarker(Path folder) {
         try {
-            JsonNode node = JSON.readTree(Files.readString(folder.resolve(MARKER), StandardCharsets.UTF_8));
+            JsonNode node = Json.MAPPER.readTree(Files.readString(folder.resolve(MARKER), StandardCharsets.UTF_8));
             if (node == null || !node.isObject()) {
                 return Optional.empty();
             }

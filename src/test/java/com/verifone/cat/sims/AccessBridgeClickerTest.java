@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.sims.FakeAccessBridge.Node;
 
 /**
@@ -40,7 +41,7 @@ class AccessBridgeClickerTest {
     /** Records each pause and waits a millisecond, so polling loops neither spin nor drag. */
     private final Consumer<Duration> pause = d -> {
         pauses.add(d);
-        Park.park(Duration.ofMillis(1));
+        Waits.pause(Duration.ofMillis(1));
     };
 
     private Path properties() {

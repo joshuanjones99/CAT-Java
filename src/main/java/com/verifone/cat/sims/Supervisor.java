@@ -17,10 +17,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+
+import com.verifone.cat.core.Waits;
 
 /**
  * Starts the PATS simulators that are not already running, and stops only what it started.
@@ -230,28 +231,64 @@ public final class Supervisor {
         }
 
         if (adoption != Adoption.ABSENT) {
-            if (adoption == Adoption.LISTENING && entry.adoptOnlyMatch()) {
-                int port = entry.readyTcp();
-                String token = ctx.matchToken(entry);
-                ProcessOps.Snapshot holder = ops.listenerCommandLine(port, PROBE_TIMEOUT);
-                if (!holder.error().isEmpty()) {
-                    why += " — could not confirm it is " + token + " (" + holder.error() + ")";
-                } else if (!normalise(holder.text()).contains(normalise(token))) {
-                    return fail(entry, ev, SimStatus.Owner.EXTERNAL, "port " + port
-                            + " is held by another build, not " + token + ": "
-                            + (holder.text().isEmpty() ? "?" : holder.text())
-                            + " — stop it and CAT starts its own");
-                }
-            }
-            SimStatus status = new SimStatus(entry.name(), SimStatus.State.ADOPTED,
-                    SimStatus.Owner.EXTERNAL, "", why + " — left alone (D9)");
-            ev.status(status);
-            // An adopted simulator has no pipe: its file log is the only log there is.
-            SimProcess adopted = new SimProcess(entry, status, null, startTail(entry, ctx, ev));
-            ev.started(adopted);
-            return adopted;
+            return adopt(entry, ctx, ev, adoption == Adoption.LISTENING, why);
+        }
+        SimProcess refused = cannotSpawn(entry, ctx, ev);
+        if (refused != null) {
+            return refused;
         }
 
+        String caveat = error.isEmpty() ? ""
+                : " — process probe unavailable (" + error
+                + "); an already-running instance may be duplicated";
+        SimStatus spawning = new SimStatus(entry.name(), SimStatus.State.STARTING, SimStatus.Owner.CAT, "",
+                "spawning" + caveat);
+        ev.status(spawning);
+        entry = beforeLaunch(entry, ctx, ev);
+        AtomicBoolean tripped = new AtomicBoolean();
+        SimProcess proc = launch(entry, ctx, spawning, ev, deadline, tripped);
+        if (tripped.get() && !entry.fallbackJdk().isEmpty()) {
+            // An older build wants an older runtime: one relaunch, on the same deadline.
+            stop(List.of(proc), STOP_TIMEOUT);
+            proc = relaunchOnFallbackJdk(entry, ctx, ev, deadline);
+        }
+        ev.status(proc.status());
+        return proc;
+    }
+
+    /**
+     * The row for a simulator found running: adopted and left alone, or, for an {@code adoptOnlyMatch} row whose
+     * port another build holds, failed.
+     */
+    private SimProcess adopt(SimEntry entry, SimContext ctx, Events ev, boolean listening, String found) {
+        String why = found;
+        if (listening && entry.adoptOnlyMatch()) {
+            int port = entry.readyTcp();
+            String token = ctx.matchToken(entry);
+            ProcessOps.Snapshot holder = ops.listenerCommandLine(port, PROBE_TIMEOUT);
+            if (!holder.error().isEmpty()) {
+                why += " — could not confirm it is " + token + " (" + holder.error() + ")";
+            } else if (!normalise(holder.text()).contains(normalise(token))) {
+                return fail(entry, ev, SimStatus.Owner.EXTERNAL, "port " + port
+                        + " is held by another build, not " + token + ": "
+                        + (holder.text().isEmpty() ? "?" : holder.text())
+                        + " — stop it and CAT starts its own");
+            }
+        }
+        SimStatus status = new SimStatus(entry.name(), SimStatus.State.ADOPTED,
+                SimStatus.Owner.EXTERNAL, "", why + " — left alone (D9)");
+        ev.status(status);
+        // An adopted simulator has no pipe: its file log is the only log there is.
+        SimProcess adopted = new SimProcess(entry, status, null, startTail(entry, ctx, ev));
+        ev.started(adopted);
+        return adopted;
+    }
+
+    /**
+     * What stops a row being spawned at all, as its row: a {@code capk_from} jar that cannot be built, or buttons
+     * this controller cannot press. Null when the spawn may go ahead.
+     */
+    private SimProcess cannotSpawn(SimEntry entry, SimContext ctx, Events ev) {
         if (!entry.capkFrom().isEmpty()) {
             // CAT's jar, built from PATS's with CAPK expiries re-dated and the cut time moved
             // (Capk), before every launch; an up-to-date one is left as it is.
@@ -278,34 +315,23 @@ public final class Supervisor {
                 return new SimProcess(entry, status, null, null);
             }
         }
+        return null;
+    }
 
-        String caveat = error.isEmpty() ? ""
-                : " — process probe unavailable (" + error
-                + "); an already-running instance may be duplicated";
-        SimStatus spawning = new SimStatus(entry.name(), SimStatus.State.STARTING, SimStatus.Owner.CAT, "",
-                "spawning" + caveat);
-        ev.status(spawning);
-        entry = beforeLaunch(entry, ctx, ev);
-        AtomicBoolean tripped = new AtomicBoolean();
-        SimProcess proc = launch(entry, ctx, spawning, ev, deadline, tripped);
-        if (tripped.get() && !entry.fallbackJdk().isEmpty()) {
-            // An older build wants an older runtime: one relaunch, on the same deadline.
-            stop(List.of(proc), STOP_TIMEOUT);
-            try {
-                Path jdk = Path.of(ctx.substitute(entry.fallbackJdk(), entry));
-                Path jaxb = entry.fallbackJaxb().isEmpty()
-                        ? null : Path.of(ctx.substitute(entry.fallbackJaxb(), entry));
-                SimStatus retrying = new SimStatus(entry.name(), SimStatus.State.STARTING,
-                        SimStatus.Owner.CAT, "", entry.fallbackWhen() + " in its output — retrying on " + jdk);
-                ev.status(retrying);
-                proc = launch(entry, ctx.withJdk(jdk, jaxb), retrying, ev, deadline, new AtomicBoolean());
-            } catch (IllegalArgumentException e) {
-                proc = new SimProcess(entry, new SimStatus(entry.name(), SimStatus.State.FAILED,
-                        SimStatus.Owner.CAT, "", "bad registry row: " + e.getMessage()), null, null);
-            }
+    /** The one relaunch of a row whose output tripped {@code fallbackWhen}, on its fallback JDK. */
+    private SimProcess relaunchOnFallbackJdk(SimEntry entry, SimContext ctx, Events ev, long deadline) {
+        try {
+            Path jdk = Path.of(ctx.substitute(entry.fallbackJdk(), entry));
+            Path jaxb = entry.fallbackJaxb().isEmpty()
+                    ? null : Path.of(ctx.substitute(entry.fallbackJaxb(), entry));
+            SimStatus retrying = new SimStatus(entry.name(), SimStatus.State.STARTING,
+                    SimStatus.Owner.CAT, "", entry.fallbackWhen() + " in its output — retrying on " + jdk);
+            ev.status(retrying);
+            return launch(entry, ctx.withJdk(jdk, jaxb), retrying, ev, deadline, new AtomicBoolean());
+        } catch (IllegalArgumentException e) {
+            return new SimProcess(entry, new SimStatus(entry.name(), SimStatus.State.FAILED,
+                    SimStatus.Owner.CAT, "", "bad registry row: " + e.getMessage()), null, null);
         }
-        ev.status(proc.status());
-        return proc;
     }
 
     /**
@@ -572,7 +598,8 @@ public final class Supervisor {
             if (expired(deadline)) {
                 return false;
             }
-            pausePoll();
+            // A bounded poll interval, not a sleep: the deadline is re-checked on every pass.
+            Waits.pause(POLL);
         }
     }
 
@@ -775,18 +802,6 @@ public final class Supervisor {
 
     private static long secondsUntil(long deadline) {
         return Math.max(0, (deadline - System.nanoTime()) / TimeUnit.SECONDS.toNanos(1));
-    }
-
-    /**
-     * A bounded poll interval, not {@code Thread.sleep}: a pass that finds nothing waits here, and
-     * the callers re-check their own deadline on every pass.
-     */
-    private static void pausePoll() {
-        try {
-            new CountDownLatch(1).await(POLL.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     /** A {@code netstat}-style listing, parsed: listeners by port, and processes by command line. */

@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+
+import com.verifone.cat.core.Waits;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -445,7 +447,7 @@ class SupervisorTest {
     private Supervisor clicking(FakeWindowOps windows, FakeAccessBridge bridge) {
         AccessBridgeClicker clicker = new AccessBridgeClicker(windows, dll -> bridge,
                 tools.resolve(".accessibility.properties"), true, Duration.ofMillis(10),
-                d -> Park.park(Duration.ofMillis(1)));
+                d -> Waits.pause(Duration.ofMillis(1)));
         return new Supervisor(new FakeProcessOps(), Duration.ofMillis(300), clicker);
     }
 

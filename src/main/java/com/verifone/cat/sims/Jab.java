@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.verifone.cat.core.Waits;
+
 /**
  * Clicks named buttons in a Java Swing simulator window through the Java Access Bridge: the Python
  * CAT's {@code cat.sims.jab}, which was vendored from PATS's {@code sim_click.py} and is the only
@@ -101,7 +103,7 @@ public final class Jab {
 
     /** A Jab that pauses with a bounded park. */
     public Jab(AccessBridge bridge) {
-        this(bridge, Park::park);
+        this(bridge, Waits::pause);
     }
 
     /** For tests, which record the settle pauses instead of waiting them. */

@@ -31,9 +31,8 @@ import java.util.zip.ZipInputStream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.verifone.cat.core.Json;
 
 /**
  * Petro Simulator Suite's common FEP simulator (FEPSIM): which one is staged, and its listeners. The Python CAT's
@@ -82,7 +81,6 @@ public final class Fepsim {
     /** The admin calls' bound, as the Python's {@code timeout=10.0}. */
     public static final Duration ADMIN_TIMEOUT = Duration.ofSeconds(10);
 
-    private static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     /**
@@ -289,7 +287,7 @@ public final class Fepsim {
 
     private static ObjectNode example(Path suite, String instanceId) throws IOException {
         Path file = suite.resolve(EXAMPLES_DIR).resolve(instanceId + ".json");
-        JsonNode node = JSON.readTree(Files.readString(file, StandardCharsets.UTF_8));
+        JsonNode node = Json.MAPPER.readTree(Files.readString(file, StandardCharsets.UTF_8));
         if (!(node instanceof ObjectNode object)) {
             throw new IOException(file + " is not a JSON object");
         }
@@ -331,7 +329,7 @@ public final class Fepsim {
         }
         Path target = suite.resolve(INSTANCES_DIR).resolve(instanceId + ".json");
         Files.createDirectories(target.getParent());
-        Files.writeString(target, JSON.writeValueAsString(config) + "\n", StandardCharsets.UTF_8);
+        Files.writeString(target, Json.PRETTY.writeValueAsString(config) + "\n", StandardCharsets.UTF_8);
         return target;
     }
 
@@ -349,7 +347,7 @@ public final class Fepsim {
         Path target = suite.resolve(INSTANCES_DIR).resolve(instanceId + ".json");
         ObjectNode config;
         try {
-            JsonNode node = JSON.readTree(Files.readString(target, StandardCharsets.UTF_8));
+            JsonNode node = Json.MAPPER.readTree(Files.readString(target, StandardCharsets.UTF_8));
             if (!(node instanceof ObjectNode object)) {
                 return null;
             }
@@ -363,7 +361,7 @@ public final class Fepsim {
         config.put("enabled", false);
         config.put("autoStart", false);
         try {
-            Files.writeString(target, JSON.writeValueAsString(config) + "\n", StandardCharsets.UTF_8);
+            Files.writeString(target, Json.PRETTY.writeValueAsString(config) + "\n", StandardCharsets.UTF_8);
         } catch (IOException e) {
             return null;
         }
@@ -474,7 +472,7 @@ public final class Fepsim {
             }
             JsonNode record;
             try {
-                record = JSON.readTree(line);
+                record = Json.MAPPER.readTree(line);
             } catch (JsonProcessingException e) {
                 continue;
             }

@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import com.verifone.cat.core.Waits;
+
 /**
  * Presses a simulator's Swing buttons through the Java Access Bridge, and minimises the windows the
  * simulators raise: the Python CAT's {@code _do_clicks}, {@code _main_window_handle},
@@ -87,7 +89,7 @@ public final class AccessBridgeClicker implements Clicker {
         boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
         Path home = Path.of(System.getProperty("user.home", ""));
         return new AccessBridgeClicker(new JnaWindowOps(), JnaAccessBridge::new, home.resolve(PROPERTIES_FILE),
-                windows, Jab.DEFAULT_SETTLE, Park::park);
+                windows, Jab.DEFAULT_SETTLE, Waits::pause);
     }
 
     @Override
