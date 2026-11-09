@@ -96,14 +96,6 @@ public final class RunSummary {
         return counts;
     }
 
-    public synchronized Map<String, Integer> repairsByCheck() {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (RepairRecord record : repairs) {
-            counts.merge(record.check(), 1, Integer::sum);
-        }
-        return counts;
-    }
-
     /** The sentences DESIGN.md asks for. Empty when the run was clean. */
     public synchronized List<String> findings() {
         List<String> found = new ArrayList<>();

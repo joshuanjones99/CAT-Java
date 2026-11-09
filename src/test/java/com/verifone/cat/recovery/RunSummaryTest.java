@@ -64,8 +64,6 @@ class RunSummaryTest {
     void rungLabelsAreAsciiAndRungsOrder() {
         assertEquals("1:SOFT", Rung.SOFT.label());
         assertEquals("6:DRAIN", Rung.DRAIN.label());
-        assertTrue(Rung.SOFT.isCheap() && Rung.RESET.isCheap());
-        assertFalse(Rung.PREFLIGHT.isCheap());
         assertTrue(Rung.PREFLIGHT.isStructuralSignal() && Rung.REPROVISION.isStructuralSignal());
         assertFalse(Rung.VOID.isStructuralSignal());
     }

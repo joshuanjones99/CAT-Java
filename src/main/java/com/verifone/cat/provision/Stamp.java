@@ -29,7 +29,8 @@ public record Stamp(String manifestDigest, TargetRole role, String rig, String t
         Map<String, String> files) {
 
     private static final DateTimeFormatter ISO_SECONDS = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx");
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** The shared mapper, by its full name: this package has its own {@link Json}. */
+    private static final ObjectMapper JSON = com.verifone.cat.core.Json.MAPPER;
 
     public Stamp {
         files = Collections.unmodifiableMap(new TreeMap<>(files));

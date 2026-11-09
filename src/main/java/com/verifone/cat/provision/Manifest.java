@@ -5,14 +5,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.verifone.cat.core.Hashes;
 
 /**
  * What should be on one target, and the single digest that summarises it: the content-hash guard (DESIGN.md 6.1).
@@ -29,9 +28,6 @@ public final class Manifest {
 
     /** Bumped whenever the canonical form changes: an old stamp then cannot describe the new manifest. */
     public static final int FORMAT = 1;
-
-    /** Lower-case hex, as the digests are written. */
-    private static final HexFormat HEX = HexFormat.of();
 
     /** One file's contribution to a target's manifest. {@code entries} keeps build order (the push order). */
     public record Entry(String artifact, String remotePath, String sha256, int mode, long size) {}
@@ -125,11 +121,7 @@ public final class Manifest {
 
     /** SHA-256 of {@code content}, lower-case hex. */
     public static String sha256Hex(byte[] content) {
-        try {
-            return HEX.formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("every JDK has SHA-256", e);
-        }
+        return Hashes.sha256Hex(content);
     }
 
     /** Reads one payload file's bytes. Injected so a manifest can come from a directory, a blob or a map. */

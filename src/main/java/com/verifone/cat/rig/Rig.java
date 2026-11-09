@@ -96,15 +96,10 @@ public record Rig(
     }
 
     /**
-     * Every port this rig declares, as {@code (host, port, field path)}. Keyed by host, because a
+     * One declared port: where it is, and which field declared it. Keyed by host, because a
      * collision is real only on one machine: RCI answers on the Commander and WireMock on the
      * controller, so the shared default 8080 is no conflict on a two-box rig.
      */
-    public List<PortClaim> portClaims() {
-        return claimsOf(commander, registers, controller, wiremock, vats, devices);
-    }
-
-    /** One declared port: where it is, and which field declared it. */
     public record PortClaim(String host, int port, String field) {}
 
     // -- Rig-level validators -----------------------------------------------------------------

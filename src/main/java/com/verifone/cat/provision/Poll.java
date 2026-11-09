@@ -1,24 +1,22 @@
 package com.verifone.cat.provision;
 
 import java.time.Duration;
-import java.util.concurrent.locks.LockSupport;
+import java.util.Optional;
 import java.util.function.Supplier;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.preflight.Bounded;
 
 /**
  * Checks a condition until it holds or a deadline passes. A port of {@code petrotest.recovery.timeouts.poll_until}.
  *
  * <p>The check runs at least once. Between checks the thread parks for {@code interval}, never past the deadline,
- * so the total wait is bounded by {@code timeout} (DESIGN.md 6.3). A check returns null while the condition is
- * not yet true, and the value it returns otherwise.
+ * so the total wait is bounded by {@code timeout} (DESIGN.md 6.3): {@link Waits#until}, with a named timeout. A
+ * check returns null while the condition is not yet true, and the value it returns otherwise.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
 public final class Poll {
-
-    /** The shortest park between checks, so a zero interval cannot spin. */
-    private static final long MIN_INTERVAL_NANOS = 1_000_000L;
 
     private Poll() {}
 
@@ -28,21 +26,16 @@ public final class Poll {
      */
     public static <T> T until(Supplier<T> check, Duration timeout, Duration interval, String what) {
         long deadline = System.nanoTime() + timeout.toNanos();
-        while (true) {
-            T value = check.get();
-            if (value != null) {
-                return value;
-            }
-            long left = deadline - System.nanoTime();
-            if (left <= 0) {
-                throw new Bounded.TimeoutExpired(what + " did not happen within " + seconds(timeout) + " s");
-            }
-            LockSupport.parkNanos(Math.min(Math.max(interval.toNanos(), MIN_INTERVAL_NANOS), left));
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-                throw new Bounded.TimeoutExpired(what + " was interrupted");
-            }
+        Optional<T> value = Waits.until(() -> Optional.ofNullable(check.get()), timeout, interval);
+        if (value.isPresent()) {
+            return value.get();
         }
+        // Waits.until is empty for both endings. Its deadline is no earlier than this one, so a wait that ran out
+        // is at or past it, and one an interrupt cut short is still before it.
+        if (Thread.currentThread().isInterrupted() && System.nanoTime() - deadline < 0) {
+            throw new Bounded.TimeoutExpired(what + " was interrupted");
+        }
+        throw new Bounded.TimeoutExpired(what + " did not happen within " + seconds(timeout) + " s");
     }
 
     /** A duration in seconds as the Python prints it with {@code :g}: "60", "0.3". */

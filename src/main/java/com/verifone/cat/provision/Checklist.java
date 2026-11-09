@@ -52,8 +52,7 @@ public final class Checklist {
             for (String command : COMMANDS) {
                 CommandResult result = transport.run(command, timeout);
                 if (!result.ok()) {
-                    return new StepResult(name, StepStatus.FAILED, "'" + command + "' exited " + result.exitStatus()
-                            + ": " + result.stderr().strip());
+                    return StepResult.exited(name, "'" + command + "'", result);
                 }
             }
             return new StepResult(name, StepStatus.DONE, "");
@@ -112,8 +111,7 @@ public final class Checklist {
             String command = "chown -R " + owner + " " + path;
             CommandResult result = transport.run(command, timeout);
             if (!result.ok()) {
-                return new StepResult(name, StepStatus.FAILED, "'" + command + "' exited " + result.exitStatus()
-                        + ": " + result.stderr().strip());
+                return StepResult.exited(name, "'" + command + "'", result);
             }
             return new StepResult(name, StepStatus.DONE, path + " -> " + owner);
         }
