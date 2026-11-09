@@ -1,5 +1,6 @@
 package com.verifone.cat.pats.runner.handlers.posui;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.pats.runner.PatsStepError;
 
 import java.time.Duration;
@@ -35,15 +36,16 @@ public interface Pace {
     final class Real implements Pace {
 
         private static final long MIN_PARK_NANOS = 1_000_000L;
+        private static final String INTERRUPTED = "interrupted during a wait on the POS";
 
         @Override
         public void pause(Duration duration) {
-            long deadline = System.nanoTime() + duration.toNanos();
-            for (long left = duration.toNanos(); left > 0; left = deadline - System.nanoTime()) {
-                java.util.concurrent.locks.LockSupport.parkNanos(left);
-                interrupted();
+            if (!Waits.pause(duration)) {
+                throw new PatsStepError(INTERRUPTED);
             }
         }
+
+        // Not Waits.poll: that one returns false on an interrupt, and this one throws only after a park.
 
         @Override
         public boolean poll(BooleanSupplier check, Duration timeout, Duration interval) {
@@ -69,7 +71,7 @@ public interface Pace {
         private static void interrupted() {
             if (Thread.interrupted()) {
                 Thread.currentThread().interrupt();
-                throw new PatsStepError("interrupted during a wait on the POS");
+                throw new PatsStepError(INTERRUPTED);
             }
         }
     }

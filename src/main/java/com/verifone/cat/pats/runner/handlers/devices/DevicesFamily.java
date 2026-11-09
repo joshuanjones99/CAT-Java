@@ -83,7 +83,7 @@ public final class DevicesFamily {
      * pause. The case's CARD_SIMULATION_IMAGE_FILE reaches a physical VATS pinpad ({@code PhysicalPinpad}) only.
      */
     static void insertCard(CaseRun run, RunnableAction action, DevicesContext context) {
-        String card = ActionFields.require(action, "CARD_NAME");
+        String card = action.require("CARD_NAME");
         if (ActionFields.device(action).startsWith("DCR")) {
             context.pauses().pause(context.timing().dcrInputPause());
             context.dcr().insertCard(card);
@@ -105,7 +105,7 @@ public final class DevicesFamily {
      * prompt it is carried into already shows (see {@link #sleepUnlessAwaited}).
      */
     static void waitForPrompt(CaseRun run, RunnableAction action, DevicesContext context) {
-        String key = ActionFields.require(action, "DISPLAY_KEY");
+        String key = action.require("DISPLAY_KEY");
         if (action.get("DISPLAY_KEY_EXACT_MATCH[YES/NO]").toUpperCase(Locale.ROOT).equals("YES")) {
             throw new PatsStepError(String.format(Locale.ROOT, PINPAD_EXACT_UNPORTED,
                     context.pinpad().getClass().getSimpleName()));
@@ -145,7 +145,7 @@ public final class DevicesFamily {
 
     /** ViperPay {@code getAnyKey}. */
     static void getAnyKey(CaseRun run, RunnableAction action, DevicesContext context) {
-        context.pinpad().key(ActionFields.require(action, "ENTER_KEY"), null,
+        context.pinpad().key(action.require("ENTER_KEY"), null,
                 ActionFields.budget(run, context.timing().pinpadWait()));
         run.setScratch(KEYED_AT, System.nanoTime());
     }
@@ -156,7 +156,7 @@ public final class DevicesFamily {
      * {@link BigDecimal} would not reproduce is refused rather than keyed wrong.
      */
     static void getDecimal(CaseRun run, RunnableAction action, DevicesContext context) {
-        String entry = ActionFields.require(action, "ENTER_DECIMAL");
+        String entry = action.require("ENTER_DECIMAL");
         if (context.pinpad() instanceof com.verifone.cat.devices.vats.PhysicalPinpad physical) {
             // The Python's hasattr(pinpad, "enter_digits"): keyed as written, so a PIN keeps its leading zeros.
             physical.enterDigits(entry, null, ActionFields.budget(run, context.timing().pinpadWait()));
@@ -176,14 +176,14 @@ public final class DevicesFamily {
 
     /** {@code DCRManager.waitForDcrDisplay}: any prompt line contains it, ignoring case. */
     static void waitDcrPrompt(CaseRun run, RunnableAction action, DevicesContext context) {
-        context.dcr().waitForPrompt(ActionFields.require(action, "DISPLAY_KEY"),
+        context.dcr().waitForPrompt(action.require("DISPLAY_KEY"),
                 ActionFields.budget(run, context.timing().dcrWait()));
     }
 
     /** {@code DCRManager.numericKeyPress}. */
     static void dcrKeyPress(CaseRun run, RunnableAction action, DevicesContext context) {
         context.pauses().pause(context.timing().dcrInputPause());
-        context.dcr().keyPress(ActionFields.require(action, "KEY_PRESS"));
+        context.dcr().keyPress(action.require("KEY_PRESS"));
     }
 
     /** {@code DCRManager.funKeyPress}: L1..L4, and R1..R4, which PATS sends as the same keys. */
@@ -201,8 +201,8 @@ public final class DevicesFamily {
     static void fuelAmount(CaseRun run, RunnableAction action, DevicesContext context) {
         boolean preset = run.scratch(ScratchKey.FUEL_PRESET).orElse(false);
         run.setScratch(ScratchKey.FUEL_PRESET, false);
-        int pump = Integer.parseInt(ActionFields.require(action, "PUMP NO"));
-        String amount = ActionFields.require(action, "AMOUNT");
+        int pump = Integer.parseInt(action.require("PUMP NO"));
+        String amount = action.require("AMOUNT");
         int hose = Integer.parseInt(action.get("HOSE NO", "1"));
         context.fuelPumps().fillAmount(pump, amount, hose, prepayFlag(run, action), preset);
     }
@@ -212,14 +212,14 @@ public final class DevicesFamily {
      * the case's own (set by an earlier PREPAY), not a field.
      */
     static void handleUp(CaseRun run, RunnableAction action, DevicesContext context) {
-        int pump = Integer.parseInt(ActionFields.require(action, "PUMP NO"));
+        int pump = Integer.parseInt(action.require("PUMP NO"));
         int hose = Integer.parseInt(action.get("HOSE NO", "1"));
         context.fuelPumps().handleUp(pump, hose, run.scratch(ScratchKey.PREPAY).orElse(false));
     }
 
     /** {@code PumpManager.handleDown}. */
     static void handleDown(CaseRun run, RunnableAction action, DevicesContext context) {
-        int pump = Integer.parseInt(ActionFields.require(action, "PUMP NO"));
+        int pump = Integer.parseInt(action.require("PUMP NO"));
         context.fuelPumps().handleDown(pump, prepayFlag(run, action));
     }
 

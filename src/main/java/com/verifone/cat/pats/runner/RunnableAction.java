@@ -66,6 +66,20 @@ public interface RunnableAction {
     }
 
     /**
+     * PATS's {@code _require}: {@link #raw(String)}, or a step failure when the action has no such field. A field
+     * that is present but empty is returned as {@code ""}.
+     *
+     * @throws PatsStepError when the field is absent (PATS throws there)
+     */
+    default String require(String field) {
+        String value = raw(field);
+        if (value == null) {
+            throw new PatsStepError(describe() + " has no " + field + " field (PATS would throw here)");
+        }
+        return value;
+    }
+
+    /**
      * The action as a message names it: {@code #n NAME(FIELD='value', ...)}, with {@code n} from 1, and
      * the empty fields and {@code DEVICEID}/{@code CONTEXT} left out, as PATS's {@code str} does.
      */

@@ -2,7 +2,6 @@ package com.verifone.cat.pats.runner.handlers.validation;
 
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.PatsStepError;
-import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.ValidationFailure;
 import com.verifone.cat.validate.tlog.Tlog;
 import com.verifone.cat.validate.tlog.TlogOptions;
@@ -63,15 +62,6 @@ final class ValidationSupport {
     }
 
     // -- PATS field reads ---------------------------------------------------------------------
-
-    /** Python's {@code _require}: the field's value, or a hard step failure when the field is absent. */
-    static String require(RunnableAction action, String name) {
-        String value = action.raw(name);
-        if (value == null) {
-            throw new PatsStepError(action.describe() + " has no " + name + " field (PATS would throw here)");
-        }
-        return value;
-    }
 
     /** {@code _stem}: {@code PETROCORE-36906-1-Receipt.txt} becomes {@code PETROCORE-36906-1}. */
     static String stem(String filename, String kind) {

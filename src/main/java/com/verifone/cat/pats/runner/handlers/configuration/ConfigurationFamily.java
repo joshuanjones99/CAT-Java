@@ -1,7 +1,5 @@
 package com.verifone.cat.pats.runner.handlers.configuration;
 
-import static com.verifone.cat.pats.runner.handlers.configuration.ActionFields.require;
-
 import com.verifone.cat.devices.commander.PdkShim;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.CaseRun;
@@ -61,7 +59,7 @@ public final class ConfigurationFamily {
      * then notes the change, so the next init waits as PATS's SLEEP does. The import's own reply is the change's end.
      */
     static void importConfiguration(ConfigurationContext context, CaseRun run, RunnableAction action) throws Exception {
-        Path folder = run.fixture(FixtureName.CONFIGURATIONS, Path.class).resolve(require(action, "SELECT_FOLDER"));
+        Path folder = run.fixture(FixtureName.CONFIGURATIONS, Path.class).resolve(action.require("SELECT_FOLDER"));
         run.fixture(FixtureName.COMMANDER_CONFIG, PdkShim.class).importConfigurationFolder(folder);
         context.inits().changed();
     }

@@ -63,18 +63,9 @@ final class PosUi {
         return ctx.pace();
     }
 
-    /** {@code _require}: the field's value, or a step failure when the action has no such field. */
-    static String require(RunnableAction action, String field) {
-        String value = action.raw(field);
-        if (value == null) {
-            throw new PatsStepError(action.describe() + " has no " + field + " field (PATS would throw here)");
-        }
-        return value;
-    }
-
     /** The catalogue element the action names ({@code WEB ELEMENT}, {@code TYPE[ID/XPATH]}). */
     static Locator locator(RunnableAction action) {
-        return Elements.resolve(require(action, "WEB ELEMENT"), action.get("TYPE[ID/XPATH]", "ID"));
+        return Elements.resolve(action.require("WEB ELEMENT"), action.get("TYPE[ID/XPATH]", "ID"));
     }
 
     /**

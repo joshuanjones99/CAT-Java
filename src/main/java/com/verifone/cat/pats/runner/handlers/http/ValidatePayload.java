@@ -55,10 +55,7 @@ final class ValidatePayload implements ActionHandler {
 
     @Override
     public void handle(CaseRun run, RunnableAction action) {
-        String reference = action.raw("SELECT_REFERENCE_FILE");
-        if (reference == null) {
-            throw new PatsStepError(action.describe() + " has no SELECT_REFERENCE_FILE field (PATS would throw here)");
-        }
+        String reference = action.require("SELECT_REFERENCE_FILE");
         String rule = action.get("SELECT_RULE_FILE");
         if (action.get("VALIDATESCHEMA").toLowerCase(Locale.ROOT).equals("true")) {
             throw new PatsStepError("validateSchema=true is not ported to CAT (no case uses it)");

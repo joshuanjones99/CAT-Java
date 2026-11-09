@@ -73,8 +73,8 @@ final class SendHttpRequest implements ActionHandler {
 
     @Override
     public void handle(CaseRun run, RunnableAction action) {
-        String command = required(action, "COMMAND");
-        String payloadName = required(action, "PAYLOAD");
+        String command = action.require("COMMAND");
+        String payloadName = action.require("PAYLOAD");
         String device = action.get("DEVICE").strip();
         if (device.isEmpty()) {
             throw new PatsStepError("Device name must not be null or blank (no | device | row)");
@@ -141,14 +141,6 @@ final class SendHttpRequest implements ActionHandler {
     }
 
     // -- the table's own checks ---------------------------------------------------------------
-
-    private static String required(RunnableAction action, String name) {
-        String value = action.raw(name);
-        if (value == null) {
-            throw new PatsStepError(action.describe() + " has no " + name + " field (PATS would throw here)");
-        }
-        return value;
-    }
 
     private static void refuseUnported(RunnableAction action) {
         for (String key : NOT_PORTED_KEYS) {

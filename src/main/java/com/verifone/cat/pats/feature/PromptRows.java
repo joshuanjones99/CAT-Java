@@ -3,7 +3,7 @@ package com.verifone.cat.pats.feature;
 import com.verifone.cat.pats.Elements;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.validate.PyRepr;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,7 +32,6 @@ final class PromptRows {
             "touchActionLocatorType",
             "touchActionWebElements");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
     private static final Pattern PROMPT_SEPARATOR = Pattern.compile(Pattern.quote(" + "));
 
     private PromptRows() {}
@@ -41,7 +40,7 @@ final class PromptRows {
     static String toText(String field) {
         JsonNode rows;
         try {
-            rows = JSON.readTree(field);
+            rows = Json.MAPPER.readTree(field);
         } catch (IOException exc) {
             throw new IllegalArgumentException("PROMPTS is not JSON: " + exc.getMessage(), exc);
         }
@@ -51,7 +50,7 @@ final class PromptRows {
         List<String> out = new ArrayList<>();
         for (JsonNode row : rows) {
             String text = required(row, "promptText");
-            if (containsAny(text, "\";@=+") || !text.equals(text.strip())) {
+            if (Phrase.containsAny(text, "\";@=+") || !text.equals(text.strip())) {
                 throw new UnreadableActionException("prompt text " + PyRepr.reprString(text)
                         + " cannot be written in a step");
             }
@@ -167,14 +166,5 @@ final class PromptRows {
             throw new IllegalArgumentException("a prompt row with no " + key);
         }
         return node.asText();
-    }
-
-    private static boolean containsAny(String text, String chars) {
-        for (char c : chars.toCharArray()) {
-            if (text.indexOf(c) >= 0) {
-                return true;
-            }
-        }
-        return false;
     }
 }

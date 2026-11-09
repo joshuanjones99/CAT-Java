@@ -2,13 +2,12 @@ package com.verifone.cat.pats.runner.handlers.bdd;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.ScratchKey;
-import com.verifone.cat.pats.runner.handlers.devices.ActionFields;
 import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
 import com.verifone.cat.pos.driver.DriverTimeout;
@@ -71,7 +70,6 @@ public final class BddFamily {
     static final Locator GRADE_FAMILY = Locators.REVIEW_OVERLAY_VIEW_ITEM_N;
     static final Expect GRADE_HEADER = new Expect(Locators.REVIEW_OVERLAY_VIEW_HEADER_TEXT.value(), "Select Fuel Product");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private BddFamily() {
     }
@@ -99,7 +97,7 @@ public final class BddFamily {
     /** {@code addPluWithNumericKeypad}: open the keypad if needed, key each PLU and OK, close it. */
     static void addPluNumericKeypad(CaseRun run, RunnableAction action, BddContext ctx) throws Exception {
         List<String> plus = new ArrayList<>();
-        for (String part : ActionFields.require(action, "PLUS").split(",", -1)) {
+        for (String part : action.require("PLUS").split(",", -1)) {
             String plu = part.strip();
             if (!plu.isEmpty()) {
                 plus.add(plu);
@@ -132,7 +130,7 @@ public final class BddFamily {
      * failure). PATS's 1 s pause between passes is left out; the next pass's own looks wait on the screen.
      */
     static void validateDynamicPrompts(CaseRun run, RunnableAction action, BddContext ctx) throws Exception {
-        List<JsonNode> rows = promptRows(ActionFields.require(action, "PROMPTS"));
+        List<JsonNode> rows = promptRows(action.require("PROMPTS"));
         Set<String> done = new TreeSet<>();
         int idle = 0;
         for (int pass = 0; pass < rows.size(); pass++) {
@@ -162,7 +160,7 @@ public final class BddFamily {
     private static List<JsonNode> promptRows(String raw) {
         JsonNode document;
         try {
-            document = JSON.readTree(raw);
+            document = Json.MAPPER.readTree(raw);
         } catch (JsonProcessingException e) {
             throw new PatsStepError("PROMPTS is not JSON: " + e.getOriginalMessage(), e);
         }
@@ -197,8 +195,8 @@ public final class BddFamily {
 
     /** {@code prepayFuelAmount}: the pump's tile, then its {@code $n} preset if offered, else the amount keyed. */
     static void prepayFuelAmount(CaseRun run, RunnableAction action, BddContext ctx) throws Exception {
-        String pump = ActionFields.require(action, "PUMP NO");
-        String amount = ActionFields.require(action, "AMOUNT");
+        String pump = action.require("PUMP NO");
+        String amount = action.require("AMOUNT");
         run.setScratch(ScratchKey.PREPAY, true);
         press(run, ctx, FUEL_BUTTON.at(pump).value(), "ID");
         String shown = wholeOrPlain(amount);
@@ -214,9 +212,9 @@ public final class BddFamily {
 
     /** {@code prepayFuelVolume}: tile, Prepay, gallons keyed and ended with CANCEL (sic), then the grade row. */
     static void prepayFuelVolume(CaseRun run, RunnableAction action, BddContext ctx) throws Exception {
-        String pump = ActionFields.require(action, "PUMP NO");
-        String gallons = ActionFields.require(action, "GALLONS");
-        String grade = ActionFields.require(action, "GRADE");
+        String pump = action.require("PUMP NO");
+        String gallons = action.require("GALLONS");
+        String grade = action.require("GRADE");
         run.setScratch(ScratchKey.PREPAY, true);
         press(run, ctx, FUEL_BUTTON.at(pump).value(), "ID");
         press(run, ctx, PREPAY_BUTTON, "ID");

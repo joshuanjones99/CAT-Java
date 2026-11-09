@@ -4,7 +4,6 @@ import com.verifone.cat.devices.commander.PdkShim;
 import com.verifone.cat.pats.runner.ActionRegistry;
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.FixtureName;
-import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.RunnableAction;
 
 import java.util.Locale;
@@ -54,20 +53,12 @@ public final class InitsFamily {
      * waits on Petro's log in the actions after, as {@link InitsState#replyPause} does.
      */
     static void controlFunction(InitsState state, CaseRun run, RunnableAction action) throws Exception {
-        String init = require(action, "INIT_TYPE");
+        String init = action.require("INIT_TYPE");
         long mark = state.petroMark();
         boolean watched = mark >= 0 && !run.keepSleeps() && InitsState.knows(init);
         PdkShim shim = run.fixture(FixtureName.COMMANDER_CONFIG, PdkShim.class);
         shim.performInitialization(init, null, !watched);
         state.sent(init, watched ? mark : -1L);
         LOG.debug("{}: {} sent, watched={}", run.kase().key(), init, watched);
-    }
-
-    private static String require(RunnableAction action, String name) {
-        String value = action.raw(name);
-        if (value == null) {
-            throw new PatsStepError(action.describe() + " has no " + name + " field (PATS would throw here)");
-        }
-        return value;
     }
 }

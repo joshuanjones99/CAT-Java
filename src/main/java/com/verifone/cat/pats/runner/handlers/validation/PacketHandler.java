@@ -73,7 +73,7 @@ final class PacketHandler {
         if (!DEVICES.contains(device)) {
             throw new ValidationFailure("PATS does not support packet validation for '" + device + "'");
         }
-        List<String> wanted = Arrays.stream(ValidationSupport.require(action, "SELECT_REFERENCE_FILE").split(","))
+        List<String> wanted = Arrays.stream(action.require("SELECT_REFERENCE_FILE").split(","))
                 .map(String::strip)
                 .filter(name -> !name.isEmpty())
                 .toList();
@@ -82,7 +82,7 @@ final class PacketHandler {
         TreeMap<String, Path> found = awaitCaptured(run, device, prefix, listed);
 
         boolean update = run.update() || "1".equals(context.env(ValidationContext.PACKET_REBASE_ENV));
-        String rule = ValidationSupport.require(action, "SELECT_RULE_FILE");
+        String rule = action.require("SELECT_RULE_FILE");
         ValidationSupport.RuleLists lists = ValidationSupport.ruleLists(context, ValidationSupport.PACKET_RULES, rule);
         TlogOptions options = ValidationSupport.options(lists.tags(), lists.attributes());
 
@@ -102,14 +102,14 @@ final class PacketHandler {
             if (!Files.isRegularFile(catPath) && !hasReference) {
                 continue; // PATS: a missing reference is only a remark
             }
-            Path captured = entry.getValue();
-            Element actual = ValidationSupport.parse(Files.readAllBytes(captured));
+            byte[] captured = Files.readAllBytes(entry.getValue());
+            Element actual = ValidationSupport.parse(captured);
             if (update) {
                 if (!hasReference || !ValidationSupport.xmlDiff(
                         ValidationSupport.serialiseBytes(ValidationSupport.withoutTimeOffsets(
                                 ValidationSupport.parse(referenceBytes(device, name)))),
                         ValidationSupport.withoutTimeOffsets(actual), options).isEmpty()) {
-                    Files.write(catPath, Files.readAllBytes(captured));
+                    Files.write(catPath, captured);
                     LOG.warn("{}: wrote {}; review it against {}", run.kase().key(), catPath, name);
                 }
                 continue;

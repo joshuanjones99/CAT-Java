@@ -17,7 +17,6 @@ import com.verifone.cat.pats.runner.handlers.sale.SaleRmi;
 import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
 import com.verifone.cat.pos.pages.BaseElement;
-import com.verifone.cat.pos.pages.ItemPanel;
 import com.verifone.cat.pos.pages.Keypad;
 import com.verifone.cat.pos.pages.KeypadNamespace;
 import com.verifone.cat.pos.pages.Pos;

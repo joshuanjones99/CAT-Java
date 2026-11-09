@@ -3,11 +3,11 @@ package com.verifone.cat.pats.runner.handlers.cloudsettle;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.pats.runner.PatsStepError;
 
 /**
@@ -85,13 +85,8 @@ public final class CloudSettleContext {
 
     /** Parks until {@code duration} has passed; an interrupt is a step failure, not a retry. */
     static void park(Duration duration) {
-        long deadline = System.nanoTime() + duration.toNanos();
-        for (long left = duration.toNanos(); left > 0; left = deadline - System.nanoTime()) {
-            LockSupport.parkNanos(left);
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-                throw new PatsStepError("interrupted while waiting for the Commander to apply a cloud write");
-            }
+        if (!Waits.pause(duration)) {
+            throw new PatsStepError("interrupted while waiting for the Commander to apply a cloud write");
         }
     }
 }

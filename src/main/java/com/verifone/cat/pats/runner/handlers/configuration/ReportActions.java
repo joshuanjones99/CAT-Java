@@ -1,7 +1,6 @@
 package com.verifone.cat.pats.runner.handlers.configuration;
 
 import static com.verifone.cat.pats.runner.handlers.configuration.ActionFields.nullIfEmpty;
-import static com.verifone.cat.pats.runner.handlers.configuration.ActionFields.require;
 
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.PatsStepError;
@@ -70,10 +69,10 @@ final class ReportActions {
         RegisterPos pos = context.register();
         pos.sweep();
         press(pos, pos::exitKey);
-        String mainMenu = require(action, "MAIN_MENU_NO");
+        String mainMenu = action.require("MAIN_MENU_NO");
         press(pos, () -> pos.pendingEnter(mainMenu));
         // 17 TAX cases carry NETWORK_MENU_NO="": PATS's pendingToken("ENTER", "") is a bare ENTER.
-        String networkMenu = require(action, "NETWORK_MENU_NO");
+        String networkMenu = action.require("NETWORK_MENU_NO");
         press(pos, () -> pos.pendingEnter(networkMenu));
         if ("Y".equals(action.get("IS_SECURE_REPORT").toUpperCase(Locale.ROOT))) {
             press(pos, pos::pressEnter);
@@ -82,7 +81,7 @@ final class ReportActions {
             String password = nullIfEmpty(action.get("SECURE_PASSWORD"));
             press(pos, () -> pos.pendingEnter(password));
         }
-        String reportNo = require(action, "REPORT_NO");
+        String reportNo = action.require("REPORT_NO");
         press(pos, () -> pos.pendingEnter(reportNo));
         String subReport = action.get("SUB_REPORT_NO").strip();
         for (String value : List.of(subReport, action.get("DAY_SEQUENCE").strip(),
@@ -136,9 +135,9 @@ final class ReportActions {
      * EXITs to back out of the report view. The keys are sent unpaced, as PATS sends them.
      */
     void flashReport(CaseRun run, RunnableAction action) {
-        String mainMenu = require(action, "MAIN MENU NO");
-        String functionsMenu = require(action, "FUNCTIONS MENU NO");
-        String flashMenu = require(action, "FLASH REPORTS MENU NO");
+        String mainMenu = action.require("MAIN MENU NO");
+        String functionsMenu = action.require("FUNCTIONS MENU NO");
+        String flashMenu = action.require("FLASH REPORTS MENU NO");
         RegisterPos pos = context.register();
         pos.sweep();
         Duration wait = budget(run, STATE_WAIT);
@@ -172,8 +171,8 @@ final class ReportActions {
      * key after the report number first waits for the close's "Closing Cashiers" message to go.
      */
     void closeReport(CaseRun run, RunnableAction action) throws Exception {
-        String mainMenu = require(action, "MAIN MENU NO");
-        String reportNo = require(action, "CLOSE REPORT NO");
+        String mainMenu = action.require("MAIN MENU NO");
+        String reportNo = action.require("CLOSE REPORT NO");
         String cashier = nullIfEmpty(action.get("CASHIERNUM"));
         RegisterPos pos = context.register();
         pos.sweep();

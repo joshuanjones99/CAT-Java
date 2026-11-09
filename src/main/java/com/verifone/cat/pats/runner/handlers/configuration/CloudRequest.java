@@ -1,7 +1,5 @@
 package com.verifone.cat.pats.runner.handlers.configuration;
 
-import static com.verifone.cat.pats.runner.handlers.configuration.ActionFields.require;
-
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.RunnableAction;
@@ -50,9 +48,9 @@ final class CloudRequest {
     }
 
     void request(CaseRun run, RunnableAction action) throws Exception {
-        String payloadName = require(action, "SELECT_PAYLOAD_FILE");
-        String method = require(action, "HTTP_METHOD");
-        String endpoint = require(action, "CONFIGURATION_URL");
+        String payloadName = action.require("SELECT_PAYLOAD_FILE");
+        String method = action.require("HTTP_METHOD");
+        String endpoint = action.require("CONFIGURATION_URL");
         String body = payload(payloadName);
         String serviceId = context.cloud().serviceId(run)
                 .orElseThrow(() -> new PatsStepError("Error in force-fetching service id (the Commander's vsupportinfo)"));

@@ -53,7 +53,7 @@ final class Presence {
      */
     void clickable(CaseRun run, RunnableAction action) {
         String answer = action.get("YES/NO").toUpperCase(java.util.Locale.ROOT);
-        String rawWait = PosUi.require(action, "WAIT TIME[SEC]").strip();
+        String rawWait = action.require("WAIT TIME[SEC]").strip();
         if (rawWait.isEmpty() || !rawWait.chars().allMatch(Character::isDigit)) {
             throw new PatsStepError("WAIT TIME[SEC] is " + quoted(rawWait) + "; PATS reads it with Long.parseLong");
         }

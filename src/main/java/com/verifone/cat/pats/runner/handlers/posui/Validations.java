@@ -46,12 +46,12 @@ final class Validations {
 
     /** {@code WIDGET_VALIDATION}: the widget key's English text, in the element. */
     void widget(CaseRun run, RunnableAction action) {
-        expectText(run, action, ui.widget(PosUi.require(action, "VALIDATION KEY")));
+        expectText(run, action, ui.widget(action.require("VALIDATION KEY")));
     }
 
     /** {@code VALIDATION_BY_TEXT}: {@code VALIDATION TEXT} (with its space) as written. */
     void byText(CaseRun run, RunnableAction action) {
-        expectText(run, action, PosUi.require(action, "VALIDATION TEXT"));
+        expectText(run, action, action.require("VALIDATION TEXT"));
     }
 
     /**
