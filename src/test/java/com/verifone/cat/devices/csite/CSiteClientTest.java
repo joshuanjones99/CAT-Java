@@ -141,6 +141,31 @@ class CSiteClientTest {
     }
 
     @Test
+    void anUnavailableOpenAMIsTriedAgainUntilItAnswers() {
+        fake.route("POST", "/am/json/authenticate", CSiteFake.Reply.of(503), CSiteFake.Reply.of(503),
+                CSiteFake.Reply.json(200, "{\"tokenId\": \"S\"}"));
+        fake.route("GET", "/oidc/pcms/v1/config/1/tips", CSiteFake.Reply.json(200, "{}"));
+        CSiteClient client = client(fake.url() + "/oidc");
+
+        assertEquals(200, client.send("GET", "pcms/v1/config/1/tips", JSON, null, true).status());
+
+        assertEquals(3, fake.seen("POST", "/am/json/authenticate").size());
+        assertEquals(List.of(CSiteClient.TOKEN_PAUSE, CSiteClient.TOKEN_PAUSE), pauses);
+    }
+
+    @Test
+    void anOpenAMThatStaysUnavailableFailsAfterItsAttempts() {
+        fake.route("POST", "/am/json/authenticate", CSiteFake.Reply.of(503));
+        CSiteClient client = client(fake.url() + "/oidc");
+
+        DeviceError error = assertThrows(DeviceError.class,
+                () -> client.send("GET", "pcms/v1/config/1/tips", JSON, null, true));
+
+        assertTrue(error.getMessage().contains("OpenAM authenticate answered HTTP 503"), error.getMessage());
+        assertEquals(CSiteClient.TOKEN_ATTEMPTS, fake.seen("POST", "/am/json/authenticate").size());
+    }
+
+    @Test
     void aMissingPasswordNamesTheVariableAndNotTheLogin() {
         CSiteClient client = client(fake.url() + "/oidc", environ(USER, ""), Map.of());
 

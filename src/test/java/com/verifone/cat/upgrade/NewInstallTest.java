@@ -95,6 +95,92 @@ class NewInstallTest {
     }
 
     @Test
+    void noPreBypassSkipsOnlyTheFirstBypassAndTouchesNoSshBeforeTheInstall() throws Exception {
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        var installers = new FakeInstallers(build, "Installation Complete");
+        InMemoryTransport box = box("0.0");
+        NewInstall install = new NewInstall(tools(), target -> box, jars, installers, fastSettings(),
+                host -> true, target -> false, line -> { });
+
+        var results = install.run(rig(), Map.of(NewInstall.NO_PRE_BYPASS_ENV, "1"));
+
+        assertTrue(results.stream().noneMatch(StepResult::failed), results.toString());
+        assertTrue(results.get(0).detail().contains("--no-pre-bypass"), results.get(0).toString());
+        assertEquals("reboot_commander", results.get(1).step());
+        assertEquals(1, stepsOf(results).stream().filter("reboot_commander_after_bypass"::equals).count(),
+                "the tail still sets the bypass and reboots");
+    }
+
+    @Test
+    void aRebootWhoseLoginIsRefusedFailsInsteadOfReportingRebootSent() throws Exception {
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        var installers = new FakeInstallers(build, "Installation Complete");
+        com.verifone.cat.provision.transport.Transport refusing =
+                new com.verifone.cat.provision.transport.Transport() {
+                    @Override
+                    public String host() {
+                        return "192.0.2.11";
+                    }
+
+                    @Override
+                    public CommandResult run(String command, Duration timeout) {
+                        throw new com.verifone.cat.devices.DeviceError("ssh commander refused the key");
+                    }
+
+                    @Override
+                    public void put(String remotePath, byte[] content, int mode, Duration timeout) {
+                        throw new AssertionError("no put");
+                    }
+
+                    @Override
+                    public java.util.Optional<byte[]> get(String remotePath, Duration timeout) {
+                        throw new AssertionError("no get");
+                    }
+
+                    @Override
+                    public void mkdir(String remotePath, Duration timeout) {
+                        throw new AssertionError("no mkdir");
+                    }
+
+                    @Override
+                    public boolean exists(String remotePath, Duration timeout) {
+                        throw new AssertionError("no exists");
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                };
+        NewInstall install = new NewInstall(tools(), target -> refusing, jars, installers, fastSettings(),
+                host -> true, target -> false, line -> { });
+
+        var results = install.run(rig(), Map.of(NewInstall.NO_PRE_BYPASS_ENV, "1"));
+
+        StepResult last = results.get(results.size() - 1);
+        assertEquals("reboot_commander", last.step());
+        assertTrue(last.failed(), last.toString());
+        assertTrue(last.detail().contains("could not log in"), last.detail());
+        assertEquals(0, installers.ended, "no installer was started against a device that never rebooted");
+    }
+
+    @Test
+    void manualRebootSendsNothingOverSshBeforeTheInstallers() throws Exception {
+        var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
+        var installers = new FakeInstallers(build, "Installation Complete");
+        InMemoryTransport box = box("0.0");
+        NewInstall install = new NewInstall(tools(), target -> box, jars, installers, fastSettings(),
+                host -> true, target -> false, line -> { });
+
+        var results = install.run(rig(), Map.of(NewInstall.MANUAL_REBOOT_ENV, "1"));
+
+        assertTrue(results.stream().noneMatch(StepResult::failed), results.toString());
+        assertTrue(results.get(1).detail().contains("power-cycle commander"), results.get(1).toString());
+        assertTrue(results.get(2).detail().contains("power-cycle topaz101"), results.get(2).toString());
+        assertFalse(box.ran().contains("reboot") && box.ran().indexOf("reboot") < box.ran().indexOf("setenforce 0"),
+                "the only reboot is the tail's: " + box.ran());
+    }
+
+    @Test
     void aFailedInstallPushesNothingAndEndsEveryInstaller() throws Exception {
         var jars = new ScriptedJars(RootAccess.NETLOADER_SUCCESS);
         var installers = new FakeInstallers(build, "Installation Failed");

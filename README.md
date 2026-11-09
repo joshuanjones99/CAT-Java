@@ -77,7 +77,7 @@ takes `--rig`, `--register`, `--shim-port` and `--repair` (off by default, as in
 
 `launch` takes the Python `tools/rig/run_plan.py`'s flags: `--rig`, `--plan` (one or more keys, repeatable,
 run in the order given), `--suite`, `--simulator`, `--upgrade`, `--exec dev|BDD`, `--dist`, `--branch` (the
-petroapps test-plan branch), `--fep` (repeatable), `--no-xray`, `--coverage`/`--no-coverage`, `--cc-onboard`,
+petroapps test-plan branch), `--fep` (repeatable), `--no-xray`, `--coverage`/`--no-coverage`, `--cc-onboard`/`--no-cc-onboard` (Java only),
 `--waive-cc-requirement`, `--capture-snapshot`, `--snapshot-update`, `--buypass-host`, `--cache-only`,
 `--tags`/`--only KEY...`/`--from KEY` (one at a time; a partial run is still refused), `--fake-pos` and
 `--fake-pinpad`. A flag not given falls back to the Config tab's saved choices (`~/.cat/java/last-config.json`,

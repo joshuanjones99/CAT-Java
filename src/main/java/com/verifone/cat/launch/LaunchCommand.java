@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.verifone.cat.plans.CaseRef;
+import com.verifone.cat.plans.LocalSuites;
 import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.plans.PlanCase;
 import com.verifone.cat.plans.PlanCatalogue;
@@ -88,7 +89,7 @@ public final class LaunchCommand {
                           [--commander-branch <branch> --commander-build <n> | --solutions-build <n>]
                           [--sim-branch <branch> --sim-build <n>]
                           [--fep <name>]... [--simulator <name>]... [--no-xray] [--coverage | --no-coverage]
-                          [--cc-onboard] [--waive-cc-requirement] [--capture-snapshot] [--snapshot-update]
+                          [--cc-onboard | --no-cc-onboard] [--waive-cc-requirement] [--capture-snapshot] [--snapshot-update]
                           [--buypass-host] [--cache-only] [--tags <expr>] [--only <key>...] [--from <key>]
                           [--fake-pos] [--fake-pinpad]""";
 
@@ -137,7 +138,7 @@ public final class LaunchCommand {
             out.println("[run] refused: " + fallback);
             return EXIT_USAGE;
         }
-        String refused = refusal(config, paths.catalogue());
+        String refused = refusal(config, paths.catalogue(), paths.pythonRoot());
         if (!refused.isEmpty()) {
             out.println("[run] refused: " + refused);
             return EXIT_USAGE;
@@ -195,7 +196,7 @@ public final class LaunchCommand {
         String coverageFrom = o.noCoverage ? "from --no-coverage" : o.coverage ? "from --coverage"
                 : savedFrom(saved, LastConfig.COVERAGE, saved.isSwitch(LastConfig.COVERAGE));
         out.println("[run] coverage " + onOff(config.coverage()) + " (" + coverageFrom + ")");
-        String ccFrom = o.ccOnboard ? "from --cc-onboard"
+        String ccFrom = o.noCcOnboard ? "from --no-cc-onboard" : o.ccOnboard ? "from --cc-onboard"
                 : savedFrom(saved, LastConfig.CC_ONBOARD, saved.isSwitch(LastConfig.CC_ONBOARD));
         out.println("[run] Commander Connect onboard " + onOff(config.commanderConnect()) + " (" + ccFrom + ")");
     }
@@ -234,16 +235,34 @@ public final class LaunchCommand {
      * {@code run_plan._refusal}, checked here so a refused run touches nothing.
      */
     static String refusal(LaunchConfig config, PlanCatalogue catalogue) {
+        return refusal(config, catalogue, null);
+    }
+
+    /**
+     * {@link #refusal(LaunchConfig, PlanCatalogue)}, a row the catalogue holds without a node taking the hand-migrated
+     * file the local suites under {@code pythonRoot} resolve it to, as run start does ({@code PlanCases}). The catalogue
+     * CAT-Java reads from Xray writes every node as null, so without this every {@code --only} and {@code --from} on a
+     * real plan was refused as "not migrated" (2026-11-09, TPA-AUTOLAB3).
+     */
+    static String refusal(LaunchConfig config, PlanCatalogue catalogue, Path pythonRoot) {
         if (!config.partial()) {
             return "";
         }
+        LocalSuites local = pythonRoot == null ? null : new LocalSuites(pythonRoot);
         try {
             PartialRun.parseTags(config.selectionTags());
             if (!config.selectionOnly().isEmpty() || !config.selectionFrom().isEmpty()) {
                 List<CaseRef> rows = new ArrayList<>();
                 for (String plan : config.testPlans()) {
                     for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_FIRST).rows()) {
-                        rows.add(new CaseRef(row.key(), row.node()));
+                        String node = row.node();
+                        if ((node == null || node.isEmpty()) && local != null) {
+                            LocalSuites.Resolution found = local.resolve(plan, row.key());
+                            if (found.kind() == LocalSuites.Kind.LOCAL) {
+                                node = found.node();
+                            }
+                        }
+                        rows.add(new CaseRef(row.key(), node));
                     }
                 }
                 PartialRun.select(rows, "", config.selectionOnly(), config.selectionFrom(), Path.of("."));
@@ -332,6 +351,12 @@ public final class LaunchCommand {
         boolean coverage;
         boolean noCoverage;
         boolean ccOnboard;
+        /**
+         * Deviation: run_plan has no way to turn off a saved Onboard (flag or saved, never off). A controller whose
+         * saved Config is onboarded for one plan (TPA-AUTOLAB3, 2026-11-09: 143371) could not run Cadence
+         * un-onboarded, nor at all while QAT's OpenAM was down. Wins over {@code --cc-onboard} and the saved file.
+         */
+        boolean noCcOnboard;
         boolean waiveCcRequirement;
         boolean captureSnapshot;
         boolean snapshotUpdate;
@@ -373,6 +398,7 @@ public final class LaunchCommand {
                     case "--coverage" -> o.coverage = true;
                     case "--no-coverage" -> o.noCoverage = true;
                     case "--cc-onboard" -> o.ccOnboard = true;
+                    case "--no-cc-onboard" -> o.noCcOnboard = true;
                     case "--waive-cc-requirement" -> o.waiveCcRequirement = true;
                     case "--capture-snapshot" -> o.captureSnapshot = true;
                     case "--snapshot-update" -> o.snapshotUpdate = true;
@@ -417,7 +443,7 @@ public final class LaunchCommand {
                     .provisionRegister(true)
                     .xrayReport(!noXray && saved.xray())
                     .coverage(!noCoverage && (coverage || saved.coverage()))
-                    .commanderConnect(ccOnboard || saved.ccOnboard())
+                    .commanderConnect(!noCcOnboard && (ccOnboard || saved.ccOnboard()))
                     .commanderConnect(saved.commanderConnect(env))
                     .ccRequirementWaived(waiveCcRequirement)
                     .tags(tags.strip())

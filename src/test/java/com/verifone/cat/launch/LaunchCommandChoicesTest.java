@@ -124,6 +124,13 @@ class LaunchCommandChoicesTest {
     }
 
     @Test
+    void noCcOnboardTurnsOffASavedOnboard() throws IOException {
+        run(files("{\"config-cc-onboard\": true}", null), "--rig", LaunchFixtures.RIG, "--no-cc-onboard");
+
+        assertTrue(text().contains("[run] Commander Connect onboard off (from --no-cc-onboard)"), text());
+    }
+
+    @Test
     void eachKeyRemembersTheFileItCameFrom() throws IOException {
         LastConfig saved = files("{\"config-upgrade\": \"new_install\", \"config-dist\": \"x\"}",
                 "{\"config-dist\": \"y\"}");

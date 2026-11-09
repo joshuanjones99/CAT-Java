@@ -114,12 +114,14 @@ class CommanderBuildFetchTest {
     }
 
     @Test
-    void aFoundationBuildInstallsAsItIsWithTheModesJars() throws IOException {
+    void aFoundationBuildIsMergedWithItsViperAndTheModesJars() throws IOException {
         try (FakeArtifactory fake = new FakeArtifactory(viperTree())) {
+            FakeMerger merger = new FakeMerger();
             Path dest = fetch(fake, "master", "60", "buypass", UpgradeMode.CLASSIC, null, null, new ArrayList<>(),
-                    new FakeMerger());
+                    merger);
             assertEquals(root.resolve("master-60").resolve("buypass"), dest);
-            assertEquals(List.of("Auto_Upgrade.jar", "overlay.zip"), names(dest));
+            assertEquals(List.of("f60-overlay + v268-overlay"), merger.calls);
+            assertEquals(List.of(CommanderBuildFetch.MERGE_STAMP, "Auto_Upgrade.jar", "overlay.zip"), names(dest));
             assertEquals(dest, BuildDiscovery.latestBuildDir(root, "buypass", InstallerJars.CLASSIC).orElseThrow());
         }
     }
@@ -262,6 +264,45 @@ class CommanderBuildFetchTest {
     }
 
     @Test
+    void aFoundationBuildMergesTheViperBuildPublishedBesideIt() throws IOException {
+        // master 214 (foundation, 16:26) and 215 (viper, 16:02): the newest master on 2026-11-09.
+        Map<String, Object> master = new LinkedHashMap<>();
+        master.put("214", FakeArtifactory.dir("2026-11-09T16:26:00Z",
+                "foundation-buypass", installable("f214", "2026-11-09T16:26:00Z")));
+        master.put("215", FakeArtifactory.dir("2026-11-09T16:02:00Z",
+                "viper-buypass", viper("v215", "2026-11-09T16:02:00Z", EXE)));
+        master.put("212", FakeArtifactory.dir("2026-11-09T11:01:00Z",
+                "viper-buypass", viper("v212", "2026-11-09T11:01:00Z", EXE)));
+        try (FakeArtifactory fake = new FakeArtifactory(petro(Map.of("master", master)))) {
+            FakeMerger merger = new FakeMerger();
+            List<String> log = new ArrayList<>();
+            Path dest = fetch(fake, "master", "214", "buypass", PSI, null, null, log, merger);
+            assertEquals(List.of("f214-overlay + v215-overlay"), merger.calls, "the nearest viper, never 212");
+            assertTrue(dest.endsWith(Path.of("master-214", "buypass")), dest.toString());
+            assertTrue(log.get(0).contains("viper-buypass in master 215, published 24 min before the foundation"),
+                    log.get(0));
+        }
+    }
+
+    @Test
+    void aFoundationBuildWithNoViperIsRefusedRatherThanInstalledAlone() {
+        Map<String, Object> master = new LinkedHashMap<>();
+        master.put("214", FakeArtifactory.dir("2026-11-09T16:26:00Z",
+                "foundation-buypass", installable("f214", "2026-11-09T16:26:00Z")));
+        master.put("212", FakeArtifactory.dir("2026-11-09T11:01:00Z",
+                "viper-buypass", viper("v212", "2026-11-09T11:01:00Z", EXE)));
+        try (FakeArtifactory fake = new FakeArtifactory(petro(Map.of("master", master)))) {
+            FakeMerger merger = new FakeMerger();
+            BuildException e = assertThrows(BuildException.class, () -> fetch(fake, "master", "214", "buypass", PSI,
+                    null, null, new ArrayList<>(), merger));
+            assertTrue(e.getMessage().startsWith("master 214 foundation-buypass has no viper to merge"),
+                    e.getMessage());
+            assertTrue(e.getMessage().contains("--flavour foundation"), e.getMessage());
+            assertTrue(merger.calls.isEmpty());
+        }
+    }
+
+    @Test
     void anExplicitFoundationThatCannotBeOneIsRefused() {
         try (FakeArtifactory fake = new FakeArtifactory(viperTree())) {
             BuildException e = assertThrows(BuildException.class, () -> fetch(fake, "master", "268", "buypass", PSI,
@@ -272,7 +313,7 @@ class CommanderBuildFetchTest {
     }
 
     @Test
-    void aBuildHoldingBothInstallsTheFoundationUnlessToldTheFlavour() throws IOException {
+    void aBuildHoldingBothMergesItsViperUnlessToldTheFoundationFlavour() throws IOException {
         Map<String, Object> master = new LinkedHashMap<>();
         master.put("440", FakeArtifactory.dir("2026-07-03T00:00:00Z",
                 "foundation-buypass", installable("f440", "2026-07-03T00:00:00Z"),
@@ -280,14 +321,18 @@ class CommanderBuildFetchTest {
         try (FakeArtifactory fake = new FakeArtifactory(petro(Map.of("master", master)))) {
             FakeMerger merger = new FakeMerger();
             List<String> log = new ArrayList<>();
-            Path dest = fetch(fake, "master", "440", "buypass", PSI, null, null, log, merger);
-            assertEquals("f440-overlay", Files.readString(dest.resolve("overlay.zip")));
-            assertEquals("master 440 foundation-buypass: overlay and installer jars; its viper-buypass was "
-                    + "published separately and is not used", log.get(0));
-            assertTrue(merger.calls.isEmpty());
+            fetch(fake, "master", "440", "buypass", PSI, null, null, log, merger);
+            assertEquals(List.of("f440-overlay + v440-overlay"), merger.calls, "the foundation never installs alone");
+            assertTrue(log.get(0).contains("is a foundation build; its viper, paired by exe name and build time: "
+                    + "viper-buypass in master 440, published 30 min after the foundation"), log.get(0));
+
+            Path alone = fetch(fake, "master", "440", "buypass", PSI, null, "foundation", new ArrayList<>(), merger);
+            assertEquals("f440-overlay", Files.readString(alone.resolve("overlay.zip")),
+                    "--flavour foundation still installs it alone, on purpose");
 
             fetch(fake, "master", "440", "buypass", PSI, null, "viper", new ArrayList<>(), merger);
-            assertEquals(List.of("f440-overlay + v440-overlay"), merger.calls, "paired with its own build's foundation");
+            assertEquals(List.of("f440-overlay + v440-overlay", "f440-overlay + v440-overlay"), merger.calls,
+                    "paired with its own build's foundation");
             BuildException flavour = assertThrows(BuildException.class, () -> fetch(fake, "master", "440", "buypass",
                     PSI, null, "nbs", new ArrayList<>(), merger));
             assertEquals("unknown flavour 'nbs'; one of plain, foundation, sc, retail, viper", flavour.getMessage());

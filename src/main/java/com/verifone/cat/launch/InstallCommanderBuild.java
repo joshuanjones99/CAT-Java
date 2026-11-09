@@ -203,7 +203,11 @@ final class InstallCommanderBuild {
             ran = true;
             List<String> jars = InstallerJars.forMode(mode);
             List<String> missing = CommanderBuildFetch.missingFiles(buildDir, jars);
-            if (missing.isEmpty() && !Files.exists(buildDir.resolve(CommanderBuildFetch.MERGE_STAMP))) {
+            // Only a Solutions build installs from its own dist folder as it is. Any other branch's build may need its
+            // foundation and viper merged (FoundationPair.viperFor), which only Artifactory's listing can say, and a
+            // foundation overlay on disk with no merge stamp is exactly what wiped the lab rig on 2026-11-09.
+            boolean asItIs = "Solutions".equalsIgnoreCase(config.commanderBranch().strip());
+            if (asItIs && missing.isEmpty() && !Files.exists(buildDir.resolve(CommanderBuildFetch.MERGE_STAMP))) {
                 // Everything the install needs is on disk: no Artifactory login is needed, and none is asked for.
                 String held = "already downloaded: " + buildDir + " holds " + BuildDiscovery.OVERLAY + ", "
                         + String.join(", ", jars) + "; Artifactory not asked";

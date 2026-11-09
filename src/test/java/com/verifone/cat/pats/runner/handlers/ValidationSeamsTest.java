@@ -74,6 +74,19 @@ class ValidationSeamsTest {
     }
 
     @Test
+    void buypassOnFepsimV2IsReadFromItsInstancesLegacyPacketFolder() throws Exception {
+        Path legacy = Files.createDirectories(root.resolve("Petro_Simulator_Suite/legacyPackets/BUYPASS-41107"));
+        Files.writeString(legacy.resolve("SaleCreditRequest.xml"), "<a/>");
+        Files.createDirectories(root.resolve("BUYPASS").resolve(StandardHandlers.PACKET_FOLDER))
+                .resolve("stale.xml").toFile().createNewFile();
+        ValidationContext.PacketSource packets = StandardHandlers.packetFolders(root,
+                new com.verifone.cat.devices.fep.FepsimLegacy("http://127.0.0.1:1", "BUYPASS", 41107, legacy));
+
+        assertEquals(List.of(legacy.resolve("SaleCreditRequest.xml")), packets.captured("BUYPASS"));
+        assertEquals(List.of(), packets.captured("PCATS01"));
+    }
+
+    @Test
     void buypassOnFepsimV2IsUnavailableRatherThanReadFromTheWrongFolder() {
         BuypassV2 v2 = new BuypassV2() {
             @Override

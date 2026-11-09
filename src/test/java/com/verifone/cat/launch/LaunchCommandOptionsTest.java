@@ -65,6 +65,11 @@ class LaunchCommandOptionsTest {
     }
 
     @Test
+    void noCcOnboardWinsOverCcOnboard() {
+        assertFalse(config("--rig", "bench", "--cc-onboard", "--no-cc-onboard").commanderConnect());
+    }
+
+    @Test
     void noCoverageWinsOverCoverage() {
         assertFalse(config("--rig", "bench", "--coverage", "--no-coverage").coverage());
     }
@@ -125,6 +130,20 @@ class LaunchCommandOptionsTest {
         assertEquals(LaunchCommand.EXIT_USAGE, new LaunchCommand().run(new String[] {"--fake-pos", "--tags", "(@a"},
                 paths, LastConfig.none(), Map.of(), sink(tags), sink(new ByteArrayOutputStream())));
         assertTrue(tags.toString(StandardCharsets.UTF_8).contains("[run] refused: "), tags.toString());
+    }
+
+    @Test
+    void aCaseTheCatalogueHoldsWithoutANodeIsSelectableWhenALocalSuiteHasIt() throws IOException {
+        PlanCatalogue catalogue = paths(new CountingSource(List.of())).catalogue();
+        Path python = dir.resolve("python");
+        Files.createDirectories(python.resolve("tests/suites/cadence"));
+        Files.writeString(python.resolve("tests/suites/cadence/PETROCORE-11-TestCase.feature"),
+                "Feature: one\n  Scenario: one\n    Given the POS is idle\n");
+        LaunchConfig only = config("--rig", "bench", "--plan", "PETROCORE-5", "--only", "11");
+
+        assertEquals("", LaunchCommand.refusal(only, catalogue, python));
+        assertTrue(LaunchCommand.refusal(only, catalogue).contains("not migrated"),
+                "without the local suites the null node is still refused");
     }
 
     @Test

@@ -45,14 +45,20 @@ import com.verifone.cat.rig.Rig;
  * <p>Deviation: the {@code FAIL} lines go to the error stream (the Python prints them to stdout), so step 4's row
  * carries the reason.
  *
+ * <p>Deviation: {@link #PUSH_LAG} is 600 s, not the Python's 120 s. Run 469bee06632e (lab, TPA-AUTOLAB3, QAT,
+ * 2026-11-09): 22 accepted writes at 10:41:46; the cloud's first push reached the Commander at 10:47:45 and the last
+ * dataset was applied at 10:48:25 (controller time; the Commander's clock ran 91 s ahead), 3 s before the 360 s
+ * budget ran out and failed step 4. The lag is QAT's, not the write count's.
+ *
  * <p>Exit codes: 0 done (capture, a diff with nothing different, a restore applied), 1 otherwise, 2 usage or a rig
- * that does not load. UNVERIFIED AGAINST HARDWARE (Java port).
+ * that does not load. Live: the restore and its wait ran on the lab rig in run 469bee06632e (above).
  */
 public final class CloudSnapshotCommand {
 
-    /** The cloud pushes about one write every 2 s, about 100 s after the writes (2026-10-22). */
+    /** The cloud pushes about one write every 2 s (2026-10-22). */
     public static final Duration SECONDS_PER_WRITE = Duration.ofSeconds(3);
-    public static final Duration PUSH_LAG = Duration.ofSeconds(120);
+    /** How long the cloud may take to start pushing: ~100 s on 2026-10-22, ~6 min on 2026-11-09 (see above). */
+    public static final Duration PUSH_LAG = Duration.ofSeconds(600);
 
     static final RigCommand.Spec SPEC = new RigCommand.Spec("cloud-snapshot",
             "usage: cat-java cloud-snapshot {capture,diff,restore} --rig <name|file.yaml> --service-id ID "

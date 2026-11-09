@@ -109,6 +109,24 @@ public final class NewInstall {
         this.log = log;
     }
 
+    /**
+     * Set to {@code 1} (by {@code upgrade --no-pre-bypass}): skip the {@code bypass.mem.size.check} that precedes the
+     * install, which needs the Commander's root SSH. Deviation, Java only: a PSI install interrupted after it wiped the
+     * Commander (2026-11-09, TPA-AUTOLAB3: master 214's foundation-only overlay failed the register mid-install) leaves
+     * a Commander that refuses the key, and neither port could then reinstall it. The install replaces the file system
+     * that property lives in, and the tail sets it again once root access is pushed.
+     */
+    public static final String NO_PRE_BYPASS_ENV = "CAT_NEW_INSTALL_NO_PRE_BYPASS";
+
+    /**
+     * Set to {@code 1} (by {@code upgrade --manual-reboot}): send no reboot over SSH before the installers start, and
+     * skip the pre-install bypass too; the operator power-cycles each device while its installer polls for the boot
+     * window (about 10 minutes, 2026-11-09). For a Commander and registers that refuse the root key. Java only.
+     */
+    public static final String MANUAL_REBOOT_ENV = "CAT_NEW_INSTALL_MANUAL_REBOOT";
+
+    private boolean manualReboot;
+
     /** The real thing: JSch, child processes, and the CGILink probe over HTTP. */
     public static NewInstall system(NewInstallTools tools, Consumer<String> log) {
         return new NewInstall(tools, JschTransport::new, Jars.SYSTEM, Installer.SYSTEM, Settings.defaults(),
@@ -126,7 +144,11 @@ public final class NewInstall {
         Target commander = targets.get(0);
         Ledger ledger = new Ledger(log);
         prepare(targets);
-        if (!bypass(commander, sshTimeout, ledger)) {
+        manualReboot = "1".equals(environ.get(MANUAL_REBOOT_ENV));
+        if ("1".equals(environ.get(NO_PRE_BYPASS_ENV)) || manualReboot) {
+            ledger.add(StepResult.done("bypass_mem_size_check",
+                    "skipped before the install (--no-pre-bypass); the tail sets it once root access is back"));
+        } else if (!bypass(commander, sshTimeout, ledger)) {
             return ledger.results();
         }
         Map<String, Long> pushedAt = new HashMap<>();
@@ -213,8 +235,15 @@ public final class NewInstall {
         Map<String, Installer> procs = new LinkedHashMap<>();
         try {
             for (Target target : targets) {
-                try (Transport box = transports.apply(target.ssh())) {
-                    ledger.add(reboot(box, "reboot_" + target.name(), sshTimeout));
+                if (manualReboot) {
+                    ledger.add(StepResult.done("reboot_" + target.name(),
+                            "not sent (--manual-reboot): power-cycle " + target.name() + " now; its installer waits"));
+                } else {
+                    try (Transport box = transports.apply(target.ssh())) {
+                        if (!ledger.add(reboot(box, "reboot_" + target.name(), sshTimeout))) {
+                            return false;
+                        }
+                    }
                 }
                 try {
                     procs.put(target.name(), launch(target));
@@ -387,7 +416,18 @@ public final class NewInstall {
         return tools.buildDir().resolve("psi_complete" + suffix);
     }
 
+    /**
+     * Sends {@code reboot}. A dropped channel is the expected outcome, but a login that never worked is not a reboot:
+     * {@code true} runs first, and its failure fails the step. Deviation: the Python suppresses every transport error
+     * here, so a Commander refusing the key was reported "reboot sent" and the installers then waited on devices that
+     * had never rebooted (2026-11-09, TPA-AUTOLAB3).
+     */
     private static StepResult reboot(Transport box, String step, Duration timeout) {
+        try {
+            box.run("true", timeout);
+        } catch (DeviceError e) {
+            return StepResult.failed(step, "could not log in to send the reboot: " + e.getMessage());
+        }
         try {
             box.run("reboot", timeout);
         } catch (DeviceError e) {

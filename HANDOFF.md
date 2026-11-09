@@ -5,6 +5,9 @@ is built, what is proven, and what comes next. Update it whenever work lands.
 
 If this document disagrees with the tree, the tree is right.
 
+**Latest (2026-11-09, TPA-AUTOLAB3):** Cadence from Java on Solutions228 reached **227/264 passed, 5 failed** (run
+`5ce5aa8cd2f2`); the five are product or test-case behaviour on that build, awaiting the rig owner (§6 item 0).
+
 State as of **2026-10-29, late** (the wave-16 session). `main` builds clean: **4,139 tests, 0 failures,
 0 errors, 0 skipped**. Wave 16 ported the rest of the Python CAT off-rig (§6a): all ten slices are merged and
 their cross-slice hooks wired. **Everything wave 16 added is fake-backed evidence about this repository; none of
@@ -67,7 +70,7 @@ the web Start), Xray, every other plan.
 
 | What | Evidence |
 |---|---|
-| Builds and tests on the CICD Java 17 | `build.cmd`, 4,139 tests, 0 failures, 0 errors, 2026-10-29 (after wave 16 and its review fixes). Four lint gates run as tests |
+| Builds and tests on the CICD Java 17 | `build.cmd`, 4,144 tests, 0 failures, 0 errors, 2026-11-09 on TPA-AUTOLAB3 (after the on-rig Cadence fixes). Four lint gates run as tests |
 | **Charity-Indoor 70960 on the fake POS, from the CLI** | run `fb8382bade89`, 2026-10-28: 39 cases, every one to a verdict (0 passed; the 12 POS+pinpad-only cases stop exactly where the Python's `pytest tests/suites/charity --fake-pos` stops them; the 27 others need devices a fake run has not). Evidence about the repository only |
 | **Cadence 118517 on the fake POS, from the CLI** | run `81eeb3d11883`, 2026-10-28: 264 cases, every one to a verdict in 1 h 51 m, no internal error (0 passed: RMI, pumps, DCR, Commander and most Cadence elements are absent from the fake). Evidence about the repository only |
 | **First rig run from Java: steps 1 and 2 complete live, step 3 started four of five simulators** | run `e272450ee561`, 2026-10-28 15:01 (lab rig, `launch --plan PETROCORE-118517 --upgrade new_install ...`): System Checks complete (rig lines, printer COM1 held, Commander Base_Level 057.02.00 read over SSH, the five staged simulators matched master 129 by their markers, lease taken), Connections complete; **PCATS01/02/03 Loyalty started and their "Start Host" buttons pressed through the Access Bridge, confirmed in each `LoySim_Debug.log` ("Loyalty FEP Simulator is ready. Port: 9010/9020/9030 ... Started VCMG Host")**; Petro Simulator Suite started and listening. BUYPASS Host failed: CAPK re-dating not ported (ported right after: `sims.Capk`, byte-identical entries to the Python's on the real jar; first launch of the built jar pending). Cleanup stopped the four and freed the lease; nothing reached the Commander |
@@ -80,6 +83,7 @@ the web Start), Xray, every other plan.
 | **Eighth rig run: 258/264, the Python's own pass count** | run `a4eda2bf8602`, 2026-10-28 23:26, `--upgrade skip`: all seven steps complete, step 5 in 1 h 19 m, **258 passed, 6 failed**: 36879 and 37073 (the Python's known product defects) and four `@plan_end` report cases (37031, 37033, 37036, 37063) whose verdicts the Python marks EXPECTED FAILURE once any earlier case failed (rig owner, 2026-09-23); the Java lacked that rule and reported them FAILED (ported in e6e76cb). So this run equals the Python's best Cadence result exactly. The refund case, the DCR cases and their receipts, the report cases and the dialog clears all passed |
 | Ninth rig run: the install's root-access push stopped on a starting AAA tier | run `35c918e7595d`, 2026-10-29 01:13, clean install: after the PSI install's reboot, `Auto_Upgrade.jar` got `CGIPortal.InternalError: AAA service unavailable` and `RootAccess.isHardFault` ended the retry at once (the Python's `is_hard_fault` would too). Fixed in 05534e2: that text is the tier starting, not a refusal, so the push keeps retrying within its 25-minute budget. Nothing else ran; Cleanup skipped the close (psi-init not reached). Relaunched as the proof run at 01:36 |
 | **Rig state 2026-10-29 02:00: the Commander's AAA never came back after run 35c918e7595d's install** | the PSI install itself completed (breadcrumb "Installation Complete. Remember to onboard...", the installer exited by itself with 0 this time where earlier installs were closed by CAT), the register installed and took its root access; the Commander's root-access push failed on connection errors while it rebooted (exit 549/511, retried) and then on `AAA service unavailable`, which the Java took as a hard fault (fixed, 05534e2). 25 minutes later CGILink still faults AAA on every request, root SSH has no key (the package was never pushed), so nothing over the network reaches it: the 2026-09-18 situation (Python HANDOFF §1.63/§1.73; then the cause was a package build 1028 did not ship; Solutions 134 installed cleanly three times today, so this boot is more likely the keystore race at first boot). The relaunch `895f7412dda0` stopped in step 1 on that fault. **Needs the rig owner: a power cycle (or console) of the Commander.** After AAA is up, the chain must resume at the root-access push (no root SSH yet), then psi-init: neither CAT has a resume command, so that is the next thing to build (§6 item 1a) |
+| **2026-11-09, TPA-AUTOLAB3 (another lab controller, same `lab` addressing): Cadence from Java on Solutions228** | A fresh clone; the Python CAT now lives in petroapps at `isdApps\pcapps\automation\cat` (`C:\gitrepos\CAT` is `CAT.old`), so every run set `CAT_PYTHON_ROOT` and `PETROTEST_RIGS_DIR` there. The Commander was already on Solutions228 (base 57.02), onboarded to Commander Connect QAT by the Python's Secondary FEP (143371) runs. Iterated with `--upgrade skip --branch PETROCORE-143588 --no-xray --no-coverage`. **Run `469bee06632e`**: steps 1-3 and step 4 to cloud-snapshot live (first live: `cloud-tunnel`, Commander Connect onboarding, csite-reset, FEPSIM v2 serving BUYPASS); cloud-snapshot failed because QAT pushed the restore ~6 min after the writes and the 360 s budget ran out 3 s after the last apply (fixed: `PUSH_LAG` 600 s). **Runs `40fa2d4c60ed`, `2ffbb57d7c64`**: QAT's OpenAM answered 503 to everything, anonymous requests included (an outage; token fetch now retries 429/5xx); Cadence needs no Commander Connect, so `--no-cc-onboard` was added. **Run `568ee1a9a00e`** (FEPSIM v2 as BUYPASS): all seven steps, **106/264**; failures: Solutions228 prints a `SALE` header on sale receipts (the Cadence baselines predate it), AMEX `AuthNet:` blank under FEPSIM v2, `RESET_PACKETS(BUYPASS)` unported for v2 (fixed). **Run `146d45041761`** (`--buypass-host`, 127 `SALE` baselines written): **221 passed, 11 failed, 32 `@plan_end` xfailed**. **Run `5ce5aa8cd2f2`** (6 more `SALE` baselines): all seven steps, **227 passed, 5 failed, 32 `@plan_end` xfailed** in 1 h 33 m; the five are §6 item 0's, none a CAT-Java defect |
 | Java Access Bridge clicks against a real Swing window | 2026-10-28, a throwaway JFrame on this controller through the real `AccessBridgeClicker`: "clicked Load Data, Load Servers" in 5.3 s; a miss lists the available buttons. Says nothing about the LoySim/MPPA windows |
 | pos-shim health/screen/keys **read** from the lab register (Reg101) | live, 2026-10-24 |
 | `--rig lab` loads under the strict Java rig schema | live `lab.yaml`, 2026-10-24 |
@@ -127,6 +131,52 @@ socket, `rig/ppk.py`: JSch reads `.ppk` v2 itself).
 | TUI widgets, `startup.py`, `cat/telemetry` socket, `cat/state/listener.py`, `orchestrator.py`, `clipboard.py`, `launch/relay.py` | — | not applicable (web-only; in-process runner) |
 
 ## 6. Open items (priority order)
+
+00. **The lab rig on TPA-AUTOLAB3 is down (2026-11-09 17:30): it needs a power cycle of the Commander and Reg101.**
+   A PSI install of master 214 (`--upgrade new_install --commander-branch master --commander-build 214`, run
+   `17c30519f64f`) wiped both devices, then the installer died on the register: `getBaseFileList() -
+   CUST_POST_INST_TGZ:: null`, `doInstall() failed at fileNum 4: ArrayIndexOutOfBoundsException`. **A foundation-only
+   master build is not a PSI-installable product**: its overlay lacks `update_pearl-pos_base_dev.tgz`,
+   `update_pearl-controller_cust_dev.tgz`, `update_sitecontroller_cust_dev.tgz` and the `update_upg_*` packages that
+   Solutions builds carry, and merging viper 215 adds only the `viper.*` packages (the Python's open question, its
+   HANDOFF "whether a foundation-only master build installed as it is is a complete product", answered: no). The
+   AU merge (`build --mode classic`) does add the transition packages, so a master build reaches a rig by classic AU
+   onto a working Solutions install; the merged AU overlay is staged at `C:\CICD\Builds\master-215\buypass` (the PSI
+   merge at `master-215-psi`). Both devices now answer SSH but refuse the key (the partial install wiped root access),
+   the Commander's Tomcat is down (CGILink "Service unavailable"), and the PSI installer cannot reach either NetLoader
+   without a reboot, which needs root SSH. Recovery once power-cycled:
+   `run.cmd upgrade --rig lab --mode new_install --build-dir C:\CICD\Builds\master-214\buypass --manual-reboot`
+   (start it, then power-cycle the Commander and Reg101 within ~10 minutes, so each installer catches its boot
+   window), then `install-resume`, then a launch with `--upgrade skip`. If the merged master does not install, the
+   same with `C:\CICD\Builds\Solutions228\buypass`.
+   **Fixed (rig owner's rule, 2026-11-09): a foundation build never installs alone.** `CommanderBuildFetch` merges the
+   viper build it was published with (`FoundationPair.viperFor`: same `.exe` names, nearest within 2 h, the forward
+   rule reversed) onto any foundation build, in step 4 and `cat-java build`; with no viper it refuses, and
+   `--flavour foundation` is the deliberate way to install one alone. Step 4's "already downloaded, Artifactory not
+   asked" shortcut now applies to Solutions builds only, and an overlay downloaded as it is clears any old merge
+   stamp. Checked live against Artifactory: master 214 paired with viper 215 (24 min apart) and merged for PSI into
+   `C:\CICD\Builds\master-214\buypass`. **The merged PSI install itself has not run on the rig yet.** Fixed on the way: `--only/--from` refused every case of a network-read plan (catalogue nodes
+   null); new_install's pre-install reboot reported "reboot sent" when the SSH login was refused (so does the Python's);
+   `upgrade --no-pre-bypass` added.
+0. **Cadence on Solutions228 (TPA-AUTOLAB3, 2026-11-09): five failures that CAT-Java cannot fix, awaiting the rig
+   owner** (run `5ce5aa8cd2f2`, §4). The Python failed the same cases on this bench on 2026-10-22 (runs
+   `37c2077b7b68`, `47d0593944c2`, both stopped by the operator).
+   - 36879: the product's "Transaction balance fully paid / Payment not needed / Press ENTER/OK" dialog, which the
+     case never answers (the Python's standing failure).
+   - 37073: the case validates LINE2; the product shows the text on LINE1. The Python's one-line petroapps fix sits
+     unpushed on `PETROCORE-37073-overlay-line1-master`.
+   - 118404, 37076, 37077: Solutions228's EPS sends `ProcessPIN` for MSR DEBIT (BIN 560980) without the
+     debit/credit choice the cases wait for; at the DCR it then logs `DrwDeviceResetHelper panIn == null` and drops
+     to WELCOME. Cases that pick debit first (L1) pass.
+   - While any case fails, the 32 `@plan_end` report cases are xfailed as untrusted, so their verdicts are unknown.
+   Options put to the rig owner: stop here; adjust CAT's local `.feature` copies to Solutions228's behaviour; or
+   run on a build that still asks debit/credit (Solutions 134, not staged on this controller).
+   **Run setup on this controller:** `CAT_PYTHON_ROOT` and `PETROTEST_RIGS_DIR` point at the petroapps CAT (the code
+   defaults still name `C:\gitrepos\CAT`); `--branch PETROCORE-143588` keeps petroapps on its branch; the Python's
+   saved Config has Onboard on (143371), so Cadence needs `--no-cc-onboard`; `--buypass-host`, since FEPSIM v2
+   leaves AMEX's `AuthNet:` blank. The 133 `SALE` baselines (`-CATReceipt.txt`, 100 new, 33 with one line added)
+   are uncommitted in petroapps' working tree, written by a script that refused any diff beyond `SALE`; they would
+   fail on a build that does not print `SALE`.
 
 1. **Record the clean-install proof run.** The Commander must first come back (power cycle or console; §4's
    last row). Then either resume, or rerun the whole clean install once the Commander is healthy. To resume:
@@ -272,3 +322,6 @@ Left as low-severity notes:
   then capk (CAPK re-dating, after the first rig run's step 3 failed on it), bringup (the browser override, after run 2), and after runs 4-5: the shim client name, petroapps reference folders, the pairing navigation race, the receipt read, the sale STAN source, the recovery ladder. 3,111 → 3,568 tests. Goal set by the rig owner: Cadence from a clean install (§1).
 - **2026-10-29, wave 16** (orchestrated, 10 slices on Opus, the Commander down): the rest of the port (§6a).
   3,568 → 4,139 tests, then a read-only review and its fixes. Two usage-limit interruptions; every slice resumed from its own commits.
+- **2026-11-09, on-rig Cadence loop on TPA-AUTOLAB3** (one session, six runs, §4 and §6 item 0): cloud-snapshot's
+  `PUSH_LAG` 600 s; CSITE token retries 429/5xx; `launch --no-cc-onboard`; BUYPASS packets read from FEPSIM v2's
+  `legacyPackets/<instance>` and reset over its admin API. 106 → 221 → 227 of 264 passed.

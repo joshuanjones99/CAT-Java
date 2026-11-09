@@ -3,6 +3,7 @@ package com.verifone.cat.pats.runner.handlers;
 import com.verifone.cat.closeday.CloseDay;
 import com.verifone.cat.closeday.RegisterPass;
 import com.verifone.cat.devices.DeviceUnavailable;
+import com.verifone.cat.devices.fep.FepsimLegacy;
 import com.verifone.cat.pats.WidgetKeys;
 import com.verifone.cat.pats.runner.ActionHandler;
 import com.verifone.cat.pats.runner.ActionRegistry;
@@ -356,9 +357,10 @@ public final class StandardHandlers {
     /**
      * The simulators' captured packets, as the Python's {@code _packet_dir}, {@code _reset_packets} and
      * {@code _validate_packets} read them: each device's {@code <tools root>/<DEVICE>/packetsForValidation} folder,
-     * listed, and emptied by a reset. FEPSIM v2 serving Buypass keeps its own folder, which this port does not reach
-     * ({@code devices.fepsim_legacy} is not bound at launch): with {@code buypassV2} given, BUYPASS's packets are
-     * unavailable rather than read from the wrong folder.
+     * listed, and emptied by a reset. FEPSIM v2 serving Buypass ({@link FepsimLegacy}) writes BUYPASS's packets to
+     * its instance's {@code legacyPackets/<instance>/}, which is listed instead, and a reset asks v2 to empty its own
+     * store, since it also holds them in memory (the Python's {@code devices.fepsim_legacy}). Any other
+     * {@link BuypassV2} leaves BUYPASS's packets unavailable rather than read from the wrong folder.
      *
      * <p>Not for a fake-POS run: a reset deletes the files in a lab simulator's folder.
      *
@@ -366,6 +368,7 @@ public final class StandardHandlers {
      */
     public static ValidationContext.PacketSource packetFolders(Path toolsRoot, BuypassV2 buypassV2) {
         Objects.requireNonNull(toolsRoot, "toolsRoot");
+        FepsimLegacy v2 = buypassV2 instanceof FepsimLegacy legacy ? legacy : null;
         return new ValidationContext.PacketSource() {
             @Override
             public List<Path> captured(String device) {
@@ -382,6 +385,10 @@ public final class StandardHandlers {
 
             @Override
             public void reset(String device) {
+                if (v2 != null && "BUYPASS".equals(device)) {
+                    v2.clearPackets();
+                    return;
+                }
                 for (Path file : captured(device)) {
                     try {
                         java.nio.file.Files.deleteIfExists(file);
@@ -393,8 +400,11 @@ public final class StandardHandlers {
 
             private Path folder(String device) {
                 if (buypassV2 != null && "BUYPASS".equals(device)) {
+                    if (v2 != null) {
+                        return v2.packets();
+                    }
                     throw new DeviceUnavailable("FEPSIM v2's packets",
-                            "BUYPASS is served by FEPSIM v2 this run, whose packet folder is not ported");
+                            "BUYPASS is served by FEPSIM v2 this run, and its packet folder is not known");
                 }
                 return toolsRoot.resolve(device).resolve(PACKET_FOLDER);
             }

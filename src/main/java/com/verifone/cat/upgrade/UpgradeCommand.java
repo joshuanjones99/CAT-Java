@@ -43,12 +43,16 @@ public final class UpgradeCommand {
 
     static final String USAGE = String.join("\n",
             "usage: cat-java upgrade --rig <name|file.yaml> [--mode {skip,classic,vhq,new_install}]",
-            "                        [--build-dir <dir>] [--dist <dist>]",
+            "                        [--build-dir <dir>] [--dist <dist>] [--no-pre-bypass | --manual-reboot]",
             "",
             "Upgrade a rig's build (Overarch/Monarch -UpgradeMode equivalent).",
             "  --mode       skip (default), classic (AU), new_install (PSI), vhq (not implemented)",
             "  --build-dir  the build directory to install from; default: the newest one already downloaded",
-            "  --dist       distribution, e.g. 'buypass': which subfolder of a downloaded build to install");
+            "  --dist       distribution, e.g. 'buypass': which subfolder of a downloaded build to install",
+            "  --no-pre-bypass  new_install only: skip the bypass.mem.size.check before the install, for a Commander",
+            "               a failed install left without root SSH (the tail still sets it)",
+            "  --manual-reboot  new_install only: send no reboot over SSH (implies --no-pre-bypass); power-cycle",
+            "               each device once its installer has started (it waits about 10 minutes)");
 
     /** How each real path runs; a test passes recorders, so no test reaches a device. */
     public interface Paths {
@@ -111,6 +115,13 @@ public final class UpgradeCommand {
             if ("--help".equals(arg) || "-h".equals(arg)) {
                 out.println(USAGE);
                 return EXIT_OK;
+            }
+            if ("--no-pre-bypass".equals(arg) || "--manual-reboot".equals(arg)) {
+                Map<String, String> withFlag = new java.util.HashMap<>(env);
+                withFlag.put("--no-pre-bypass".equals(arg) ? NewInstall.NO_PRE_BYPASS_ENV
+                        : NewInstall.MANUAL_REBOOT_ENV, "1");
+                env = withFlag;
+                continue;
             }
             if (!List.of("--rig", "--mode", "--build-dir", "--dist").contains(arg)) {
                 return usage(err, "unknown argument: " + arg);

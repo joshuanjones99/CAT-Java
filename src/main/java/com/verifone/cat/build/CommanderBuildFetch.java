@@ -126,7 +126,27 @@ public final class CommanderBuildFetch {
         if (!source.installable()) {
             return fetchMerged(client, contents, source, dist, mode, dest, foundation, log, merge);
         }
+        if (flavour == null && BuildContents.FOUNDATION.equals(source.flavour())) {
+            // A foundation build is not installable alone (FoundationPair.viperFor): merge its viper onto it.
+            FoundationPair viper = FoundationPair.viperFor(client, name, number, dist);
+            log.accept(name + " " + number + " " + source.folder() + " is a foundation build; "
+                    + viper.describeViper());
+            BuildContents viperContents = viper.build().equals(number) ? contents
+                    : BuildContents.read(client, name, viper.build());
+            DistFolder viperFolder = viperContents.sourceFor(dist, BuildContents.VIPER);
+            if (viperFolder == null) {
+                throw new BuildException(viperContents.describe(dist));
+            }
+            return fetchMerged(client, viperContents, viperFolder, dist, mode, dest, List.of(name, number), log,
+                    merge);
+        }
         log.accept(contents.describe(dist));
+        try {
+            // An overlay downloaded as it is replaces any merged one here: its stamp must not vouch for it.
+            Files.deleteIfExists(dest.resolve(MERGE_STAMP));
+        } catch (IOException e) {
+            throw new BuildException("could not clear " + dest.resolve(MERGE_STAMP) + ": " + e.getMessage());
+        }
         List<String> names = new ArrayList<>();
         names.add(BuildDiscovery.OVERLAY);
         names.addAll(InstallerJars.forMode(mode));

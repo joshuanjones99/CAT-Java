@@ -70,6 +70,14 @@ public final class CSiteClient {
     /** {@code RetryExecutor}'s retried statuses, and the pause between attempts. */
     static final Set<Integer> RETRY_STATUSES = Set.of(401, 406, 429, 503);
     static final Duration RETRY_PAUSE = Duration.ofSeconds(5);
+    /**
+     * Deviation from PATS and the Python, which fail on the first refused OpenAM authenticate: a 429 or 5xx there is
+     * tried again, {@link #TOKEN_ATTEMPTS} times {@link #TOKEN_PAUSE} apart (about 2 minutes). Run 40fa2d4c60ed (lab,
+     * 2026-11-09): QAT's OpenAM answered 503 to cloud-snapshot's token 16 s after csite-reset had fetched one, and
+     * failed step 4. A 4xx (a wrong password) still fails at once.
+     */
+    static final int TOKEN_ATTEMPTS = 12;
+    static final Duration TOKEN_PAUSE = Duration.ofSeconds(10);
 
     /** OpenAM's API version header ({@code CsiteTokenFetcher}). */
     static final String OPENAM_VERSION = "resource=2.0, protocol=1.0";
@@ -199,11 +207,20 @@ public final class CSiteClient {
         URI auth = URI.create(authUrl);
         String oauth = auth.getScheme() + "://" + auth.getRawAuthority() + "/am/oauth2";
         try {
-            HttpResponse<byte[]> session = post(authUrl, Map.of(
-                    "X-OpenAM-Username", settings.username(),
-                    "X-OpenAM-Password", settings.password(),
-                    "Accept-API-Version", OPENAM_VERSION,
-                    "Content-Type", "application/json"), "{}");
+            HttpResponse<byte[]> session;
+            for (int attempt = 1; ; attempt++) {
+                session = post(authUrl, Map.of(
+                        "X-OpenAM-Username", settings.username(),
+                        "X-OpenAM-Password", settings.password(),
+                        "Accept-API-Version", OPENAM_VERSION,
+                        "Content-Type", "application/json"), "{}");
+                int status = session.statusCode();
+                if (status == 200 || (status != 429 && status < 500) || attempt >= TOKEN_ATTEMPTS) {
+                    break;
+                }
+                LOG.warn("OpenAM authenticate attempt {}: HTTP {}; trying again", attempt, status);
+                pause.accept(TOKEN_PAUSE);
+            }
             if (session.statusCode() != 200) {
                 throw new DeviceError("OpenAM authenticate answered HTTP " + session.statusCode());
             }

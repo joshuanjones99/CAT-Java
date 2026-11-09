@@ -139,6 +139,93 @@ public record FoundationPair(String branch, String build, String folder, String 
                 + String.join("; ", looked) + "); " + CHOOSE);
     }
 
+    /**
+     * The viper (SOS) build a foundation build was published with: {@link #paired} the other way round. The rule is
+     * the same: {@code branch}'s viper folders for {@code dist} published within {@link #PAIR_WINDOW} of the
+     * foundation folder, nearest first, the first whose {@code .exe} names the foundation folder all holds.
+     *
+     * <p>CAT-Java's own rule (rig owner, 2026-11-09): a foundation build on a branch that publishes its viper
+     * separately (master) is not installable alone. Master 214's {@code foundation-buypass} PSI-installed without
+     * its viper had no customer profile for the register, and the installer died after it had wiped both devices
+     * (run {@code 17c30519f64f}). So installing one means merging its viper onto it, as Monarch always did.
+     *
+     * @return the viper build, as {@code [branch, build, folder]} in a {@link FoundationPair} whose {@code minutes}
+     *     is the viper folder's date minus the foundation folder's
+     * @throws BuildException the build has no foundation folder for {@code dist}, or no viper pairs with it
+     */
+    public static FoundationPair viperFor(ArtifactoryClient client, String branch, String build, String dist) {
+        String name = ArtifactoryClient.trimSlashes(branch.strip());
+        String number = BuildDiscovery.buildNumber(build);
+        Map<String, BuildCatalogue.TreeBuild> tree = new BuildCatalogue(client).tree(name);
+        if (!tree.containsKey(number)) {
+            throw new BuildException(name + " has no build " + number + " on Artifactory");
+        }
+        DistFolder base = BuildContents.classify(name, number, BuildCatalogue.childNames(tree.get(number)))
+                .sourceFor(dist, BuildContents.FOUNDATION);
+        if (base == null) {
+            throw new BuildException(name + " " + number + " has no foundation-" + dist + " folder");
+        }
+        String where = name + " " + number + " " + base.folder();
+        String force = "a foundation build does not install without its viper; name the viper build to install "
+                + "instead (it pairs with its own foundation), or pass --flavour foundation to install the foundation "
+                + "alone";
+        OffsetDateTime built = utc(tree.get(number).children().get(base.folder()));
+        if (built == null) {
+            throw new BuildException(where + " has no date on Artifactory to find its viper by; " + force);
+        }
+        List<Candidate> candidates = new ArrayList<>();
+        for (Map.Entry<String, BuildCatalogue.TreeBuild> row : tree.entrySet()) {
+            Map<String, String> kids = row.getValue().children();
+            for (DistFolder folder : BuildContents.classify(name, row.getKey(),
+                    BuildCatalogue.childNames(row.getValue())).foldersFor(dist)) {
+                OffsetDateTime when = utc(kids.get(folder.folder()));
+                if (!BuildContents.VIPER.equals(folder.flavour()) || when == null) {
+                    continue;
+                }
+                Duration offset = Duration.between(built, when);
+                if (offset.abs().compareTo(PAIR_WINDOW) <= 0) {
+                    candidates.add(new Candidate(offset.abs(), new BigInteger(row.getKey()), row.getKey(),
+                            folder.folder(), offset));
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            throw new BuildException(where + " has no viper to merge: no viper-" + dist + " folder on " + name
+                    + " was published within " + PAIR_WINDOW.toHours() + " h of it (" + built.format(WHEN)
+                    + " UTC); " + force);
+        }
+        TreeSet<String> held = exes(client, BuildCatalogue.branchPath(name) + "/" + number + "/" + base.folder());
+        if (held.isEmpty()) {
+            throw new BuildException(where + " holds no .exe to find its viper by; " + force);
+        }
+        candidates.sort(Comparator.comparing(Candidate::gap).thenComparing(Candidate::number)
+                .thenComparing(Candidate::build).thenComparing(Candidate::folder)
+                .thenComparing(Candidate::offset));
+        List<String> looked = new ArrayList<>();
+        for (Candidate candidate : candidates) {
+            int minutes = (int) Math.rint(candidate.offset().toMillis() / 60000.0);
+            TreeSet<String> theirs = exes(client, BuildCatalogue.branchPath(name) + "/" + candidate.build() + "/"
+                    + candidate.folder());
+            if (!theirs.isEmpty() && held.containsAll(theirs)) {
+                return new FoundationPair(name, candidate.build(), candidate.folder(), String.join(", ", theirs),
+                        minutes);
+            }
+            looked.add(candidate.build() + " " + candidate.folder() + " (" + String.format("%+d", minutes) + " min: "
+                    + (theirs.isEmpty() ? "no .exe" : String.join(", ", theirs)) + ")");
+        }
+        throw new BuildException(where + " has no viper to merge: none of the " + looked.size() + " viper-" + dist
+                + " folders published near it holds only " + String.join(", ", held) + " (" + String.join("; ", looked)
+                + "); " + force);
+    }
+
+    /** {@code paired by exe name and build time: viper-buypass in master 215, published 24 min before the foundation}. */
+    public String describeViper() {
+        String when = minutes == 0 ? "within a minute of the foundation"
+                : Math.abs(minutes) + " min " + (minutes < 0 ? "before" : "after") + " the foundation";
+        return "its viper, paired by exe name and build time: " + folder + " in " + branch + " " + build
+                + ", published " + when;
+    }
+
     /** The {@code .exe} file names directly in {@code folder}, sorted. One request. */
     private static TreeSet<String> exes(ArtifactoryClient client, String folder) {
         TreeSet<String> names = new TreeSet<>();

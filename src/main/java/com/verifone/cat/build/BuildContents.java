@@ -160,8 +160,9 @@ public record BuildContents(String branch, String build, List<DistFolder> folder
                     + "onto a foundation build's, and installed with that build's jars";
         }
         String line = where + " " + source.folder() + ": overlay and installer jars";
-        if (foldersFor(dist).stream().anyMatch(f -> VIPER.equals(f.flavour()))) {
-            line += "; its viper-" + source.dist() + " was published separately and is not used";
+        if (FOUNDATION.equals(source.flavour())) {
+            // CAT-Java's rule since 2026-11-09 (FoundationPair.viperFor): a foundation never installs alone.
+            line += "; its viper-" + source.dist() + " build is merged onto it to install";
         }
         return line;
     }

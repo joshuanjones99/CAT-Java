@@ -94,7 +94,7 @@ class BuildCommandTest {
     void branchAndBuildDownloadThatBuildForTheMode() throws IOException {
         try (FakeArtifactory fake = new FakeArtifactory(tree())) {
             assertEquals(0, build(fake, "--branch", "master", "--build", "60", "--dist", "buypass", "--mode",
-                    "classic"));
+                    "classic", "--flavour", "foundation"));
             assertEquals(List.of("Auto_Upgrade.jar", "overlay.zip"), names(root.resolve("master-60").resolve("buypass")));
         }
     }
@@ -166,7 +166,7 @@ class BuildCommandTest {
 
             assertEquals(0, builds(fake, "--branch", "master", "--build", "60"));
             String contents = takeOut();
-            assertTrue(contents.contains("master 60 foundation-buypass: overlay and installer jars"), contents);
+            assertTrue(contents.contains("master 60 foundation-buypass: overlay and installer jars; its viper-buypass build is merged onto it to install"), contents);
             assertTrue(contents.contains("simulators/: yes") && contents.contains("automation/: no"), contents);
         }
     }
