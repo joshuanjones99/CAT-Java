@@ -1,12 +1,10 @@
 package com.verifone.cat.web;
 
-import java.util.Objects;
 
 import com.verifone.cat.runconfig.ConfigForm;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
-import io.javalin.http.HttpStatus;
 
 /**
  * The Config tab's routes: the page, its plan-filter fragment, and the changes that post from it.
@@ -31,7 +29,7 @@ final class RunConfigRoutes {
         });
         app.post("/config/plan", ctx -> {
             if (fromPage(ctx)) {
-                form.togglePlan(Objects.requireNonNullElse(ctx.formParam("key"), ""));
+                form.togglePlan(Requests.form(ctx, "key"));
                 panel(ctx, form);
             }
         });
@@ -44,7 +42,7 @@ final class RunConfigRoutes {
         });
         app.post("/config/case", ctx -> {
             if (fromPage(ctx)) {
-                form.tickCase(Objects.requireNonNullElse(ctx.formParam("key"), ""));
+                form.tickCase(Requests.form(ctx, "key"));
                 panel(ctx, form);
             }
         });
@@ -55,10 +53,6 @@ final class RunConfigRoutes {
     }
 
     private static boolean fromPage(Context ctx) {
-        if ("true".equals(ctx.header("HX-Request"))) {
-            return true;
-        }
-        ctx.status(HttpStatus.FORBIDDEN).result("Config changes come from the CAT-Java page only.");
-        return false;
+        return Requests.fromPage(ctx, "Config changes come");
     }
 }

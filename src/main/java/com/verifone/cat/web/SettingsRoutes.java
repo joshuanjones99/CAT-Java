@@ -92,11 +92,7 @@ final class SettingsRoutes {
 
     /** htmx sends HX-Request on every call; a cross-site form post cannot set it. Refuses (403) when it is absent. */
     private static boolean fromPage(Context ctx) {
-        if ("true".equals(ctx.header("HX-Request"))) {
-            return true;
-        }
-        ctx.status(HttpStatus.FORBIDDEN).result("Settings changes come from the CAT-Java page only.");
-        return false;
+        return Requests.fromPage(ctx, "Settings changes come");
     }
 
     private static void remember(Context ctx, Appearance choice) {

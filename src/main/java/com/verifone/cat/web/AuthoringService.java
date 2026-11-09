@@ -27,6 +27,7 @@ import com.verifone.cat.authoring.ReplayGate.Verdict;
 import com.verifone.cat.authoring.ReplayRun;
 import com.verifone.cat.authoring.Session;
 import com.verifone.cat.authoring.SessionException;
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.launch.LaunchConfig;
 import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
@@ -126,7 +127,7 @@ final class AuthoringService {
     }
 
     private static AuthoringService standard(AuthoringRuns runs) {
-        Path fallback = Path.of(System.getProperty("user.home"), ".cat", "java", "authoring");
+        Path fallback = CatHome.java().resolve("authoring");
         return new AuthoringService(Session.authoringRoot(System.getenv(), fallback), ReplayGate.defaultRoot(),
                 () -> AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(), JIRA_TIMEOUT), runs,
                 null, AuthoringService::daemon);
@@ -564,10 +565,5 @@ final class AuthoringService {
         } catch (IOException e) {
             // best effort: a written suite left behind is never reused
         }
-    }
-
-    /** Whether the session folder exists on disk (tests check that opening the page created nothing). */
-    boolean rootExists() {
-        return Files.isDirectory(root);
     }
 }

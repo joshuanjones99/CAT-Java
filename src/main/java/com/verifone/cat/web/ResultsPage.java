@@ -47,8 +47,8 @@ final class ResultsPage {
     private static void view(Context ctx, ResultsLibrary library) {
         String segment = ResultsView.segment(ctx.queryParam("segment"));
         String tab = "stats".equals(ctx.queryParam("tab")) ? "stats" : "runs";
-        String filter = ctx.queryParam("q") == null ? "" : ctx.queryParam("q").strip();
-        String sort = ctx.queryParam("sort") == null ? "" : ctx.queryParam("sort");
+        String filter = Requests.query(ctx, "q").strip();
+        String sort = Requests.query(ctx, "sort");
         boolean descending = !"asc".equals(ctx.queryParam("dir"));
         try {
             RunIndex.IndexResult result = library.index();

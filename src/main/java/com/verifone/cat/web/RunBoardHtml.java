@@ -46,7 +46,7 @@ final class RunBoardHtml {
             case "run" -> "run";
             default -> "muted";
         };
-        return "<span class=\"badge " + tone + "\">" + esc(status.replace('_', ' ')) + "</span>";
+        return Html.badge(tone, status.replace('_', ' '));
     }
 
     /** {@code hx-get} into the dialog, as attributes. */
@@ -96,7 +96,12 @@ final class RunBoardHtml {
 
     /** The case table, polled on a live run. */
     static String cases(RunState state, RunLinks links, String url) {
-        return polled("div", "run-cases", "", url, casesInner(state, links), links.live());
+        return cases(casesInner(state, links), links, url);
+    }
+
+    /** {@link #casesInner}'s HTML in its polled element, for a caller that has already drawn it. */
+    static String cases(String inner, RunLinks links, String url) {
+        return polled("div", "run-cases", "", url, inner, links.live());
     }
 
     static String casesInner(RunState state, RunLinks links) {
@@ -124,7 +129,12 @@ final class RunBoardHtml {
 
     /** The current step's card and the Simulators and Connections rails, polled on a live run. */
     static String side(RunState state, RunLinks links, String url) {
-        return polled("aside", "run-side", "run-side", url, sideInner(state, links), links.live());
+        return side(sideInner(state, links), links, url);
+    }
+
+    /** {@link #sideInner}'s HTML in its polled element, for a caller that has already drawn it. */
+    static String side(String inner, RunLinks links, String url) {
+        return polled("aside", "run-side", "run-side", url, inner, links.live());
     }
 
     static String sideInner(RunState state, RunLinks links) {

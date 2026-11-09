@@ -58,10 +58,6 @@ final class DownloadsRoutes {
 
     /** True if the request came from htmx on this site. Otherwise it is refused and nothing runs. */
     static boolean fromHtmx(Context ctx) {
-        if ("true".equals(ctx.header("HX-Request"))) {
-            return true;
-        }
-        ctx.status(HttpStatus.FORBIDDEN).result("Downloads buttons come from the CAT-Java page only.");
-        return false;
+        return Requests.fromPage(ctx, "Downloads buttons come");
     }
 }

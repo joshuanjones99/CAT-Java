@@ -86,10 +86,6 @@ final class DownloadsService {
             return !commanderBranch.isEmpty() && !commanderBuild.isEmpty();
         }
 
-        boolean foundationChosen() {
-            return !foundationBranch.isEmpty() && !foundationBuild.isEmpty();
-        }
-
         boolean installing() {
             return mode == UpgradeMode.CLASSIC || mode == UpgradeMode.NEW_INSTALL;
         }

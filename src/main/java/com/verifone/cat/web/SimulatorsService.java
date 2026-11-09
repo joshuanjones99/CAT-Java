@@ -15,27 +15,34 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
+import com.verifone.cat.cloudtunnel.CloudTunnelProcess;
 import com.verifone.cat.commander.CommanderAccess;
+import com.verifone.cat.commander.Say;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.commander.CommanderSuiteInfo;
+import com.verifone.cat.devices.vats.Ports;
+import com.verifone.cat.launch.TunnelStart;
+import com.verifone.cat.launch.VatsCardServerStart;
 import com.verifone.cat.rig.Rig;
 import com.verifone.cat.rig.RigLoader;
 import com.verifone.cat.shell.RigBusy;
 import com.verifone.cat.shell.Shell;
 import com.verifone.cat.sims.Events;
 import com.verifone.cat.sims.PowerShellProcessOps;
+import com.verifone.cat.sims.ProcessOps;
 import com.verifone.cat.sims.Registry;
 import com.verifone.cat.sims.SimContext;
 import com.verifone.cat.sims.SimEntry;
 import com.verifone.cat.sims.SimProcess;
+import com.verifone.cat.sims.SimRunning;
 import com.verifone.cat.sims.SimStatus;
 import com.verifone.cat.sims.Supervisor;
 import com.verifone.cat.sims.ToolsRoot;
@@ -168,9 +175,9 @@ final class SimulatorsService {
     private final Map<String, Connector> connectors = new LinkedHashMap<>();
     private final Map<String, Map.Entry<String, String>> connectorRows = new ConcurrentHashMap<>();
     /** What the page-open probe found per row, before anything starts ({@code SimRunning.probeRunning}). */
-    private final Map<String, com.verifone.cat.sims.SimRunning.Running> probed = new ConcurrentHashMap<>();
-    private java.util.function.Function<List<SimEntry>, Map<String, com.verifone.cat.sims.SimRunning.Running>> prober;
-    private java.util.function.Function<List<String>, List<SimEntry>> stopRows;
+    private final Map<String, SimRunning.Running> probed = new ConcurrentHashMap<>();
+    private Function<List<SimEntry>, Map<String, SimRunning.Running>> prober;
+    private Function<List<String>, List<SimEntry>> stopRows;
     private final List<Consumer<SimStatus>> stateListeners = new CopyOnWriteArrayList<>();
     private volatile String message = "";
     private volatile AtomicBoolean abandoned = new AtomicBoolean();
@@ -178,7 +185,7 @@ final class SimulatorsService {
     private RigBusy rigBusy = new RigBusy();
     private Shell shell;
     private Set<String> fepOnly = Set.of();
-    private PortHolds holds = PortHolds.NONE;
+    private final PortHolds holds = PortHolds.NONE;
     private Launcher launcher;
     private BooleanSupplier ccOnboard = () -> false;
 
@@ -240,13 +247,13 @@ final class SimulatorsService {
         PowerShellProcessOps ops = new PowerShellProcessOps();
         SimulatorsService service = new SimulatorsService(new Supervisor(ops), rigContext,
                 Registry.launchable(false), pool);
-        service.prober = rows -> com.verifone.cat.sims.SimRunning.probeRunning(rows, rigContext, ops);
+        service.prober = rows -> SimRunning.probeRunning(rows, rigContext, ops);
         service.stopRows = Registry::bothForms;
         service.shell = shell;
         service.rigBusy = shell.busy();
         service.ccOnboard = ccOnboard;
         if (rig != null && rig.pinpad() == Rig.Pinpad.VATS && rig.vats() != null) {
-            service.connectors.put(CARD_SERVER, cardServerRow(rig.vats(), com.verifone.cat.launch.VatsCardServerStart.REAL));
+            service.connectors.put(CARD_SERVER, cardServerRow(rig.vats(), VatsCardServerStart.REAL));
         }
         service.connectors.put(CLOUD_TUNNEL, tunnelRow(rigName, new PowerShellProcessOps()));
         if (rig != null) {
@@ -276,7 +283,7 @@ final class SimulatorsService {
      * Python's {@code _is_tunnel_for}, {@code CloudTunnelProcess.isTunnelFor}); started as step 4 starts it
      * ({@code launch.TunnelStart}, the Python's {@code _start_cloud_tunnel}), detached. CAT never stops it.
      */
-    static Connector tunnelRow(String rigName, com.verifone.cat.sims.ProcessOps ops) {
+    static Connector tunnelRow(String rigName, ProcessOps ops) {
         Rig loaded = loadRig(rigName);
         Connector start = loaded == null ? Connector.unported("a rig that loads: rig '" + rigName + "' did not")
                 : new Connector() {
@@ -288,7 +295,7 @@ final class SimulatorsService {
                     @Override
                     public Map.Entry<Boolean, String> start(Consumer<String> log) {
                         String[] last = {""};
-                        com.verifone.cat.commander.Say say = new com.verifone.cat.commander.Say() {
+                        Say say = new Say() {
                             @Override
                             public void out(String line) {
                                 last[0] = line;
@@ -302,8 +309,8 @@ final class SimulatorsService {
                             }
                         };
                         Map<String, String> env = System.getenv();
-                        boolean up = com.verifone.cat.launch.TunnelStart.start(rigName, loaded, env,
-                                Path.of("").toAbsolutePath(), com.verifone.cat.launch.TunnelStart.system(env), say);
+                        boolean up = TunnelStart.start(rigName, loaded, env,
+                                Path.of("").toAbsolutePath(), TunnelStart.system(env), say);
                         return Map.entry(up, last[0]);
                     }
                 };
@@ -313,10 +320,10 @@ final class SimulatorsService {
                 if (rigName == null || rigName.isBlank()) {
                     return "";
                 }
-                com.verifone.cat.sims.ProcessOps.Snapshot snapshot = ops.commandLines(
-                        com.verifone.cat.cloudtunnel.CloudTunnelProcess.EXES, Duration.ofSeconds(15));
+                ProcessOps.Snapshot snapshot = ops.commandLines(
+                        CloudTunnelProcess.EXES, Duration.ofSeconds(15));
                 for (String line : snapshot.text().split("\\R")) {
-                    if (com.verifone.cat.cloudtunnel.CloudTunnelProcess.isTunnelFor(line, rigName)) {
+                    if (CloudTunnelProcess.isTunnelFor(line, rigName)) {
                         return "cloud-tunnel --rig " + rigName;
                     }
                 }
@@ -339,17 +346,17 @@ final class SimulatorsService {
      * BTT's card server row on a VATS rig: up when its port answers (BTT's own first test), started by the vats
      * slice's {@code VatsCardServerStart} as step 3 starts it. CAT never stops BTT.
      */
-    static Connector cardServerRow(Rig.Vats vats, com.verifone.cat.launch.VatsCardServerStart.Starter starter) {
+    static Connector cardServerRow(Rig.Vats vats, VatsCardServerStart.Starter starter) {
         return new Connector() {
             @Override
             public String probe() {
                 Integer port = vats.cardServerPort();
-                return port != null && com.verifone.cat.devices.vats.Ports.listening(port) ? "answers on " + port : "";
+                return port != null && Ports.listening(port) ? "answers on " + port : "";
             }
 
             @Override
             public Map.Entry<Boolean, String> start(Consumer<String> log) {
-                var result = starter.start(vats, com.verifone.cat.launch.VatsCardServerStart.BTT_START_TIMEOUT, log);
+                var result = starter.start(vats, VatsCardServerStart.BTT_START_TIMEOUT, log);
                 return Map.entry(result.ok(), result.detail());
             }
         };
@@ -383,16 +390,6 @@ final class SimulatorsService {
 
     SimulatorsService withFepOnly(Set<String> names) {
         fepOnly = Set.copyOf(names);
-        return this;
-    }
-
-    SimulatorsService withPortHolds(PortHolds portHolds) {
-        holds = portHolds;
-        return this;
-    }
-
-    SimulatorsService withLauncher(Launcher plan) {
-        launcher = plan;
         return this;
     }
 
@@ -546,11 +543,11 @@ final class SimulatorsService {
             }
             return new RowView(entry.name(), status.state().label(), status.owner().label(), detail, up, attention);
         }
-        com.verifone.cat.sims.SimRunning.Running found = probed.get(entry.name());
-        if (found != null && !com.verifone.cat.sims.SimRunning.Running.NOT_RUNNING.equals(found.status())) {
-            boolean up = com.verifone.cat.sims.SimRunning.Running.ALREADY_RUNNING.equals(found.status());
+        SimRunning.Running found = probed.get(entry.name());
+        if (found != null && !SimRunning.Running.NOT_RUNNING.equals(found.status())) {
+            boolean up = SimRunning.Running.ALREADY_RUNNING.equals(found.status());
             return new RowView(entry.name(), found.status(), up ? "external" : "", found.detail(), up,
-                    !up && com.verifone.cat.sims.SimRunning.Running.FAILED.equals(found.status()));
+                    !up && SimRunning.Running.FAILED.equals(found.status()));
         }
         if (listening(entry)) {
             return new RowView(entry.name(), "already running", "external",
@@ -832,15 +829,7 @@ final class SimulatorsService {
      * its socket is; without this the panel would show a just-stopped simulator as still up.
      */
     private void awaitPortClosed(SimEntry entry, Duration budget) {
-        long deadline = System.nanoTime() + budget.toNanos();
-        while (listening(entry) && System.nanoTime() - deadline < 0) {
-            try {
-                new CountDownLatch(1).await(POLL.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
+        Waits.poll(() -> !listening(entry), budget, POLL);
     }
 
     /** True if the row's ready port is answering, by the supervisor's read-only probe. */

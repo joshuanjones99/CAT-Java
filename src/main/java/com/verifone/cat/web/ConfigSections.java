@@ -1,6 +1,7 @@
 package com.verifone.cat.web;
 
 import static com.verifone.cat.web.Html.esc;
+import static com.verifone.cat.web.Html.option;
 
 import java.util.Map;
 
@@ -169,16 +170,8 @@ final class ConfigSections {
                 + "</label><input type=\"hidden\" name=\"value\" value=\"off\"></form>";
     }
 
-    private static String option(String value, String text, boolean selected) {
-        return "<option value=\"" + esc(value) + "\"" + (selected ? " selected" : "") + ">" + esc(text) + "</option>";
-    }
-
     private static boolean fromPage(Context ctx) {
-        if ("true".equals(ctx.header("HX-Request"))) {
-            return true;
-        }
-        ctx.status(HttpStatus.FORBIDDEN).result("Config changes come from the CAT-Java page only.");
-        return false;
+        return Requests.fromPage(ctx, "Config changes come");
     }
 
     /** The help words, from the form's table. */
