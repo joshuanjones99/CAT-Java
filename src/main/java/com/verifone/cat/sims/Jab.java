@@ -76,9 +76,6 @@ public final class Jab {
     /** The pause after connecting and after each click (the Python's {@code settle}). */
     public static final Duration DEFAULT_SETTLE = Duration.ofMillis(1500);
 
-    /** The connect budget when none is given (the Python's {@code connect_timeout}). */
-    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(30);
-
     /** The most accessible elements one walk visits. */
     public static final int MAX_NODES = 10_000;
 

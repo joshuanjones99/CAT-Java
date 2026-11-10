@@ -162,12 +162,16 @@ public final class SimFetch {
                 out.add(new FetchResult(entry.name(), true, already.get(entry.name())));
                 continue;
             }
-            String problem = results.get(entry.name());
-            out.add(new FetchResult(entry.name(), problem.isEmpty(),
-                    problem.isEmpty() ? entry.name() + ": replaced with " + branch + " build " + number + "'s copy"
-                            : problem));
+            out.add(replaced(entry, results.get(entry.name()), branch, number));
         }
         return out;
+    }
+
+    /** One replaced row's result: {@code problem}, or that it now holds the build's copy. */
+    private static FetchResult replaced(SimEntry entry, String problem, String branch, String build) {
+        return new FetchResult(entry.name(), problem.isEmpty(),
+                problem.isEmpty() ? entry.name() + ": replaced with " + branch + " build " + build + "'s copy"
+                        : problem);
     }
 
     private Map<String, String> replace(List<SimEntry> entries, SimContext ctx, String branch, String build,
@@ -300,10 +304,7 @@ public final class SimFetch {
         Map<String, String> results = replace(entries, ctx, branch, build, olderBase, running);
         List<FetchResult> out = new ArrayList<>();
         for (SimEntry entry : entries) {
-            String problem = results.get(entry.name());
-            out.add(new FetchResult(entry.name(), problem.isEmpty(),
-                    problem.isEmpty() ? entry.name() + ": replaced with " + branch + " build " + build + "'s copy"
-                            : problem));
+            out.add(replaced(entry, results.get(entry.name()), branch, build));
         }
         return out;
     }
