@@ -315,7 +315,8 @@ public final class PsiInit {
         }
         // The register reboots itself after pairing, which closes the browser this was reading: each look
         // reconnects, and a connection refused or closed under it is "not yet".
-        Bounded.pollUntilTrue(() -> registers.atLoginScreen(rig, register), REGISTER_BACK_TIMEOUT, REGISTER_BACK_INTERVAL, register.id() + "'s login screen after pairing");
+        Bounded.pollUntilTrue(() -> registers.atLoginScreen(rig, register), REGISTER_BACK_TIMEOUT,
+                REGISTER_BACK_INTERVAL, register.id() + "'s login screen after pairing");
         say.out(register.id() + ": back at its login screen");
     }
 
