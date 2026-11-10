@@ -130,7 +130,7 @@ public final class HtmlReport {
      */
     public static HtmlReport fromEvents(Path events) throws IOException {
         HtmlReport report = new HtmlReport();
-        NdjsonReader.forEach(events, report::processEvent);
+        NdjsonReader.forEachExceptLogs(events, report::processEvent);
         return report;
     }
 

@@ -60,7 +60,7 @@ public final class ReplayRun {
      */
     public static ReplayRun read(Path eventsFile) throws IOException {
         ReplayRun run = new ReplayRun();
-        NdjsonReader.forEach(eventsFile, run::apply);
+        NdjsonReader.forEachExceptLogs(eventsFile, run::apply);
         return run;
     }
 

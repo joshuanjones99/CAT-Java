@@ -24,6 +24,8 @@ import com.verifone.cat.core.Json;
 public final class NdjsonReader {
 
     private static final ObjectMapper MAPPER = Json.MAPPER;
+    private static final String JAVA_LOG_LINE = "{\"type\":\"log.line\",";
+    private static final String PYTHON_LOG_LINE = "\"type\": \"log.line\"}";
 
     private NdjsonReader() {}
 
@@ -33,15 +35,42 @@ public final class NdjsonReader {
      * @throws IOException when the file cannot be read as UTF-8
      */
     public static void forEach(Path file, Consumer<JsonNode> consumer) throws IOException {
+        forEach(file, consumer, true);
+    }
+
+    /**
+     * {@link #forEach} without the {@code log.line} events, for a reader that folds a run and shows no log. They
+     * are most of a real stream's lines, and each is recognised by its text and never parsed.
+     *
+     * @throws IOException when the file cannot be read as UTF-8
+     */
+    public static void forEachExceptLogs(Path file, Consumer<JsonNode> consumer) throws IOException {
+        forEach(file, consumer, false);
+    }
+
+    private static void forEach(Path file, Consumer<JsonNode> consumer, boolean logs) throws IOException {
         try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                JsonNode event = parse(line.strip());
+                String text = line.strip();
+                if (!logs && isLogLine(text)) {
+                    continue;
+                }
+                JsonNode event = parse(text);
                 if (event != null) {
                     consumer.accept(event);
                 }
             }
         }
+    }
+
+    /**
+     * Whether a stripped line is a {@code log.line} event as either writer spells one: {@link NdjsonWriter} puts
+     * {@code type} first with no spaces, the Python CAT puts it last with them. Any other spelling is not
+     * recognised here and is parsed like every other event.
+     */
+    public static boolean isLogLine(String line) {
+        return line.startsWith(JAVA_LOG_LINE) || line.endsWith(PYTHON_LOG_LINE);
     }
 
     /** The object a line holds, or {@code null} for a blank line, a malformed one or one that is not an object. */

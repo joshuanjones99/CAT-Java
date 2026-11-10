@@ -95,6 +95,25 @@ class NdjsonTest {
     }
 
     @Test
+    void aReaderWithoutLogsLeavesOutLogLinesInEitherWritersSpellingAndNothingElse() throws Exception {
+        Path file = dir.resolve(ReportPaths.EVENTS_FILE);
+        try (NdjsonWriter writer = new NdjsonWriter(file)) {
+            writer.write(MAPPER.readTree("{\"type\":\"log.line\",\"message\":\"java\"}"));
+            writer.write(MAPPER.readTree("{\"type\":\"test.finished\",\"detail\":\"\\\"type\\\": \\\"log.line\\\"}\"}"));
+        }
+        Files.writeString(file, "{\"message\": \"python\", \"type\": \"log.line\"}\n"
+                + "{\"note\": {\"type\": \"log.line\"}, \"type\": \"b\"}\n"
+                + "{ \"type\" : \"log.line\" , \"message\": \"another spelling\" }\n",
+                StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
+
+        List<JsonNode> kept = new ArrayList<>();
+        NdjsonReader.forEachExceptLogs(file, kept::add);
+
+        assertEquals(List.of("test.finished", "b", "log.line"), kept.stream().map(e -> e.get("type").asText()).toList());
+        assertEquals(5, read(file).size(), "the plain reader still gives every event");
+    }
+
+    @Test
     void foldLeavesTypesItDoesNotOwnToTheWriter() throws Exception {
         RunFacts facts = new RunFacts();
 

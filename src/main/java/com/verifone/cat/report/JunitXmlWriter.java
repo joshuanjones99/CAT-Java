@@ -169,7 +169,7 @@ public final class JunitXmlWriter {
      */
     public static JunitXmlWriter fromEvents(Path events) throws IOException {
         JunitXmlWriter writer = new JunitXmlWriter();
-        NdjsonReader.forEach(events, writer::processEvent);
+        NdjsonReader.forEachExceptLogs(events, writer::processEvent);
         return writer;
     }
 

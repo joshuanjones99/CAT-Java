@@ -61,7 +61,11 @@ public final class RunReplay {
      */
     public static RunReplay read(Path eventsFile, boolean includeLogs) throws IOException {
         RunReplay replay = new RunReplay(eventsFile, includeLogs);
-        NdjsonReader.forEach(eventsFile, replay::apply);
+        if (includeLogs) {
+            NdjsonReader.forEach(eventsFile, replay::apply);
+        } else {
+            NdjsonReader.forEachExceptLogs(eventsFile, replay::apply);
+        }
         replay.state = replay.reducer.state();
         return replay;
     }

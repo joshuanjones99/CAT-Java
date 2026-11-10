@@ -24,7 +24,7 @@ import com.verifone.cat.core.Json;
  * CAT's {@code cat.xray.tail.follow}.
  *
  * <p>The reader remembers its byte offset and, on each tick, reads what has been added, so it sees
- * every event shortly after CAT writes it. A line is {@code log.line} by its tail and is dropped
+ * every event shortly after CAT writes it. A line is {@code log.line} by its tail or its head and is dropped
  * without parsing (they are most of a real file). The last line of the file may be half-written; the
  * unterminated remainder is kept and completed on the next read. A file that does not exist yet is
  * waited for.
@@ -37,6 +37,8 @@ public final class EventFollower {
 
     private static final ObjectMapper JSON = Json.MAPPER;
     private static final byte[] LOG_LINE_TAIL = "\"type\": \"log.line\"}".getBytes(StandardCharsets.UTF_8);
+    /** How this port's own writer starts a log line ({@code type} first, no spaces); the tail is the Python's. */
+    private static final byte[] LOG_LINE_HEAD = "{\"type\":\"log.line\",".getBytes(StandardCharsets.UTF_8);
     private static final Set<String> SKIPPED_TYPES = Set.of("log.line");
 
     private final Path path;
@@ -151,7 +153,7 @@ public final class EventFollower {
             return null;
         }
         byte[] stripped = Arrays.copyOfRange(line, begin, end);
-        if (endsWith(stripped, LOG_LINE_TAIL)) {
+        if (endsWith(stripped, LOG_LINE_TAIL) || startsWith(stripped, LOG_LINE_HEAD)) {
             return null;
         }
         try {
@@ -193,6 +195,10 @@ public final class EventFollower {
             return false;
         }
         return Arrays.equals(data, data.length - tail.length, data.length, tail, 0, tail.length);
+    }
+
+    private static boolean startsWith(byte[] data, byte[] head) {
+        return data.length >= head.length && Arrays.equals(data, 0, head.length, head, 0, head.length);
     }
 
     private static byte[] concat(byte[] head, byte[] tail) {
