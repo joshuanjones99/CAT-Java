@@ -164,18 +164,94 @@ class SetupItemsTest {
     }
 
     @Test
-    void playwrightChromiumIsOptionalAndReadsTheBrowsersPath() throws Exception {
+    void playwrightChromiumIsAnOptionalOfferThatTheCheckNeverRuns() throws Exception {
         SetupFixture f = fixture();
         SetupItem chromium = SetupItems.playwrightInstalled();
-        assertFalse(chromium.required(), "only --fake-pos needs it");
-        assertEquals(Outcome.FAIL, chromium.detect(f.env).outcome());
+        assertFalse(chromium.required(), "only the fake POS needs it");
+        assertTrue(chromium.manual(), "a 150 MB download is the person's call, not the audit's");
+        assertTrue(chromium.runsOnRequest());
+        assertTrue(chromium.offered());
+        assertEquals("Install", chromium.runLabel());
+        assertFalse(chromium.title().contains("fake-pos"), chromium.title());
+
+        Result missing = chromium.detect(f.env);
+        assertEquals(Outcome.FAIL, missing.outcome());
+        assertTrue(missing.detail().contains(f.tools.resolve("ms-playwright").toString()), missing.detail());
+        assertFalse(missing.detail().contains("fake-pos"), missing.detail());
+
+        SetupAudit audit = new SetupAudit(List.of(chromium), f.env);
+        audit.runAndRepair();
+        assertTrue(f.commands.isEmpty(), "the check must not start the download");
+        assertTrue(audit.stillNeedsAttention().isEmpty(), "an offered item does not nag");
+    }
+
+    @Test
+    void playwrightChromiumIsFoundInTheToolsRootThenTheOldPerUserFolderThenTheBrowsersPath() throws Exception {
+        SetupFixture f = fixture();
+        SetupItem chromium = SetupItems.playwrightInstalled();
 
         f.dir(f.localAppData.resolve("ms-playwright").resolve("chromium-1148"));
-        assertEquals(Outcome.PASS, chromium.detect(f.env).outcome());
+        Result legacy = chromium.detect(f.env);
+        assertEquals(Outcome.PASS, legacy.outcome(), "a Chromium installed before still counts");
+        assertTrue(legacy.detail().contains(f.localAppData.toString()), legacy.detail());
+
+        f.dir(f.tools.resolve("ms-playwright").resolve("chromium-1148"));
+        Result tools = chromium.detect(f.env);
+        assertTrue(tools.detail().contains(f.tools.toString()), "the tools root wins: " + tools.detail());
 
         Path elsewhere = f.dir(f.root.resolve("browsers").resolve("chromium-1148"));
         Result moved = chromium.detect(f.withVars(Map.of("PLAYWRIGHT_BROWSERS_PATH", elsewhere.getParent().toString())));
         assertEquals(Outcome.PASS, moved.outcome(), moved.detail());
+        assertTrue(moved.detail().contains(elsewhere.toString()), moved.detail());
+    }
+
+    @Test
+    void installRunsPlaywrightsInstallerIntoTheToolsRoot() throws Exception {
+        SetupFixture f = fixture();
+        List<List<String>> argvs = new java.util.ArrayList<>();
+        List<Map<String, String>> envs = new java.util.ArrayList<>();
+        SetupEnv env = new SetupEnv(f.vars, f.home, f.repo, new SetupEnv.Commands() {
+            @Override
+            public SetupEnv.CommandResult run(List<String> argv, java.time.Duration timeout) {
+                throw new AssertionError("the install must pass its browsers folder");
+            }
+
+            @Override
+            public SetupEnv.CommandResult run(List<String> argv, Map<String, String> extra,
+                    java.time.Duration timeout) {
+                argvs.add(argv);
+                envs.add(extra);
+                try {
+                    java.nio.file.Files.createDirectories(Path.of(extra.get("PLAYWRIGHT_BROWSERS_PATH"))
+                            .resolve("chromium-1148"));
+                } catch (java.io.IOException e) {
+                    throw new AssertionError(e);
+                }
+                return new SetupEnv.CommandResult(0, "downloaded", "");
+            }
+        });
+
+        Result result = SetupItems.playwrightInstalled().apply(env);
+
+        assertEquals(Outcome.PASS, result.outcome(), result.detail());
+        assertEquals(Map.of("PLAYWRIGHT_BROWSERS_PATH", f.tools.resolve("ms-playwright").toString()), envs.get(0));
+        List<String> argv = argvs.get(0);
+        assertEquals(List.of("com.microsoft.playwright.CLI", "install", "chromium"),
+                argv.subList(argv.size() - 3, argv.size()));
+        assertTrue(argv.contains(f.repo.resolve("target").resolve("lib") + java.io.File.separator + "*"), argv.toString());
+        assertEquals(Outcome.PASS, SetupItems.playwrightInstalled().detect(env).outcome());
+    }
+
+    @Test
+    void aFailedInstallSaysWhy() throws Exception {
+        SetupFixture f = fixture();
+        f.answer = new SetupEnv.CommandResult(1, "", "line one\nError: download failed: ECONNRESET\n");
+
+        Result result = SetupItems.playwrightInstalled().apply(f.env);
+
+        assertEquals(Outcome.FAIL, result.outcome());
+        assertTrue(result.detail().contains("ECONNRESET"), result.detail());
+        assertEquals("install", f.commands.get(0).get(f.commands.get(0).size() - 2));
     }
 
     // ---- credentials ----------------------------------------------------------------------

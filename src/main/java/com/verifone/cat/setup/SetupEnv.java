@@ -11,8 +11,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.verifone.cat.core.CatHome;
 import com.verifone.cat.gitauth.GitAuth;
@@ -45,7 +48,25 @@ public final class SetupEnv {
     @FunctionalInterface
     public interface Commands {
         CommandResult run(List<String> argv, Duration timeout);
+
+        /** {@link #run(List, Duration)} with {@code extraEnv} added to the child's environment. */
+        default CommandResult run(List<String> argv, Map<String, String> extraEnv, Duration timeout) {
+            return run(argv, timeout);
+        }
     }
+
+    /** The real runner: {@link #runProcess}, with the extra variables passed to the child. */
+    private static final Commands PROCESSES = new Commands() {
+        @Override
+        public CommandResult run(List<String> argv, Duration timeout) {
+            return runProcess(argv, Map.of(), timeout);
+        }
+
+        @Override
+        public CommandResult run(List<String> argv, Map<String, String> extraEnv, Duration timeout) {
+            return runProcess(argv, extraEnv, timeout);
+        }
+    };
 
     /** A finished command: its exit code and both streams. A timeout or a launch failure is exit 1. */
     public record CommandResult(int exitCode, String stdout, String stderr) {}
@@ -90,7 +111,7 @@ public final class SetupEnv {
     public static SetupEnv system() {
         Map<String, String> env = System.getenv();
         Path home = CatHome.user();
-        return new SetupEnv(env, home, Path.of(System.getProperty("user.dir")), SetupEnv::runProcess,
+        return new SetupEnv(env, home, Path.of(System.getProperty("user.dir")), PROCESSES,
                 GitAuth.system(), SavedLogins.system(env, home), true);
     }
 
@@ -164,6 +185,11 @@ public final class SetupEnv {
         return commands.run(argv, timeout);
     }
 
+    /** Runs a command with {@code extraEnv} added to its environment (a repair's own variables, never persisted). */
+    public CommandResult run(List<String> argv, Map<String, String> extraEnv, Duration timeout) {
+        return commands.run(argv, extraEnv, timeout);
+    }
+
     // ------------------------------------------------------------------ writes (repairs and saves only)
 
     /** Creates the directory and its parents. Idempotent. */
@@ -212,28 +238,51 @@ public final class SetupEnv {
         }
     }
 
-    /** The real command runner. Both streams are read to the end before the wait, so a chatty command cannot stall. */
-    static CommandResult runProcess(List<String> argv, Duration timeout) {
+    /**
+     * The real command runner. Both streams are drained on their own threads while the wait runs, so a chatty command
+     * cannot stall and the timeout holds even while it prints; a command still running at the timeout is killed.
+     */
+    static CommandResult runProcess(List<String> argv, Map<String, String> extraEnv, Duration timeout) {
+        Process process;
         try {
-            Process process = new ProcessBuilder(argv).start();
-            String out = readAll(process.getInputStream());
-            String err = readAll(process.getErrorStream());
+            ProcessBuilder builder = new ProcessBuilder(argv);
+            builder.environment().putAll(extraEnv);
+            process = builder.start();
+        } catch (IOException e) {
+            return new CommandResult(1, "", String.valueOf(e.getMessage()));
+        }
+        CompletableFuture<String> out = drain(process.getInputStream());
+        CompletableFuture<String> err = drain(process.getErrorStream());
+        try {
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
                 return new CommandResult(1, "", "timeout");
             }
-            return new CommandResult(process.exitValue(), out, err);
-        } catch (IOException e) {
-            return new CommandResult(1, "", String.valueOf(e.getMessage()));
+            return new CommandResult(process.exitValue(), out.get(STREAM_TAIL.toMillis(), TimeUnit.MILLISECONDS),
+                    err.get(STREAM_TAIL.toMillis(), TimeUnit.MILLISECONDS));
         } catch (InterruptedException e) {
+            process.destroyForcibly();
             Thread.currentThread().interrupt();
             return new CommandResult(1, "", "interrupted");
+        } catch (ExecutionException | TimeoutException e) {
+            return new CommandResult(process.exitValue(), "", "could not read the command's output: " + e);
         }
     }
 
-    private static String readAll(InputStream stream) throws IOException {
-        try (stream) {
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        }
+    /** How long the streams may take to close once the command has exited (a grandchild can hold them open). */
+    private static final Duration STREAM_TAIL = Duration.ofSeconds(10);
+
+    private static CompletableFuture<String> drain(InputStream stream) {
+        CompletableFuture<String> text = new CompletableFuture<>();
+        Thread reader = new Thread(() -> {
+            try (stream) {
+                text.complete(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                text.complete("");
+            }
+        }, "setup-command-output");
+        reader.setDaemon(true);
+        reader.start();
+        return text;
     }
 }

@@ -223,9 +223,13 @@ public final class SetupAudit {
         return out;
     }
 
-    /** What is left after the repair pass: the Python's {@code still_needs_attention} (its {@code failures}). */
+    /**
+     * What is left after the repair pass: the Python's {@code still_needs_attention} (its {@code failures}), less the
+     * optional items CAT offers to fix with one press ({@link SetupItem#offered()}), which the page shows without
+     * nagging.
+     */
     public Map<String, Result> stillNeedsAttention() {
-        return failures();
+        return failuresOf(item -> !item.offered());
     }
 
     /** The failing results whose items are required. */

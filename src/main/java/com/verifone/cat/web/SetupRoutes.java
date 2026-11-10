@@ -8,8 +8,8 @@ import io.javalin.Javalin;
 import io.javalin.http.Context;
 
 /**
- * The Setup routes: the page, its fragment (polled while a check runs), Check again, a sign-in card's Save, and an
- * item's Repair.
+ * The Setup routes: the page, its fragment (polled while a check or a command runs), Check again, a sign-in card's
+ * Save, an item's Repair, and a card's command button (Install).
  *
  * <p>Every POST requires the {@code HX-Request} header, as {@code POST /keys} does, so another page in the operator's
  * browser cannot start a check, save a login or repair the machine with a cross-site form post. A card's fields are
@@ -51,6 +51,14 @@ final class SetupRoutes {
             SetupService.Said said = setup.repair(name);
             setup.shell().notify(said.text(), said.ok() ? "positive" : "error", 5);
             ctx.html(SetupPage.panel(setup.snapshot(), Map.of(name, said)));
+        });
+        app.post("/setup/run", ctx -> {
+            if (!fromThisPage(ctx)) {
+                return;
+            }
+            String name = value(ctx, "name");
+            SetupService.Said said = setup.runCommand(name);
+            ctx.html(SetupPage.panel(setup.snapshot(), said.ok() ? Map.of() : Map.of(name, said)));
         });
     }
 

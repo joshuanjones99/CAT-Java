@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 import com.verifone.cat.build.StoredArtifactoryCredentials;
 import com.verifone.cat.collect.Collect;
 import com.verifone.cat.gitauth.GitAuth;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.preflight.Result;
 import com.verifone.cat.rig.RigLoader;
 import com.verifone.cat.report.ReportPaths;
@@ -29,7 +30,8 @@ import com.verifone.cat.sims.ToolsRoot;
  *
  * <p>Ported from the Python CAT's {@code cat.setup.items}, checks and repairs. Where the Python checks something
  * only Python has (uv, the venv, pyjab, pre-commit hooks, Python 3.12), the Java check is the JDK, the built
- * {@code target\} and the Playwright Chromium that {@code --fake-pos} needs (each detect-only, {@code manual}).
+ * {@code target\} (detect-only, {@code manual}) and the Playwright Chromium, which the page installs into the tools
+ * root when the person presses Install ({@link SetupItem#withCommand}).
  * The automatable repairs are the Python's: {@code corpus_root} defaults {@code PETROAPPS_ROOT},
  * {@code artifacts_writable} creates the results folder, {@code cashier_password} defaults the lab's till password,
  * {@code java_access_bridge} runs {@code jabswitch -enable}, and {@code ssh_key} points
@@ -70,10 +72,7 @@ public final class SetupItems {
     public static final String SSH_KEY_FILE = "development-no-pw.ppk";
 
     /** The Chromium build Playwright for Java 1.49.0 installs (HANDOFF.md §6, item 12). */
-    public static final String CHROMIUM_DIR = "chromium-1148";
-
-    /** The environment variable that moves the Playwright browsers folder. */
-    public static final String PLAYWRIGHT_BROWSERS_ENV = "PLAYWRIGHT_BROWSERS_PATH";
+    public static final String CHROMIUM_DIR = PlaywrightHome.CHROMIUM_DIR;
 
     /** The Commander SSH key variable the Python CAT reads. */
     public static final String SSH_KEY_ENV = "PETROTEST_COMMANDER_SSH_KEY";
@@ -297,27 +296,56 @@ public final class SetupItems {
                 });
     }
 
+    /**
+     * Playwright's Chromium, kept in the tools root ({@link PlaywrightHome}). Optional, and offered rather than nagged
+     * about: the card's Install button runs Playwright's own installer into {@code <tools root>\ms-playwright}.
+     */
     static SetupItem playwrightInstalled() {
-        return new SetupItem(PLAYWRIGHT_INSTALLED, "Playwright Chromium (for --fake-pos)", true, false, false,
-                "Run: java -cp \"target\\lib\\*\" com.microsoft.playwright.CLI install chromium",
+        return new SetupItem(PLAYWRIGHT_INSTALLED, "Playwright Chromium", true, false, false,
+                "Press Install: CAT downloads Playwright's Chromium into the tools root.",
                 env -> {
                     Path browsers = playwrightBrowsers(env);
                     Path chromium = browsers.resolve(CHROMIUM_DIR);
                     return env.isDirectory(chromium)
                             ? Result.passed(PLAYWRIGHT_INSTALLED, "Chromium present: " + chromium)
-                            : Result.failed(PLAYWRIGHT_INSTALLED, "Chromium not in " + browsers
-                                    + " (--fake-pos needs it; the real rig does not)");
-                });
+                            : Result.failed(PLAYWRIGHT_INSTALLED, "Chromium not installed (it goes in "
+                                    + PlaywrightHome.installDir(env.vars()) + ")");
+                }).withCommand("Install", SetupItems::installChromium);
     }
 
+    /** Where Playwright looks for its browsers, as {@link PlaywrightHome#browsersDir} resolves it for {@code env}. */
     static Path playwrightBrowsers(SetupEnv env) {
-        String configured = env.var(PLAYWRIGHT_BROWSERS_ENV);
-        if (configured != null) {
-            return Path.of(configured);
+        return PlaywrightHome.browsersDir(env.vars(), env.home());
+    }
+
+    /** How long the Chromium download (Chromium, its headless shell and ffmpeg: about 250 MB) may take. */
+    static final Duration CHROMIUM_INSTALL_TIMEOUT = Duration.ofMinutes(15);
+
+    /**
+     * Playwright's own installer ({@code com.microsoft.playwright.CLI install chromium}, from {@code target\lib}),
+     * run on this JVM's Java with {@code PLAYWRIGHT_BROWSERS_PATH} set to the tools root's folder.
+     */
+    static Result installChromium(SetupEnv env) {
+        Path target = PlaywrightHome.installDir(env.vars());
+        Path javaExe = Path.of(System.getProperty("java.home"), "bin", "java");
+        String classpath = env.repoRoot().resolve("target").resolve("lib") + java.io.File.separator + "*";
+        SetupEnv.CommandResult run = env.run(
+                List.of(javaExe.toString(), "-cp", classpath, "com.microsoft.playwright.CLI", "install", "chromium"),
+                Map.of(PlaywrightHome.BROWSERS_ENV, target.toString()), CHROMIUM_INSTALL_TIMEOUT);
+        if (run.exitCode() != 0) {
+            String why = (run.stderr().isBlank() ? run.stdout() : run.stderr()).strip();
+            return Result.failed(PLAYWRIGHT_INSTALLED, "installing Chromium failed: "
+                    + (why.isEmpty() ? "exit " + run.exitCode() : lastLines(why, 3)));
         }
-        String localAppData = env.var("LOCALAPPDATA");
-        Path local = localAppData == null ? env.home().resolve("AppData").resolve("Local") : Path.of(localAppData);
-        return local.resolve("ms-playwright");
+        Path chromium = target.resolve(CHROMIUM_DIR);
+        return env.isDirectory(chromium)
+                ? Result.passed(PLAYWRIGHT_INSTALLED, "Chromium installed: " + chromium)
+                : Result.failed(PLAYWRIGHT_INSTALLED, "the installer finished but " + chromium + " is not there");
+    }
+
+    private static String lastLines(String text, int count) {
+        List<String> lines = text.lines().filter(line -> !line.isBlank()).toList();
+        return String.join(" / ", lines.subList(Math.max(0, lines.size() - count), lines.size()));
     }
 
     /**

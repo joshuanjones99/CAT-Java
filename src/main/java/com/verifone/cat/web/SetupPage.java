@@ -20,7 +20,8 @@ import com.verifone.cat.setup.SetupItem;
  * (the Atlassian login, the Verifone login for Artifactory and Bitbucket) take their fields here, show what is saved
  * (masked where secret, with Show), are saved as the Python saves them (a blank field keeps what is saved) and signed
  * in with at once; their badge says {@code rejected} or {@code signed in}. An automatable item that still fails has a
- * Repair button. Check again reruns the whole audit, repairs included. Sign-in cards come first, then failing items.
+ * Repair button; an item whose fix is a command has a button that runs it (Install), and when it is optional its card
+ * is a quiet offer, not counted as needing attention. Check again reruns the whole audit, repairs included. Sign-in cards come first, then failing items.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -50,7 +51,7 @@ final class SetupPage {
      */
     static String panel(SetupService.Snapshot snapshot, Map<String, SetupService.Said> notes) {
         StringBuilder out = new StringBuilder("<section id=\"" + PANEL_ID + "\" class=\"card wide\"");
-        if (snapshot.checking()) {
+        if (snapshot.checking() || !snapshot.running().isEmpty()) {
             out.append(" hx-get=\"/fragments/setup\" hx-trigger=\"every 2s\" hx-swap=\"outerHTML\"");
         }
         out.append('>');
@@ -71,7 +72,7 @@ final class SetupPage {
         out.append(summary(snapshot));
         List<SetupItem> items = new ArrayList<>(snapshot.items());
         items.sort(Comparator.comparing((SetupItem item) -> !item.credential())
-                .thenComparing(item -> ok(snapshot.results().get(item.name()))));
+                .thenComparing(item -> item.offered() || ok(snapshot.results().get(item.name()))));
         out.append("<div class=\"setup-cards\">");
         for (SetupItem item : items) {
             out.append(card(item, snapshot, notes.get(item.name())));
@@ -83,20 +84,26 @@ final class SetupPage {
         return result != null && result.ok();
     }
 
-    /** The one line above the cards: how many pass, and how many a person has to act on. */
+    /**
+     * The one line above the cards: how many pass, and how many a person has to act on. An optional item with an
+     * Install button ({@link SetupItem#offered()}) is offered on its card, not counted as needing attention.
+     */
     static String summary(SetupService.Snapshot snapshot) {
         int total = snapshot.items().size();
         int passing = 0;
+        int offered = 0;
         int requiredFailing = 0;
         for (SetupItem item : snapshot.items()) {
             Result result = snapshot.results().get(item.name());
             if (result != null && result.outcome() == Outcome.PASS) {
                 passing++;
+            } else if (item.offered()) {
+                offered++;
             } else if (item.required()) {
                 requiredFailing++;
             }
         }
-        int attention = total - passing;
+        int attention = total - passing - offered;
         String text = passing + " of " + total + " checks pass";
         if (attention == 0) {
             return "<p class=\"ok\">" + esc(text) + ".</p>";
@@ -121,6 +128,12 @@ final class SetupPage {
         }
         if (item.hasFields()) {
             out.append(fields(item, result, snapshot));
+        } else if (!result.ok() && item.runsOnRequest()) {
+            boolean busy = snapshot.running().contains(item.name());
+            out.append("<button type=\"button\" class=\"ghost\" hx-post=\"/setup/run\" hx-vals=\"")
+                    .append(esc("{\"name\":\"" + item.name() + "\"}")).append("\" ").append(TARGET)
+                    .append(busy ? " disabled aria-busy=\"true\">" : ">")
+                    .append(esc(busy ? "Running…" : item.runLabel())).append("</button>");
         } else if (!result.ok() && !item.manual()) {
             out.append("<button type=\"button\" class=\"ghost\" hx-post=\"/setup/repair\" hx-vals=\"")
                     .append(esc("{\"name\":\"" + item.name() + "\"}")).append("\" ").append(TARGET)
@@ -170,6 +183,12 @@ final class SetupPage {
         }
         if (result.ok()) {
             return Html.badge("ok", result.outcome() == Outcome.PASS ? "ok" : result.outcome().value());
+        }
+        if (snapshot.running().contains(item.name())) {
+            return "<span class=\"badge\">running</span>";
+        }
+        if (item.offered()) {
+            return "<span class=\"badge\">optional</span>";
         }
         String text = item.manual() ? "needs attention" : result.outcome().value();
         if (!item.required()) {

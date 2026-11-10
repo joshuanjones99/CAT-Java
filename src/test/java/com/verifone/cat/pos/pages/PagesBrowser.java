@@ -6,6 +6,7 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.recovery.Timeouts;
 
@@ -38,7 +39,7 @@ final class PagesBrowser implements AutoCloseable {
     static PagesBrowser open() {
         Playwright playwright;
         try {
-            playwright = Playwright.create();
+            playwright = PlaywrightHome.create();
         } catch (PlaywrightException missing) {
             return new PagesBrowser(null, null);
         }

@@ -14,6 +14,7 @@ import com.verifone.cat.pats.Action;
 import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.RunnableCase;
 import com.verifone.cat.pos.Locators;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.recovery.Timeouts;
 import com.verifone.cat.report.CaseRecord;
@@ -85,7 +86,7 @@ class PosUiFamilyTest {
     @BeforeAll
     static void openChromium() {
         try {
-            playwright = Playwright.create();
+            playwright = PlaywrightHome.create();
             browser = playwright.chromium().launch();
         } catch (PlaywrightException missing) {
             browser = null;

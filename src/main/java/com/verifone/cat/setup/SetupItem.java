@@ -33,10 +33,11 @@ import com.verifone.cat.preflight.Result;
  * @param saver    saves what was typed into {@link #fields()}, or null
  * @param savedValues reads what is saved for {@link #fields()}, or null
  * @param liveCheck signs in with what is saved, or null
+ * @param runLabel the button that runs {@code repair} on request ({@link #withCommand}), or null
  */
 public record SetupItem(String name, String title, boolean manual, boolean required, boolean credential,
         String fixHint, Probe probe, Repair repair, List<ManualField> fields, FieldSaver saver,
-        SavedValues savedValues, LiveCheck liveCheck) {
+        SavedValues savedValues, LiveCheck liveCheck, String runLabel) {
 
     /** The probe. It may throw; {@link #detect} turns any throw into an ERROR row. */
     @FunctionalInterface
@@ -76,30 +77,55 @@ public record SetupItem(String name, String title, boolean manual, boolean requi
         fixHint = fixHint == null ? "" : fixHint;
         Objects.requireNonNull(probe, "probe");
         fields = List.copyOf(fields == null ? List.of() : fields);
+        runLabel = runLabel == null || runLabel.isBlank() ? null : runLabel;
     }
 
     /** A detect-only item: no repair, nothing to type, no live sign-in. */
     public SetupItem(String name, String title, boolean manual, boolean required, boolean credential,
             String fixHint, Probe probe) {
-        this(name, title, manual, required, credential, fixHint, probe, null, List.of(), null, null, null);
+        this(name, title, manual, required, credential, fixHint, probe, null, List.of(), null, null, null, null);
     }
 
     /** This item with {@code fix} as its {@code apply()}. */
     public SetupItem withRepair(Repair fix) {
         return new SetupItem(name, title, manual, required, credential, fixHint, probe, fix, fields, saver,
-                savedValues, liveCheck);
+                savedValues, liveCheck, runLabel);
     }
 
     /** This item with a sign-in card: its inputs, how they are saved, and how the saved values are read back. */
     public SetupItem withFields(List<ManualField> inputs, FieldSaver save, SavedValues read) {
         return new SetupItem(name, title, manual, required, credential, fixHint, probe, repair, inputs, save, read,
-                liveCheck);
+                liveCheck, runLabel);
     }
 
     /** This item with {@code check} as its live sign-in. */
     public SetupItem withLiveCheck(LiveCheck check) {
         return new SetupItem(name, title, manual, required, credential, fixHint, probe, repair, fields, saver,
-                savedValues, check);
+                savedValues, check, runLabel);
+    }
+
+    /**
+     * This item with a command CAT runs for the person when they press its button, labelled {@code label}: the
+     * install a fix hint would otherwise tell them to type. The item stays {@code manual}, so the audit never runs it
+     * by itself (a download is the person's call); the Setup page shows the button instead of the command.
+     */
+    public SetupItem withCommand(String label, Repair command) {
+        Objects.requireNonNull(command, "command");
+        return new SetupItem(name, title, true, required, credential, fixHint, probe, command, fields, saver,
+                savedValues, liveCheck, Objects.requireNonNull(label, "label"));
+    }
+
+    /** True when the page offers a button that runs this item's command ({@link #withCommand}). */
+    public boolean runsOnRequest() {
+        return runLabel != null && repair != null;
+    }
+
+    /**
+     * An optional item with a one-press fix: offered, never nagged about. It is left out of what the audit says needs
+     * attention (the sidebar marker, the start-up toast, {@code cat-java setup}'s list); its card keeps the button.
+     */
+    public boolean offered() {
+        return runsOnRequest() && !required;
     }
 
     /** Runs the probe. A probe that throws costs its own row, not the audit: the result is ERROR. */

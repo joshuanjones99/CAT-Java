@@ -19,6 +19,7 @@ import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.RunState;
 import com.verifone.cat.pats.runner.RunnableCase;
 import com.verifone.cat.pats.runner.ValidationsFailed;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.pos.fake.FakePosPinpad;
 import com.verifone.cat.pos.pinpad.PinpadDouble;
@@ -61,7 +62,7 @@ class CharityFeatureOnFakePosTest {
 
         PinpadDouble pinpad = new PinpadDouble("1", Duration.ofSeconds(2));
         try (FakePos fake = FakePos.open(FakePosPinpad.wire(pinpad));
-                Playwright playwright = Playwright.create()) {
+                Playwright playwright = PlaywrightHome.create()) {
             Browser browser = launchOrNull(playwright);
             assumeTrue(browser != null, "Chromium is not installed for Playwright; skipping");
             try (browser) {

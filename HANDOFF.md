@@ -49,6 +49,7 @@ the web Start), Xray, every other plan.
 | Java 17 | `C:\CICD\Tools\Java17\jdk-17.0.5+8` (Temurin 17.0.5, Java v1.2 in Artifactory). `build.cmd`/`run.cmd` use it; the Maven enforcer refuses any other major version. |
 | POS over pos-shim HTTP | No RMI on the controller. pos-shim (built and provisioned by the Python CAT's tools) stays on the register; Java talks HTTP to it. |
 | Web UI | Javalin 6 + htmx 2, server-rendered fragments, localhost only. Layout follows the Python CAT's `docs/web-ui.md`. |
+| Playwright's Chromium (2026-11-10, user) | Kept in the tools root, `C:\CICD\Tools\ms-playwright` by default, beside the JDK and the simulators (`pos.driver.PlaywrightHome`). The Setup page installs it with one press (Install); it is optional (only the fake POS launches a browser) and never nags. A Setup fix that is a command gets a button that runs it (`SetupItem.withCommand`), not text telling the operator to type it. |
 | Library versions (2026-11-09, the refactor session) | Javalin 6.7.0, Jackson 2.21.8, slf4j 2.0.20, JUnit 5.14.4: the libraries the unit suite can prove off-rig, moved to current patch lines (no new dependency). **Deliberately left pinned:** Playwright 1.49.0 (the tests' Chromium 1148 and the register's CDP), JSch 0.2.20, JNA 5.14.0, jSerialComm 2.11.0: each talks to hardware or the Access Bridge, so an upgrade is a rig session's job (candidates then: JSch 2.28.x, JNA 5.19.x, jSerialComm 2.11.4). Javalin 7 (Jetty 12) was not taken: no operator-visible gain for a localhost console. |
 | Tests in parallel forks (2026-11-09) | Surefire runs test classes in one JVM per two cores (`cat.test.forks`, default `0.5C`); a class still runs alone in its JVM. 5 min 5 s → 2 min 16 s on the development PC. `-Dcat.test.forks=1` is the old single JVM, for chasing a timing-dependent test. |
 | Build | Maven via the wrapper. Dependencies: Javalin, Jackson (JSON + YAML), slf4j-simple, Playwright for Java 1.49.0, JSch (mwiede 0.2.20), jSerialComm 2.11.0, **JNA 5.14.0 + jna-platform 5.14.0 (orchestrator, 2026-10-28: the Java Access Bridge and user32 for the `click:` simulators; Crypt32 for the DPAPI credential files)**, JUnit 5. Thin `target/cat-java.jar` + `target/lib/`. New dependencies are the orchestrator's call. |
@@ -403,3 +404,11 @@ Every slice ran the full suite green before merging; the merged tree is green (4
 - **2026-11-09** CAT's own window and the no-console shortcut (§2): `desktop/`, Settings → Opening CAT,
   `cat-java setup --skip-shortcuts`. Built on a development PC with a portable Temurin 17.0.5 through
   `CAT_TOOLS_ROOT`; the app window was seen opening there, never on a controller.
+- **2026-11-10** Playwright's Chromium lives in the tools root (§2): `pos.driver.PlaywrightHome` starts every
+  Playwright (main and tests) with `PLAYWRIGHT_BROWSERS_PATH` = `<tools root>\ms-playwright` (an explicit
+  `PLAYWRIGHT_BROWSERS_PATH` wins; an old `%LOCALAPPDATA%\ms-playwright\chromium-1148` is still used while the tools
+  root has none). The Setup card is an optional offer with an **Install** button (`SetupItem.withCommand`, run off the
+  request thread, never by the audit) and is left out of "needs attention". Installed on TPA-AUTOLAB3 with that
+  command (`C:\CICD\Tools\ms-playwright\chromium-1148`); the full build there then ran 4,197 tests with 0 skipped (the
+  94 browser tests ran) and 5 failures, all parity tests against `C:\gitrepos\CAT`, whose working tree carries 230
+  uncommitted edits (locator catalogue, `MenuAgent.java`): the reference moved, not the port.

@@ -64,7 +64,7 @@ class PosDriverBrowserTest {
     @BeforeAll
     static void launch() {
         try {
-            playwright = Playwright.create();
+            playwright = PlaywrightHome.create();
             BrowserType.LaunchOptions options = new BrowserType.LaunchOptions().setHeadless(true);
             String override = System.getenv("CAT_TEST_CHROMIUM");
             if (override != null && !override.isBlank()) {
@@ -228,7 +228,7 @@ class PosDriverBrowserTest {
         try (ServerSocket probe = new ServerSocket(0)) {
             port = probe.getLocalPort();
         }
-        try (Playwright own = Playwright.create()) {
+        try (Playwright own = PlaywrightHome.create()) {
             BrowserType.LaunchOptions options = new BrowserType.LaunchOptions().setHeadless(true)
                     .setArgs(List.of("--remote-debugging-port=" + port));
             String override = System.getenv("CAT_TEST_CHROMIUM");

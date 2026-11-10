@@ -23,6 +23,7 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.verifone.cat.authoring.PyJson;
 import com.verifone.cat.pos.Locators;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.pages.ExpressPanel;
 import com.verifone.cat.validate.PyRepr;
 
@@ -283,7 +284,7 @@ public final class Capture {
         CatalogueMap cmap = CatalogueMap.standard();
         Session session = new Session(writer, cmap);
         String install = install();
-        try (Playwright playwright = Playwright.create()) {
+        try (Playwright playwright = PlaywrightHome.create()) {
             Browser browser;
             try {
                 browser = playwright.chromium().connectOverCDP(cdpUrl,

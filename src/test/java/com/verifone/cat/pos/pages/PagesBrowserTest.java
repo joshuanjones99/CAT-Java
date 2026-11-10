@@ -26,6 +26,7 @@ import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.recovery.Timeouts;
@@ -58,7 +59,7 @@ class PagesBrowserTest {
     @BeforeAll
     static void launch() {
         try {
-            playwright = Playwright.create();
+            playwright = PlaywrightHome.create();
             BrowserType.LaunchOptions options = new BrowserType.LaunchOptions().setHeadless(true);
             String override = System.getenv("CAT_TEST_CHROMIUM");
             if (override != null && !override.isBlank()) {

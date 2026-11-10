@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
+
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -138,7 +140,7 @@ class CharityOnFakePosStepFiveTest {
     }
 
     private static boolean chromiumInstalled() {
-        try (Playwright playwright = Playwright.create()) {
+        try (Playwright playwright = PlaywrightHome.create()) {
             playwright.chromium().launch().close();
             return true;
         } catch (PlaywrightException missing) {

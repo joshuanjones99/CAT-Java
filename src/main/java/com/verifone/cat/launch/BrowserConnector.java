@@ -13,6 +13,7 @@ import com.verifone.cat.devices.viperpay.ViperPayPinpad;
 import com.verifone.cat.pats.runner.handlers.devices.DcrDevice;
 import com.verifone.cat.pats.runner.handlers.devices.FuelPumps;
 import com.verifone.cat.pos.driver.CaseArtifacts;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.pinpad.PinpadDevice;
 import com.verifone.cat.pos.receipt.ReceiptPrinter;
@@ -118,7 +119,7 @@ public final class BrowserConnector implements RunServices.Connector, CaseEviden
     }
 
     private RunServices fakePos(RunServices base) {
-        playwright = Playwright.create();
+        playwright = PlaywrightHome.create();
         browser = playwright.chromium().launch();
         Page page = browser.newPage();
         page.navigate(base.fakePosUrl().toString(),
@@ -183,7 +184,7 @@ public final class BrowserConnector implements RunServices.Connector, CaseEviden
     private PosDriver openPos(Rig.Register register, java.nio.file.Path runFolder) {
         String endpoint = "http://" + register.host() + ":" + register.cdpPort();
         try {
-            playwright = Playwright.create();
+            playwright = PlaywrightHome.create();
             browser = playwright.chromium().connectOverCDP(endpoint);
             Page page = browser.contexts().get(0).pages().get(0);
             CaseArtifacts sink = new CaseArtifacts(runFolder);

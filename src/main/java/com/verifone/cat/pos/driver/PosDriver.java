@@ -187,7 +187,7 @@ public final class PosDriver implements AutoCloseable {
     public static PosDriver connect(RegisterEndpoint endpoint, Timeouts timeouts, String buildVersion,
             ArtifactSink artifacts, Integer pageIndex, boolean trace) {
         Timeouts budget = timeouts == null ? Timeouts.defaults() : timeouts;
-        Playwright playwright = Playwright.create();
+        Playwright playwright = PlaywrightHome.create();
         Browser browser = null;
         try {
             browser = playwright.chromium().connectOverCDP(endpoint.cdpUrl(),

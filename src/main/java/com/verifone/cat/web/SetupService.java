@@ -1,7 +1,9 @@
 package com.verifone.cat.web;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -42,41 +44,52 @@ final class SetupService {
     /** The setup rows a Java 17 / simulator download can turn green. */
     static final List<String> TOOL_ITEMS = List.of(SetupItems.JAVA_RUNTIME, SetupItems.SIMULATORS_STAGED);
 
-    /** A consistent copy of the audit for one render. */
+    /** A consistent copy of the audit for one render. {@code running} names the items whose command is running. */
     record Snapshot(List<SetupItem> items, Map<String, Result> results, boolean checked, boolean checking,
-            Set<String> rejected, Set<String> signedIn, String status, String tools, SetupEnv env) {}
+            Set<String> rejected, Set<String> signedIn, String status, String tools, SetupEnv env,
+            Set<String> running) {}
 
     private final Supplier<SetupAudit> audits;
     private final Function<SetupEnv, ToolStaging> stagings;
     private final Shell shell;
     private final Executor executor;
     private final Executor stagingExecutor;
+    private final Executor commandExecutor;
     private final boolean requireCredentials;
 
     private SetupAudit audit;
     private boolean checking;
     private boolean toolsStageTried;
+    private final Set<String> running = new LinkedHashSet<>();
 
     /**
      * @param audits    makes a fresh audit for each check
      * @param stagings  the Java 17 / simulator staging for an audit's environment
      * @param executor  where a check runs; staging runs on {@code stagingExecutor}, so a long download never holds
      *                  up Check again
+     * @param commandExecutor where a card's command (its Install button) runs, off the request thread
      * @param requireCredentials sign in with the saved logins on each check, and gate runs on them
      */
     SetupService(Supplier<SetupAudit> audits, Function<SetupEnv, ToolStaging> stagings, Shell shell, Executor executor,
-            Executor stagingExecutor, boolean requireCredentials) {
+            Executor stagingExecutor, Executor commandExecutor, boolean requireCredentials) {
         this.audits = audits;
         this.stagings = stagings;
         this.shell = shell;
         this.executor = executor;
         this.stagingExecutor = stagingExecutor;
+        this.commandExecutor = commandExecutor;
         this.requireCredentials = requireCredentials;
+    }
+
+    /** As above, with a card's command on its own daemon thread. */
+    SetupService(Supplier<SetupAudit> audits, Function<SetupEnv, ToolStaging> stagings, Shell shell, Executor executor,
+            Executor stagingExecutor, boolean requireCredentials) {
+        this(audits, stagings, shell, executor, stagingExecutor, daemon("cat-web-setup-command"), requireCredentials);
     }
 
     /** A service over one audit, run inline: no staging, no sign-in gate. For tests. */
     SetupService(SetupAudit audit) {
-        this(() -> audit, env -> ToolStaging.NONE, new Shell(), Runnable::run, Runnable::run, false);
+        this(() -> audit, env -> ToolStaging.NONE, new Shell(), Runnable::run, Runnable::run, Runnable::run, false);
     }
 
     /** The service over the real workstation. Constructing it reads nothing. */
@@ -247,6 +260,49 @@ final class SetupService {
                 : result.detail());
     }
 
+    /**
+     * Runs a card's command (its Install button) off the request thread: the card shows it running, the panel polls,
+     * and a toast says how it ended. The item is detected again afterwards, on whatever audit is current then. A
+     * second press while it runs does nothing.
+     */
+    Said runCommand(String name) {
+        SetupItem item;
+        SetupEnv env;
+        synchronized (this) {
+            if (audit == null) {
+                return new Said(false, "Setup has not been checked yet.");
+            }
+            item = audit.item(name);
+            if (item == null || !item.runsOnRequest()) {
+                return new Said(false, "That setup item has no command CAT runs.");
+            }
+            if (!running.add(name)) {
+                return new Said(true, item.title() + ": already running.");
+            }
+            env = audit.env();
+        }
+        String key = "setup-command-" + name;
+        shell.loading(key, item.title() + ": " + item.runLabel().toLowerCase(Locale.ROOT) + " running");
+        commandExecutor.execute(() -> {
+            Result result;
+            try {
+                result = item.apply(env);
+            } finally {
+                shell.doneLoading(key);
+            }
+            synchronized (this) {
+                running.remove(name);
+                if (audit != null && audit.item(name) != null) {
+                    audit.redetect(name);
+                }
+            }
+            refreshStatus();
+            shell.notify(item.title() + ": " + result.detail(), result.ok() ? "positive" : "error",
+                    result.ok() ? 5 : 15);
+        });
+        return new Said(true, item.title() + ": " + item.runLabel() + " started.");
+    }
+
     /** Downloads the missing Java 17 sets and simulators, once a session by itself (again on a new sign-in). */
     void stageTools(boolean retry) {
         SetupEnv env;
@@ -369,9 +425,9 @@ final class SetupService {
     synchronized Snapshot snapshot() {
         if (audit == null) {
             return new Snapshot(List.of(), Map.of(), false, checking, Set.of(), Set.of(), shell.setupStatus(),
-                    shell.loading("tools"), null);
+                    shell.loading("tools"), null, Set.of());
         }
         return new Snapshot(audit.items(), audit.results(), true, checking, audit.rejected(), audit.signedIn(),
-                shell.setupStatus(), shell.loading("tools"), audit.env());
+                shell.setupStatus(), shell.loading("tools"), audit.env(), Set.copyOf(running));
     }
 }

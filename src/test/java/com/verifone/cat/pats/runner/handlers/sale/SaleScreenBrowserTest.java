@@ -9,6 +9,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.WaitUntilState;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.pos.pages.Pos;
@@ -26,7 +27,7 @@ class SaleScreenBrowserTest {
     @Test
     void theRealReaderSeesTheFakePosWithNoOverlayUp() throws IOException {
         try (FakePos fake = FakePos.open(FakePos.Hooks.NONE);
-                Playwright playwright = Playwright.create()) {
+                Playwright playwright = PlaywrightHome.create()) {
             Browser browser = launchOrNull(playwright);
             assumeTrue(browser != null, "Chromium is not installed for Playwright; skipping");
             try (browser) {

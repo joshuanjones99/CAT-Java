@@ -20,6 +20,7 @@ import com.verifone.cat.pats.runner.ValidationsFailed;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationContext;
 import com.verifone.cat.pats.runner.handlers.validation.ValidationFamily;
 import com.verifone.cat.pos.Locators;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import com.verifone.cat.pos.driver.PosDriver;
 import com.verifone.cat.pos.receipt.ReceiptPrinter;
 import com.verifone.cat.recovery.Timeouts;
@@ -69,7 +70,7 @@ class DeadEndClearTest {
     @BeforeAll
     static void openChromium() {
         try {
-            playwright = Playwright.create();
+            playwright = PlaywrightHome.create();
             browser = playwright.chromium().launch();
         } catch (PlaywrightException missing) {
             browser = null;

@@ -29,6 +29,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.verifone.cat.pos.Locators;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 
 /**
  * The recorder against a real Chromium on a local page: Playwright's own Chromium is launched with a CDP port on
@@ -52,7 +53,7 @@ class CaptureBrowserTest {
         String item = Locators.ITEM_PANEL_N.at(9999).literals().get(0);
         String page = "<html><body><button id=\"" + item + "\"><span>9999</span></button>"
                 + "<button>Total</button></body></html>";
-        try (Playwright playwright = Playwright.create()) {
+        try (Playwright playwright = PlaywrightHome.create()) {
             BrowserContext context;
             try {
                 context = playwright.chromium().launchPersistentContext(tmp.resolve("profile"),

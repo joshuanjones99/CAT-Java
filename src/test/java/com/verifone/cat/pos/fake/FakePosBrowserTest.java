@@ -8,6 +8,7 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.verifone.cat.pos.Locators;
+import com.verifone.cat.pos.driver.PlaywrightHome;
 import java.io.IOException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class FakePosBrowserTest {
     @Test
     void theScriptDrivesTheSaleAndTheStateOnTheRealPage() throws IOException {
         try (FakePos pos = FakePos.open(FakePos.Hooks.NONE);
-                Playwright playwright = Playwright.create()) {
+                Playwright playwright = PlaywrightHome.create()) {
             Browser browser = launchOrNull(playwright);
             Assumptions.assumeTrue(browser != null,
                     "Chromium is not installed for Playwright; skipping. Install it with: " + INSTALL_COMMAND);
