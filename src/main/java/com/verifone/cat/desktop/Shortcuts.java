@@ -1,11 +1,9 @@
 package com.verifone.cat.desktop;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -177,12 +175,7 @@ public final class Shortcuts {
 
     private static void writeIcon(Path icon) throws IOException {
         Files.createDirectories(icon.getParent());
-        try (InputStream in = Shortcuts.class.getResourceAsStream(ICON_RESOURCE)) {
-            if (in == null) {
-                throw new IOException("no " + ICON_RESOURCE + " in the jar");
-            }
-            Files.copy(in, icon, StandardCopyOption.REPLACE_EXISTING);
-        }
+        WindowIcon.copy(ICON_RESOURCE, icon);
     }
 
     /** A PowerShell single-quoted string: a quote inside is doubled. */

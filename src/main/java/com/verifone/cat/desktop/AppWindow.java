@@ -12,8 +12,9 @@ import com.verifone.cat.core.CatHome;
 /**
  * CAT in a window of its own: Microsoft Edge (else Google Chrome) in app mode, {@code --app=<url>}, on a profile kept
  * for CAT under {@code ~/.cat/java/window-profile}. App mode has no tabs, address bar or browser menus; the separate
- * profile makes it a browser instance of its own, so CAT gets its own window and taskbar entry (with CAT's favicon)
- * and closing it leaves the operator's browser alone. The pages are the same ones the browser shows.
+ * profile makes it a browser instance of its own, so CAT gets its own window and taskbar entry, and closing it leaves
+ * the operator's browser alone. The pages are the same ones the browser shows. The browser draws that entry's icon
+ * from the 16 px favicon, stretched and blurred; {@link WindowIcon} replaces it with {@code cat.ico}'s own sizes.
  *
  * <p>Pure: which browser, and the command line. {@link DesktopHost} spawns it and never waits on or stops it; closing
  * the window ends its heartbeat, and the auto-close does the rest, exactly as closing a browser tab does.

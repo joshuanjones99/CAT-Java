@@ -4,6 +4,7 @@ import static com.verifone.cat.web.Html.esc;
 
 import java.util.Map;
 
+import com.verifone.cat.desktop.WindowIcon;
 import com.verifone.cat.shell.Shell;
 
 /**
@@ -109,7 +110,7 @@ final class Layout {
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1">
                   <meta name="color-scheme" content="light dark">
-                  <title>%1$s · CAT-Java</title>
+                  <title>%1$s%11$s</title>
                   <link rel="icon" href="/static/icons/cat.ico" sizes="any">
                   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
                   <link rel="preload" href="/static/fonts/SourceSans3-Variable.ttf" as="font" type="font/ttf" crossorigin>
@@ -153,7 +154,7 @@ final class Layout {
                 </body>
                 </html>
                 """.formatted(esc(heading), top, bottom, warning, body, shell == null ? "off" : "on", since,
-                loading.isEmpty() ? " hidden" : "", esc(loading), bare ? " bare" : "");
+                loading.isEmpty() ? " hidden" : "", esc(loading), bare ? " bare" : "", esc(WindowIcon.TITLE_SUFFIX));
     }
 
     private static void navLink(StringBuilder nav, Section s, boolean current, String setupStatus) {

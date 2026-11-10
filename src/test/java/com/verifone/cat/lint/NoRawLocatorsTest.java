@@ -60,7 +60,9 @@ class NoRawLocatorsTest {
             new Exemption("src/main/java/com/verifone/cat/pos/driver/Scripts.java", "[id=\"${id}\"]",
                     "OPEN: the in-page script builds [id=...] selectors in JavaScript; the ids are passed in, not named"),
             new Exemption("src/main/java/com/verifone/cat/pos/fake/FakePosPage.java", "PosDouble_QuantityOverlay",
-                    "the POS double's own chrome, which its comment says is not a catalogue ID; the double names it"));
+                    "the POS double's own chrome, which its comment says is not a catalogue ID; the double names it"),
+            new Exemption("src/main/java/com/verifone/cat/desktop/JnaWindowIcons.java", "Chrome_WidgetWin_1",
+                    "the Win32 window class of Chromium's top-level windows (CAT's own window), not a POS element"));
 
     private static boolean exemptLiteral(String path, String value) {
         return EXEMPT.stream().anyMatch(e -> e.path().equals(path) && value.contains(e.fragment()));

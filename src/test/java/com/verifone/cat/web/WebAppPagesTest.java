@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.verifone.cat.desktop.WindowIcon;
 import com.verifone.cat.posshim.FakeShim;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.runconfig.ConfigFixture;
@@ -224,6 +225,15 @@ class WebAppPagesTest {
         assertTrue(layout.contains("&lt;script&gt;alert(1)&lt;/script&gt;"), layout);
         assertFalse(pos.contains("<img"), pos);
         assertFalse(pos.contains("<svg"), pos);
+    }
+
+    @Test
+    void everyPageTitleEndsAsTheWindowIconKeeperLooksFor() {
+        for (Section s : Section.values()) {
+            String layout = Layout.page(s, "Heading", "");
+
+            assertTrue(layout.contains("<title>Heading" + WindowIcon.TITLE_SUFFIX + "</title>"), layout);
+        }
     }
 
     @Test
