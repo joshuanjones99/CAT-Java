@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.provision.TargetSpec;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
@@ -25,7 +26,7 @@ import com.verifone.cat.provision.transport.Transport;
  *
  * <p>The upgrade package has the same waits privately ({@code upgrade.NewInstall}); they are repeated here so this
  * package depends on nothing the upgrade slice may change. Polling parks the thread
- * ({@link CoverageDevice#boundedPoll}), never sleeps.
+ * ({@link Waits#poll}), never sleeps.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -55,7 +56,7 @@ public final class CoverageWaits {
     }
 
     static DeviceOps.SshWait ssh(Function<TargetSpec, Transport> transports, Duration timeout, Duration interval) {
-        return (spec, rebootedAtNanos) -> CoverageDevice.boundedPoll(
+        return (spec, rebootedAtNanos) -> Waits.poll(
                 () -> bootedAfter(transports, spec, rebootedAtNanos), timeout, interval);
     }
 
@@ -65,7 +66,7 @@ public final class CoverageWaits {
     }
 
     static Predicate<String> cgilink(Predicate<String> answers, Duration timeout, Duration interval) {
-        return host -> CoverageDevice.boundedPoll(() -> answers.test(host), timeout, interval);
+        return host -> Waits.poll(() -> answers.test(host), timeout, interval);
     }
 
     /** Whether {@code spec} answers SSH from a boot later than {@code rebootedAtNanos} (a {@link System#nanoTime}). */

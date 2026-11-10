@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,25 +32,6 @@ class ReportPathsTest {
 
         assertEquals(dir, ReportPaths.resultsRoot(env));
         assertEquals(dir.resolve("run-1"), ReportPaths.runFolder(ReportPaths.resultsRoot(env), "run-1"));
-    }
-
-    @Test
-    void theRunIdIsTheEnvironmentsWhenItIsSet() {
-        Map<String, String> env = new HashMap<>(Map.of(ReportPaths.RUN_ID_ENV, "run-fixed"));
-
-        assertEquals("run-fixed", ReportPaths.sessionRunId(env, Instant.parse("2026-10-24T15:30:00Z")));
-        assertEquals("run-fixed", env.get(ReportPaths.RUN_ID_ENV));
-    }
-
-    @Test
-    void anUnsetRunIdIsAUtcTimestampStoredForLaterCallers() {
-        Map<String, String> env = new HashMap<>();
-
-        String first = ReportPaths.sessionRunId(env, Instant.parse("2026-10-24T15:30:00Z"));
-        String second = ReportPaths.sessionRunId(env, Instant.parse("2030-01-01T00:00:00Z"));
-
-        assertEquals("20261024T153000Z", first);
-        assertEquals(first, second, "every writer in the process must agree on one run id");
     }
 
     @Test

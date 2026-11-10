@@ -396,12 +396,6 @@ class CoverageDeviceTest {
     }
 
     @Test
-    void aBoundedPollReturnsAtTheDeadlineWithoutSleeping() {
-        assertFalse(CoverageDevice.boundedPoll(() -> false, Duration.ofMillis(20), Duration.ofMillis(5)));
-        assertTrue(CoverageDevice.boundedPoll(() -> true, Duration.ZERO, Duration.ZERO));
-    }
-
-    @Test
     void aMissingAgentCannotBePushedWithoutAJarToPushAndThatIsAFailureNotAnException() {
         devices.put(COMMANDER_HOST, new FakeDevice(COMMANDER_HOST, true, false, false));
         devices.put(REGISTER_HOST, new FakeDevice(REGISTER_HOST, false, true, true));

@@ -1,15 +1,9 @@
 package com.verifone.cat.validate.tlog;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -18,6 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
+import com.verifone.cat.core.Hashes;
 import com.verifone.cat.validate.RuleFiles;
 
 /**
@@ -140,7 +135,7 @@ public record TlogRule(
             }
             return new LinkedHashSet<>(seedFor(key));
         }
-        Map<String, List<String>> parsed = parseText(readText(source.get()));
+        Map<String, List<String>> parsed = parseText(RuleFiles.readText(source.get()));
         if (!parsed.containsKey(key)) {
             throw new IllegalArgumentException(key + " not found in " + source.get() + ". Present keys: "
                     + parsed.keySet() + ". DESIGN.md 5.4 expects TAG_NAMES and ATTRIBUTE_NAMES.");
@@ -161,14 +156,14 @@ public record TlogRule(
 
     /** Parses a live rule file into a {@link TlogRule}, recording the SHA-256 of its bytes. */
     public static TlogRule parseLive(Path source, String commit) {
-        byte[] data = readBytes(source);
+        byte[] data = RuleFiles.readBytes(source);
         Map<String, List<String>> parsed = parseText(new String(data, StandardCharsets.UTF_8));
         return new TlogRule(
                 parsed.getOrDefault("TAG_NAMES", List.of()),
                 parsed.getOrDefault("ATTRIBUTE_NAMES", List.of()),
                 source.toString().replace('\\', '/'),
                 commit,
-                sha256Hex(data));
+                Hashes.sha256Hex(data));
     }
 
     /** What the live rule file says that the seed does not. */
@@ -224,7 +219,7 @@ public record TlogRule(
         if (source.isEmpty()) {
             return SeedDrift.notChecked();
         }
-        Map<String, List<String>> live = parseText(readText(source.get()));
+        Map<String, List<String>> live = parseText(RuleFiles.readText(source.get()));
         Set<String> liveTags = new LinkedHashSet<>(live.getOrDefault("TAG_NAMES", List.of()));
         Set<String> liveAttrs = new LinkedHashSet<>(live.getOrDefault("ATTRIBUTE_NAMES", List.of()));
         Set<String> seedTags = new LinkedHashSet<>(SEEDED.tagNames());
@@ -238,25 +233,5 @@ public record TlogRule(
         Set<String> attrsRemoved = new LinkedHashSet<>(seedAttrs);
         attrsRemoved.removeAll(liveAttrs);
         return new SeedDrift(true, source.get(), tagsAdded, tagsRemoved, attrsAdded, attrsRemoved);
-    }
-
-    static String sha256Hex(byte[] data) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is required by every Java 17 runtime", e);
-        }
-    }
-
-    private static String readText(Path file) {
-        return new String(readBytes(file), StandardCharsets.UTF_8);
-    }
-
-    private static byte[] readBytes(Path file) {
-        try {
-            return Files.readAllBytes(file);
-        } catch (IOException e) {
-            throw new UncheckedIOException("cannot read " + file, e);
-        }
     }
 }

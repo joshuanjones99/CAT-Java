@@ -26,6 +26,7 @@ import java.util.zip.ZipOutputStream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * Turns a run's exec files into reports: per JVM, HTML and XML, summarised, compared, bundled. The Python's
@@ -62,7 +63,7 @@ public final class CoverageReport {
     /** The summary's file name, beside the exec files. */
     public static final String SUMMARY_FILE = CoverageSummary.SUMMARY_JSON;
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private CoverageReport() {}
 
@@ -249,7 +250,7 @@ public final class CoverageReport {
             if (result.ok() && Files.isRegularFile(xml)) {
                 Double pct = new ComponentCoverage(componentName, CoverageSummary.readCounters(xml)).percent("LINE");
                 // Tens of MB per JVM, and only its totals are wanted.
-                deleteQuietly(xml);
+                Jacoco.deleteQuietly(xml);
                 if (pct != null) {
                     for (String name : summary.components.keySet()) {
                         if (name.equals(componentName) || (componentName.equals(Components.POS_TOMCAT)
@@ -261,7 +262,7 @@ public final class CoverageReport {
             }
         }
         try {
-            Files.writeString(runsFile, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(mergedRuns),
+            Files.writeString(runsFile, Json.PRETTY.writeValueAsString(mergedRuns),
                     StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -362,14 +363,6 @@ public final class CoverageReport {
             Files.createDirectories(dir);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-    }
-
-    private static void deleteQuietly(Path path) {
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException e) {
-            // A leftover XML costs disk, not correctness.
         }
     }
 }

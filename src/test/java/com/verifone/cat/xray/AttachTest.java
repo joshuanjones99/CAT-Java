@@ -95,10 +95,6 @@ class AttachTest {
         return new XrayClient(atlassian, Duration.ZERO, null);
     }
 
-    private static AttachUpload upload(FakeJira fake) {
-        return new AttachUpload(fake.base(), () -> JIRA, Duration.ofSeconds(5));
-    }
-
     private Path summary() throws IOException {
         Path path = tmp.resolve("summary.json");
         Files.writeString(path, "{\"run_id\": \"run1\", \"build\": \"Solutions1082\", \"dist\": \"buypass\", "
@@ -117,7 +113,7 @@ class AttachTest {
     void theBundleIsUploadedWithJirasXsrfHeaderThenCommented() throws IOException {
         try (FakeJira fake = new FakeJira()) {
             Map<String, String> outcome = Attach.attach(List.of("PETROCORE-900"), bundle("PK-zip-bytes"), summary(),
-                    client(fake), upload(fake), line -> { });
+                    client(fake), line -> { });
 
             assertEquals(Map.of("PETROCORE-900", "ok"), outcome);
             assertEquals(2, fake.seen.size());
@@ -140,7 +136,7 @@ class AttachTest {
         try (FakeJira fake = new FakeJira()) {
             fake.failOn = "PETROCORE-1/";
             Map<String, String> outcome = Attach.attach(List.of("PETROCORE-1", "PETROCORE-2"), bundle("PK"),
-                    summary(), client(fake), upload(fake), line -> { });
+                    summary(), client(fake), line -> { });
             assertEquals("ok", outcome.get("PETROCORE-2"));
             assertTrue(outcome.get("PETROCORE-1").contains("HTTP 403"), outcome.toString());
             assertTrue(outcome.get("PETROCORE-1").startsWith("Jira attach coverage-run1.zip to PETROCORE-1"),
@@ -153,7 +149,7 @@ class AttachTest {
         try (FakeJira fake = new FakeJira()) {
             fake.unavailable.set(2);
             Map<String, String> outcome = Attach.attach(List.of("PETROCORE-3"), bundle("PK"), summary(),
-                    client(fake), upload(fake), line -> { });
+                    client(fake), line -> { });
             assertEquals(Map.of("PETROCORE-3", "ok"), outcome);
             assertEquals(4, fake.seen.size(), "two 503s, the upload, the comment");
         }

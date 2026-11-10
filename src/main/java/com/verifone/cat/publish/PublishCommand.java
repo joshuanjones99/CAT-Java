@@ -12,6 +12,7 @@ import java.util.function.Function;
 
 import com.verifone.cat.collect.Collect;
 import com.verifone.cat.collect.CollectException;
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.plans.PlanCase;
 import com.verifone.cat.plans.SeedPlanSource;
 import com.verifone.cat.provision.ProvisionPaths;
@@ -60,7 +61,7 @@ public final class PublishCommand {
     private final Path tmpRoot;
 
     public PublishCommand() {
-        this(PublishCommand::caseList, Path.of(System.getProperty("user.home"), ".cat", "java", "tmp"));
+        this(PublishCommand::caseList, CatHome.java().resolve("tmp"));
     }
 
     /** A command whose plan case lists and throwaway-index folder are injected (tests). */
@@ -163,7 +164,7 @@ public final class PublishCommand {
 
     /** {@code ~/.cat/java/cases-<plan>.json}, else the Python CAT's {@code ~/.cat}, else the shipped seed. */
     static Optional<List<String>> caseList(String plan) {
-        Path home = Path.of(System.getProperty("user.home"), ".cat");
+        Path home = CatHome.python();
         Optional<Path> file = Collect.defaultCaseFile(plan, home.resolve("java"), home);
         if (file.isPresent()) {
             return Optional.of(Collect.readCaseList(file.get()));

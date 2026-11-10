@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,20 +53,22 @@ class PublisherTest {
     private Path petroapps;
     private Path catRoot;
 
-    @BeforeEach
-    void repos() throws Exception {
+    /** The three repositories every test starts from, built once: building them is a dozen git processes. */
+    @TempDir
+    static Path template;
+
+    @BeforeAll
+    static void fixture() throws Exception {
         assumeTrue(PetroappsFixture.gitAvailable(), "git is not on PATH");
-        Path[] pair = PetroappsFixture.remoteAndCheckout(tmp);
-        remote = pair[0];
-        petroapps = pair[1];
-        commit(remote, "refs/heads/master", files(
+        Path[] pair = PetroappsFixture.remoteAndCheckout(template);
+        commit(pair[0], "refs/heads/master", files(
                 CASE + "/PETROCORE-1/PETROCORE-1-TestCase.xml", "<case/>",
                 BDD + "/PETROCORE-2/PETROCORE-2-TestCase.scenario", "Feature: two",
                 CASE + "/PETROCORE-4/PETROCORE-4-TestCase.xml", "<case/>"));
-        git(petroapps, "config", "user.name", "fixture");
-        git(petroapps, "config", "user.email", "fixture@example.invalid");
-        catRoot = tmp.resolve("cat");
-        Path suite = catRoot.resolve(SUITE);
+        git(pair[1], "config", "user.name", "fixture");
+        git(pair[1], "config", "user.email", "fixture@example.invalid");
+        Path cat = template.resolve("cat");
+        Path suite = cat.resolve(SUITE);
         Files.createDirectories(suite.resolve("configurations"));
         Files.writeString(suite.resolve("PETROCORE-1-TestCase.py"), TEST_1);
         Files.writeString(suite.resolve("PETROCORE-1-CATReceipt.txt"), "R\n");
@@ -72,7 +76,26 @@ class PublisherTest {
         Files.writeString(suite.resolve("PETROCORE-3-TestCase.py"), "# petroapps has no PETROCORE-3\n");
         Files.writeString(suite.resolve("PETROCORE-4-TestCase.py"), "HERE = __file__\n");
         Files.writeString(suite.resolve("configurations").resolve("a.xml"), "<a/>");
-        commitAll(catRoot, "suite", true);
+        commitAll(cat, "suite", true);
+    }
+
+    /** Each test gets its own copy of the template, with the checkout's origin pointed at its own remote. */
+    @BeforeEach
+    void repos() throws Exception {
+        try (Stream<Path> walk = Files.walk(template)) {
+            for (Path source : walk.toList()) {
+                Path target = tmp.resolve(template.relativize(source).toString());
+                if (Files.isDirectory(source)) {
+                    Files.createDirectories(target);
+                } else {
+                    Files.copy(source, target);
+                }
+            }
+        }
+        remote = tmp.resolve("remote.git");
+        petroapps = tmp.resolve("petroapps");
+        catRoot = tmp.resolve("cat");
+        git(petroapps, "remote", "set-url", "origin", remote.toString());
     }
 
     private static void commitAll(Path root, String message, boolean init) {

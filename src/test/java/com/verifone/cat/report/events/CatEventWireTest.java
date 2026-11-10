@@ -199,20 +199,6 @@ class CatEventWireTest {
         String long3000 = "x".repeat(3000);
         CatEvent.TestFinished finished = new CatEvent.TestFinished("n", Outcome.FAILED, 1, 0, "E", long3000);
         assertEquals(3000, finished.detail().length());
-        assertEquals(2000, Limits.truncateDetail(long3000).length());
-        assertTrue(Limits.truncateDetail(long3000).endsWith("..."));
-    }
-
-    @Test
-    void theTruncationKeepsShortTextWhole() {
-        assertEquals("short", Limits.truncate("  short \n", 10));
-        assertEquals(10, Limits.truncate("y".repeat(50), 10).length());
-    }
-
-    @Test
-    void theLimitsAreThePythonValues() {
-        assertEquals(2000, Limits.DETAIL_MAX_CHARS);
-        assertEquals(20_000, Limits.VALIDATION_DIFF_MAX_CHARS);
     }
 
     @Test

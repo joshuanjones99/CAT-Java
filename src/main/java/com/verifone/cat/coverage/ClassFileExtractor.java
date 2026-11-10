@@ -25,6 +25,7 @@ import java.util.zip.ZipFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * The class files a coverage report is built against, out of the build's {@code overlay.zip}: the Python's
@@ -54,7 +55,7 @@ public final class ClassFileExtractor {
     private static final Pattern PACKAGE =
             Pattern.compile("update_(?:foundation|viper)\\.([^.]+)\\.(psc|pos)\\.([^.]+)\\.[^/]+\\.tgz$");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private ClassFileExtractor() {}
 
@@ -157,7 +158,7 @@ public final class ClassFileExtractor {
         saved.put("stamp", stamp);
         saved.putAll(result.toJson());
         try {
-            JSON.writerWithDefaultPrettyPrinter().writeValue(stampPath.toFile(), saved);
+            Json.PRETTY.writeValue(stampPath.toFile(), saved);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

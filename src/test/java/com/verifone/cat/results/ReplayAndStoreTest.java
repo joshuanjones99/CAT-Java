@@ -211,9 +211,4 @@ class ReplayAndStoreTest {
     void aMissingRootHasNoRuns() {
         assertEquals(List.of(), RunStore.iterRunDirs(root.resolve("absent")));
     }
-
-    @Test
-    void theRootComesFromTheEnvironmentMapNotTheRealOne() {
-        assertEquals(root, RunStore.resultsRoot(Map.of("CAT_RESULTS_DIR", root.toString())));
-    }
 }

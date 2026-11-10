@@ -3,10 +3,10 @@ package com.verifone.cat.report.events;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Clock;
-import java.time.Instant;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.report.NdjsonWriter;
 
 /**
@@ -25,7 +25,7 @@ import com.verifone.cat.report.NdjsonWriter;
  */
 public final class EventEmitter implements Closeable {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = Json.MAPPER;
 
     private final NdjsonWriter writer;
     private final String worker;

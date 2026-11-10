@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.atlassian.AtlassianUnavailable;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.xray.Adf.Block;
 import com.verifone.cat.xray.Summary.Built;
 import com.verifone.cat.xray.Summary.SummaryFacts;
@@ -65,7 +66,7 @@ import com.verifone.cat.xray.XrayRunState.TestState;
 public final class XrayReporter {
 
     private static final Logger LOG = LoggerFactory.getLogger(XrayReporter.class);
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
     private static final DateTimeFormatter WIRE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx");
 
     /** The Jira project executions are created in: PATS's {@code app.jira.project}. */
@@ -600,7 +601,7 @@ public final class XrayReporter {
             Files.createDirectories(runDir);
             Path path = runDir.resolve(STATUS_FILE);
             Path tmp = runDir.resolve(STATUS_FILE + ".tmp");
-            Files.writeString(tmp, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(status()),
+            Files.writeString(tmp, Json.PRETTY.writeValueAsString(status()),
                     StandardCharsets.UTF_8);
             Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {

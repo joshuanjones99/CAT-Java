@@ -1,5 +1,6 @@
 package com.verifone.cat.atlassian;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -7,10 +8,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -18,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.verifone.cat.atlassian.AtlassianCredentials.Jira;
 import com.verifone.cat.atlassian.AtlassianCredentials.Xray;
+import com.verifone.cat.core.Json;
 
 /**
  * Read-only HTTP access to Confluence and Xray Cloud, the Java counterpart of the Python CAT's
@@ -48,7 +52,10 @@ public final class AtlassianClient {
     /** The longest body excerpt an error message carries, as the Python's {@code [:200]}. */
     static final int EXCERPT = 200;
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** The bound on one attachment upload, request and reply: a coverage bundle is tens of MB. */
+    public static final Duration ATTACH_TIMEOUT = Duration.ofMinutes(10);
+
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private final URI site;
     private final URI xrayApi;
@@ -78,7 +85,7 @@ public final class AtlassianClient {
     }
 
     /** A client against the real site, reading the credentials file at {@code file} on each call. */
-    public static AtlassianClient forCredentialsFile(java.nio.file.Path file, Duration timeout) {
+    public static AtlassianClient forCredentialsFile(Path file, Duration timeout) {
         return new AtlassianClient(SITE, XRAY_API,
                 () -> AtlassianCredentials.loadJira(file),
                 () -> AtlassianCredentials.loadXray(file),
@@ -93,7 +100,7 @@ public final class AtlassianClient {
      */
     public JsonNode getJson(String path, Map<String, String> query) {
         Jira credentials = jira.get();
-        String url = site + "/" + path.replaceFirst("^/+", "") + queryString(query);
+        String url = site + "/" + trimLeadingSlashes(path) + queryString(query);
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(timeout)
                 .header("Accept", "application/json")
@@ -200,6 +207,45 @@ public final class AtlassianClient {
         HttpRequest request = restRequest(site + "/" + trimLeadingSlashes(path), method, body,
                 basic(credentials));
         return raw(request, method + " " + path);
+    }
+
+    /**
+     * One multipart upload to Jira: {@code POST rest/api/3/issue/<key>/attachments} with the file as the
+     * {@code file} part and {@code X-Atlassian-Token: no-check} (Jira's XSRF guard refuses an upload without it,
+     * whatever the credentials). The transport half of the Python's {@code XrayClient.attach_file}. The file is
+     * streamed from disk, not read into memory, and the request is bound by {@link #ATTACH_TIMEOUT} rather than
+     * the client's own timeout. The reply is returned unjudged; only a transport error or a missing file throws.
+     */
+    public RawReply jiraAttach(String issueKey, Path file) {
+        Jira credentials = jira.get();
+        String call = attachCall(issueKey, file);
+        String boundary = "cat-java-" + UUID.randomUUID().toString().replace("-", "");
+        String name = file.getFileName().toString().replace("\"", "%22");
+        byte[] head = ("--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + name + "\"\r\n"
+                + "Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8);
+        byte[] tail = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+        HttpRequest.BodyPublisher body;
+        try {
+            body = HttpRequest.BodyPublishers.concat(HttpRequest.BodyPublishers.ofByteArray(head),
+                    HttpRequest.BodyPublishers.ofFile(file), HttpRequest.BodyPublishers.ofByteArray(tail));
+        } catch (FileNotFoundException e) {
+            throw new AtlassianUnavailable(call + " failed: no file at " + file, e);
+        }
+        HttpRequest request = HttpRequest.newBuilder(URI.create(site + "/rest/api/3/issue/" + issueKey + "/attachments"))
+                .timeout(ATTACH_TIMEOUT)
+                .header("Accept", "application/json")
+                .header("Authorization", basic(credentials))
+                .header("X-Atlassian-Token", "no-check")
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(body)
+                .build();
+        return raw(request, call);
+    }
+
+    /** An upload's call name, as the Python's {@code what}. */
+    public static String attachCall(String issueKey, Path file) {
+        return "Jira attach " + file.getFileName() + " to " + issueKey;
     }
 
     private HttpRequest restRequest(String url, String method, Object body, String authorization) {

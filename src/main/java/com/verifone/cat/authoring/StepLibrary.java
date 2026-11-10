@@ -2,6 +2,7 @@ package com.verifone.cat.authoring;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.pats.feature.Phrase;
 import com.verifone.cat.pats.feature.Phrases;
 import java.io.IOException;
@@ -36,7 +37,7 @@ public final class StepLibrary {
     /** The fixture a PATS action phrase's step takes (the Python's {@code pats_scenario}). */
     static final List<String> PATS_FIXTURES = List.of("pats_scenario");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     /** Every phrase, in the Python's declaration order. */
     private static final List<StepDef> ALL = load();

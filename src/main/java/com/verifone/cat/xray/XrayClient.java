@@ -1,10 +1,12 @@
 package com.verifone.cat.xray;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.verifone.cat.atlassian.AtlassianClient;
 import com.verifone.cat.atlassian.AtlassianClient.RawReply;
 import com.verifone.cat.atlassian.AtlassianUnavailable;
+import com.verifone.cat.core.Json;
 
 /**
  * The two write surfaces the Xray reporter uses: Xray Cloud's result import, and Jira's issue
@@ -36,7 +39,7 @@ import com.verifone.cat.atlassian.AtlassianUnavailable;
 public final class XrayClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(XrayClient.class);
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     /** Tests per import call, PATS's {@code TestExecutionHelper.LIMIT}. */
     public static final int BATCH_SIZE = 50;
@@ -80,8 +83,8 @@ public final class XrayClient {
      * @throws AtlassianUnavailable on any failure, with the status and a body excerpt
      */
     public String importExecution(Map<String, Object> payload) {
-        RawReply response = send(true, "POST", "import/execution", payload,
-                "Xray import/execution", true);
+        RawReply response = sendXray("POST", "import/execution", payload,
+                "Xray import/execution");
         JsonNode body = parseOrNull(response.body());
         if (body == null) {
             throw new AtlassianUnavailable("Xray import/execution -> non-JSON body: "
@@ -102,7 +105,7 @@ public final class XrayClient {
 
     /** The Jira token's own user: {@code GET rest/api/3/myself}. */
     public Myself myself() {
-        RawReply response = send(false, "GET", "rest/api/3/myself", null, "Jira myself", false);
+        RawReply response = sendJira("GET", "rest/api/3/myself", null, "Jira myself");
         JsonNode body = parseOrNull(response.body());
         if (body == null) {
             throw new AtlassianUnavailable("Jira myself -> non-JSON body");
@@ -117,55 +120,31 @@ public final class XrayClient {
 
     /** Sets the execution's reporter (Jira's creator stays the Xray key's account). */
     public void setReporter(String issueKey, String accountId) {
-        send(false, "PUT", "rest/api/3/issue/" + issueKey,
+        sendJira("PUT", "rest/api/3/issue/" + issueKey,
                 Map.of("fields", Map.of("reporter", Map.of("accountId", accountId))),
-                "Jira reporter " + issueKey, false);
+                "Jira reporter " + issueKey);
     }
 
     /** Sets the issue's description to an ADF document. */
     public void setDescription(String issueKey, JsonNode adf) {
-        send(false, "PUT", "rest/api/3/issue/" + issueKey, Map.of("fields", Map.of("description", adf)),
-                "Jira describe " + issueKey, false);
+        sendJira("PUT", "rest/api/3/issue/" + issueKey, Map.of("fields", Map.of("description", adf)),
+                "Jira describe " + issueKey);
     }
 
     /** Adds a comment with an ADF body. */
     public void addComment(String issueKey, JsonNode adf) {
-        send(false, "POST", "rest/api/3/issue/" + issueKey + "/comment", Map.of("body", adf),
-                "Jira comment " + issueKey, false);
+        sendJira("POST", "rest/api/3/issue/" + issueKey + "/comment", Map.of("body", adf),
+                "Jira comment " + issueKey);
     }
 
     /**
      * Attaches one file to an issue ({@code POST rest/api/3/issue/<key>/attachments}, multipart, with Jira's
-     * {@code X-Atlassian-Token: no-check}): the Python's {@code attach_file}. {@code upload} sends it, because
-     * {@link AtlassianClient} has no multipart call; the reply is judged here as {@code send} judges every other
-     * call: retried on 429 and 5xx, the anonymous-404 check, and an {@link AtlassianUnavailable} naming the call.
-     * Added by the coverage slice (wave 16) for {@code xray.Attach}; nothing else in this class changed.
+     * {@code X-Atlassian-Token: no-check}): the Python's {@code attach_file}. The reply is judged as every other
+     * Jira call's is: retried on 429 and 5xx, the anonymous-404 check, and an {@link AtlassianUnavailable} naming
+     * the call.
      */
-    public void attachFile(String issueKey, java.nio.file.Path file, AttachUpload upload) {
-        String what = AttachUpload.what(issueKey, file);
-        int attempt = 0;
-        RawReply response;
-        while (true) {
-            response = upload.post(issueKey, file);
-            if (response.isSuccess()) {
-                return;
-            }
-            if ((response.status() == 429 || response.status() >= 500) && ++attempt <= RETRIES) {
-                Duration wait = retryAfter(response.retryAfter());
-                LOG.warn("{} -> HTTP {}; retrying in {}s", what, response.status(), wait.toSeconds());
-                if (awaitCancel(wait)) {
-                    break;
-                }
-                continue;
-            }
-            break;
-        }
-        if (response.status() == 404 && jiraRejects()) {
-            throw new AtlassianUnavailable(what + " -> HTTP 404, but the cause is the Jira credentials: "
-                    + "Jira answers 'GET /myself' with 401, so it served this request as anonymous. "
-                    + "Re-enter the Atlassian API token: press s in CAT.");
-        }
-        throw new AtlassianUnavailable(what + " -> HTTP " + response.status() + ": " + excerpt(response.body(), 300));
+    public void attachFile(String issueKey, Path file) {
+        send(AtlassianClient.attachCall(issueKey, file), false, refresh -> atlassian.jiraAttach(issueKey, file));
     }
 
     /**
@@ -175,7 +154,7 @@ public final class XrayClient {
      */
     public boolean transition(String issueKey, String name) {
         String path = "rest/api/3/issue/" + issueKey + "/transitions";
-        RawReply response = send(false, "GET", path, null, "Jira transitions " + issueKey, false);
+        RawReply response = sendJira("GET", path, null, "Jira transitions " + issueKey);
         JsonNode body = parseOrNull(response.body());
         if (body == null) {
             throw new AtlassianUnavailable("Jira transitions -> non-JSON body");
@@ -183,8 +162,8 @@ public final class XrayClient {
         String wanted = name.strip().toLowerCase(Locale.ROOT);
         for (JsonNode transition : body.path("transitions")) {
             if (textOf(transition, "name").toLowerCase(Locale.ROOT).equals(wanted)) {
-                send(false, "POST", path, Map.of("transition", Map.of("id", textOf(transition, "id"))),
-                        "Jira transition " + issueKey + " -> " + name, false);
+                sendJira("POST", path, Map.of("transition", Map.of("id", textOf(transition, "id"))),
+                        "Jira transition " + issueKey + " -> " + name);
                 return true;
             }
         }
@@ -204,22 +183,30 @@ public final class XrayClient {
         return token;
     }
 
+    /** One Xray call: {@link #send(String, boolean, Function)} with the bearer token. */
+    private RawReply sendXray(String method, String path, Object body, String what) {
+        return send(what, true, refresh -> atlassian.xrayRequest(method, path, bearer(refresh), body));
+    }
+
+    /** One Jira call: {@link #send(String, boolean, Function)} with the Jira credentials. */
+    private RawReply sendJira(String method, String path, Object body, String what) {
+        return send(what, false, refresh -> atlassian.jiraRequest(method, path, body));
+    }
+
     /**
-     * One call, retried on 429 and 5xx, with a fresh Xray token once on a 401 when allowed.
+     * One call, retried on 429 and 5xx; an Xray call is sent again once with a fresh token on a 401 ({@code call}
+     * is handed whether to refresh it), and a Jira 404 is checked for rejected credentials.
      *
      * @return the 2xx reply
      * @throws AtlassianUnavailable on a final non-2xx, with the status and an excerpt
      */
-    private RawReply send(boolean xray, String method, String path, Object body, String what,
-            boolean retryUnauthorized) {
+    private RawReply send(String what, boolean xray, Function<Boolean, RawReply> call) {
         int attempt = 0;
         boolean refresh = false;
-        boolean mayRefresh = retryUnauthorized;
+        boolean mayRefresh = xray;
         RawReply response;
         while (true) {
-            response = xray
-                    ? atlassian.xrayRequest(method, path, bearer(refresh), body)
-                    : atlassian.jiraRequest(method, path, body);
+            response = call.apply(refresh);
             refresh = false;
             if (response.isSuccess()) {
                 return response;

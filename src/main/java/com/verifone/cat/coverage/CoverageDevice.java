@@ -14,13 +14,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.TreeSet;
-import java.util.concurrent.locks.LockSupport;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.TargetRole;
 import com.verifone.cat.provision.TargetSpec;
@@ -67,7 +67,7 @@ public final class CoverageDevice {
     private static final Pattern AGENT_OPTION = Pattern.compile("jacocoagent\\.jar=(\\S+)");
     private static final Pattern DESTFILE = Pattern.compile("destfile=[^, ]*/([^/, ]+)\\.exec");
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private CoverageDevice() {}
 
@@ -166,7 +166,7 @@ public final class CoverageDevice {
             Path discard = dir.resolve("reset-" + target.execName());
             Jacoco.CliResult result = ops.cli().run(tools,
                     Jacoco.dumpArgs(target.spec().host(), Components.TOMCAT_PORT, discard, true), CLI_TIMEOUT);
-            deleteQuietly(discard);
+            Jacoco.deleteQuietly(discard);
             if (result.ok()) {
                 log.accept("OK    " + target.spec().name() + ": Tomcat coverage reset");
             } else {
@@ -237,7 +237,7 @@ public final class CoverageDevice {
         }
 
         try {
-            JSON.writerWithDefaultPrettyPrinter().writeValue(outDir.resolve("collect.json").toFile(), manifest);
+            Json.PRETTY.writeValue(outDir.resolve("collect.json").toFile(), manifest);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -267,24 +267,6 @@ public final class CoverageDevice {
         }
         Collections.sort(files);
         return new DeviceAgent(name, host, jarPresent, tcp, files);
-    }
-
-    /**
-     * Polls {@code condition} until it holds or {@code timeout} passes. Returns whether it held. Uses
-     * {@link LockSupport#parkNanos}, never {@code Thread.sleep}, and never waits past the deadline.
-     */
-    static boolean boundedPoll(BooleanSupplier condition, Duration timeout, Duration interval) {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (true) {
-            if (condition.getAsBoolean()) {
-                return true;
-            }
-            long remaining = deadline - System.nanoTime();
-            if (remaining <= 0 || Thread.currentThread().isInterrupted()) {
-                return false;
-            }
-            LockSupport.parkNanos(Math.min(interval.toNanos(), remaining));
-        }
     }
 
     private static DeviceAgent readAgent(Transport transport, TargetSpec spec) {
@@ -433,7 +415,7 @@ public final class CoverageDevice {
         Transport transport = ops.transportFactory().apply(spec);
         try {
             String mounted = "grep -q ' " + Components.COMMANDER_EXEC_MOUNT + " ' /proc/mounts";
-            boolean isMounted = boundedPoll(() -> transport.run(mounted, SSH_TIMEOUT).ok(), ops.mountTimeout(),
+            boolean isMounted = Waits.poll(() -> transport.run(mounted, SSH_TIMEOUT).ok(), ops.mountTimeout(),
                     ops.mountPollInterval());
             if (!isMounted) {
                 problem.accept(Components.COMMANDER_EXEC_MOUNT + " was not mounted within "
@@ -508,14 +490,6 @@ public final class CoverageDevice {
             transport.close();
         } catch (RuntimeException e) {
             // Closing a dead session is not a result.
-        }
-    }
-
-    private static void deleteQuietly(Path file) {
-        try {
-            Files.deleteIfExists(file);
-        } catch (IOException e) {
-            // A scratch file left behind is not worth failing a step for.
         }
     }
 }
