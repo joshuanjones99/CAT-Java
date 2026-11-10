@@ -23,9 +23,9 @@ import com.verifone.cat.core.CatHome;
  * <p>No title bar, once CAT is installed (2026-11-10, at the operator's request, HANDOFF §2). CAT's pages link a web
  * app manifest ({@code /static/manifest.json}) that asks for the browser's Window Controls Overlay: the page fills
  * the whole window, the browser draws only its window buttons over the top right corner, and the page's top strip
- * drags the window ({@code cat.css}, {@code .window-drag}). Edge gives that only to an installed web app, so Settings →
- * Opening CAT has a one-time Hide the title bar button, which shows Edge's own Install dialog; Edge then reopens the
- * window as the app. From then on {@link #appCommand} opens CAT by its app id ({@link #appId}); an {@code --app}
+ * drags the window ({@code cat.css}, {@code .window-drag}). Edge gives that only to an installed web app, so
+ * Settings → Opening CAT has a one-time Hide the title bar button, which shows Edge's own Install dialog; Edge then
+ * reopens the window as the app. From then on {@link #appCommand} opens CAT by its app id ({@link #appId}); an {@code --app}
  * window of an installed app still has its title bar. The app is installed only in CAT's profile, never in the
  * operator's own browser profile. Edge offers no unattended install here: its DevTools {@code PWA.install} is not
  * served (Edge 157, 2026-11-10).

@@ -23,8 +23,9 @@ import com.verifone.cat.core.Waits;
  * of the web UI has. A CAT page in a normal browser window is not one: the browser adds its own name to that title.
  * The installed CAT app's window (no title bar, {@link AppWindow#appCommand}) is not one either, and needs no keeper:
  * its title is the app's name, {@code CAT-Java}, and Edge draws its icon from the manifest's 192 px icon, which was
- * already sharp (Edge 157, 2026-11-10), so {@link DesktopHost} does not start the keeper for it. The keeper only sets icons; it never closes or stops anything. The native calls are {@link JnaWindowIcons} (JNA is
- * already a dependency, HANDOFF §2; the NoUiImports gate keeps AWT out).
+ * already sharp (Edge 157, 2026-11-10), so {@link DesktopHost} does not start the keeper for it. The keeper only
+ * sets icons; it never closes or stops anything. The native calls are {@link JnaWindowIcons} (JNA is already a
+ * dependency, HANDOFF §2; the NoUiImports gate keeps AWT out).
  *
  * <p>UNVERIFIED ON A CONTROLLER (Java port): checked only on a development PC (Windows 11, Edge, 100% scale), where
  * the taskbar button became sharp and stayed so across navigations.

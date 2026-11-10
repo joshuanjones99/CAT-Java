@@ -40,6 +40,11 @@ Sidebar: 250px wide, 70px as the icon rail (the Python drawer's `width=250 mini-
 logo (`icons/cat-commander-logo.png`) centred at the top; the rail shows the monogram. The collapse button is a
 28px square straddling the sidebar's edge.
 
+In CAT's installed window (no title bar, HANDOFF §2) Edge's window buttons sit over the page's top right and the
+top 33px is the window's drag strip (`.window-drag`): nothing clickable goes there unless it says
+`app-region: no-drag`, and the page top is at least the strip's height. The `theme-color` behind Edge's buttons
+follows `--cat-page` (`cat.js`); `manifest.json`'s colours are the light `--cat-page`, kept equal by a test.
+
 Radii: tags 5px, controls 7px, cards 12px, dialogs 16px. Spacing: 8 / 16 / 20 / 24 / 32px;
 page gutter 32px (24px under 1100px, 16px on phones), page top 28px.
 
