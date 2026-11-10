@@ -122,11 +122,12 @@ public final class RunStateReducer {
     /** The state as folded so far. */
     public RunState state() {
         if (cached == null) {
+            // Immutable copies, which RunState's own List.copyOf then keeps as they are: each buffer is copied once.
             Map<String, List<RunState.LogLine>> sources = new LinkedHashMap<>();
-            sourceLogLines.forEach((key, lines) -> sources.put(key, new ArrayList<>(lines)));
+            sourceLogLines.forEach((key, lines) -> sources.put(key, List.copyOf(lines)));
             cached = new RunState(runId, rig, suite, cmd, workers, startedAt, catVersion, upgradeMode, fakePos,
                     gitHead, status, testPlans, planNames, cases, steps, tests, testCountTotal, passed, failed,
-                    warned, simulators, connections, new ArrayList<>(logLines), sources, elapsed, outcome,
+                    warned, simulators, connections, List.copyOf(logLines), sources, elapsed, outcome,
                     recoveries, validations);
         }
         return cached;

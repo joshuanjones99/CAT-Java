@@ -49,10 +49,10 @@ final class ResultsRunPage {
         app.get("/results/run/{runId}/step", ctx -> fragment(ctx, library, false,
                 (state, links) -> RunDialogsHtml.step(state, RunRoutes.intParam(ctx, "i"), links)));
         app.get("/results/run/{runId}/case", ctx -> fragment(ctx, library, false,
-                (state, links) -> RunDialogsHtml.caseDetail(state, RunRoutes.param(ctx, "key"), links)));
+                (state, links) -> RunDialogsHtml.caseDetail(state, Requests.query(ctx, "key"), links)));
         app.get("/results/run/{runId}/receipts", ctx -> fragment(ctx, library, true, RunDialogsHtml::receipts));
         app.get("/results/run/{runId}/validations", ctx -> fragment(ctx, library, false,
-                (state, links) -> RunDialogsHtml.validations(state, RunRoutes.param(ctx, "tab"), links)));
+                (state, links) -> RunDialogsHtml.validations(state, Requests.query(ctx, "tab"), links)));
         app.get("/results/run/{runId}/validation", ctx -> fragment(ctx, library, false,
                 (state, links) -> RunRoutes.validationDetail(state, RunRoutes.intParam(ctx, "i"))));
         app.get("/results/run/{runId}/log/body", ctx -> fragment(ctx, library, true,
@@ -142,7 +142,7 @@ final class ResultsRunPage {
         out.append("</nav>");
         switch (tab) {
             case "validations" -> out.append(RunDialogsHtml.validations(state,
-                    RunRoutes.param(ctx, "vtab"), links));
+                    Requests.query(ctx, "vtab"), links));
             case "log" -> out.append(RunLogHtml.panel(state, RunLogHtml.Filters.from(ctx), links));
             default -> out.append(overview(state, replay, links));
         }

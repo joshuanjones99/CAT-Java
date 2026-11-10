@@ -19,19 +19,9 @@ final class UpgradeRoutes {
             ctx.html(Layout.page(Section.UPGRADE, "Install Upgrade", UpgradePage.body(downloads, upgrades)));
         });
         app.get(UpgradePage.PATH, ctx -> ctx.html(UpgradePage.panel(downloads, upgrades)));
-        app.post("/upgrade/start", ctx -> {
-            if (!DownloadsRoutes.fromHtmx(ctx)) {
-                return;
-            }
-            upgrades.start();
-            ctx.html(UpgradePage.panel(downloads, upgrades));
-        });
-        app.post("/upgrade/stop", ctx -> {
-            if (!DownloadsRoutes.fromHtmx(ctx)) {
-                return;
-            }
-            upgrades.setNotice(upgrades.stop());
-            ctx.html(UpgradePage.panel(downloads, upgrades));
-        });
+        Requests.Actions actions = Requests.actions(app, DownloadsRoutes.WHAT,
+                () -> UpgradePage.panel(downloads, upgrades));
+        actions.on("/upgrade/start", ctx -> upgrades.start());
+        actions.on("/upgrade/stop", ctx -> upgrades.setNotice(upgrades.stop()));
     }
 }

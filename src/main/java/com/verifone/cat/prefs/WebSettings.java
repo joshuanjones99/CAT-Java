@@ -7,8 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 
 /**
  * This operator's web preferences: {@code ~/.cat/java/web-settings.json}, the browser app's
@@ -40,8 +40,6 @@ public final class WebSettings {
      */
     public static final String APPEARANCE_COOKIE = "cat_appearance";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
     private static final TypeReference<LinkedHashMap<String, Object>> OBJECT = new TypeReference<>() {};
 
     private WebSettings() {}
@@ -131,7 +129,7 @@ public final class WebSettings {
     public static Path defaultPath(Map<String, String> env, String userHome) {
         String override = env.get(ENV_OVERRIDE);
         return override == null || override.isBlank()
-                ? Path.of(userHome, ".cat", "java", FILE_NAME)
+                ? CatHome.java(Path.of(userHome)).resolve(FILE_NAME)
                 : Path.of(override);
     }
 
@@ -146,7 +144,7 @@ public final class WebSettings {
             return out;
         }
         try {
-            LinkedHashMap<String, Object> saved = MAPPER.readValue(file.toFile(), OBJECT);
+            LinkedHashMap<String, Object> saved = Json.MAPPER.readValue(file.toFile(), OBJECT);
             if (saved != null) {
                 out.putAll(saved);
             }
@@ -185,7 +183,7 @@ public final class WebSettings {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            MAPPER.writeValue(file.toFile(), data);
+            Json.PRETTY.writeValue(file.toFile(), data);
             return true;
         } catch (IOException | RuntimeException e) {
             return false;

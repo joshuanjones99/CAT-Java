@@ -20,6 +20,7 @@ import java.util.concurrent.CountDownLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.desktop.DesktopHost;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.prefs.WebSettings;
@@ -277,7 +278,6 @@ public final class WebServe {
                                 + (rig.posShim() ? "" : " (no pos_shim on this rig)");
                 WebApp.Parts parts = WebApp.parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()),
                         ConfigForm.standard().online(), RunService.standard(options.rig, System.getenv()), null);
-                parts.rig = options.rig;
                 parts.shell = shell;
                 parts.exit = exit;
                 setup = SetupService.standard(shell, options.setup);
@@ -298,7 +298,7 @@ public final class WebServe {
 
             @Override
             public void logToFile() {
-                Path dir = Path.of(System.getProperty("user.home"), ".cat", "java");
+                Path dir = CatHome.java();
                 try {
                     Files.createDirectories(dir);
                     Path file = dir.resolve(LOG_NAME);

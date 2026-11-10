@@ -105,6 +105,6 @@ final class ResultsView {
 
     /** The status as a coloured word. The word is always shown, never only the colour. */
     static String badge(String status) {
-        return "<span class=\"badge " + tone(status) + "\">" + esc(status) + "</span>";
+        return Html.badge(tone(status), status);
     }
 }

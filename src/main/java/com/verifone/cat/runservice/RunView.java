@@ -289,14 +289,6 @@ public final class RunView {
         return summary == null || summary.isEmpty() ? key : key + ": " + summary;
     }
 
-    /** The case key a test file's name carries ({@code PETROCORE-61337}), or "". */
-    public static String caseKeyOf(String path) {
-        String file = path.replace('\\', '/');
-        file = file.substring(file.lastIndexOf('/') + 1);
-        var match = CASE_IN_NAME.matcher(file);
-        return match.find() ? "PETROCORE-" + match.group(1) : "";
-    }
-
     /**
      * {@code PETROCORE-61337::test_check_sale}: the file, then the test, minus {@code -TestCase} and a test name that
      * only restates the file or the case key.

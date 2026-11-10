@@ -387,83 +387,35 @@ final class UpgradeService {
         String current = "download";
         try {
             log.line("Install Upgrade on rig " + rigName + ": " + summary(c).replace('\n', ' '));
-            Path dir = null;
-            if (c.installing()) {
-                if (!c.commanderBranch().isEmpty()) {
-                    stage("download", "running", c.commanderLabel());
-                    dir = downloads.fetchCommander(c, log);
-                    stage("download", "done", dir.toString());
-                } else {
-                    Optional<Path> local = downloads.localBuildDir(c);
-                    dir = local.orElseThrow(() -> new BuildException("no build on this PC holds the install files"));
-                    stage("download", "skipped", "already on this PC: " + dir);
-                }
-            } else {
-                stage("download", "skipped", "Upgrade mode is Skip");
-            }
+            Path dir = downloadStage(c, log);
             if (stopped("upgrade")) {
                 return "";
             }
             current = "upgrade";
-            if (dir != null && c.mode() == UpgradeMode.CLASSIC) {
-                stage("upgrade", "running", "AU: " + dir);
-                List<StepResult> results = classic.install(rigName, dir, env, log::line);
-                Optional<StepResult> failed = results.stream().filter(StepResult::failed).findFirst();
-                if (failed.isPresent()) {
-                    String why = failed.get().step() + ": " + failed.get().detail();
-                    stage("upgrade", "failed", why);
-                    return why;
-                }
-                stage("upgrade", "done", results.size() + " steps");
-                stage("psi-init", "skipped", "no PSI install");
-            } else if (dir != null) {
-                stage("upgrade", "running", dir.toString());
-                NewInstallTools tools = toolsFor.apply(dir);
-                List<StepResult> results = installer.install(rigName, tools, env, log::line);
-                Optional<StepResult> failed = results.stream().filter(StepResult::failed).findFirst();
-                if (failed.isPresent()) {
-                    String why = failed.get().step() + ": " + failed.get().detail();
-                    stage("upgrade", "failed", why);
-                    return why;
-                }
-                stage("upgrade", "done", results.size() + " steps");
+            String why = upgradeStage(rigName, c, dir, log);
+            if (!why.isEmpty()) {
+                return why;
+            }
+            if (dir != null && c.mode() != UpgradeMode.CLASSIC) {
                 if (stopped("psi-init")) {
                     return "";
                 }
                 current = "psi-init";
                 stage("psi-init", "running", "psi-init --no-pairing");
                 if (!psi.resetPassword(rigName, env, log::line)) {
-                    String why = "psi-init --no-pairing failed (see the log)";
+                    why = "psi-init --no-pairing failed (see the log)";
                     stage("psi-init", "failed", why);
                     return why;
                 }
                 stage("psi-init", "done", "password reset; registers not paired");
-            } else {
-                stage("upgrade", "skipped", "Upgrade mode is Skip");
-                stage("psi-init", "skipped", "no PSI install");
             }
             if (stopped("simulators")) {
                 return "";
             }
             current = "simulators";
-            if (!c.simChosen()) {
-                stage("simulators", "skipped", "keep the staged ones");
-            } else {
-                stage("simulators", "running", c.simBranch() + " " + c.simBuild());
-                List<String> failed = new ArrayList<>();
-                List<SimFetch.FetchResult> results = sims.replace(rigName, c.simBranch(), c.simBuild(), log::line);
-                for (SimFetch.FetchResult row : results) {
-                    log.line((row.ok() ? "PASS  " : "FAIL  ") + row.detail());
-                    if (!row.ok()) {
-                        failed.add(row.detail());
-                    }
-                }
-                if (!failed.isEmpty()) {
-                    String why = String.join("; ", failed);
-                    stage("simulators", "failed", why);
-                    return why;
-                }
-                stage("simulators", "done", results.size() + " replaced");
+            why = simulatorsStage(rigName, c, log);
+            if (!why.isEmpty()) {
+                return why;
             }
             log.line("DONE  Install Upgrade — no test was run");
             return "";
@@ -476,5 +428,74 @@ final class UpgradeService {
             stage(current, "failed", why);
             return why;
         }
+    }
+
+    /** The build folder to install from: downloaded, or already on this PC; null when nothing is installed. */
+    private Path downloadStage(DownloadsService.Choice c, JobLog log) {
+        if (!c.installing()) {
+            stage("download", "skipped", "Upgrade mode is Skip");
+            return null;
+        }
+        if (!c.commanderBranch().isEmpty()) {
+            stage("download", "running", c.commanderLabel());
+            Path dir = downloads.fetchCommander(c, log);
+            stage("download", "done", dir.toString());
+            return dir;
+        }
+        Path dir = downloads.localBuildDir(c)
+                .orElseThrow(() -> new BuildException("no build on this PC holds the install files"));
+        stage("download", "skipped", "already on this PC: " + dir);
+        return dir;
+    }
+
+    /**
+     * The AU push or the PSI install of {@code dir}; with no build, both it and psi-init are skipped. An AU push
+     * needs no psi-init, so it skips that stage too. Returns "" or the first failed step.
+     */
+    private String upgradeStage(String rigName, DownloadsService.Choice c, Path dir, JobLog log) {
+        if (dir == null) {
+            stage("upgrade", "skipped", "Upgrade mode is Skip");
+            stage("psi-init", "skipped", "no PSI install");
+            return "";
+        }
+        boolean au = c.mode() == UpgradeMode.CLASSIC;
+        stage("upgrade", "running", au ? "AU: " + dir : dir.toString());
+        List<StepResult> results = au ? classic.install(rigName, dir, env, log::line)
+                : installer.install(rigName, toolsFor.apply(dir), env, log::line);
+        Optional<StepResult> failed = results.stream().filter(StepResult::failed).findFirst();
+        if (failed.isPresent()) {
+            String why = failed.get().step() + ": " + failed.get().detail();
+            stage("upgrade", "failed", why);
+            return why;
+        }
+        stage("upgrade", "done", results.size() + " steps");
+        if (au) {
+            stage("psi-init", "skipped", "no PSI install");
+        }
+        return "";
+    }
+
+    /** The Simulator Build's replacement of the staged simulators. Returns "" or the rows that failed. */
+    private String simulatorsStage(String rigName, DownloadsService.Choice c, JobLog log) {
+        if (!c.simChosen()) {
+            stage("simulators", "skipped", "keep the staged ones");
+            return "";
+        }
+        stage("simulators", "running", c.simBranch() + " " + c.simBuild());
+        List<String> failed = new ArrayList<>();
+        List<SimFetch.FetchResult> results = sims.replace(rigName, c.simBranch(), c.simBuild(), log::line);
+        for (SimFetch.FetchResult row : results) {
+            log.line((row.ok() ? "PASS  " : "FAIL  ") + row.detail());
+            if (!row.ok()) {
+                failed.add(row.detail());
+            }
+        }
+        if (!failed.isEmpty()) {
+            String why = String.join("; ", failed);
+            stage("simulators", "failed", why);
+            return why;
+        }
+        stage("simulators", "done", results.size() + " replaced");
+        return "";
     }
 }

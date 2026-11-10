@@ -6,6 +6,7 @@ import static com.verifone.cat.web.RunBoardHtml.dialogGet;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -380,6 +381,11 @@ final class RunDialogsHtml {
             out.append("<p class=\"muted\">None in this run yet.</p>");
         }
         Map<String, String> statuses = caseStatuses(state);
+        // Each validation's place in the run (its first, as List.indexOf finds it), looked up once for all the rows.
+        Map<RunState.Validation, Integer> places = new HashMap<>();
+        for (int i = 0; i < all.size(); i++) {
+            places.putIfAbsent(all.get(i), i);
+        }
         for (Map.Entry<String, List<RunState.Validation>> group : Validations.groupByCase(rows).entrySet()) {
             String caseKey = group.getKey();
             String heading;
@@ -397,8 +403,7 @@ final class RunDialogsHtml {
             out.append(" <span class=\"muted\">").append(esc(Validations.counts(group.getValue())))
                     .append("</span></h3>");
             for (RunState.Validation validation : group.getValue()) {
-                int index = all.indexOf(validation);
-                out.append(row(validation, index, links));
+                out.append(row(validation, places.get(validation), links));
             }
             out.append("</section>");
         }

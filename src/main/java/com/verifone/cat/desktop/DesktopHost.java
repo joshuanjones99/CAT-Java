@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.prefs.WebSettings.OpenIn;
 
 /**
@@ -48,7 +49,7 @@ public interface DesktopHost {
 
     /** The real desktop: this process's environment and home, real processes. */
     static DesktopHost system() {
-        return new Real(System.getenv(), Path.of(System.getProperty("user.home")),
+        return new Real(System.getenv(), CatHome.user(),
                 Files::isRegularFile, DesktopHost::spawnDetached, DesktopHost::runToEnd, Shortcuts::repoRoot);
     }
 
@@ -104,7 +105,7 @@ public interface DesktopHost {
         @Override
         public Shortcuts.Outcome addShortcuts() {
             try {
-                return Shortcuts.add(repoRoot.get(), home.resolve(".cat").resolve("java"), runner);
+                return Shortcuts.add(repoRoot.get(), CatHome.java(home), runner);
             } catch (RuntimeException e) {
                 return new Shortcuts.Outcome(false, List.of("Adding the CAT-Java shortcut failed: "
                         + e.getClass().getSimpleName() + ": " + e.getMessage()));

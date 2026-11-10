@@ -1,6 +1,7 @@
 package com.verifone.cat.web;
 
 import static com.verifone.cat.web.Html.esc;
+import static com.verifone.cat.web.Html.option;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -124,26 +125,17 @@ final class DownloadsPanel {
     private static void commanderRow(StringBuilder out, DownloadsService d, DownloadsService.Choice c,
             boolean busy) {
         String disabled = busy ? " disabled" : "";
-        out.append("<div class=\"pick\"><span class=\"pick-label\">Commander Build</span>");
-        out.append("<div class=\"pick-controls\">");
-        out.append("<select name=\"value\" aria-label=\"Commander Build branch\" hx-post=\"")
-                .append(set("commanderBranch")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(disabled).append(">");
+        openPick(out, "Commander Build");
+        openSelect(out, "Commander Build branch", "commanderBranch", disabled);
         out.append(option("", "Don't download", c.commanderBranch().isEmpty()));
         List<String> branches = d.branches();
-        if (branches != null) {
-            for (String name : branches) {
-                out.append(option(name, name, name.equals(c.commanderBranch())));
-            }
-        }
+        branchOptions(out, branches, c.commanderBranch());
         if (!c.commanderBranch().isEmpty() && (branches == null || !branches.contains(c.commanderBranch()))) {
             out.append(option(c.commanderBranch(), c.commanderBranch() + " (saved; not listed)", true));
         }
         out.append("</select>");
 
-        out.append("<select name=\"value\" aria-label=\"Commander Build number\" hx-post=\"")
-                .append(set("commanderBuild")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(disabled).append(">");
+        openSelect(out, "Commander Build number", "commanderBuild", disabled);
         if (c.commanderBranch().isEmpty()) {
             out.append(option(DownloadsService.NEWEST_LOCAL, "Newest on this PC",
                     c.localBuild().isEmpty()));
@@ -173,8 +165,7 @@ final class DownloadsPanel {
                 }
             }
         }
-        out.append("</select></div>");
-        out.append("<p class=\"muted pick-hint\">").append(esc(commanderHint(d, c))).append("</p></div>");
+        closePick(out, commanderHint(d, c));
     }
 
     private static String commanderHint(DownloadsService d, DownloadsService.Choice c) {
@@ -300,25 +291,17 @@ final class DownloadsPanel {
     private static void foundationRow(StringBuilder out, DownloadsService d, DownloadsService.Choice c,
             boolean busy) {
         String disabled = busy ? " disabled" : "";
-        out.append("<div class=\"pick\"><span class=\"pick-label\">Foundation Build</span>");
-        out.append("<div class=\"pick-controls\">");
-        out.append("<select name=\"value\" aria-label=\"Foundation Build branch\" hx-post=\"")
-                .append(set("foundationBranch")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(disabled).append(">");
+        openPick(out, "Foundation Build");
+        openSelect(out, "Foundation Build branch", "foundationBranch", disabled);
         out.append(option("", "Pick a foundation", c.foundationBranch().isEmpty()));
         List<String> branches = d.branches();
-        if (branches != null) {
-            for (String name : branches) {
-                out.append(option(name, name, name.equals(c.foundationBranch())));
-            }
-        }
+        branchOptions(out, branches, c.foundationBranch());
         if (!c.foundationBranch().isEmpty() && (branches == null || !branches.contains(c.foundationBranch()))) {
             out.append(option(c.foundationBranch(), c.foundationBranch() + " (saved; not listed yet)", true));
         }
         out.append("</select>");
-        out.append("<select name=\"value\" aria-label=\"Foundation Build number\" hx-post=\"")
-                .append(set("foundationBuild")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(c.foundationBranch().isEmpty() ? " disabled" : disabled).append(">");
+        openSelect(out, "Foundation Build number", "foundationBuild",
+                c.foundationBranch().isEmpty() ? " disabled" : disabled);
         out.append(option("", c.foundationBuild().isEmpty() ? "Pick a build" : c.foundationBuild(), true));
         List<BuildCatalogue.NightlyBuild> builds = c.foundationBranch().isEmpty() ? null
                 : d.builds(c.foundationBranch());
@@ -327,8 +310,7 @@ final class DownloadsPanel {
                 out.append(option(build.build(), build.build(), build.build().equals(c.foundationBuild())));
             }
         }
-        out.append("</select></div>");
-        out.append("<p class=\"muted pick-hint\">").append(esc(foundationMeaning(c))).append("</p></div>");
+        closePick(out, foundationMeaning(c));
     }
 
     private static String jarsSentence(UpgradeMode mode) {
@@ -352,47 +334,32 @@ final class DownloadsPanel {
         if (options.stream().noneMatch(name -> name.equalsIgnoreCase(c.dist()))) {
             options.add(0, c.dist());
         }
-        out.append("<div class=\"pick\"><span class=\"pick-label\">Distribution (FEP)</span>");
-        out.append("<div class=\"pick-controls\"><select name=\"value\" aria-label=\"Distribution\" hx-post=\"")
-                .append(set("dist")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(busy ? " disabled" : "").append(">");
+        openPick(out, "Distribution (FEP)");
+        openSelect(out, "Distribution", "dist", busy ? " disabled" : "");
         for (String name : options) {
             out.append(option(name, name, name.equals(c.dist())));
         }
-        out.append("</select></div><p class=\"muted pick-hint\">").append(esc(distHint(d, c))).append("</p></div>");
+        closePick(out, distHint(d, c));
     }
 
     private static void modeRow(StringBuilder out, DownloadsService.Choice c, boolean busy) {
-        out.append("<div class=\"pick\"><span class=\"pick-label\">Upgrade mode</span>");
-        out.append("<div class=\"pick-controls\"><select name=\"value\" aria-label=\"Upgrade mode\" hx-post=\"")
-                .append(set("mode")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(busy ? " disabled" : "").append(">");
+        openPick(out, "Upgrade mode");
+        openSelect(out, "Upgrade mode", "mode", busy ? " disabled" : "");
         for (UpgradeMode mode : UpgradeMode.values()) {
             out.append(option(mode.wire(), label(mode), mode == c.mode()));
         }
-        out.append("</select></div><p class=\"muted pick-hint\">").append(esc(modeHint(c.mode())))
-                .append("</p></div>");
+        closePick(out, modeHint(c.mode()));
     }
 
     private static void simulatorRow(StringBuilder out, DownloadsService d, DownloadsService.Choice c,
             boolean busy) {
         String disabled = busy ? " disabled" : "";
-        out.append("<div class=\"pick\"><span class=\"pick-label\">Simulator Build</span>");
-        out.append("<div class=\"pick-controls\">");
-        out.append("<select name=\"value\" aria-label=\"Simulator Build branch\" hx-post=\"")
-                .append(set("simBranch")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(disabled).append(">");
+        openPick(out, "Simulator Build");
+        openSelect(out, "Simulator Build branch", "simBranch", disabled);
         out.append(option("", "Don't download", c.simBranch().isEmpty()));
-        List<String> branches = d.branches();
-        if (branches != null) {
-            for (String name : branches) {
-                out.append(option(name, name, name.equals(c.simBranch())));
-            }
-        }
+        branchOptions(out, d.branches(), c.simBranch());
         out.append("</select>");
-        out.append("<select name=\"value\" aria-label=\"Simulator Build number\" hx-post=\"")
-                .append(set("simBuild")).append("\" hx-trigger=\"change\" ").append(TARGET)
-                .append(c.simChosen() ? disabled : " disabled").append(">");
+        openSelect(out, "Simulator Build number", "simBuild", c.simChosen() ? disabled : " disabled");
         List<BuildCatalogue.NightlyBuild> builds = c.simChosen() ? d.builds(c.simBranch()) : null;
         out.append(option("", c.simBuild().isEmpty() ? "Pick a build" : c.simBuild(), true));
         if (builds != null) {
@@ -400,9 +367,7 @@ final class DownloadsPanel {
                 out.append(option(build.build(), build.build(), build.build().equals(c.simBuild())));
             }
         }
-        out.append("</select></div>");
-        String hint = simulatorMeaning(c);
-        out.append("<p class=\"muted pick-hint\">").append(esc(hint)).append("</p></div>");
+        closePick(out, simulatorMeaning(c));
     }
 
     /** The Upgrade mode's own words, as the Python's Config and Install Upgrade show them. */
@@ -430,7 +395,30 @@ final class DownloadsPanel {
         return "/downloads/set?field=" + URLEncoder.encode(field, StandardCharsets.UTF_8);
     }
 
-    private static String option(String value, String text, boolean selected) {
-        return "<option value=\"" + esc(value) + "\"" + (selected ? " selected" : "") + ">" + esc(text) + "</option>";
+    /** A picker row's start: its label, and the element its selects sit in. */
+    private static void openPick(StringBuilder out, String label) {
+        out.append("<div class=\"pick\"><span class=\"pick-label\">").append(label).append("</span>")
+                .append("<div class=\"pick-controls\">");
+    }
+
+    /** One select of a row: it posts {@code field} on change and gets the panel back. */
+    private static void openSelect(StringBuilder out, String label, String field, String disabled) {
+        out.append("<select name=\"value\" aria-label=\"").append(label).append("\" hx-post=\"")
+                .append(set(field)).append("\" hx-trigger=\"change\" ").append(TARGET)
+                .append(disabled).append(">");
+    }
+
+    /** Every listed branch as an option; nothing until the branches are listed. */
+    private static void branchOptions(StringBuilder out, List<String> branches, String chosen) {
+        if (branches != null) {
+            for (String name : branches) {
+                out.append(option(name, name, name.equals(chosen)));
+            }
+        }
+    }
+
+    /** A picker row's end: its last select closed, then its hint. */
+    private static void closePick(StringBuilder out, String hint) {
+        out.append("</select></div><p class=\"muted pick-hint\">").append(esc(hint)).append("</p></div>");
     }
 }

@@ -6,7 +6,6 @@ import java.util.Map;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
-import io.javalin.http.HttpStatus;
 
 /**
  * The Setup routes: the page, its fragment (polled while a check runs), Check again, a sign-in card's Save, and an
@@ -62,10 +61,6 @@ final class SetupRoutes {
 
     /** True if the request came from htmx on this page. Otherwise it is refused and nothing runs. */
     private static boolean fromThisPage(Context ctx) {
-        if ("true".equals(ctx.header("HX-Request"))) {
-            return true;
-        }
-        ctx.status(HttpStatus.FORBIDDEN).result("Setup checks come from the CAT-Java page only.");
-        return false;
+        return Requests.fromPage(ctx, "Setup checks come");
     }
 }

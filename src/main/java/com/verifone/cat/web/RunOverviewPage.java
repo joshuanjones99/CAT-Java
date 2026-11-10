@@ -259,7 +259,12 @@ final class RunOverviewPage {
 
     /** The post-run cards, polled while the run goes so they appear when it ends. */
     static String post(RunService.View view) {
-        return RunBoardHtml.polled("div", "run-post", "", "/fragments/run/post", postInner(view), view.busy());
+        return post(postInner(view), view.busy());
+    }
+
+    /** {@link #postInner}'s HTML in its polled element, for a caller that has already drawn it. */
+    static String post(String inner, boolean live) {
+        return RunBoardHtml.polled("div", "run-post", "", "/fragments/run/post", inner, live);
     }
 
     static String postInner(RunService.View view) {

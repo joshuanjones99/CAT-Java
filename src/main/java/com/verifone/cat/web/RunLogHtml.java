@@ -115,15 +115,13 @@ final class RunLogHtml {
         for (LogSources.Option option : LogSources.options(sims)) {
             boolean on = option.value().equals(selected);
             known |= on;
-            options.append("<option value=\"").append(esc(option.value())).append('"').append(on ? " selected" : "")
-                    .append('>').append(esc(option.label())).append("</option>");
+            options.append(Html.option(option.value(), option.label(), on));
         }
         if (!known && !selected.isEmpty()) {
             // A simulator the run does not know yet (a deep link): offered, so the view is what was asked for.
             String label = selected.startsWith(LogSources.SOURCE_SIM) ? selected.substring(LogSources.SOURCE_SIM.length())
                     : selected;
-            options.append("<option value=\"").append(esc(selected)).append("\" selected>").append(esc(label))
-                    .append("</option>");
+            options.append(Html.option(selected, label, true));
         }
         return "<label>Source <select id=\"log-source\" name=\"source\">" + options + "</select></label>";
     }
@@ -158,9 +156,8 @@ final class RunLogHtml {
         return out.append('>').append(html).append("</div>").toString();
     }
 
-    /** The hash a body poll carries, for its {@code 204} when nothing changed. */
-    static String bodyHash(RunState state, Filters filters, RunLinks links) {
-        String full = body(state, filters, links);
+    /** The hash a body poll carries, for its {@code 204} when nothing changed; {@code full} is {@link #body}'s HTML. */
+    static String bodyHash(String full) {
         int start = full.indexOf('>') + 1;
         return RunBoardHtml.hash(full.substring(start, full.length() - "</div>".length()));
     }

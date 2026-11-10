@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import com.verifone.cat.core.CatHome;
+
 /**
  * CAT in a window of its own: Microsoft Edge (else Google Chrome) in app mode, {@code --app=<url>}, on a profile kept
  * for CAT under {@code ~/.cat/java/window-profile}. App mode has no tabs, address bar or browser menus; the separate
@@ -54,7 +56,7 @@ public final class AppWindow {
 
     /** {@code ~/.cat/java/window-profile}. */
     public static Path profileDir(Path home) {
-        return home.resolve(".cat").resolve("java").resolve(PROFILE_DIR);
+        return CatHome.java(home).resolve(PROFILE_DIR);
     }
 
     /** The command that opens {@code url} as CAT's window. */

@@ -3,7 +3,6 @@ package com.verifone.cat.web;
 import java.util.Set;
 
 import io.javalin.Javalin;
-import io.javalin.http.Context;
 import io.javalin.http.HttpStatus;
 
 /**
@@ -20,6 +19,9 @@ final class DownloadsRoutes {
     static final Set<String> FIELDS = Set.of("commanderBranch", "commanderBuild", "simBranch", "simBuild",
             "mode", "dist", "foundationBranch", "foundationBuild");
 
+    /** Who a refused POST is told these buttons belong to; Install Upgrade's are refused in the same words. */
+    static final String WHAT = "Downloads buttons come";
+
     private DownloadsRoutes() {}
 
     static void register(Javalin app, DownloadsService downloads) {
@@ -28,7 +30,7 @@ final class DownloadsRoutes {
             ctx.html(DownloadsPanel.fragment(downloads));
         });
         app.post("/downloads/set", ctx -> {
-            if (!fromHtmx(ctx)) {
+            if (!Requests.fromPage(ctx, WHAT)) {
                 return;
             }
             String field = ctx.queryParam("field");
@@ -40,28 +42,8 @@ final class DownloadsRoutes {
             downloads.ensureListings();
             ctx.html(DownloadsPanel.fragment(downloads));
         });
-        app.post("/downloads/refresh", ctx -> {
-            if (!fromHtmx(ctx)) {
-                return;
-            }
-            downloads.refresh();
-            ctx.html(DownloadsPanel.fragment(downloads));
-        });
-        app.post("/downloads/fetch", ctx -> {
-            if (!fromHtmx(ctx)) {
-                return;
-            }
-            downloads.notice(downloads.fetch());
-            ctx.html(DownloadsPanel.fragment(downloads));
-        });
-    }
-
-    /** True if the request came from htmx on this site. Otherwise it is refused and nothing runs. */
-    static boolean fromHtmx(Context ctx) {
-        if ("true".equals(ctx.header("HX-Request"))) {
-            return true;
-        }
-        ctx.status(HttpStatus.FORBIDDEN).result("Downloads buttons come from the CAT-Java page only.");
-        return false;
+        Requests.Actions actions = Requests.actions(app, WHAT, () -> DownloadsPanel.fragment(downloads));
+        actions.on("/downloads/refresh", ctx -> downloads.refresh());
+        actions.on("/downloads/fetch", ctx -> downloads.notice(downloads.fetch()));
     }
 }

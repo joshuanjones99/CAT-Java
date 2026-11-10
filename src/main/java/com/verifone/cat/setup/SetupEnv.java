@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import com.verifone.cat.core.CatHome;
 import com.verifone.cat.gitauth.GitAuth;
 
 /**
@@ -88,7 +89,7 @@ public final class SetupEnv {
     /** The real process: {@code System.getenv}, the user's home, the working directory, real commands, git and DPAPI. */
     public static SetupEnv system() {
         Map<String, String> env = System.getenv();
-        Path home = Path.of(System.getProperty("user.home"));
+        Path home = CatHome.user();
         return new SetupEnv(env, home, Path.of(System.getProperty("user.dir")), SetupEnv::runProcess,
                 GitAuth.system(), SavedLogins.system(env, home), true);
     }
@@ -116,7 +117,7 @@ public final class SetupEnv {
 
     /** {@code ~/.cat/java}: the only folder CAT-Java writes its own files to. */
     public Path catJavaDir() {
-        return home.resolve(".cat").resolve("java");
+        return CatHome.java(home);
     }
 
     /** The repository root, where {@code target\} is built. */

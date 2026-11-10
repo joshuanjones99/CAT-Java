@@ -162,19 +162,18 @@ final class SetupPage {
             return "<span class=\"badge\">not checked</span>";
         }
         if (snapshot.rejected().contains(item.name())) {
-            return "<span class=\"badge error\">rejected</span>";
+            return Html.badge("error", "rejected");
         }
         if (snapshot.signedIn().contains(item.name())) {
-            return "<span class=\"badge ok\">signed in</span>";
+            return Html.badge("ok", "signed in");
         }
         if (result.ok()) {
-            return "<span class=\"badge ok\">" + (result.outcome() == Outcome.PASS ? "ok" : esc(result.outcome().value()))
-                    + "</span>";
+            return Html.badge("ok", result.outcome() == Outcome.PASS ? "ok" : result.outcome().value());
         }
         String text = item.manual() ? "needs attention" : result.outcome().value();
         if (!item.required()) {
             text += " (optional)";
         }
-        return "<span class=\"badge " + (item.required() ? "error" : "warn") + "\">" + esc(text) + "</span>";
+        return Html.badge(item.required() ? "error" : "warn", text);
     }
 }

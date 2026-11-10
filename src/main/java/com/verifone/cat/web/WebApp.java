@@ -55,7 +55,6 @@ public final class WebApp {
     static final class Parts {
         PosShimClient shim;
         String title = "CAT-Java";
-        String rig = "";
         ResultsLibrary results;
         ConfigForm configForm;
         RunService run;
@@ -73,8 +72,7 @@ public final class WebApp {
     }
 
     public static Javalin create(PosShimClient shim, String title) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()), SimulatorsService.standard());
+        return create(shim, title, null, null, null, null);
     }
 
     /**
@@ -88,14 +86,12 @@ public final class WebApp {
 
     /** As {@link #create(PosShimClient, String, String)}, with the Config tab's form injected (tests use a temp file). */
     public static Javalin create(PosShimClient shim, String title, String rig, ConfigForm configForm) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm,
-                RunService.standard(rig, System.getenv()), SimulatorsService.standard());
+        return create(shim, title, null, configForm, RunService.standard(rig, System.getenv()), null);
     }
 
     /** As {@link #create(PosShimClient, String)}, with the Launch Simulators page's service injected (tests use fake processes). */
     static Javalin create(PosShimClient shim, String title, SimulatorsService sims) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()), sims);
+        return create(shim, title, null, null, null, sims);
     }
 
     /**
@@ -104,13 +100,12 @@ public final class WebApp {
      */
     public static Javalin create(PosShimClient shim, String title, Path resultsRoot) {
         return create(shim, title, new ResultsLibrary(resultsRoot, resultsRoot.resolve(RunIndex.INDEX_FILE)),
-                ConfigForm.standard(), RunService.standard("", System.getenv()), SimulatorsService.standard());
+                null, null, null);
     }
 
     /** As {@link #create(PosShimClient, String)}, with the Config tab's form injected (tests use a temp file). */
     public static Javalin create(PosShimClient shim, String title, ConfigForm configForm) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm,
-                RunService.standard("", System.getenv()), SimulatorsService.standard());
+        return create(shim, title, null, configForm, null, null);
     }
 
     /**
@@ -118,19 +113,15 @@ public final class WebApp {
      * pass a fake engine, so no run reaches a rig.
      */
     public static Javalin create(PosShimClient shim, String title, ConfigForm configForm, RunService run) {
-        return create(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), configForm, run,
-                SimulatorsService.standard());
+        return create(shim, title, null, configForm, run, null);
     }
 
-    /** As {@link #create(PosShimClient, String)}, with the web settings file injected (tests use a temp file). */
-    static Javalin createWithSettings(PosShimClient shim, String title, Path settingsFile) {
-        return createWithSettings(shim, title, settingsFile, DesktopHost.system());
-    }
-
-    /** As {@link #createWithSettings(PosShimClient, String, Path)}, with the desktop injected (tests pass a fake). */
+    /**
+     * As {@link #create(PosShimClient, String)}, with the web settings file and the desktop injected (tests use a
+     * temp file and pass a fake).
+     */
     static Javalin createWithSettings(PosShimClient shim, String title, Path settingsFile, DesktopHost desktop) {
-        Parts parts = parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()), SimulatorsService.standard());
+        Parts parts = standardParts(shim, title, null, null, null, null);
         parts.settingsFile = settingsFile;
         parts.desktop = desktop;
         return build(parts);
@@ -138,15 +129,24 @@ public final class WebApp {
 
     /** As {@link #create(PosShimClient, String)}, with the Authoring page's service injected (tests use a temp folder). */
     static Javalin createWithAuthoring(PosShimClient shim, String title, AuthoringService authoring) {
-        Parts parts = parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()), ConfigForm.standard(),
-                RunService.standard("", System.getenv()), SimulatorsService.standard());
+        Parts parts = standardParts(shim, title, null, null, null, null);
         parts.authoring = authoring;
         return build(parts);
     }
 
     private static Javalin create(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
             RunService run, SimulatorsService sims) {
-        return build(parts(shim, title, results, configForm, run, sims));
+        return build(standardParts(shim, title, results, configForm, run, sims));
+    }
+
+    /** {@link #parts}, with the operator's own in place of each part passed as {@code null}. */
+    private static Parts standardParts(PosShimClient shim, String title, ResultsLibrary results,
+            ConfigForm configForm, RunService run, SimulatorsService sims) {
+        return parts(shim, title,
+                results != null ? results : ResultsLibrary.fromEnvironment(System.getenv()),
+                configForm != null ? configForm : ConfigForm.standard(),
+                run != null ? run : RunService.standard("", System.getenv()),
+                sims != null ? sims : SimulatorsService.standard());
     }
 
     static Parts parts(PosShimClient shim, String title, ResultsLibrary results, ConfigForm configForm,
@@ -233,8 +233,7 @@ public final class WebApp {
             ctx.status(HttpStatus.NO_CONTENT);
         });
         app.post("/_cat/shutdown", ctx -> {
-            if (!"true".equals(ctx.header("HX-Request"))) {
-                ctx.status(HttpStatus.FORBIDDEN).result("Shut down comes from the CAT-Java page only.");
+            if (!Requests.fromPage(ctx, "Shut down comes")) {
                 return;
             }
             shell.notify("Shutting down CAT…", "info", 5);
@@ -268,8 +267,7 @@ public final class WebApp {
             // htmx sends HX-Request on every call. A cross-site form post cannot set a
             // custom header, so requiring it stops another page in the operator's
             // browser from pressing keys through this server.
-            if (!"true".equals(ctx.header("HX-Request"))) {
-                ctx.status(HttpStatus.FORBIDDEN).result("Key presses come from the CAT-Java page only.");
+            if (!Requests.fromPage(ctx, "Key presses come")) {
                 return;
             }
             String key = ctx.formParam("key");
@@ -287,7 +285,7 @@ public final class WebApp {
      * answers with the Overview panel and the run tab's handler never runs.
      */
     static void gateRunStart(Context ctx, Shell shell, SetupService setup, ConfigForm form, RunService run) {
-        if (!"true".equals(ctx.header("HX-Request"))) {
+        if (!Requests.isHtmx(ctx)) {
             return; // the run tab refuses it itself
         }
         String held = shell.busy().own();

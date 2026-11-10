@@ -157,18 +157,6 @@ class RunServiceTest {
         FakeRunEngine.awaitIdle(service);
     }
 
-    @Test
-    void theLogIsEmptyBeforeTheRunMakesItsFolder() throws Exception {
-        FakeRunEngine engine = new FakeRunEngine(tmp.resolve("run"), List.of(), null);
-        RunService service = service(engine);
-        assertTrue(service.logLines().isEmpty());
-        service.start(config());
-        engine.awaitWritten();
-        assertTrue(service.logLines().isEmpty());
-        engine.release();
-        FakeRunEngine.awaitIdle(service);
-    }
-
     private static void awaitPreflight(RunService service) {
         long deadline = System.nanoTime() + FakeRunEngine.WAIT.toNanos();
         while (service.view().preflighting()) {

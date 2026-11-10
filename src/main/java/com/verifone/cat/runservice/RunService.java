@@ -513,15 +513,6 @@ public final class RunService {
 
     // ------------------------------------------------------------------ reading
 
-    /** The current run's log lines, the last {@link RunLogTail#LINES}; empty when there is no run folder yet. */
-    public List<String> logLines() throws IOException {
-        Path where;
-        synchronized (this) {
-            where = folderNow();
-        }
-        return where == null ? List.of() : RunLogTail.tail(where, RunLogTail.LINES);
-    }
-
     /** The current run's state as its events say it now; the empty state before a run has made its folder. */
     public synchronized RunState state() {
         RunState state = refreshed();
