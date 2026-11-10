@@ -20,6 +20,10 @@ cmd /c "cd /d C:\gitrepos\CAT-Java && C:\gitrepos\CAT-Java\build.cmd test"     #
 cmd /c "cd /d C:\gitrepos\CAT-Java && C:\gitrepos\CAT-Java\build.cmd test -Dtest=SomeTest"
 ```
 
+`run.cmd` rebuilds the jar itself (`package -DskipTests`) when it is missing or older than the
+sources, and both scripts stage Java 17 from Artifactory when it is missing (`bootstrap.ps1`).
+A failing test means `build.cmd` makes no jar; it lists the failing classes.
+
 Results are in `target\surefire-reports\TEST-*.xml` (the quiet build prints little). Test
 classes run in parallel JVM forks (one per two cores; `-Dcat.test.forks=1` for one JVM), so
 the full suite takes two to three minutes; a few browser tests drive Playwright's Chromium

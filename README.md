@@ -52,10 +52,23 @@ Artifactory). `build.cmd` and `run.cmd` use it whatever `JAVA_HOME` says, and th
 enforcer refuses to build on any other major version. `$CAT_TOOLS_ROOT` moves the tools
 root, as it does for the Python CAT.
 
+On a fresh machine nothing needs installing by hand: when that JDK is missing, `build.cmd` and
+`run.cmd` stage Java 17 v1.2 from Artifactory (`bootstrap.ps1`). The login is
+`ARTIFACTORY_USER`/`ARTIFACTORY_PASSWORD`, else a saved one (CAT-Java's, the Python CAT's,
+Monarch's), else it asks once and saves it, encrypted for this Windows account, to
+`~\.cat\java\artifactory.credentials`. It asks in the console, or, when CAT starts from the
+`CAT-Java` shortcut (whose console is hidden), in a sign-in window; a failure there is shown
+in a message box. The Maven wrapper then downloads Maven and every
+library (Maven Central), and after a build `fetch-sims` stages Java 17 v1.1 and the simulators.
+
 ## Build, test and run
 
+`run.cmd` builds `target\cat-java.jar` itself when it is missing or older than `pom.xml`, `.mvn\`
+or anything under `src\main\`, without the tests; `build.cmd` is the build that runs them. A
+double-clicked `build.cmd` or `run.cmd` that fails keeps its window open.
+
 ```bat
-build.cmd                 :: compile, test, and package target\cat-java.jar
+build.cmd                 :: compile, test, package target\cat-java.jar, then fetch-sims
 build.cmd test            :: tests only
 run.cmd --rig lab         :: the web UI on http://127.0.0.1:8090/
 run.cmd web --rig lab --register topaz101 --port 8091   :: the same, with the word "web"
