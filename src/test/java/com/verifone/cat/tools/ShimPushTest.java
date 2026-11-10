@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -16,7 +18,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.devices.DeviceError;
+import com.verifone.cat.provision.Artifact;
 import com.verifone.cat.provision.PosShimBuild;
+import com.verifone.cat.provision.ProvisionOptions;
 import com.verifone.cat.provision.ProvisionReport;
 import com.verifone.cat.provision.TargetRole;
 import com.verifone.cat.provision.TargetSpec;
@@ -24,9 +28,9 @@ import com.verifone.cat.setup.SetupItems;
 import com.verifone.cat.sims.ToolsRoot;
 
 /**
- * {@link ShimPush}'s checks before anything is reached, and the one register target it hands provision. Over a fake
- * provision, with the key and payload in a temporary folder; nothing here reaches a register. Evidence about this
- * repository only.
+ * {@link ShimPush}'s checks before anything is reached, the build it runs when the payload lacks the shim, and the one
+ * register target and artifact it hands provision. Over a fake build and a fake provision, with the key and payload in
+ * a temporary folder; nothing here reaches a register or compiles. Evidence about this repository only.
  */
 class ShimPushTest {
 
@@ -36,11 +40,35 @@ class ShimPushTest {
     Path dir;
 
     private final AtomicReference<TargetSpec> provisioned = new AtomicReference<>();
+    private final AtomicReference<ProvisionOptions> options = new AtomicReference<>();
+    private final AtomicReference<PosShimBuild.Options> built = new AtomicReference<>();
 
-    private final ShimPush.Provision fake = (spec, options) -> {
+    private final ShimPush.Provision fake = (spec, opts) -> {
         provisioned.set(spec);
+        options.set(opts);
         return new ProvisionReport(ShimPush.LABEL, false);
     };
+
+    /** A build that writes every output, as the real one does. */
+    private final ShimPush.Build builds = (opts, say) -> {
+        built.set(opts);
+        write(opts.payload(), PosShimBuild.OUTPUTS);
+    };
+
+    private final ShimPush.Build mustNotBuild = (opts, say) -> {
+        throw new AssertionError("the payload was built already");
+    };
+
+    private static void write(Path pos, List<String> names) {
+        try {
+            Files.createDirectories(pos);
+            for (String name : names) {
+                Files.writeString(pos.resolve(name), "built");
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     private Path key() throws IOException {
         Path key = dir.resolve("key.ppk");
@@ -48,17 +76,20 @@ class ShimPushTest {
         return key;
     }
 
-    private Path payload() throws IOException {
-        Path pos = dir.resolve("payload").resolve("pos");
-        Files.createDirectories(pos);
-        for (String name : PosShimBuild.OUTPUTS) {
-            Files.writeString(pos.resolve(name), "built");
-        }
-        return pos.getParent();
+    private Path builtPayload() {
+        Path root = dir.resolve("payload");
+        write(root.resolve("pos"), PosShimBuild.OUTPUTS);
+        return root;
     }
 
     private Map<String, String> env(Path key, Path payload) {
-        return Map.of(SetupItems.SSH_KEY_ENV, key.toString(), "CAT_PAYLOAD_ROOT", payload.toString());
+        return Map.of(SetupItems.SSH_KEY_ENV, key.toString(), "CAT_PAYLOAD_ROOT", payload.toString(),
+                "CAT_BRIDGE_ROOT", dir.resolve("cat-java").toString(), "PETROAPPS_ROOT", dir.resolve("petroapps")
+                        .toString(), ToolsRoot.ENV, dir.resolve("tools").toString());
+    }
+
+    private static String lastError(Say.Recorded say) {
+        return say.errLines().get(say.errLines().size() - 1);
     }
 
     @Test
@@ -69,51 +100,86 @@ class ShimPushTest {
     }
 
     @Test
-    void noKeyFailsWithNothingReached() throws IOException {
+    void noKeyFailsWithNothingBuiltOrReached() {
         Say.Recorded say = new Say.Recorded();
 
-        assertFalse(ShimPush.push(REG, env(dir.resolve("absent.ppk"), payload()), fake, say));
+        assertFalse(ShimPush.push(REG, env(dir.resolve("absent.ppk"), builtPayload()), mustNotBuild, fake, say));
 
         assertNull(provisioned.get());
-        String error = say.errLines().get(say.errLines().size() - 1);
-        assertTrue(error.startsWith("no SSH key at"), error);
-        assertTrue(error.endsWith("nothing was pushed"), error);
+        assertTrue(lastError(say).startsWith("no SSH key at"), lastError(say));
     }
 
     @Test
-    void noBuiltPayloadFailsWithNothingReachedAndSaysWhatIsMissing() throws IOException {
+    void aPayloadWithoutTheShimIsBuiltFromCatJavasBridgeThenPushed() throws IOException {
+        Path payload = dir.resolve("empty");
         Say.Recorded say = new Say.Recorded();
 
-        assertFalse(ShimPush.push(REG, env(key(), dir.resolve("empty")), fake, say));
+        assertTrue(ShimPush.push(REG, env(key(), payload), builds, fake, say), say.errLines().toString());
 
-        assertNull(provisioned.get());
-        String error = say.errLines().get(say.errLines().size() - 1);
-        assertTrue(error.contains("no pos-shim payload in"), error);
-        assertTrue(error.contains("petrotest-pos-shim.jar"), error);
-        assertTrue(error.contains("build-pos-shim"), error);
+        PosShimBuild.Options build = built.get();
+        assertEquals(dir.resolve("cat-java"), build.repoRoot());
+        assertEquals(dir.resolve("petroapps"), build.petroapps());
+        assertEquals(dir.resolve("tools").resolve("pos-shim-deps"), build.depsDir());
+        assertEquals(payload.resolve("pos"), build.payload());
+        assertFalse(build.check());
+        assertTrue(ShimPush.missingPayload(payload).isEmpty());
+        assertEquals("register.invalid", provisioned.get().host());
     }
 
     @Test
-    void theRegisterIsProvisionedAloneAsRootWithTheKey() throws IOException {
+    void aBuiltPayloadIsPushedWithoutBuildingAgain() throws IOException {
+        assertTrue(ShimPush.push(REG, env(key(), builtPayload()), mustNotBuild, fake, new Say.Recorded()));
+    }
+
+    @Test
+    void aFailedBuildFailsThePushWithNothingReached() throws IOException {
+        Say.Recorded say = new Say.Recorded();
+
+        assertFalse(ShimPush.push(REG, env(key(), dir.resolve("empty")), (opts, s) -> {
+            throw new PosShimBuild.BuildError("no javac in this JRE");
+        }, fake, say));
+
+        assertNull(provisioned.get());
+        assertEquals("could not build the pos-shim: no javac in this JRE; nothing was pushed", lastError(say));
+    }
+
+    @Test
+    void aBuildThatLeavesAFileOutFailsThePush() throws IOException {
+        Say.Recorded say = new Say.Recorded();
+
+        assertFalse(ShimPush.push(REG, env(key(), dir.resolve("empty")),
+                (opts, s) -> write(opts.payload(), List.of("petrotest-pos-shim.jar")), fake, say));
+
+        assertNull(provisioned.get());
+        assertTrue(lastError(say).contains("left out automation-target-pos-topaz.jar"), lastError(say));
+    }
+
+    @Test
+    void theRegisterAloneGetsTheShimsArtifactAloneAsRootWithTheKey() throws IOException {
         Path key = key();
         Say.Recorded say = new Say.Recorded();
 
-        assertTrue(ShimPush.push(REG, env(key, payload()), fake, say));
+        assertTrue(ShimPush.push(REG, env(key, builtPayload()), mustNotBuild, fake, say));
 
-        TargetSpec spec = provisioned.get();
         assertEquals(new TargetSpec(TargetRole.REGISTER, "Reg101", "register.invalid", "root", 22, 8801,
-                key.toString()), spec);
-        assertTrue(say.outLines().get(0).contains("the Commander is not touched"), say.outLines().toString());
+                key.toString()), provisioned.get());
+        ProvisionOptions opts = options.get();
+        assertEquals(List.of("pos_rmi_agent"), opts.artifacts().stream().map(Artifact::name).toList());
+        assertEquals(List.of(), opts.registerChecklist());
+        assertFalse(opts.stage());
+        assertFalse(opts.posShimChecklist().isEmpty());
+        assertTrue(say.outLines().stream().anyMatch(l -> l.contains("the Commander is not touched")),
+                say.outLines().toString());
     }
 
     @Test
     void aProvisionThatThrowsIsAFailedPushNotACrash() throws IOException {
         Say.Recorded say = new Say.Recorded();
 
-        assertFalse(ShimPush.push(REG, env(key(), payload()), (spec, options) -> {
+        assertFalse(ShimPush.push(REG, env(key(), builtPayload()), mustNotBuild, (spec, opts) -> {
             throw new DeviceError("ssh: connection refused");
         }, say));
 
-        assertEquals("provision: ssh: connection refused", say.errLines().get(say.errLines().size() - 1));
+        assertEquals("provision: ssh: connection refused", lastError(say));
     }
 }

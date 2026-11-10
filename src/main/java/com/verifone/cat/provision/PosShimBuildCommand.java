@@ -106,7 +106,7 @@ public final class PosShimBuildCommand {
                 }
                 PosShimBuild.pullDepsFromRig(rig, env, deps, transports, out::println);
             }
-            PosShimBuild.build(new PosShimBuild.Options(ProvisionPaths.pythonRoot(env), petroappsRoot, deps, payload,
+            PosShimBuild.build(new PosShimBuild.Options(ProvisionPaths.bridgeRoot(env), petroappsRoot, deps, payload,
                     check), compiler, out::println);
             return EXIT_OK;
         } catch (PosShimBuild.BuildError e) {

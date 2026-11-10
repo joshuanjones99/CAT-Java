@@ -218,9 +218,9 @@ public final class ProvisionRunner {
 
     /**
      * One register on its own, with no rig file: the POS page's Push shim to register (user, 2026-11-10; no Python
-     * equivalent). The register gets both its lists, the browser override (the CDP relay the POS page's screen goes
-     * through) and the pos-shim; the Commander is never reached. {@code label} stands in for the rig's name in the
-     * stamp and the staged payload.
+     * equivalent). The register gets {@code opts}' register checklist and its pos-shim checklist, and {@code opts}'
+     * artifacts (the shim push narrows both to the shim's); the Commander is never reached. {@code label} stands in for
+     * the rig's name in the stamp and the staged payload.
      */
     public static ProvisionReport provisionRegister(TargetSpec spec, String label, ProvisionOptions opts) {
         if (spec.role() != TargetRole.REGISTER) {

@@ -160,7 +160,7 @@ class PosShimBuildTest {
         tree();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
-        Map<String, String> env = Map.of("CAT_PYTHON_ROOT", cat.toString());
+        Map<String, String> env = Map.of("CAT_BRIDGE_ROOT", cat.toString());
         PosShimBuildCommand command = new PosShimBuildCommand(target -> {
             throw new AssertionError("no SSH in a test");
         }, PosShimBuild.javac());
