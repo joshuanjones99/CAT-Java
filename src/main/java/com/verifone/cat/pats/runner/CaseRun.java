@@ -65,7 +65,7 @@ public final class CaseRun {
     private Path baselineDir;
     private EvidenceSink evidence;
     private boolean update;
-    private boolean keepSleeps = "keep".equals(System.getenv(SLEEPS_ENV));
+    private final boolean keepSleeps ="keep".equals(System.getenv(SLEEPS_ENV));
     private double carry;
     private boolean afterFailure;
     /** The texts the action in hand compared, {expected, actual}; null until a handler sets them. */
@@ -104,12 +104,6 @@ public final class CaseRun {
     /** Whether this is an update run, which writes baselines instead of comparing them. */
     public CaseRun withUpdate(boolean update) {
         this.update = update;
-        return this;
-    }
-
-    /** Whether {@code SLEEP} waits its full time as PATS does, rather than carrying it into the next wait. */
-    public CaseRun withKeepSleeps(boolean keepSleeps) {
-        this.keepSleeps = keepSleeps;
         return this;
     }
 

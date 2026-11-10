@@ -6,7 +6,6 @@ import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.ScratchKey;
 import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
-import com.verifone.cat.pos.driver.PosDriver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.BooleanSupplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -138,10 +138,9 @@ final class Touch {
      */
     public static void boundaryPause(CaseRun run, PosUiContext ctx) {
         PosUi ui = new PosUi(ctx);
-        Optional<Long> last = ctx.session().lastTouch().isPresent()
-                ? Optional.of(ctx.session().lastTouch().getAsLong()) : Optional.empty();
+        OptionalLong last = ctx.session().lastTouch();
         if (!PosUiCaseState.touched(run) && last.isPresent()) {
-            ui.bounded(ui.left(last.get(), ctx.timings().touchSettle()));
+            ui.bounded(ui.left(last.getAsLong(), ctx.timings().touchSettle()));
         }
     }
 

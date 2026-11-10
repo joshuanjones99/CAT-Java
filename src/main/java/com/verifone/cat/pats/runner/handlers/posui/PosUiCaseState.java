@@ -77,11 +77,6 @@ public final class PosUiCaseState {
         return run.scratch(DevicesFamily.KEYED_AT).map(OptionalLong::of).orElse(OptionalLong.empty());
     }
 
-    /** Records that the case keyed the pinpad at {@code nanos}, so the next touch waits out PATS's pause after it. */
-    public static void markKeyed(CaseRun run, long nanos) {
-        run.setScratch(DevicesFamily.KEYED_AT, nanos);
-    }
-
     static void clearKeyed(CaseRun run) {
         run.clearScratch(DevicesFamily.KEYED_AT);
     }

@@ -2,7 +2,6 @@ package com.verifone.cat.pats.runner.handlers.validation;
 
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.PatsStepError;
-import com.verifone.cat.pats.runner.RunnableAction;
 import com.verifone.cat.pats.runner.ValidationFailure;
 import com.verifone.cat.validate.tlog.Tlog;
 import com.verifone.cat.validate.tlog.TlogOptions;
@@ -16,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,15 +63,6 @@ final class ValidationSupport {
     }
 
     // -- PATS field reads ---------------------------------------------------------------------
-
-    /** Python's {@code _require}: the field's value, or a hard step failure when the field is absent. */
-    static String require(RunnableAction action, String name) {
-        String value = action.raw(name);
-        if (value == null) {
-            throw new PatsStepError(action.describe() + " has no " + name + " field (PATS would throw here)");
-        }
-        return value;
-    }
 
     /** {@code _stem}: {@code PETROCORE-36906-1-Receipt.txt} becomes {@code PETROCORE-36906-1}. */
     static String stem(String filename, String kind) {
@@ -301,7 +292,12 @@ final class ValidationSupport {
                 if (kinds.contains(kind) && j - i > 1) {
                     List<Element> run = new ArrayList<>(children.subList(i, j));
                     Element after = j < children.size() ? children.get(j) : null;
-                    Comparator<Element> order = Comparator.comparing(key)
+                    // Each key once, not once per comparison: an entry's key is a clone serialised.
+                    Map<Element, String> keys = new IdentityHashMap<>();
+                    for (Element member : run) {
+                        keys.put(member, key.apply(member));
+                    }
+                    Comparator<Element> order = Comparator.<Element, String>comparing(keys::get)
                             .thenComparing(ValidationSupport::serialise);
                     run.sort(order);
                     for (Element member : children.subList(i, j)) {

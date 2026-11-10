@@ -1,7 +1,5 @@
 package com.verifone.cat.pats.runner.handlers.configuration;
 
-import static com.verifone.cat.pats.runner.handlers.configuration.ActionFields.require;
-
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.RunnableAction;
@@ -79,7 +77,7 @@ final class SimulatorFiles {
         if (target == null) {
             throw new PatsStepError("UPDATE_CONFIGURATION: no simulator property file for '" + device + "'");
         }
-        byte[] data = context.petroapps().shared(ENDPOINTS + "/" + device, require(action, "SELECT_FILE"));
+        byte[] data = context.petroapps().shared(ENDPOINTS + "/" + device, action.require("SELECT_FILE"));
         if (BUYPASS_PROP.equals(target)) {
             Optional<BuypassV2> fepsim = context.buypassV2().get();
             if (fepsim.isPresent()) {
@@ -113,8 +111,8 @@ final class SimulatorFiles {
         if (device.isEmpty()) {
             throw new PatsStepError("HTTP_SIM_EVENT names no DEVICE (PATS's handler then does nothing)");
         }
-        String controlName = require(action, "SELECT_CONTROL_FILE");
-        String payloadName = require(action, "SELECT_PAYLOAD_FILE");
+        String controlName = action.require("SELECT_CONTROL_FILE");
+        String payloadName = action.require("SELECT_PAYLOAD_FILE");
         String endpoint = ENDPOINTS + "/" + device;
         byte[] control;
         try {

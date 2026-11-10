@@ -1,7 +1,7 @@
 package com.verifone.cat.pats;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.validate.PyRepr;
 
@@ -90,7 +90,7 @@ public final class WidgetKeys {
             if (in == null) {
                 throw new IllegalStateException("classpath resource " + resource + " is missing");
             }
-            return parse(new ObjectMapper().readTree(in));
+            return parse(Json.MAPPER.readTree(in));
         } catch (IOException e) {
             throw new UncheckedIOException("cannot read " + resource, e);
         }

@@ -52,10 +52,10 @@ final class Operator {
         ui.pressEnter(null);
         String enterId = ui.widget("ENTER_ID");
         wait(run, () -> ui.visibleJoined(prompt).contains(enterId), "the Enter ID prompt");
-        ui.pressEnter(PosUi.require(action, "USER_ID"));
+        ui.pressEnter(action.require("USER_ID"));
         String enterPassword = ui.widget("ENTER_PASSWORD").strip();
         wait(run, () -> ui.visibleJoined(prompt).contains(enterPassword), "the password prompt");
-        ui.pressEnter(PosUi.require(action, "PASSWORD"));
+        ui.pressEnter(action.require("PASSWORD"));
     }
 
     private void wait(CaseRun run, BooleanSupplier ready, String what) {
@@ -94,7 +94,7 @@ final class Operator {
                 timeout, ui.timings().poll())) {
             throw new PatsStepError(title + " to contain " + text + ": timed out");
         }
-        ui.pressEnter(PosUi.require(action, "DRAWER_AMOUNT"));
+        ui.pressEnter(action.require("DRAWER_AMOUNT"));
     }
 
     /**
@@ -120,7 +120,7 @@ final class Operator {
                 Validations.QUARTER_SECOND)) {
             throw new PatsStepError("the select-till menu was not up within " + timeout.toSeconds() + "s");
         }
-        ui.pressEnter(PosUi.require(action, "SELECT_TILL_OPTION"));
+        ui.pressEnter(action.require("SELECT_TILL_OPTION"));
     }
 
     /**

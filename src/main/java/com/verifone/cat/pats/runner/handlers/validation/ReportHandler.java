@@ -71,15 +71,15 @@ final class ReportHandler implements ActionHandler {
 
     @Override
     public void handle(CaseRun run, RunnableAction action) throws Exception {
-        String name = ValidationSupport.require(action, "SELECT_FILE");
+        String name = action.require("SELECT_FILE");
         Path catPath = ValidationSupport.baselineDir(run).resolve(
                 ValidationSupport.stem(name, "Report") + BASELINE_SUFFIX);
         boolean hasReference = context.references().reference("Report", name).isPresent();
         if (!Files.isRegularFile(catPath) && !hasReference) {
             throw new ValidationFailure("reference file " + name + " does not exist (PATS fails the same way)");
         }
-        String cmd = ValidationSupport.require(action, "CMD");
-        String report = ValidationSupport.require(action, "REPORTNAME");
+        String cmd = action.require("CMD");
+        String report = action.require("REPORTNAME");
         Element root = context.commander().fetchReport(cmd, report,
                 action.get("PERIOD", "1"),
                 action.get("FILENAME", "current"),

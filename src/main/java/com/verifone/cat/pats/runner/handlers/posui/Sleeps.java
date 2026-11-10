@@ -50,7 +50,7 @@ final class Sleeps {
 
     /** The SLEEP handler. */
     void handle(CaseRun run, RunnableAction action) {
-        double seconds = Long.parseLong(PosUi.require(action, SLEEP).strip()) / 1000.0;
+        double seconds = Long.parseLong(action.require(SLEEP).strip()) / 1000.0;
         Duration duration = PosUi.seconds(seconds);
         List<RunnableAction> actions = run.kase().actions();
         int index = action.index();

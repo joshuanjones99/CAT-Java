@@ -109,7 +109,7 @@ final class TransactionHandler implements ActionHandler {
 
     @Override
     public void handle(CaseRun run, RunnableAction action) throws Exception {
-        String name = ValidationSupport.require(action, "SELECT_FILE");
+        String name = action.require("SELECT_FILE");
         Path catPath = ValidationSupport.baselineDir(run).resolve(
                 ValidationSupport.stem(name, "Tlog") + BASELINE_SUFFIX);
         boolean hasReference = context.references().reference("Tlog", name).isPresent();

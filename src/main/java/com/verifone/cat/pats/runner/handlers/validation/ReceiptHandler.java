@@ -77,7 +77,7 @@ final class ReceiptHandler implements ActionHandler {
 
     @Override
     public void handle(CaseRun run, RunnableAction action) throws Exception {
-        String name = ValidationSupport.require(action, "SELECT_FILE");
+        String name = action.require("SELECT_FILE");
         double timeout = run.budget(RECEIPT_WAIT);
         Receipt receipt = capture(run, timeout);
         String text = receipt.text();

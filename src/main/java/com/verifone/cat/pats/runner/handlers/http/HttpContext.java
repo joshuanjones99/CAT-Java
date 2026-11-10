@@ -7,8 +7,8 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
-import java.util.concurrent.locks.LockSupport;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.pats.runner.PatsStepError;
 import com.verifone.cat.pats.runner.handlers.cloudsettle.CloudSettle;
 
@@ -107,13 +107,8 @@ public final class HttpContext {
 
     /** Parks for {@code duration}; an interrupt is a step failure, never a silent retry. */
     static void park(Duration duration) {
-        long deadline = System.nanoTime() + duration.toNanos();
-        for (long left = duration.toNanos(); left > 0; left = deadline - System.nanoTime()) {
-            LockSupport.parkNanos(left);
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-                throw new PatsStepError("interrupted during a pause in the Commander's retry schedule");
-            }
+        if (!Waits.pause(duration)) {
+            throw new PatsStepError("interrupted during a pause in the Commander's retry schedule");
         }
     }
 }

@@ -161,7 +161,7 @@ public record Phrase(
         return fields;
     }
 
-    private static boolean containsAny(String text, String chars) {
+    static boolean containsAny(String text, String chars) {
         for (char c : chars.toCharArray()) {
             if (text.indexOf(c) >= 0) {
                 return true;

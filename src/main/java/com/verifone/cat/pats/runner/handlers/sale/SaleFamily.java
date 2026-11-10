@@ -231,7 +231,7 @@ public final class SaleFamily {
     /** {@code POSDevice.cashMop}. */
     static void mop(CaseRun run, RunnableAction action, SaleContext context) {
         sweep(context);
-        context.rmi().mop(ActionFields.require(action, "MOP"), ActionFields.require(action, "DATA"));
+        context.rmi().mop(action.require("MOP"), action.require("DATA"));
         awaitTender(run, action, context);
     }
 
@@ -239,9 +239,9 @@ public final class SaleFamily {
     static void otherMop(CaseRun run, RunnableAction action, SaleContext context) {
         sweep(context);
         context.rmi().otherMop(
-                ActionFields.require(action, "OTHER_MOP"),
+                action.require("OTHER_MOP"),
                 action.get("DATA"),
-                ActionFields.require(action, "POSITION"),
+                action.require("POSITION"),
                 action.get("SPECIALDISCOUNT", "N"));
         awaitTender(run, action, context);
     }
@@ -277,7 +277,7 @@ public final class SaleFamily {
         String selectFile = action.get("SELECT_FILE", "NO FILE");
         sweep(context);
         context.rmi().addItem(new SaleRmi.AddItem(
-                ActionFields.require(action, "PLU"),
+                action.require("PLU"),
                 action.get("TAX EXC", "N"),
                 action.get("MODIFIER", "0"),
                 action.get("DISCOUNT", "0"),
@@ -296,8 +296,8 @@ public final class SaleFamily {
     /** {@code POSDevice.quantityKey}: the key, then ENTER carrying the quantity. */
     static void quantity(CaseRun run, RunnableAction action, SaleContext context) {
         sweep(context);
-        context.rmi().pressKeys(ActionFields.require(action, "QUANTITY_KEY"));
-        context.rmi().pressEnter(ActionFields.require(action, "QUANTITY"));
+        context.rmi().pressKeys(action.require("QUANTITY_KEY"));
+        context.rmi().pressEnter(action.require("QUANTITY"));
     }
 
     /**
@@ -306,7 +306,7 @@ public final class SaleFamily {
      */
     static void prepay(CaseRun run, RunnableAction action, SaleContext context) {
         run.setScratch(ScratchKey.PREPAY, true);
-        String pump = ActionFields.require(action, "PUMP NO");
+        String pump = action.require("PUMP NO");
         FuelPumps pumps = context.fuelPumps();
         sweep(context);
         context.rmi().prepay(
@@ -320,7 +320,7 @@ public final class SaleFamily {
 
     /** {@code POSDevice.fuel}: a sale on a pump, waiting for the pump to be claimable. */
     static void fuel(CaseRun run, RunnableAction action, SaleContext context) {
-        String pump = ActionFields.require(action, "PUMP");
+        String pump = action.require("PUMP");
         FuelPumps pumps = context.fuelPumps();
         sweep(context);
         context.rmi().fuel(
@@ -334,7 +334,7 @@ public final class SaleFamily {
      * then presses APPROVE carrying the pump.
      */
     static void approve(CaseRun run, RunnableAction action, SaleContext context) {
-        String pump = ActionFields.require(action, "PUMP NO");
+        String pump = action.require("PUMP NO");
         int number = Integer.parseInt(pump);
         FuelPumps pumps = context.fuelPumps();
         PollUntil.until(
@@ -358,7 +358,7 @@ public final class SaleFamily {
 
     /** {@code POSDevice.storeReFundKey}: the next receipt's TRAN# and STAN are kept under the key. */
     static void storeTransMap(CaseRun run, RunnableAction action) {
-        run.setScratch(ScratchKey.TRANS_MAP_KEY, ActionFields.require(action, "REFUND_KEY"));
+        run.setScratch(ScratchKey.TRANS_MAP_KEY, action.require("REFUND_KEY"));
     }
 
     /**
@@ -388,7 +388,7 @@ public final class SaleFamily {
      * STAN is stored; the TLog the case last validated gives one when the receipt has none; with neither, VOID_TICKET, as PATS.
      */
     static void refundWithTransMap(CaseRun run, RunnableAction action, SaleContext context) {
-        String key = ActionFields.require(action, "REFUND_KEY");
+        String key = action.require("REFUND_KEY");
         if (run.scratch(ScratchKey.TRANS_MAP_KEY).isPresent()) {
             bindTransMap(run, context.screen().receiptText());
         }
@@ -446,8 +446,8 @@ public final class SaleFamily {
 
     /** {@code POSDevice.voidline}: the overlay check, then the void-line keys with the PLU and quantity. */
     static void voidLine(CaseRun run, RunnableAction action, SaleContext context) {
-        String plu = ActionFields.require(action, "PLU");
-        String quantity = ActionFields.require(action, "QUANTITY");
+        String plu = action.require("PLU");
+        String quantity = action.require("QUANTITY");
         sweep(context);
         overlayPause(run, context);
         context.rmi().voidLine(plu, quantity);
@@ -506,8 +506,8 @@ public final class SaleFamily {
     static void addDeptItem(CaseRun run, RunnableAction action, SaleContext context) {
         sweep(context);
         context.rmi().addDeptItem(new SaleRmi.AddDeptItem(
-                ActionFields.require(action, "DEPT"),
-                ActionFields.require(action, "AMOUNT"),
+                action.require("DEPT"),
+                action.require("AMOUNT"),
                 action.get("DEPARTMENT NO"),
                 action.get("OTHER DEPARTMENT", "N"),
                 action.get("QUANTITY", "0"),

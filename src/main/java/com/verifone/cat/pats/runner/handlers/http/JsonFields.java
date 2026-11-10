@@ -8,7 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * JSON reads as PATS's HTTP steps make them: a body parsed or refused, a {@code $.a.b[0]} path resolved, and a node
@@ -16,7 +16,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 final class JsonFields {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Pattern INDEXED = Pattern.compile("(.*?)\\[(\\d+)\\]");
 
     private JsonFields() {
@@ -38,7 +37,7 @@ final class JsonFields {
             return null;
         }
         try {
-            JsonNode node = MAPPER.readTree(text);
+            JsonNode node = Json.MAPPER.readTree(text);
             return node == null || node.isMissingNode() ? null : node;
         } catch (java.io.IOException e) {
             return null;
