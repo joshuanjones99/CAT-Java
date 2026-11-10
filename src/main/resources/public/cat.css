@@ -878,6 +878,12 @@ pre.log {
 .stages { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 .stages li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
 .stage-mark { display: inline-block; width: 1.2em; text-align: center; color: var(--cat-muted); }
+/* Tools: one button per row, its outcome and any setup warning beside it. */
+.tools-panel > * + * { margin-top: var(--cat-section-gap); }
+.tools-panel > p.warn { margin-bottom: 0; }
+.tool-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.tool-list li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.tool-list button { min-width: min(17rem, 100%); }
 .job { margin-top: 16px; }
 
 /* ------------------------------------------------------------------ POS */
