@@ -19,7 +19,7 @@ import com.verifone.cat.runconfig.ConfigView;
 
 /**
  * Turns the Config tab's choices into the {@link LaunchConfig} Start run launches, or says why they cannot start a
- * run, and reads the choices back for the Overview's Pre-Run card: the Python CAT's {@code CatService._startable_config}
+ * run, and reads the choices back for the Overview's Run Summary card: the Python CAT's {@code CatService._startable_config}
  * over {@code ConfigForm.launch_config} and {@code ConfigForm.describe}.
  *
  * <p>The config is made the way {@code launch} makes it ({@link LaunchDefaults}): the ticked plans and Run scope and
@@ -170,7 +170,7 @@ public final class RunStart {
         }
     }
 
-    /** The Pre-Run card's lines ({@code FormLaunchConfigMixin.describe}), then what the run will start. */
+    /** The Run Summary card's lines ({@code FormLaunchConfigMixin.describe}), then what the run will start. */
     static List<Line> readBack(LaunchConfig config, ConfigView view, LaunchDefaults.Picked picked, String rigProblem) {
         List<Line> lines = new ArrayList<>();
         lines.add(plain("Test plan(s):  " + String.join(", ", config.testPlans())));

@@ -26,8 +26,12 @@ final class RunRoutes {
     private RunRoutes() {}
 
     static void register(Javalin app, ConfigForm form, RunService run) {
-        app.get("/run", ctx -> ctx.html(Layout.page(Section.RUN, "Run",
-                RunPage.body(RunPage.Tab.OVERVIEW, overview(form, run)))));
+        app.get("/run", ctx -> {
+            RunService.View view = run.view();
+            RunStart.Plan plan = plan(form, run, view);
+            ctx.html(Layout.page(Section.RUN, "Run", RunOverviewPage.controls(view, plan, false),
+                    RunPage.body(RunPage.Tab.OVERVIEW, RunOverviewPage.panel(view, plan, run.scheduleView()))));
+        });
         app.get("/fragments/run", ctx -> ctx.html(overview(form, run)));
         app.get("/fragments/run/head", ctx -> ctx.html(RunOverviewPage.head(run.view(), run.scheduleView())));
         app.get("/fragments/run/clock", ctx -> ctx.html(RunOverviewPage.clock(run.view())));
@@ -110,11 +114,18 @@ final class RunRoutes {
         }));
     }
 
-    /** The Overview panel as the Config tab reads it now, and the current run. */
+    /**
+     * The Overview panel as the Config tab reads it now, and the current run, with the title row's controls as an
+     * out-of-band swap: every panel answer (an action, a poll) redraws both.
+     */
     static String overview(ConfigForm form, RunService run) {
         RunService.View view = run.view();
-        RunStart.Plan plan = view.started() ? new RunStart.Plan(null, "") : RunStart.from(form, run.startContext());
-        return RunOverviewPage.panel(view, plan, run.scheduleView());
+        RunStart.Plan plan = plan(form, run, view);
+        return RunOverviewPage.panel(view, plan, run.scheduleView()) + RunOverviewPage.controls(view, plan, true);
+    }
+
+    private static RunStart.Plan plan(ConfigForm form, RunService run, RunService.View view) {
+        return view.started() ? new RunStart.Plan(null, "") : RunStart.from(form, run.startContext());
     }
 
     /** A dialog over the live run, answered 204 when a poll would draw the same. */

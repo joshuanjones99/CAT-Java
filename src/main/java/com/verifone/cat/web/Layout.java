@@ -77,7 +77,15 @@ final class Layout {
      * @param body    the page's HTML, already escaped by the page that built it
      */
     static String page(Section active, String heading, String body) {
-        return render(active, heading, body, false);
+        return render(active, heading, "", body, false);
+    }
+
+    /**
+     * As {@link #page}, with {@code actions} (already escaped) at the right of the title row, after the setup
+     * warning: the Run page's Start run and Preflight, as the Python CAT's {@code run.py}.
+     */
+    static String page(Section active, String heading, String actions, String body) {
+        return render(active, heading, actions, body, false);
     }
 
     /**
@@ -86,10 +94,10 @@ final class Layout {
      * shows on a narrow window, where the sidebar is a drawer.
      */
     static String screen(Section active, String heading, String body) {
-        return render(active, heading, body, true);
+        return render(active, heading, "", body, true);
     }
 
-    private static String render(Section active, String heading, String body, boolean bare) {
+    private static String render(Section active, String heading, String actions, String body, boolean bare) {
         Shell shell = SHELL.get();
         String setupStatus = shell == null ? "" : shell.setupStatus();
         StringBuilder top = new StringBuilder();
@@ -153,7 +161,7 @@ final class Layout {
                   <div id="cat-toasts" class="toasts" aria-live="polite"></div>
                 </body>
                 </html>
-                """.formatted(esc(heading), top, bottom, warning, body, shell == null ? "off" : "on", since,
+                """.formatted(esc(heading), top, bottom, warning + actions, body, shell == null ? "off" : "on", since,
                 loading.isEmpty() ? " hidden" : "", esc(loading), bare ? " bare" : "", esc(WindowIcon.TITLE_SUFFIX));
     }
 
