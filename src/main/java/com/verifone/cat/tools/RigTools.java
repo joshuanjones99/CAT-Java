@@ -25,6 +25,8 @@ import com.verifone.cat.rig.RigLoader;
  *   <li><b>Reboot C18</b>: one register rebooted ({@link RigReboot}), then {@code provision} to bring its pos-shim back,
  *       as step 4 does after pairing's reboot.</li>
  *   <li><b>Reboot Commander</b>: rebooted, then back on SSH and CGILink ({@link RigReboot}).</li>
+ *   <li><b>Push shim to register</b> (the POS page's button, user 2026-11-10): one register provisioned with no rig
+ *       file ({@link ShimPush}), so a register that answers but has no pos-shim listening gets one.</li>
  * </ul>
  *
  * <p>Every method reports a failure as the last line on {@code say}'s error stream, and returns false.
@@ -38,11 +40,23 @@ public interface RigTools {
 
     boolean pair(String rigName, Say say);
 
+    /**
+     * POS Pairing with no rig: the lab's registers paired with the lab's Commander, then their pos-shim pushed again
+     * ({@link LabPairing}; user, 2026-11-10).
+     */
+    boolean pairLab(Say say);
+
     boolean onboard(String rigName, CommanderConnect settings, Say say);
 
     boolean rebootRegister(String rigName, String registerId, Say say);
 
     boolean rebootCommander(String rigName, Say say);
+
+    /**
+     * The POS page's Push shim to register: that one register provisioned ({@link ShimPush}), the browser override
+     * and the pos-shim, so its shim port opens. Needs no rig file and never reaches the Commander.
+     */
+    boolean pushShim(RegisterTarget register, Say say);
 
     /** The real tools: the rig file from {@code $PETROTEST_RIGS_DIR}, the run's stages, SSH through JSch. */
     static RigTools standard(Map<String, String> environ) {
@@ -69,6 +83,11 @@ public interface RigTools {
             } catch (RuntimeException e) {
                 return List.of();
             }
+        }
+
+        @Override
+        public boolean pairLab(Say say) {
+            return LabPairing.pair(LabRegisters.ALL, LabPairing.real(environ), say);
         }
 
         @Override
@@ -119,6 +138,11 @@ public interface RigTools {
             }
             say.out("provision: the pos-shim back on " + registerId);
             return stages.provision(rig, say);
+        }
+
+        @Override
+        public boolean pushShim(RegisterTarget register, Say say) {
+            return ShimPush.push(register, environ, ShimPush.REAL, say);
         }
 
         @Override

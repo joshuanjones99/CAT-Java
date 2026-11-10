@@ -28,6 +28,8 @@ public final class RigBusy {
     public static final String ONBOARDING = "onboarding";
     /** The Tools page's Reboot C18 and Reboot Commander. */
     public static final String REBOOT = "reboot";
+    /** The POS page's Push shim to register (a provision). */
+    public static final String SHIM_PUSH = "shim-push";
 
     /** What each value is called in a refusal or the header: the Python's {@code BUSY_WORDS}, and the Tools'. */
     public static final Map<String, String> WORDS = Map.of(
@@ -38,7 +40,8 @@ public final class RigBusy {
             SIMS_STOP, "a simulator stop",
             PAIRING, "a POS pairing",
             ONBOARDING, "a Commander Connect onboarding",
-            REBOOT, "a reboot");
+            REBOOT, "a reboot",
+            SHIM_PUSH, "a pos-shim push");
 
     private Supplier<String> run = () -> "";
     private String own = "";

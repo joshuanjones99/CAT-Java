@@ -5,11 +5,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.shell.RigBusy;
+import com.verifone.cat.tools.LabRegisters;
+import com.verifone.cat.tools.RegisterTarget;
 import com.verifone.cat.tools.RigTools;
 
 /**
@@ -33,7 +36,9 @@ final class ToolsService {
         PAIR("pair", "POS Pairing", RigBusy.PAIRING),
         ONBOARD("onboard", "Onboard to Commander Connect", RigBusy.ONBOARDING),
         REBOOT_C18("reboot-c18", "Reboot C18", RigBusy.REBOOT),
-        REBOOT_COMMANDER("reboot-commander", "Reboot Commander", RigBusy.REBOOT);
+        REBOOT_COMMANDER("reboot-commander", "Reboot Commander", RigBusy.REBOOT),
+        /** The POS page's button, not listed on the Tools page. */
+        PUSH_SHIM("push-shim", "Push shim to register", RigBusy.SHIM_PUSH);
 
         final String slug;
         final String title;
@@ -105,7 +110,26 @@ final class ToolsService {
         if (!held.isEmpty()) {
             return held;
         }
-        return rigName().isEmpty() ? "No rig: start CAT with --rig to use a tool." : "";
+        if (!labMode()) {
+            return "";
+        }
+        String which = rigName().isEmpty() ? "No rig" : "Rig " + rigName() + " does not load";
+        return which + ": POS Pairing pairs the lab's registers 101 and 102 with the lab Commander; the other tools "
+                + "need a rig file.";
+    }
+
+    /** Why POS Pairing cannot start now, or "": with no rig it pairs the lab's registers, so only the flag stops it. */
+    String pairRefusal() {
+        return labMode() ? busy.refusal() : refusal();
+    }
+
+    /**
+     * Whether CAT has no rig to use: none named, or the one named does not load (no file). {@code run.cmd} always
+     * names {@code lab}, so "does not load" is the usual case on a PC with no rig file (user, 2026-11-10). A rig that
+     * loads always has a register, so no readable register means it did not load.
+     */
+    boolean labMode() {
+        return rigName().isEmpty() || registers().isEmpty();
     }
 
     /** The rig's register ids, read once per rig; empty when there is no rig or it does not load. */
@@ -161,6 +185,12 @@ final class ToolsService {
     /** The question a tool's button asks first, naming the rig, since every tool changes it. */
     String confirmText(Tool tool, String register) {
         String on = " on rig " + rigName();
+        if (tool == Tool.PAIR && labMode()) {
+            return "Pair the lab's registers (Reg101, Reg102: those that answer) with the lab Commander "
+                    + LabRegisters.COMMANDER_HOST + "? The Commander's password is reset first only if the installer "
+                    + "left one and the lab password does not log in. Each register reboots once paired, then gets "
+                    + "its pos-shim pushed again.";
+        }
         return switch (tool) {
             case PAIR -> "Pair every register" + on + " with its Commander? Provision runs first and after; "
                     + "each register reboots once it is paired.";
@@ -173,6 +203,8 @@ final class ToolsService {
                     + "pos-shim back once it is up.";
             case REBOOT_COMMANDER -> "Reboot the Commander" + on + "? The registers lose it until it is back "
                     + "(up to 35 minutes for SSH and CGILink).";
+            case PUSH_SHIM -> "Push the pos-shim to " + register + "? Over SSH as root: the shim built here if it is "
+                    + "not built yet, pushed and started. The Commander is not touched.";
         };
     }
 
@@ -185,10 +217,20 @@ final class ToolsService {
      * @return "" when started, else the refusal
      */
     String start(Tool tool, String register) {
+        if (tool == Tool.PUSH_SHIM) {
+            String why = "Push shim to register starts from the POS page.";
+            setNotice(why);
+            return why;
+        }
+        if (tool == Tool.PAIR && labMode()) {
+            // No rig: the lab's registers with the lab Commander. Only the shared flag can refuse it.
+            return launch(tool, "", tool.title + " (lab)", "on the lab registers", tools::pairLab);
+        }
         String why = refusal();
         String rigName = rigName();
         String target = register == null ? "" : register.strip();
-        if (why.isEmpty() && tool == Tool.REBOOT_C18 && !registers().contains(target)) {
+        boolean perRegister = tool == Tool.REBOOT_C18;
+        if (why.isEmpty() && perRegister && !registers().contains(target)) {
             why = target.isEmpty() ? "No register named to reboot."
                     : "Rig " + rigName + " has no register " + target + ".";
         }
@@ -196,6 +238,36 @@ final class ToolsService {
         if (why.isEmpty() && tool == Tool.ONBOARD && !cc.problems().isEmpty()) {
             why = "Commander Connect is not set up on the Config tab: " + String.join("; ", cc.problems()) + ".";
         }
+        String title = perRegister ? tool.title + " (" + target + ")" : tool.title;
+        return launch(tool, why, title, "on rig " + rigName, say -> switch (tool) {
+            case PAIR -> tools.pair(rigName, say);
+            case ONBOARD -> tools.onboard(rigName, cc, say);
+            case REBOOT_C18 -> tools.rebootRegister(rigName, target, say);
+            case REBOOT_COMMANDER -> tools.rebootCommander(rigName, say);
+            case PUSH_SHIM -> false;
+        });
+    }
+
+    /**
+     * Starts the POS page's Push shim to register on {@code register}, or refuses it and says why in
+     * {@link #notice()}. Needs no rig, only the register (the rig's, or a lab register), and the busy flag.
+     *
+     * @return "" when started, else the refusal
+     */
+    String startPush(RegisterTarget register) {
+        String why = register == null ? "No register to push the shim to." : "";
+        String title = register == null ? Tool.PUSH_SHIM.title : Tool.PUSH_SHIM.title + " (" + register.id() + ")";
+        return launch(Tool.PUSH_SHIM, why, title, register == null ? "" : "on " + register.describe(),
+                say -> tools.pushShim(register, say));
+    }
+
+    /** Why a push cannot start now ({@link RigBusy}'s refusal), or "". A push needs no rig. */
+    String pushRefusal() {
+        return busy.refusal();
+    }
+
+    /** Takes the busy flag and runs {@code body} on the worker, unless {@code why} (or the flag) refuses it. */
+    private String launch(Tool tool, String why, String title, String where, Predicate<Say> body) {
         if (why.isEmpty()) {
             why = busy.begin(tool.kind);
         }
@@ -203,16 +275,15 @@ final class ToolsService {
             setNotice(why);
             return why;
         }
-        String title = tool == Tool.REBOOT_C18 ? tool.title + " (" + target + ")" : tool.title;
         synchronized (lock) {
             running = tool;
             notice = "";
-            outcomes.put(tool, new Outcome("running", title + " running on rig " + rigName + "…"));
+            outcomes.put(tool, new Outcome("running", title + " running " + where + "…"));
         }
         log.start(title);
-        log.line(title + " on rig " + rigName);
+        log.line(title + " " + where);
         try {
-            worker.accept(() -> work(tool, title, rigName, target, cc));
+            worker.accept(() -> work(tool, title, body));
         } catch (RuntimeException e) {
             finish(tool, title, false, "could not start: " + DownloadsService.message(e));
         }
@@ -226,17 +297,12 @@ final class ToolsService {
     }
 
     /** The tool itself, on the worker. Never throws: whatever happens ends in an outcome and frees the flag. */
-    private void work(Tool tool, String title, String rigName, String register, CommanderConnect cc) {
+    private void work(Tool tool, String title, Predicate<Say> body) {
         LogSay say = new LogSay(log);
         boolean ok = false;
         String error = "";
         try {
-            ok = switch (tool) {
-                case PAIR -> tools.pair(rigName, say);
-                case ONBOARD -> tools.onboard(rigName, cc, say);
-                case REBOOT_C18 -> tools.rebootRegister(rigName, register, say);
-                case REBOOT_COMMANDER -> tools.rebootCommander(rigName, say);
-            };
+            ok = body.test(say);
         } catch (RuntimeException e) {
             error = e.getClass().getSimpleName() + ": " + DownloadsService.message(e);
             log.line("ERROR " + error);

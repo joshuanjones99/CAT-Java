@@ -36,7 +36,8 @@ import com.verifone.cat.sims.ToolsRoot;
  *
  * <p>It produces {@code automation-target-pos-topaz.jar} (the retained agent, compiled from petroapps),
  * {@code topazerp-connection-enabler.jar} (the one TopazERP class the POS's {@code LexStrategy} gates its keyboard
- * listener on), {@code petrotest-pos-shim.jar} (the HTTP shim, from the Python checkout's {@code bridge/pos-shim/}),
+ * listener on), {@code petrotest-pos-shim.jar} (the HTTP shim, from CAT-Java's own {@code bridge/pos-shim/}, a copy of the
+ * Python CAT's; {@link ProvisionPaths#bridgeRoot}),
  * the launcher, {@code tokenRMI.prop}, and last the build stamp ({@link ShimStamp}), which is also compiled into the
  * shim jar so the running shim reports it as {@code GET /health}'s {@code build}.
  *

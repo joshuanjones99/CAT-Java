@@ -74,10 +74,41 @@ class NoIpLiteralsTest {
 
         List<String> found = new ArrayList<>();
         for (Path file : files) {
-            found.addAll(findingsIn(LintFiles.rel(file), Files.readString(file)));
+            String rel = LintFiles.rel(file);
+            for (String finding : findingsIn(rel, Files.readString(file))) {
+                if (!carvedOut(rel, finding)) {
+                    found.add(finding);
+                }
+            }
         }
         assertTrue(found.isEmpty(), "address or host outside rigs/*.yaml; read it from the rig file instead:\n  "
                 + String.join("\n  ", found));
+    }
+
+    /**
+     * The one carve-out (user, 2026-11-10): the lab's registers 101 and 102 and its Commander (.11), which the POS
+     * page and POS Pairing use with no rig, named in {@link #LAB_REGISTERS_FILE} and nowhere else. Any other address in
+     * that file still fails.
+     */
+    static final String LAB_REGISTERS_FILE = "src/main/java/com/verifone/cat/tools/LabRegisters.java";
+
+    static final List<String> LAB_REGISTER_ADDRESSES = List.of("192.168.31.101", "192.168.31.102", "192.168.31.11");
+
+    static boolean carvedOut(String rel, String finding) {
+        return rel.endsWith(LAB_REGISTERS_FILE)
+                && LAB_REGISTER_ADDRESSES.stream().anyMatch(a -> finding.endsWith(" " + a + " (IPv4 literal)"));
+    }
+
+    @Test
+    void theLabCarveOutCoversExactlyItsAddressesInItsOneFile() throws IOException {
+        Path file = MAIN.resolve("java/com/verifone/cat/tools/LabRegisters.java");
+        List<String> inFile = findingsIn(LAB_REGISTERS_FILE, Files.readString(file));
+
+        assertEquals(LAB_REGISTER_ADDRESSES.size(), inFile.size(), inFile.toString());
+        assertTrue(inFile.stream().allMatch(f -> carvedOut(LAB_REGISTERS_FILE, f)), inFile.toString());
+        assertFalse(carvedOut(LAB_REGISTERS_FILE, LAB_REGISTERS_FILE + ":9 192.168.31.103 (IPv4 literal)"));
+        assertFalse(carvedOut("src/main/java/com/verifone/cat/web/PosPage.java",
+                "src/main/java/com/verifone/cat/web/PosPage.java:1 192.168.31.101 (IPv4 literal)"));
     }
 
     /** The text files a rig address could be written into. Binary files are not read. */

@@ -225,7 +225,10 @@ interface CommanderStages {
         return null;
     }
 
-    /** The Python CAT checkout the shim sources and the stamp's recipe are read from. */
+    /**
+     * The folder holding {@code bridge/pos-shim}, which the shim is built from: CAT-Java's own copy
+     * ({@link ProvisionPaths#bridgeRoot}).
+     */
     default Path posShimRepoRoot() {
         throw new UnsupportedOperationException("posShimRepoRoot: not given to these stages");
     }
@@ -422,7 +425,7 @@ interface CommanderStages {
 
         @Override
         public Path posShimRepoRoot() {
-            return ProvisionPaths.pythonRoot(environ);
+            return ProvisionPaths.bridgeRoot(environ);
         }
 
         /**

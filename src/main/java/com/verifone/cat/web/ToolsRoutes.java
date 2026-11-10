@@ -20,6 +20,9 @@ final class ToolsRoutes {
         app.get(ToolsPage.PATH, ctx -> ctx.html(ToolsPage.panel(tools)));
         Requests.Actions actions = Requests.actions(app, WHAT, () -> ToolsPage.panel(tools));
         for (ToolsService.Tool tool : ToolsService.Tool.values()) {
+            if (tool == ToolsService.Tool.PUSH_SHIM) {
+                continue; // the POS page's own button (PosRoutes), on the register that page shows
+            }
             actions.on(tool.path(), ctx -> tools.start(tool, Requests.query(ctx, "register")));
         }
     }

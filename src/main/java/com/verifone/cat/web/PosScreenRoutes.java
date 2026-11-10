@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.UnaryOperator;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,12 +44,21 @@ final class PosScreenRoutes {
 
     /** {@code cdpUrl}: the register's DevTools endpoint, or null when CAT has no register. */
     static void register(Javalin app, String cdpUrl) {
+        register(app, host -> cdpUrl);
+    }
+
+    /**
+     * {@code cdpUrl}: the DevTools endpoint for the socket's {@code ?host=} (the register the page showed), or null
+     * when that is not one of CAT's registers, so a viewer can only ever reach a register on CAT's own list.
+     */
+    static void register(Javalin app, UnaryOperator<String> cdpUrl) {
         Map<String, PosScreencast> casts = new ConcurrentHashMap<>();
         app.wsBeforeUpgrade(PATH, PosScreenRoutes::sameOrigin);
         app.ws(PATH, ws -> {
             ws.onConnect(ctx -> {
                 ctx.enableAutomaticPings(PING_SECONDS, TimeUnit.SECONDS);
-                Thread attach = new Thread(() -> attach(ctx, cdpUrl, casts), "cat-pos-screen-attach");
+                String url = cdpUrl.apply(ctx.queryParam("host"));
+                Thread attach = new Thread(() -> attach(ctx, url, casts), "cat-pos-screen-attach");
                 attach.setDaemon(true);
                 attach.start();
             });

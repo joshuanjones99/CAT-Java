@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -24,8 +25,6 @@ import org.slf4j.LoggerFactory;
 import com.verifone.cat.core.CatHome;
 import com.verifone.cat.desktop.DesktopHost;
 import com.verifone.cat.desktop.Splash;
-import com.verifone.cat.pos.driver.DriverError;
-import com.verifone.cat.pos.driver.RegisterEndpoint;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.prefs.WebSettings;
 import com.verifone.cat.prefs.WebSettings.OpenIn;
@@ -36,6 +35,7 @@ import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
 import com.verifone.cat.shell.AutoClose;
 import com.verifone.cat.shell.Shell;
+import com.verifone.cat.tools.RegisterTarget;
 
 import io.javalin.Javalin;
 
@@ -295,12 +295,20 @@ public final class WebServe {
                 PosShimClient shim = new PosShimClient(registerHost, register == null ? 1 : options.shimPort, null,
                         SHIM_TIMEOUT);
                 String title = rig == null || register == null
-                        ? "CAT-Java: no register (rig '" + options.rig + "' did not load)"
+                        ? "CAT-Java (rig '" + options.rig + "' did not load)"
                         : "CAT-Java: " + rig.name() + " / " + register.id();
                 WebApp.Parts parts = WebApp.parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()),
                         ConfigForm.standard().online(), RunService.standard(options.rig, System.getenv()), null);
-                // The POS page's screen: the register's DevTools endpoint, as the run's POS driver attaches to it.
-                parts.cdpUrl = cdpUrl(register);
+                // The POS page's registers: the rig's (only --register's when named), else the lab's 101 and 102 (no
+                // rig file needed). Each is checked before a screen opens: not connected, or up with no shim (the Push
+                // shim button).
+                List<RegisterTarget> fromRig = new ArrayList<>();
+                if (rig != null && register != null) {
+                    for (Rig.Register r : options.register == null ? rig.registers() : List.of(register)) {
+                        fromRig.add(new RegisterTarget(r.id(), r.host(), options.shimPort, r.cdpPort()));
+                    }
+                }
+                parts.posRegister = PosRegister.of(fromRig);
                 parts.shell = shell;
                 parts.exit = exit;
                 setup = SetupService.standard(shell, options.setup);
@@ -339,18 +347,6 @@ public final class WebServe {
         };
     }
 
-    /** The register's DevTools endpoint, or null with no register (or one with no host: there is no default). */
-    static String cdpUrl(Rig.Register register) {
-        if (register == null) {
-            return null;
-        }
-        try {
-            return RegisterEndpoint.of(register).cdpUrl();
-        } catch (DriverError e) {
-            log().warn("register '{}': {}", register.id(), e.getMessage());
-            return null;
-        }
-    }
 
     /** Whether the program on {@code port} is a CAT, by its ping (not just a listener). */
     static boolean pingSaysCat(int port) {

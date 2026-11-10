@@ -494,4 +494,31 @@ class ProvisionRunnerTest {
         assertEquals(TargetReport.Decision.FAILED, override.decision());
         assertTrue(override.error().contains("said failed"), override.error());
     }
+
+    @Test
+    void aRegisterOnItsOwnGetsBothItsListsAndTheCommanderIsNeverReached() {
+        Harness harness = new Harness();
+        ProvisionOptions options = harness.options()
+                .registerChecklist(List.of(new FixedStep("enable_browser_override", StepStatus.DONE, true)))
+                .posShimChecklist(List.of(new AlreadyRunning()));
+        TargetSpec spec = new TargetSpec(TargetRole.REGISTER, "Reg101", "register.invalid", "root", 22, 8801, null);
+
+        ProvisionReport report = ProvisionRunner.provisionRegister(spec, "pos-page", options);
+
+        assertTrue(report.ok(), report.render());
+        assertEquals(1, report.targets().size());
+        assertEquals(TargetRole.REGISTER, report.targets().get(0).role());
+        assertEquals(List.of("enable_browser_override", "ensure_pos_shim_running"),
+                stepNames(report.targets().get(0)));
+        assertEquals(java.util.Set.of("Reg101"), harness.transports.keySet());
+    }
+
+    @Test
+    void provisionRegisterRefusesAnythingButARegister() {
+        TargetSpec commander = new TargetSpec(TargetRole.COMMANDER, "commander", "commander.invalid", "root", 22,
+                8801, null);
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> ProvisionRunner.provisionRegister(commander, "pos-page", new Harness().options()));
+    }
 }

@@ -1,3 +1,9 @@
 * text=auto
 mvnw text eol=lf
 *.cmd text eol=crlf
+# The register-side sources (the pos-shim, the browser override), copied from the Python CAT's bridge/: they run on
+# Linux, so they stay LF on every checkout, as the Python repository stores them.
+bridge/** text eol=lf
+# The Python CAT's shim build script, copied byte for byte and never run here: the build stamp hashes it as its
+# "recipe" (ShimStamp.BUILD_SCRIPT), so a shim built by CAT-Java carries the stamp the Python build would.
+tools/build_pos_shim.py text eol=lf

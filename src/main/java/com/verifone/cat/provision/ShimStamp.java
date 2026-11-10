@@ -29,8 +29,9 @@ import java.util.stream.Stream;
  * <p><b>What is hashed</b>, each under a name that does not depend on where a checkout lives: {@code shim/...} (every
  * {@code .java} under {@code bridge/pos-shim/src/main/java}, and the launcher), {@code agent/...} (the retained agent's
  * {@code .java} in petroapps), {@code topazerp/...} (the one TopazERP class) and {@code recipe/build_pos_shim.py} (the
- * Python CAT's build script). The recipe is the Python checkout's {@code tools/build_pos_shim.py}, hashed as the Python
- * hashes it, so a payload either CAT built carries the same stamp for the same sources: both CATs read and write the
+ * Python CAT's build script). The shim sources and the recipe are CAT-Java's own copies ({@code bridge/pos-shim/} and
+ * {@code tools/build_pos_shim.py} in this checkout, byte for byte the Python CAT's; user 2026-11-10), hashed as the
+ * Python hashes them, so a payload either CAT built carries the same stamp for the same sources: both CATs read and write the
  * one payload, and a stamp that differed by which CAT built it would rebuild the shim, and restart the POS, on every
  * switch between them. Text is hashed with CRLF read as LF.
  *

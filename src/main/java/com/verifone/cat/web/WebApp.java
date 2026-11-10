@@ -54,8 +54,15 @@ public final class WebApp {
     static final class Parts {
         PosShimClient shim;
         String title = "CAT-Java";
-        /** The register's DevTools endpoint the POS page shows; null when CAT has no register. */
+        /** A DevTools endpoint the POS page shows with no check when it has no register (tests); normally null. */
         String cdpUrl;
+        /**
+         * Which registers the POS page checks and shows: the rig's, else the lab's 101 and 102
+         * ({@link PosRegister#of}, set by {@code serve}). Null is none, with the title as why.
+         */
+        PosRegister posRegister;
+        /** How the POS page checks its register: TCP by default; tests pass a fake. */
+        PosReach posReach;
         ResultsLibrary results;
         ConfigForm configForm;
         RunService run;
@@ -265,9 +272,8 @@ public final class WebApp {
         app.get("/manual", ctx -> ctx.redirect(Section.TOOLS.path()));
 
         String title = parts.title;
-        String cdpUrl = parts.cdpUrl;
-        app.get("/pos", ctx -> ctx.html(Layout.screen(Section.POS, "POS", PosPage.body(title, cdpUrl))));
-        PosScreenRoutes.register(app, cdpUrl);
+        PosRoutes.register(app, parts.posRegister != null ? parts.posRegister : PosRegister.none(title),
+                parts.cdpUrl, parts.posReach != null ? parts.posReach : PosReach.tcp(), tools);
         return app;
     }
 

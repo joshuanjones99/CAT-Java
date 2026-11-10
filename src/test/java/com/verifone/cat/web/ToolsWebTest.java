@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.shell.RigBusy;
+import com.verifone.cat.tools.RegisterTarget;
 import com.verifone.cat.tools.RigTools;
 
 import io.javalin.Javalin;
@@ -71,6 +72,11 @@ class ToolsWebTest {
         }
 
         @Override
+        public boolean pairLab(Say say) {
+            return run("pair-lab", say);
+        }
+
+        @Override
         public boolean onboard(String rigName, CommanderConnect settings, Say say) {
             return run("onboard " + rigName + " " + settings.lab() + " " + settings.password(), say);
         }
@@ -83,6 +89,11 @@ class ToolsWebTest {
         @Override
         public boolean rebootCommander(String rigName, Say say) {
             return run("reboot-commander " + rigName, say);
+        }
+
+        @Override
+        public boolean pushShim(RegisterTarget register, Say say) {
+            return run("push-shim " + register.describe(), say);
         }
     }
 
@@ -162,14 +173,53 @@ class ToolsWebTest {
     }
 
     @Test
-    void withNoRigEveryToolIsRefused() {
+    void withNoRigOnlyPosPairingRunsAndItPairsTheLabRegisters() {
         ToolsService tools = service("", Map.of());
 
         String html = ToolsPage.panel(tools);
 
-        assertTrue(html.contains("No rig: start CAT with --rig"), html);
-        assertEquals(4, html.split(" disabled>", -1).length - 1, html);
-        assertTrue(tools.start(ToolsService.Tool.PAIR, "").startsWith("No rig"));
+        assertTrue(html.contains("No rig: POS Pairing pairs the lab&#39;s registers 101 and 102")
+                || html.contains("No rig: POS Pairing pairs the lab"), html);
+        // Onboard, Reboot C18 and Reboot Commander stay disabled; POS Pairing does not.
+        assertEquals(3, html.split(" disabled>", -1).length - 1, html);
+        assertFalse(html.contains(" disabled>POS Pairing</button>"), html);
+        assertTrue(html.contains("Pair the lab&#39;s registers (Reg101, Reg102: those that answer)")
+                || html.contains("Pair the lab"), html);
+        assertTrue(tools.start(ToolsService.Tool.REBOOT_COMMANDER, "").startsWith("No rig"));
+        assertEquals(List.of(), fake.calls);
+
+        assertEquals("", tools.start(ToolsService.Tool.PAIR, ""));
+
+        assertEquals(List.of("pair-lab"), fake.calls);
+        assertEquals(RigBusy.PAIRING, fake.during.get());
+        assertEquals("", busy.current());
+        assertEquals("done", tools.outcome(ToolsService.Tool.PAIR).state());
+        assertTrue(tools.outcome(ToolsService.Tool.PAIR).message().contains("POS Pairing (lab) done."));
+    }
+
+    @Test
+    void aNamedRigThatDoesNotLoadPairsTheLabRegistersToo() {
+        // run.cmd always names "lab"; on a PC with no lab.yaml it does not load (user, 2026-11-10: "cannot load rig
+        // lab: No rig file at C:\CICD\Tools\rigs\lab.yaml").
+        fake.registers = List.of();
+        ToolsService tools = service("lab", Map.of());
+
+        String html = ToolsPage.panel(tools);
+
+        assertTrue(html.contains("Rig lab does not load: POS Pairing pairs the lab"), html);
+        assertFalse(html.contains(" disabled>POS Pairing</button>"), html);
+        assertTrue(tools.start(ToolsService.Tool.REBOOT_COMMANDER, "").startsWith("Rig lab does not load"));
+        assertEquals("", tools.start(ToolsService.Tool.PAIR, ""));
+        assertEquals(List.of("pair-lab"), fake.calls);
+    }
+
+    @Test
+    void withNoRigPosPairingStillWaitsForTheSharedFlag() {
+        ToolsService tools = service("", Map.of());
+        busy.begin(RigBusy.INSTALL);
+
+        assertTrue(ToolsPage.panel(tools).contains(" disabled>POS Pairing</button>"));
+        assertTrue(tools.start(ToolsService.Tool.PAIR, "").contains("install"));
         assertEquals(List.of(), fake.calls);
     }
 

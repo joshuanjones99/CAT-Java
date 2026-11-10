@@ -205,7 +205,7 @@ class WebAppPagesTest {
         String html = get("/pos").body();
 
         // No register here: the page says so, inside the shell (WebAppTest covers the screen itself).
-        assertTrue(html.contains("No register to show"), html);
+        assertTrue(html.contains("Can't check the register"), html);
         assertTrue(html.contains("CAT-Java: test / topaz101"), html);
         assertTrue(html.contains("/static/htmx.min.js"), html);
     }
@@ -257,7 +257,7 @@ class WebAppPagesTest {
     @Test
     void headingsAndSubtitlesAreEscaped() {
         String layout = Layout.page(Section.RUN, "<script>alert(1)</script>", "");
-        String pos = PosPage.body("<img src=x onerror=1>", "http://\"><svg>");
+        String pos = PosPage.noRegister("<img src=x onerror=1>") + PosPage.screen("http://\"><svg>");
 
         assertFalse(layout.contains("<script>alert"), layout);
         assertTrue(layout.contains("&lt;script&gt;alert(1)&lt;/script&gt;"), layout);

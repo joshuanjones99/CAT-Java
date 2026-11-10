@@ -53,6 +53,9 @@ threads.
 3. **The four lint gates run as tests** (`src/test/java/com/verifone/cat/lint/`): no
    `Thread.sleep` in main code (use bounded parks/waits), no raw element IDs or XPaths
    outside `pos/Locators.java`, no IP literals in `src/main`, Javalin/UI only in `web/`.
+   The one IP carve-out is the lab's registers 101 and 102 and its Commander .11 in
+   `tools/LabRegisters.java` (the POS page and POS Pairing use them with no rig; user 2026-11-10);
+   the gate allows only those three, only there.
 4. **Never hand-edit `pos/Locators.java`.** It is generated from
    `src/main/resources/pos/locators.json` by `pos.gen.GenLocators`; a staleness test fails
    otherwise. `LocatorsParityTest` checks it against the Python catalogue.
