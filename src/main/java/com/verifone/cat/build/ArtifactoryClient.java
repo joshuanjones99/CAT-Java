@@ -14,12 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -28,7 +25,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Hashes;
+import com.verifone.cat.core.Json;
 
 /**
  * HTTP client for Artifactory's storage API: folder listings, a file's size and checksum,
@@ -66,8 +64,6 @@ public final class ArtifactoryClient {
     public static final int DEFAULT_WORKERS = 6;
 
     private static final int BUFFER = 64 * 1024;
-    private static final int HASH_BLOCK = 1024 * 1024;
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     /** A file's size, and its sha256 when Artifactory reports one (else {@code null}). */
     public record FileInfo(long size, String sha256) {}
@@ -191,7 +187,7 @@ public final class ArtifactoryClient {
                 throw new BuildException(dest.getFileName() + ": got " + got + " bytes, expected " + size);
             }
             if (sha256 != null) {
-                String digest = sha256Of(part);
+                String digest = Hashes.sha256Hex(part);
                 if (!digest.equalsIgnoreCase(sha256)) {
                     throw new BuildException(dest.getFileName() + ": sha256 " + digest + ", expected " + sha256);
                 }
@@ -297,7 +293,7 @@ public final class ArtifactoryClient {
                 HttpResponse.BodyHandlers.ofByteArray(), what);
         requireOk(response.statusCode(), what);
         try {
-            return JSON.readTree(response.body());
+            return Json.MAPPER.readTree(response.body());
         } catch (IOException e) {
             throw new ArtifactoryException("Artifactory answered " + what + " with something that is not JSON",
                     response.statusCode(), e);
@@ -359,24 +355,6 @@ public final class ArtifactoryClient {
         return URI.create(uri.toString().replaceAll("/+$", ""));
     }
 
-    /** The sha256 of a file, lowercase hex. */
-    static String sha256Of(Path path) throws IOException {
-        MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 is required of every Java platform; this cannot happen.
-            throw new IllegalStateException(e);
-        }
-        try (InputStream in = Files.newInputStream(path)) {
-            byte[] block = new byte[HASH_BLOCK];
-            int read;
-            while ((read = in.read(block)) != -1) {
-                digest.update(block, 0, read);
-            }
-        }
-        return HexFormat.of().formatHex(digest.digest());
-    }
 
     private static void deleteQuietly(Path part) {
         try {

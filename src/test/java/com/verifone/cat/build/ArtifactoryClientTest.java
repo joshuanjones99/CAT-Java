@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.verifone.cat.build.ArtifactoryClient.FileInfo;
+import com.verifone.cat.core.Hashes;
 
 class ArtifactoryClientTest {
 
@@ -152,7 +153,7 @@ class ArtifactoryClientTest {
             client.downloadFile(client.fileUrl("repo/overlay.zip"), dest, info.size(), info.sha256(), 6);
 
             assertArrayEquals(bytes, Files.readAllBytes(dest));
-            assertEquals(sha256Hex(bytes), ArtifactoryClient.sha256Of(dest));
+            assertEquals(sha256Hex(bytes), Hashes.sha256Hex(dest));
             assertFalse(Files.exists(dir.resolve("overlay.zip.part")));
 
             // The ranges arrive in no fixed order, so compare the sorted set of what was asked for.

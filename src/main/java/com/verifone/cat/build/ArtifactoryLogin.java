@@ -11,7 +11,8 @@ import java.nio.file.Path;
 import java.util.HexFormat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 
 /**
  * {@code cat-java artifactory-login}: ask once for the Artifactory username and password (or API key), and save them
@@ -55,7 +56,6 @@ public final class ArtifactoryLogin {
         String secret(String prompt);
     }
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final Prompt prompt;
     private final Protector protector;
@@ -63,7 +63,7 @@ public final class ArtifactoryLogin {
 
     /** The real thing: the console, DPAPI, and {@code ~/.cat/java/artifactory.credentials}. */
     public ArtifactoryLogin() {
-        this(consolePrompt(), DPAPI, StoredArtifactoryCredentials.catJavaFile(System.getProperty("user.home")));
+        this(consolePrompt(), DPAPI, StoredArtifactoryCredentials.catJavaFile(CatHome.user().toString()));
     }
 
     public ArtifactoryLogin(Prompt prompt, Protector protector, Path file) {
@@ -119,8 +119,8 @@ public final class ArtifactoryLogin {
 
     /** {@code json.dumps({"Username": ..., "Password": ...})}: the Python's separators, no trailing newline. */
     static String json(String user, String hex) throws JsonProcessingException {
-        return "{\"Username\": " + JSON.writeValueAsString(user) + ", \"Password\": "
-                + JSON.writeValueAsString(hex) + "}";
+        return "{\"Username\": " + Json.MAPPER.writeValueAsString(user) + ", \"Password\": "
+                + Json.MAPPER.writeValueAsString(hex) + "}";
     }
 
     private static String orEmpty(String text) {

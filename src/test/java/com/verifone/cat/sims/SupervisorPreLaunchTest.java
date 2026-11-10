@@ -15,6 +15,8 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
+import com.verifone.cat.core.Waits;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -56,7 +58,7 @@ class SupervisorPreLaunchTest {
             if (seen.get()) {
                 return true;
             }
-            Park.park(Duration.ofMillis(100));
+            Waits.pause(Duration.ofMillis(100));
         }
         return seen.get();
     }

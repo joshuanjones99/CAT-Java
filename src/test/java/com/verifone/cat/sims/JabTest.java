@@ -11,6 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.sims.FakeAccessBridge.Node;
 
 /**
@@ -164,7 +165,7 @@ class JabTest {
 
     @Test
     void aWindowTheBridgeNeverKnowsIsRetriedThenACouldNotConnectRow() {
-        Jab jab = new Jab(bridge = new FakeAccessBridge(HWND, Node.panel()), Park::park);
+        Jab jab = new Jab(bridge = new FakeAccessBridge(HWND, Node.panel()), Waits::pause);
         bridge.notJavaFor = Integer.MAX_VALUE;
 
         long started = System.nanoTime();
@@ -178,7 +179,7 @@ class JabTest {
 
     @Test
     void aFailedContextIsRetriedThenACouldNotConnectRow() {
-        Jab jab = new Jab(bridge = new FakeAccessBridge(HWND, Node.panel()), Park::park);
+        Jab jab = new Jab(bridge = new FakeAccessBridge(HWND, Node.panel()), Waits::pause);
         bridge.contextAvailable = false;
 
         Jab.Outcome outcome = jab.clickButtons(HWND, List.of("Start Host"), Duration.ofSeconds(1), SETTLE);

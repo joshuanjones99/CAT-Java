@@ -7,11 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,6 +23,9 @@ import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Hashes;
 
 /**
  * Petro Simulator Suite's tank level simulator (TLS): on only when the rig names its port. The Python CAT's
@@ -168,7 +168,7 @@ public final class PetroTls {
 
     /** Where CAT-Java keeps the compiled agent: {@code ~/.cat/java/cat-petro-agent}. */
     public static Path defaultAgentCache() {
-        return Path.of(System.getProperty("user.home"), ".cat", "java", "cat-petro-agent");
+        return CatHome.java().resolve("cat-petro-agent");
     }
 
     /** The agent's source, from this package's resources. */
@@ -189,7 +189,7 @@ public final class PetroTls {
      */
     public static Path agentJar(Path javac, Path cache) throws IOException {
         byte[] source = agentSource();
-        Path jar = cache.resolve("cat-rxtx-agent-" + sha256(source).substring(0, 12) + ".jar");
+        Path jar = cache.resolve("cat-rxtx-agent-" + Hashes.sha256Hex(source).substring(0, 12) + ".jar");
         if (Files.isRegularFile(jar)) {
             return jar;
         }
@@ -230,13 +230,8 @@ public final class PetroTls {
 
     private static int run(List<String> argv, StringBuilder err) throws IOException {
         Process process = new ProcessBuilder(argv).redirectErrorStream(true).start();
-        CompletableFuture<String> output = CompletableFuture.supplyAsync(() -> {
-            try (InputStream in = process.getInputStream()) {
-                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                return "";
-            }
-        });
+        CompletableFuture<String> output = CompletableFuture.supplyAsync(
+                () -> ChildOutput.read(process.getInputStream(), StandardCharsets.UTF_8));
         try {
             if (!process.waitFor(JAVAC_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
@@ -253,14 +248,6 @@ public final class PetroTls {
             Thread.currentThread().interrupt();
             process.destroyForcibly();
             throw new IOException("building the RXTX agent was interrupted", e);
-        }
-    }
-
-    private static String sha256(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
         }
     }
 }

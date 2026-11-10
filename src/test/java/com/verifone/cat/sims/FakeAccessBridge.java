@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import com.verifone.cat.core.Waits;
+
 /**
  * An in-memory Access Bridge: one window whose accessible tree the test builds from {@link Node}s.
  * Every object it hands out is tracked, so a test can see that each was released. A call can be made
@@ -136,7 +138,7 @@ final class FakeAccessBridge implements AccessBridge {
     public void pumpMessages(Duration max) {
         pumps.incrementAndGet();
         // A short real wait, so a holding pump loop does not spin.
-        Park.park(Duration.ofMillis(Math.min(5, max.toMillis())));
+        Waits.pause(Duration.ofMillis(Math.min(5, max.toMillis())));
     }
 
     @Override

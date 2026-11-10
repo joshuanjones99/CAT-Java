@@ -10,7 +10,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.CatHome;
+import com.verifone.cat.core.Json;
 
 /**
  * The Artifactory login as the Python CAT finds it ({@code petrotest.build.credentials.load_credentials}): first
@@ -55,7 +56,6 @@ public final class StoredArtifactoryCredentials implements ArtifactoryCredential
     /** Windows' DPAPI, {@code CryptUnprotectData} under the current account (JNA's {@code Crypt32Util}). */
     public static final Decryptor DPAPI = blob -> com.sun.jna.platform.win32.Crypt32Util.cryptUnprotectData(blob);
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final Map<String, String> env;
     private final List<Path> files;
@@ -96,7 +96,7 @@ public final class StoredArtifactoryCredentials implements ArtifactoryCredential
      * Monarch's files.
      */
     public static List<Path> defaultFiles(Map<String, String> env) {
-        return defaultFiles(env, System.getProperty("user.home"));
+        return defaultFiles(env, CatHome.user().toString());
     }
 
     /** {@link #defaultFiles(Map)} for the given home folder. */
@@ -139,7 +139,7 @@ public final class StoredArtifactoryCredentials implements ArtifactoryCredential
             if (text.startsWith("\uFEFF")) { // utf-8-sig, as PowerShell writes it
                 text = text.substring(1);
             }
-            JsonNode data = JSON.readTree(text);
+            JsonNode data = Json.MAPPER.readTree(text);
             JsonNode user = data == null ? null : data.get("Username");
             JsonNode hex = data == null ? null : data.get("Password");
             if (user == null || !user.isTextual() || hex == null || !hex.isTextual()) {

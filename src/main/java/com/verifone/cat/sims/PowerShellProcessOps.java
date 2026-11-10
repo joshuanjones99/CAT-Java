@@ -169,10 +169,6 @@ public final class PowerShellProcessOps implements ProcessOps {
     }
 
     private static String read(InputStream stream) {
-        try (stream) {
-            return new String(stream.readAllBytes(), Charset.defaultCharset());
-        } catch (IOException e) {
-            return "";
-        }
+        return ChildOutput.read(stream, Charset.defaultCharset());
     }
 }

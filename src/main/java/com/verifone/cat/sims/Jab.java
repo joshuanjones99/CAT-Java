@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.verifone.cat.core.Waits;
+
 /**
  * Clicks named buttons in a Java Swing simulator window through the Java Access Bridge: the Python
  * CAT's {@code cat.sims.jab}, which was vendored from PATS's {@code sim_click.py} and is the only
@@ -74,9 +76,6 @@ public final class Jab {
     /** The pause after connecting and after each click (the Python's {@code settle}). */
     public static final Duration DEFAULT_SETTLE = Duration.ofMillis(1500);
 
-    /** The connect budget when none is given (the Python's {@code connect_timeout}). */
-    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(30);
-
     /** The most accessible elements one walk visits. */
     public static final int MAX_NODES = 10_000;
 
@@ -101,7 +100,7 @@ public final class Jab {
 
     /** A Jab that pauses with a bounded park. */
     public Jab(AccessBridge bridge) {
-        this(bridge, Park::park);
+        this(bridge, Waits::pause);
     }
 
     /** For tests, which record the settle pauses instead of waiting them. */

@@ -28,9 +28,24 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class FreshnessTest {
 
+    @TempDir
+    static Path shared;
+
+    /** A remote with one commit on master and a dirty checkout that has never fetched; copied, never used. */
+    private static Path[] unfetched;
+    /** The same pair with the checkout made current with master; copied, never used. */
+    private static Path[] tracked;
+    /** The remote's one commit. */
+    private static String masterSha;
+
+    /** The two starting points are built once: every test works on its own copy ({@link PetroappsFixture#copyOf}). */
     @BeforeAll
-    static void needsGit() {
+    static void buildTheStartingPoints() throws IOException {
         Assumptions.assumeTrue(PetroappsFixture.gitAvailable(), "git is not on PATH");
+        unfetched = PetroappsFixture.remoteAndCheckout(Files.createDirectory(shared.resolve("unfetched")));
+        masterSha = commit(unfetched[0], "refs/heads/master", files(CASE + "/PETROCORE-1/a.py", "a"));
+        tracked = PetroappsFixture.copyOf(unfetched, Files.createDirectory(shared.resolve("tracked")));
+        PetroappsFixture.track(tracked[1], "master");
     }
 
     @TempDir
@@ -40,10 +55,13 @@ class FreshnessTest {
     private record Current(Path remote, Path local, String sha) {}
 
     private Current current() throws IOException {
-        Path[] pair = PetroappsFixture.remoteAndCheckout(tmp);
-        String sha = commit(pair[0], "refs/heads/master", files(CASE + "/PETROCORE-1/a.py", "a"));
-        PetroappsFixture.track(pair[1], "master");
-        return new Current(pair[0], pair[1], sha);
+        Path[] pair = PetroappsFixture.copyOf(tracked, tmp);
+        return new Current(pair[0], pair[1], masterSha);
+    }
+
+    /** A remote with one commit on master, and a dirty checkout that has never fetched it. */
+    private Path[] neverFetched() throws IOException {
+        return PetroappsFixture.copyOf(unfetched, tmp);
     }
 
     /** A child of {@code parent} holding {@code files}, as the remote's new master. */
@@ -91,8 +109,7 @@ class FreshnessTest {
 
     @Test
     void aCheckoutOnAnotherBranchSaysToSwitch() throws IOException {
-        Path[] pair = PetroappsFixture.remoteAndCheckout(tmp);
-        commit(pair[0], "refs/heads/master", files(CASE + "/PETROCORE-1/a.py", "a"));
+        Path[] pair = neverFetched();
         git(pair[1], "branch", "-m", "master056.00");
         Freshness result = check(pair[1], null, false);
         assertFalse(result.ok());
@@ -138,8 +155,7 @@ class FreshnessTest {
 
     @Test
     void anotherBranchIsSwitchedThenCurrent() throws IOException {
-        Path[] pair = PetroappsFixture.remoteAndCheckout(tmp);
-        commit(pair[0], "refs/heads/master", files(CASE + "/PETROCORE-1/a.py", "a"));
+        Path[] pair = neverFetched();
         git(pair[1], "checkout", "--", "tracked.txt"); // clean, bar the untracked file
         git(pair[1], "branch", "-m", "master056.00");
         Freshness result = check(pair[1], null, true);
@@ -151,8 +167,7 @@ class FreshnessTest {
 
     @Test
     void aCheckoutThatWouldLoseChangesIsRefusedNotForced() throws IOException {
-        Path[] pair = PetroappsFixture.remoteAndCheckout(tmp);
-        commit(pair[0], "refs/heads/master", files(CASE + "/PETROCORE-1/a.py", "a"));
+        Path[] pair = neverFetched();
         git(pair[1], "branch", "-m", "master056.00"); // tracked.txt modified, absent on master
         Freshness result = check(pair[1], null, true);
         assertFalse(result.ok());

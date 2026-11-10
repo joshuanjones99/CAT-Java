@@ -136,6 +136,33 @@ public final class PetroappsFixture {
     }
 
     /**
+     * A file-for-file copy of a {remote, local} pair into {@code tmp}, the copy's {@code origin} its own remote: the
+     * same two repositories for one git command instead of the ten that build them, so a test class builds its pair
+     * once and each test changes a copy. Returns {remote, local}.
+     */
+    public static Path[] copyOf(Path[] pair, Path tmp) throws IOException {
+        Path remote = tmp.resolve("remote.git");
+        Path local = tmp.resolve("petroapps");
+        copyTree(pair[0], remote);
+        copyTree(pair[1], local);
+        git(local, "remote", "set-url", "origin", remote.toString());
+        return new Path[] {remote, local};
+    }
+
+    private static void copyTree(Path from, Path to) throws IOException {
+        try (java.util.stream.Stream<Path> walk = Files.walk(from)) {
+            for (Path source : walk.toList()) {
+                Path target = to.resolve(from.relativize(source).toString());
+                if (Files.isDirectory(source)) {
+                    Files.createDirectories(target);
+                } else {
+                    Files.copy(source, target);
+                }
+            }
+        }
+    }
+
+    /**
      * Makes {@code local} current with its remote's {@code branch} and leaves it dirty. Fetches, then points
      * {@code HEAD} at the branch by reference only: the working tree and the index stay as they were.
      */

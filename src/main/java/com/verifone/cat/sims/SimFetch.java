@@ -1,7 +1,6 @@
 package com.verifone.cat.sims;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystemException;
@@ -26,6 +25,7 @@ import java.util.stream.Stream;
 import com.verifone.cat.build.ArtifactoryClient;
 import com.verifone.cat.build.ArtifactoryErrors;
 import com.verifone.cat.build.ArtifactoryException;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.sims.SimSources.ArtifactorySource;
 import com.verifone.cat.sims.base.JavaSets;
 import com.verifone.cat.sims.base.NightlyBuilds;
@@ -162,12 +162,16 @@ public final class SimFetch {
                 out.add(new FetchResult(entry.name(), true, already.get(entry.name())));
                 continue;
             }
-            String problem = results.get(entry.name());
-            out.add(new FetchResult(entry.name(), problem.isEmpty(),
-                    problem.isEmpty() ? entry.name() + ": replaced with " + branch + " build " + number + "'s copy"
-                            : problem));
+            out.add(replaced(entry, results.get(entry.name()), branch, number));
         }
         return out;
+    }
+
+    /** One replaced row's result: {@code problem}, or that it now holds the build's copy. */
+    private static FetchResult replaced(SimEntry entry, String problem, String branch, String build) {
+        return new FetchResult(entry.name(), problem.isEmpty(),
+                problem.isEmpty() ? entry.name() + ": replaced with " + branch + " build " + build + "'s copy"
+                        : problem);
     }
 
     private Map<String, String> replace(List<SimEntry> entries, SimContext ctx, String branch, String build,
@@ -300,10 +304,7 @@ public final class SimFetch {
         Map<String, String> results = replace(entries, ctx, branch, build, olderBase, running);
         List<FetchResult> out = new ArrayList<>();
         for (SimEntry entry : entries) {
-            String problem = results.get(entry.name());
-            out.add(new FetchResult(entry.name(), problem.isEmpty(),
-                    problem.isEmpty() ? entry.name() + ": replaced with " + branch + " build " + build + "'s copy"
-                            : problem));
+            out.add(replaced(entry, results.get(entry.name()), branch, build));
         }
         return out;
     }
@@ -375,7 +376,7 @@ public final class SimFetch {
                 if (e.status() != ArtifactoryException.NO_RESPONSE || attempt == DOWNLOAD_ATTEMPTS) {
                     throw e;
                 }
-                Park.park(downloadRetryPause);
+                Waits.pause(downloadRetryPause);
             }
         }
         Path unpacked = scratch.resolve("unpacked");
@@ -523,7 +524,7 @@ public final class SimFetch {
                     throw e;
                 }
             }
-            Park.park(renameInterval);
+            Waits.pause(renameInterval);
         }
     }
 
@@ -584,13 +585,8 @@ public final class SimFetch {
     private static int execute(List<String> argv, Path cwd, Duration timeout, StringBuilder err) throws IOException {
         Process process = new ProcessBuilder(argv).directory(cwd.toFile())
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
-        CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> {
-            try (InputStream in = process.getErrorStream()) {
-                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                return "";
-            }
-        });
+        CompletableFuture<String> stderr = CompletableFuture.supplyAsync(
+                () -> ChildOutput.read(process.getErrorStream(), StandardCharsets.UTF_8));
         try {
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
