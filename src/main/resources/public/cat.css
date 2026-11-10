@@ -1002,6 +1002,11 @@ pre.log {
   /* The heading clears the window buttons, and a one-picture page's picture starts below the strip. */
   .topbar { padding-top: max(var(--cat-page-top), env(titlebar-area-height, 0px)); }
   .app.bare main { padding-top: max(16px, env(titlebar-area-height, 0px)); }
+  /* The loading line ("Loading CAT — checking setup") is the content's first row: it starts below the strip, and
+     while it shows, it is what clears the strip, so the heading or picture after it keeps its usual gap. */
+  #cat-loading { margin-top: calc(env(titlebar-area-height, 0px) + 8px); }
+  #cat-loading:not([hidden]) + .topbar { padding-top: var(--cat-page-top); }
+  .app.bare #cat-loading:not([hidden]) ~ main { padding-top: 16px; }
 }
 
 @media (display-mode: window-controls-overlay) and (max-width: 1023px) {
