@@ -181,10 +181,13 @@ class WebAppPagesTest {
     }
 
     @Test
-    void toolsIsEmptyByDesignAndIsNotAPlaceholder() throws Exception {
+    void toolsShowsItsFourToolsAndNoPlaceholder() throws Exception {
         String html = get("/tools").body();
 
-        assertTrue(html.contains("Nothing here yet"), html);
+        for (String tool : List.of("POS Pairing", "Onboard to Commander Connect", "Reboot C18", "Reboot Commander")) {
+            assertTrue(html.contains("<h2>" + tool + "</h2>"), tool + ": " + html);
+        }
+        assertFalse(html.contains("Nothing here yet"), html);
         assertFalse(html.contains("Not built yet"), html);
     }
 

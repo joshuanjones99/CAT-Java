@@ -711,6 +711,12 @@ public final class ConfigForm {
         return ccOnboard;
     }
 
+    /** The Commander Connect values a run onboards with (the lab Prod when none is picked), as they stand now. */
+    public synchronized CommanderConnect commanderConnect() {
+        return new CommanderConnect(ccLab.isEmpty() ? "Prod" : ccLab, ccEmail.strip(), ccServiceId.strip(),
+                ccPassword.strip());
+    }
+
     public Path savedPath() {
         return savedPath;
     }

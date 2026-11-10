@@ -17,6 +17,7 @@ import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
 import com.verifone.cat.shell.RigBusy;
 import com.verifone.cat.shell.Shell;
+import com.verifone.cat.tools.RigTools;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
@@ -67,6 +68,8 @@ public final class WebApp {
         SetupService setup;
         DownloadsService downloads;
         Map<String, String> env = System.getenv();
+        /** The Tools page's tools: the rig's devices by default; tests pass a fake. */
+        RigTools rigTools;
         /** What Shut down CAT does after the shutdown hooks: stop the server (and, in {@code serve}, the process). */
         Runnable exit;
     }
@@ -194,6 +197,9 @@ public final class WebApp {
         });
         configForm.attachDownloads(downloads.asState());
         UpgradeService upgrades = UpgradeService.standard(downloads, run::rig, busy, parts.env);
+        ToolsService tools = ToolsService.standard(run::rig, busy,
+                parts.rigTools != null ? parts.rigTools : RigTools.standard(parts.env), configForm::commanderConnect,
+                parts.env);
         shell.onShutdown(() -> {
             if (run.view().busy()) {
                 run.stop();
@@ -247,7 +253,7 @@ public final class WebApp {
         SimulatorsRoutes.register(app, sims);
         SetupRoutes.register(app, setup);
         SettingsRoutes.register(app, parts.settingsFile, parts.env, System.getProperty("user.home"), parts.desktop);
-        app.get("/tools", ctx -> ctx.html(Layout.page(Section.TOOLS, "Tools", ToolsPage.body())));
+        ToolsRoutes.register(app, tools);
         // The Python CAT's Manual page became Tools; the old address still works.
         app.get("/manual", ctx -> ctx.redirect(Section.TOOLS.path()));
 

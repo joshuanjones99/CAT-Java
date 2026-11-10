@@ -103,5 +103,6 @@ src/main/java/com/verifone/cat/
   shell/           the web shell's state: toasts, loading line, the one busy flag, page watch, auto-close
   recorder/        record (CDP tap listener), the recording file, collapse, generate (.feature)
   publish/         a suite onto a local petroapps branch (petrotest publish)
+  tools/           the Tools page's operator tools: POS pairing, Commander Connect onboarding, reboots
   web/             Javalin + htmx pages (localhost only)
 ```

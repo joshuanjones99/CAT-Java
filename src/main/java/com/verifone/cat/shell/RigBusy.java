@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 
 /**
  * What holds the rig now: the Python CAT's {@code CatService.busy}, one flag across a run, a preflight, an install,
- * a simulator launch and a simulator stop. One action at a time: {@link #begin} refuses a second with the Python's
+ * a simulator launch, a simulator stop and each Tools action (a pairing, an onboarding, a reboot). One action at a time: {@link #begin} refuses a second with the Python's
  * words ("A run is already in progress.").
  *
  * <p>The run and the preflight are held by the run service, which keeps its own flag; {@link #attachRun} hands this
@@ -22,14 +22,23 @@ public final class RigBusy {
     public static final String INSTALL = "install";
     public static final String SIMS_LAUNCH = "sims-launch";
     public static final String SIMS_STOP = "sims-stop";
+    /** The Tools page's POS Pairing (no Python equivalent: its Manual page is empty). */
+    public static final String PAIRING = "pairing";
+    /** The Tools page's Onboard to Commander Connect. */
+    public static final String ONBOARDING = "onboarding";
+    /** The Tools page's Reboot C18 and Reboot Commander. */
+    public static final String REBOOT = "reboot";
 
-    /** What each value is called in a refusal or the header: the Python's {@code BUSY_WORDS}. */
+    /** What each value is called in a refusal or the header: the Python's {@code BUSY_WORDS}, and the Tools'. */
     public static final Map<String, String> WORDS = Map.of(
             RUN, "a run",
             PREFLIGHT, "a preflight",
             INSTALL, "an install",
             SIMS_LAUNCH, "a simulator launch",
-            SIMS_STOP, "a simulator stop");
+            SIMS_STOP, "a simulator stop",
+            PAIRING, "a POS pairing",
+            ONBOARDING, "a Commander Connect onboarding",
+            REBOOT, "a reboot");
 
     private Supplier<String> run = () -> "";
     private String own = "";
