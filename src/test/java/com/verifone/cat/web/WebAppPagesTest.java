@@ -185,7 +185,7 @@ class WebAppPagesTest {
         String html = get("/tools").body();
 
         for (String tool : List.of("POS Pairing", "Onboard to Commander Connect", "Reboot C18", "Reboot Commander")) {
-            assertTrue(html.contains("<h2>" + tool + "</h2>"), tool + ": " + html);
+            assertTrue(html.contains(">" + tool + "</button>"), tool + ": " + html);
         }
         assertFalse(html.contains("Nothing here yet"), html);
         assertFalse(html.contains("Not built yet"), html);

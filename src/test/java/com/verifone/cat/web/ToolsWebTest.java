@@ -138,12 +138,15 @@ class ToolsWebTest {
 
         int last = -1;
         for (String title : List.of("POS Pairing", "Onboard to Commander Connect", "Reboot C18", "Reboot Commander")) {
-            int at = html.indexOf("<h2>" + title + "</h2>");
+            int at = html.indexOf(">" + title + "</button>");
             assertTrue(at > last, title + " is missing or out of order: " + html);
             last = at;
         }
         assertTrue(html.contains("hx-post=\"/tools/reboot-c18?register=Reg101\""), html);
         assertTrue(html.contains("hx-confirm=\"Reboot Reg101 on rig lab?"), html);
+        assertTrue(html.contains("<ul class=\"tool-list\">"), "one vertical list: " + html);
+        assertFalse(html.contains("<p>"), "no descriptions: " + html);
+        assertFalse(html.contains("class=\"warn\""), "no warning when the setup is right: " + html);
         assertFalse(html.contains(" disabled"), "nothing blocks a tool: " + html);
         assertFalse(html.contains("secret"), "the password is never shown: " + html);
     }
@@ -154,8 +157,8 @@ class ToolsWebTest {
 
         String html = ToolsPage.panel(service("lab", Map.of()));
 
-        assertTrue(html.contains(">Reboot Reg101</button>"), html);
-        assertTrue(html.contains(">Reboot Reg102</button>"), html);
+        assertTrue(html.contains(">Reboot C18 (Reg101)</button>"), html);
+        assertTrue(html.contains(">Reboot C18 (Reg102)</button>"), html);
     }
 
     @Test
@@ -253,7 +256,9 @@ class ToolsWebTest {
         assertTrue(why.startsWith("Commander Connect is not set up on the Config tab"), why);
         assertEquals(List.of(), fake.calls);
         String html = ToolsPage.panel(tools);
-        assertTrue(html.contains(">Onboard</button>") && html.contains(" disabled>Onboard</button>"), html);
+        assertTrue(html.contains(" disabled>Onboard to Commander Connect</button>"), html);
+        assertTrue(html.contains("<span class=\"warn\">Set on the <a href=\"/run/config\">Config tab</a> first: "
+                + "email is empty or not an address"), "the setup warning stays: " + html);
     }
 
     @Test

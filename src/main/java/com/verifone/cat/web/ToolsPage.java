@@ -6,7 +6,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.web.ToolsService.Outcome;
 import com.verifone.cat.web.ToolsService.Tool;
 
@@ -15,8 +14,10 @@ import com.verifone.cat.web.ToolsService.Tool;
  * {@code cat/web/pages/manual.py}) became this page; its first tools are CAT-Java's own (user, 2026-11-10): POS
  * Pairing, Onboard to Commander Connect, Reboot C18 and Reboot Commander.
  *
- * <p>The cards and the log are one polled fragment, so a running tool's state and lines follow it, and every button
- * is disabled while anything holds the rig. Each button asks first, naming the rig.
+ * <p>A vertical list of buttons, one per tool (one per register for Reboot C18), with no descriptions: the engineers
+ * who use it know what each does (user, 2026-11-10). A row shows only its last outcome and what is wrong with the
+ * setup, if anything. The list and the log are one polled fragment, so a running tool's state and lines follow it, and
+ * every button is disabled while anything holds the rig. Each button asks first, naming the rig.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -29,16 +30,14 @@ final class ToolsPage {
     private ToolsPage() {}
 
     static String body(ToolsService tools) {
-        return "<p class=\"muted\">One-off actions on the rig, outside a run. Each one holds the rig while it runs, "
-                + "as a run does.</p>"
-                + panel(tools);
+        return panel(tools);
     }
 
-    /** The four tools' cards, the refusal or notice above them, and the log below. */
+    /** The refusal or notice, the list of tools, and the log below. */
     static String panel(ToolsService tools) {
         Tool running = tools.running();
         String why = tools.refusal();
-        StringBuilder out = new StringBuilder("<div id=\"" + PANEL_ID + "\"");
+        StringBuilder out = new StringBuilder("<div id=\"" + PANEL_ID + "\" class=\"tools-panel\"");
         if (running != null) {
             out.append(" hx-get=\"").append(PATH).append("\" hx-trigger=\"every 2s\" hx-swap=\"outerHTML\"");
         }
@@ -51,74 +50,58 @@ final class ToolsPage {
             out.append("<p class=\"warn\" role=\"status\">").append(esc(notice)).append("</p>");
         }
         boolean blocked = !why.isEmpty();
-        out.append("<div class=\"cards\">");
-        out.append(card(tools, Tool.PAIR,
-                "<p>Pairs every register with the Commander: provision (pairing drives the register's browser), then "
-                        + "psi-init with pairing, then provision again. A Commander password the PSI installer left "
-                        + "is reset first. A register already paired is left as it is.</p>",
-                button(tools, Tool.PAIR, "", "Pair POS", blocked)));
-        out.append(onboardCard(tools, blocked));
-        out.append(rebootC18Card(tools, blocked));
-        out.append(card(tools, Tool.REBOOT_COMMANDER,
-                "<p>Reboots the Commander over SSH, then waits for SSH from the new boot and for CGILink to answer "
-                        + "(its AAA service is the last part up).</p>",
-                button(tools, Tool.REBOOT_COMMANDER, "", "Reboot Commander", blocked)));
+        out.append("<section class=\"card\"><ul class=\"tool-list\">");
+        out.append(row(tools, Tool.PAIR, "", Tool.PAIR.title, blocked, ""));
+        out.append(onboardRow(tools, blocked));
+        out.append(rebootC18Rows(tools, blocked));
+        out.append(row(tools, Tool.REBOOT_COMMANDER, "", Tool.REBOOT_COMMANDER.title, blocked, ""));
+        out.append("</ul></section>");
         out.append(logCard(tools));
-        out.append("</div></div>");
-        return out.toString();
+        return out.append("</div>").toString();
     }
 
-    private static String onboardCard(ToolsService tools, boolean blocked) {
-        CommanderConnect cc = tools.connectSettings();
-        List<String> problems = cc.problems();
-        StringBuilder text = new StringBuilder("<p>Onboards the Commander to Commander Connect with the Config tab's "
-                + "values, starting the cloud tunnel first when none is running (the lab Commander has no WAN link). "
-                + "A run's Commander init overwrites the onboarding, so onboard after it.</p>");
-        text.append("<dl>")
-                .append(row("Lab", cc.lab()))
-                .append(row("Email", cc.email().isEmpty() ? "(none)" : cc.email()))
-                .append(row("Service id", cc.serviceId().isEmpty() ? "(none)" : cc.serviceId()))
-                .append(row("Password", cc.password().isEmpty() ? "(none)" : "set"))
-                .append("</dl>");
-        if (!problems.isEmpty()) {
-            text.append("<p class=\"warn\">Set these on the <a href=\"/run/config\">Config tab</a> first: ")
-                    .append(esc(String.join("; ", problems))).append(".</p>");
-        } else {
-            text.append("<p class=\"muted\">Change them on the <a href=\"/run/config\">Config tab</a>.</p>");
-        }
-        return card(tools, Tool.ONBOARD, text.toString(),
-                button(tools, Tool.ONBOARD, "", "Onboard", blocked || !problems.isEmpty()));
+    private static String onboardRow(ToolsService tools, boolean blocked) {
+        List<String> problems = tools.connectSettings().problems();
+        String warning = problems.isEmpty() ? ""
+                : "Set on the <a href=\"/run/config\">Config tab</a> first: " + esc(String.join("; ", problems)) + ".";
+        return row(tools, Tool.ONBOARD, "", Tool.ONBOARD.title, blocked || !problems.isEmpty(), warning);
     }
 
-    private static String rebootC18Card(ToolsService tools, boolean blocked) {
+    private static String rebootC18Rows(ToolsService tools, boolean blocked) {
         List<String> registers = tools.registers();
-        String text = "<p>Reboots a register's C18 over SSH, waits for SSH from the new boot, then runs provision to "
-                + "bring its pos-shim back.</p>";
-        StringBuilder buttons = new StringBuilder();
         if (registers.isEmpty()) {
-            text += "<p class=\"muted\">" + (tools.rigName().isEmpty() ? "No rig, so no register to reboot."
-                    : "Rig " + esc(tools.rigName()) + " names no register CAT can read.") + "</p>";
-            buttons.append(button(tools, Tool.REBOOT_C18, "", "Reboot C18", true));
-        } else {
-            for (String register : registers) {
-                String label = registers.size() == 1 ? "Reboot C18" : "Reboot " + register;
-                buttons.append(button(tools, Tool.REBOOT_C18, register, label, blocked));
-            }
+            // No rig is already said above the list; a rig with no readable register is said here.
+            String warning = tools.rigName().isEmpty() ? ""
+                    : "Rig " + esc(tools.rigName()) + " names no register CAT can read.";
+            return row(tools, Tool.REBOOT_C18, "", Tool.REBOOT_C18.title, true, warning);
         }
-        return card(tools, Tool.REBOOT_C18, text, buttons.toString());
+        StringBuilder rows = new StringBuilder();
+        for (String register : registers) {
+            String label = registers.size() == 1 ? Tool.REBOOT_C18.title
+                    : Tool.REBOOT_C18.title + " (" + register + ")";
+            rows.append(row(tools, Tool.REBOOT_C18, register, label, blocked, ""));
+        }
+        return rows.toString();
     }
 
-    /** One tool's card: its name, what it does, its last outcome, and its buttons. */
-    private static String card(ToolsService tools, Tool tool, String text, String buttons) {
+    /**
+     * One row: the tool's button, its last outcome, and a setup warning ({@code warningHtml}, already escaped), if any.
+     * Reboot C18's outcome shows on the row of the register it rebooted.
+     */
+    private static String row(ToolsService tools, Tool tool, String register, String label, boolean disabled,
+            String warningHtml) {
+        StringBuilder out = new StringBuilder("<li id=\"tool-" + tool.slug
+                + (register.isEmpty() ? "" : "-" + esc(register)) + "\">");
+        out.append(button(tools, tool, register, label, disabled));
         Outcome outcome = tools.outcome(tool);
-        StringBuilder out = new StringBuilder("<section class=\"card tool\" id=\"tool-" + tool.slug + "\">");
-        out.append("<h2>").append(esc(tool.title)).append("</h2>").append(text);
-        if (!outcome.state().isEmpty()) {
-            out.append("<p role=\"status\">").append(badge(outcome.state())).append(" ")
-                    .append(esc(outcome.message())).append("</p>");
+        if (!outcome.state().isEmpty() && (register.isEmpty() || outcome.message().contains("(" + register + ")"))) {
+            out.append("<span role=\"status\">").append(badge(outcome.state())).append(" ")
+                    .append(esc(outcome.message())).append("</span>");
         }
-        out.append("<div class=\"sim-actions\">").append(buttons).append("</div>");
-        return out.append("</section>").toString();
+        if (!warningHtml.isEmpty()) {
+            out.append("<span class=\"warn\">").append(warningHtml).append("</span>");
+        }
+        return out.append("</li>").toString();
     }
 
     private static String badge(String state) {
@@ -143,11 +126,7 @@ final class ToolsPage {
         if (lines.isEmpty()) {
             return "";
         }
-        return "<section class=\"card wide\" id=\"tools-log\"><h2>Log</h2><pre class=\"cat-pre\">"
+        return "<section class=\"card\" id=\"tools-log\"><h2>Log</h2><pre class=\"cat-pre\">"
                 + esc(String.join("\n", lines)) + "</pre></section>";
-    }
-
-    private static String row(String term, String value) {
-        return "<dt>" + esc(term) + "</dt><dd>" + esc(value) + "</dd>";
     }
 }
