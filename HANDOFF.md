@@ -222,7 +222,7 @@ socket, `rig/ppk.py`: JSch reads `.ppk` v2 itself).
    - `plan.resolved` gives the Not Run count and the full-plan gate leaves Cadence's `@plan_end` cases judged;
    - the receipt relay fills the run log and the web roll;
    - the pos-shim stamp check does not rebuild a current shim.
-   Then a web Start against the rig: read the Pre-Run card's Upgrade line before pressing Start.
+   Then a web Start against the rig: read the Run Summary card's Upgrade line before pressing Start.
 3. **Commander Connect onboarded.** The tunnel serve loop, `TunnelStart`, csite-reset and cloud-snapshot restore are
    ported (wave 16) but have never run. Every migration plan must pass onboarded.
 4. **Petro dropped every DCR soft key in run dec5794107fa** (a stale Petro instance; a fresh one worked in run

@@ -939,6 +939,10 @@ pre.log {
   max-width: 420px; border-radius: var(--cat-radius-control); background: var(--cat-warn-soft); color: var(--cat-warn-text);
   text-decoration: none; font-weight: 600; font-size: 15px; }
 .setup-warning:hover { filter: brightness(0.97); }
+/* A page's controls at the right of its title row (Run's Start run and Preflight), after any setup warning. */
+.page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-left: auto; }
+.setup-warning + .page-actions { margin-left: 0; }
+.page-actions:empty { display: none; }
 
 .setup-cards { display: grid; gap: 20px; }
 .setup-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
