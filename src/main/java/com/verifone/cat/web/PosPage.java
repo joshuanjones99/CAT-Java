@@ -58,12 +58,16 @@ final class PosPage {
                 + "<script src=\"/static/pos-screen.js\" defer></script>";
     }
 
-    /** No register to check at all (no rig, or one without a usable register): {@code why} says which. */
+    /**
+     * No register to check at all (no rig, or one without a usable register): {@code why} says which. Never
+     * "not connected": nothing was probed, and the register may well be up (user, 2026-11-10).
+     */
     static String noRegister(String why) {
-        return "<div class=\"pos-screen pos-screen-none\"><p class=\"warn\" role=\"status\">Register not connected: "
-                + "CAT has no register to reach.</p><p class=\"muted\">" + esc(why) + "</p>"
-                + "<p class=\"muted\">Start CAT with <code>--rig &lt;name&gt;</code> (and <code>--register &lt;id&gt;"
-                + "</code> on a rig with more than one).</p></div>";
+        return "<div class=\"pos-screen pos-screen-none\"><p class=\"warn\" role=\"status\">Can't check the register: "
+                + "CAT has no rig loaded, so it doesn't know the register's address.</p><p class=\"muted\">"
+                + esc(why) + "</p><p class=\"muted\">Put the rig's <code>&lt;name&gt;.yaml</code> in the rigs folder "
+                + "(or set <code>$PETROTEST_RIGS_DIR</code>), then restart CAT with <code>--rig &lt;name&gt;</code> "
+                + "(and <code>--register &lt;id&gt;</code> on a rig with more than one).</p></div>";
     }
 
     /**

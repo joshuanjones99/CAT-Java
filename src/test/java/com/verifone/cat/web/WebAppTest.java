@@ -85,7 +85,7 @@ class WebAppTest {
 
         String page = get("/pos").body();
 
-        assertTrue(page.contains("Register not connected"), page);
+        assertTrue(page.contains("Can't check the register"), page);
         assertFalse(page.contains("<canvas"), page);
     }
 

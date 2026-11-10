@@ -196,7 +196,7 @@ class WebAppPagesTest {
         String html = get("/pos").body();
 
         // No register here: the page says so, inside the shell (WebAppTest covers the screen itself).
-        assertTrue(html.contains("Register not connected"), html);
+        assertTrue(html.contains("Can't check the register"), html);
         assertTrue(html.contains("CAT-Java: test / topaz101"), html);
         assertTrue(html.contains("/static/htmx.min.js"), html);
     }

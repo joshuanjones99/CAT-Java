@@ -176,9 +176,11 @@ class PosRoutesTest {
 
         String page = get("/pos").body();
 
-        assertTrue(page.contains("Register not connected"), page);
+        assertTrue(page.contains("Can't check the register"), page);
         assertTrue(page.contains("Rig &#39;lab&#39; did not load: No rig file") || page.contains("Rig 'lab' did not load"),
                 page);
         assertFalse(page.contains("Push shim to register"), page);
+        // Nothing was probed: the register may be up, so the page never calls it not connected.
+        assertFalse(page.contains("not connected"), page);
     }
 }
