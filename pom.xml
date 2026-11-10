@@ -17,6 +17,8 @@
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+    <cat.test.forks>0.5C</cat.test.forks>
+
     <javalin.version>6.7.0</javalin.version>
     <jackson.version>2.21.8</jackson.version>
     <slf4j.version>2.0.20</slf4j.version>
@@ -124,6 +126,11 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
         <configuration>
+          <!-- Test classes are spread over several JVMs (one per two cores by default). Each class
+               still runs alone in its JVM, so static state is not shared; the tests use ephemeral
+               ports and @TempDir, so the forks do not collide. -Dcat.test.forks=1 runs them in one. -->
+          <forkCount>${cat.test.forks}</forkCount>
+          <reuseForks>true</reuseForks>
           <environmentVariables>
             <!-- Playwright for Java downloads every browser on first use unless told not to.
                  Tests that need Chromium skip when it is absent; installing it is a
