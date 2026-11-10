@@ -970,6 +970,44 @@ pre.log {
   .cat-dialog > h2:first-child { font-size: 26px; }
 }
 
+/* ------------------------------------------------------------------ CAT's window with no title bar */
+
+/* The installed CAT window (desktop.AppWindow) has no title bar: the page fills the window and Edge draws only its
+   window buttons over the top right corner, in the titlebar-area-* box's right. The .window-drag strip (Layout's
+   first element) is the top of the window: it drags the window, double-clicks to maximise, and covers what scrolls
+   beneath it with the workspace colour (clear over the sidebar, which does not scroll). Whatever must stay
+   clickable in that strip says no-drag, which cuts it out of the drag area. Elsewhere (a browser tab, the window
+   before CAT is installed) the strip is hidden and nothing below changes. */
+.app { --cat-side-w: 250px; }
+.app.rail { --cat-side-w: 70px; }
+.window-drag { display: none; }
+
+@media (display-mode: window-controls-overlay) {
+  .window-drag {
+    display: block;
+    position: fixed;
+    z-index: 50;
+    top: env(titlebar-area-y, 0px);
+    left: env(titlebar-area-x, 0px);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, 33px);
+    background: linear-gradient(to right, transparent var(--cat-side-w), var(--cat-page) var(--cat-side-w));
+    app-region: drag;
+    -webkit-app-region: drag;
+  }
+  .wordmark, .collapse, .topbar a, .topbar button, .skip {
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+  /* The heading clears the window buttons, and a one-picture page's picture starts below the strip. */
+  .topbar { padding-top: max(var(--cat-page-top), env(titlebar-area-height, 0px)); }
+  .app.bare main { padding-top: max(16px, env(titlebar-area-height, 0px)); }
+}
+
+@media (display-mode: window-controls-overlay) and (max-width: 1023px) {
+  .app, .app.rail { --cat-side-w: 0px; }
+}
+
 /* Windows with "Animation effects" off (common on lab and remote machines) reports reduced motion. Animations then
    play once, instantly; an infinite one left at 0.01ms would strobe. The loader is the one essential motion: it
    still turns, slowly, so the line reads as busy. */

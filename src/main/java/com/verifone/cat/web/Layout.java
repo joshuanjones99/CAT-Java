@@ -24,6 +24,13 @@ import com.verifone.cat.shell.Shell;
  * {@code cat-commander-logo.png} (the user's supplied "commander dots" with the CAT lettermark; copied at the rig
  * owner's request, 2026-11-09) and the icon rail shows the monogram, as the Python's {@code layout.py}.
  *
+ * <p>CAT's window with no title bar ({@code desktop.AppWindow}): every page links the web app manifest, which asks
+ * for the Window Controls Overlay, and starts with the {@code window-drag} strip, the top of the window it drags
+ * from. Outside an installed CAT window the strip is hidden and the page is as before. The theme colour is the
+ * colour the browser paints behind its window buttons: {@code cat.js} adds it as a {@code theme-color} meta from the
+ * workspace token of the theme showing (colours live only in {@code cat.css}); the manifest's light one is only the
+ * first paint's.
+ *
  * <p>The sidebar collapses to an icon rail and remembers that choice; on narrow screens a menu button opens it as a
  * drawer. Both are done by {@code /static/cat.js}, and the page works without it: the links are always there.
  */
@@ -121,6 +128,7 @@ final class Layout {
                   <title>%1$s%11$s</title>
                   <link rel="icon" href="/static/icons/cat.ico" sizes="any">
                   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+                  <link rel="manifest" href="/static/manifest.json">
                   <link rel="preload" href="/static/fonts/SourceSans3-Variable.ttf" as="font" type="font/ttf" crossorigin>
                   <link rel="preload" href="/static/fonts/BarlowSemiCondensed-SemiBold.ttf" as="font" type="font/ttf" crossorigin>
                   <link rel="stylesheet" href="/static/cat.css">
@@ -128,6 +136,7 @@ final class Layout {
                   <script src="/static/cat.js" defer></script>
                 </head>
                 <body class="app%10$s" data-shell="%6$s" data-since="%7$d">
+                  <div class="window-drag" aria-hidden="true"></div>
                   <a class="skip" href="#main">Skip to content</a>
                   <aside class="sidebar">
                     <div class="brand">

@@ -38,8 +38,20 @@ final class SettingsPage {
     }
 
     /**
+     * What Hide the title bar does ({@code desktop.AppWindow}). The button itself is hidden until the browser offers
+     * the install ({@code cat.js}), which it does only in CAT's own window before CAT is installed.
+     */
+    static final String TITLE_BAR_NOTE = "CAT's window can have no title bar: the page fills the window, the window "
+            + "buttons stay at the top right, and the top of the window still drags it. Hide the title bar, shown "
+            + "in CAT's own window until it is done, installs CAT as an app in CAT's own Edge profile, not in your "
+            + "browser; Edge asks first, then reopens the window without its title bar and may leave an empty New tab "
+            + "window, which you can close. When Edge offers to pin the app, Don't allow is fine: CAT's shortcut is "
+            + "what starts CAT. To bring the title bar back: the … at the window's top right, App settings, "
+            + "Uninstall.";
+
+    /**
      * Opening CAT: where CAT opens (its own window, or the browser), saved at once like Appearance; Open in the
-     * browser now; and Add the CAT-Java shortcut.
+     * browser now; Hide the title bar (once, in CAT's window); and Add the CAT-Java shortcut.
      */
     static String openingCard(OpenIn current) {
         StringBuilder radios = new StringBuilder();
@@ -60,6 +72,10 @@ final class SettingsPage {
                 + "</form>"
                 + "<p class=\"placeholder-note\">Its own window is CAT in a Microsoft Edge (or Chrome) app window, "
                 + "with no tabs or address bar. Applies the next time CAT starts or its shortcut is clicked.</p>"
+                + "<p class=\"placeholder-note\">" + TITLE_BAR_NOTE + "</p>"
+                + "<button type=\"button\" id=\"cat-install-window\" data-action=\"install-window\" hidden>"
+                + "Hide the title bar</button>"
+                + "<p id=\"cat-install-result\" class=\"appearance-result\" role=\"status\"></p>"
                 + "<div class=\"sim-actions\">"
                 + "<button type=\"button\" hx-post=\"/settings/open-browser\" hx-target=\"#opening-result\""
                 + " hx-swap=\"innerHTML\">Open in the browser now</button>"

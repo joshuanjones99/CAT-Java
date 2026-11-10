@@ -12,12 +12,16 @@ import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.verifone.cat.core.Json;
 import com.verifone.cat.desktop.WindowIcon;
 import com.verifone.cat.posshim.FakeShim;
 import com.verifone.cat.posshim.PosShimClient;
@@ -200,6 +204,36 @@ class WebAppPagesTest {
         assertTrue(html.contains("No register to show"), html);
         assertTrue(html.contains("CAT-Java: test / topaz101"), html);
         assertTrue(html.contains("/static/htmx.min.js"), html);
+    }
+
+    @Test
+    void everyPageCanBeCatsWindowWithNoTitleBar() throws Exception {
+        HttpResponse<String> manifest = get("/static/manifest.json");
+        assertEquals(200, manifest.statusCode());
+        JsonNode app = Json.MAPPER.readTree(manifest.body());
+        // The overlay, under an id of "/": desktop.AppWindow.appId hashes the origin with that path.
+        assertEquals("window-controls-overlay", app.path("display_override").path(0).asText(), manifest.body());
+        assertEquals("/", app.path("id").asText());
+        assertEquals("/", app.path("start_url").asText());
+        assertEquals("CAT-Java", app.path("name").asText());
+        String icon = app.path("icons").path(0).path("src").asText();
+        assertEquals(200, get(icon).statusCode(), icon);
+        // The manifest cannot read cat.css: its colours are the light workspace token's, kept equal here.
+        Matcher page = Pattern.compile("--cat-page: (#[0-9a-f]{6});").matcher(get("/static/cat.css").body());
+        assertTrue(page.find(), "no --cat-page token in cat.css");
+        assertEquals(page.group(1), app.path("theme_color").asText());
+        assertEquals(page.group(1), app.path("background_color").asText());
+
+        for (String path : List.of("/run", "/settings", "/pos")) {
+            String html = get(path).body();
+            assertTrue(html.contains("<link rel=\"manifest\" href=\"/static/manifest.json\">"), path);
+            // The drag strip is the body's first element, so the controls after it cut themselves out of it.
+            assertTrue(Pattern.compile("<body [^>]*>\\s*<div class=\"window-drag\" aria-hidden=\"true\"></div>")
+                    .matcher(html).find(), path + ": " + html);
+        }
+        String settings = get("/settings").body();
+        assertTrue(settings.contains("<button type=\"button\" id=\"cat-install-window\" data-action=\"install-window\""
+                + " hidden>Hide the title bar</button>"), settings);
     }
 
     @Test

@@ -60,6 +60,21 @@ class DesktopHostTest {
     }
 
     @Test
+    void onceCatIsInstalledInItsProfileTheWindowOpensAsTheAppWithNoTitleBar() {
+        Path profile = AppWindow.profileDir(HOME);
+        String appId = AppWindow.appId(URL);
+
+        String what = host(Set.of(EDGE, AppWindow.installedMarker(profile, appId)), false, false)
+                .open(URL, OpenIn.WINDOW);
+
+        assertEquals(List.of(AppWindow.appCommand(EDGE, appId, profile)), spawned);
+        // The app's window has the manifest's icon and the app's name for a title: no keeper.
+        assertEquals(List.of(), keeperStarts);
+        assertEquals("opened CAT's window on " + URL + " with " + EDGE + " (installed app " + appId
+                + ", no title bar)", what);
+    }
+
+    @Test
     void theBrowserChoiceOpensTheDefaultBrowserWithNoIconKeeper() {
         String what = host(Set.of(EDGE), false, false).open(URL, OpenIn.BROWSER);
 

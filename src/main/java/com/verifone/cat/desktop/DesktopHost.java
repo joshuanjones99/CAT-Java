@@ -28,7 +28,8 @@ import com.verifone.cat.prefs.WebSettings.OpenIn;
 public interface DesktopHost {
 
     /**
-     * Opens CAT on {@code url} as the operator chose. {@link OpenIn#WINDOW} is {@link AppWindow}'s app window; when
+     * Opens CAT on {@code url} as the operator chose. {@link OpenIn#WINDOW} is {@link AppWindow}'s app window: the
+     * installed CAT app (no title bar) once it is installed in CAT's profile, else an {@code --app} window; when
      * neither Edge nor Chrome is installed or the spawn fails, it falls back to the default browser. Never throws.
      *
      * @return what was done, one line, for the log
@@ -55,7 +56,7 @@ public interface DesktopHost {
 
     /** The real desktop: this process's environment and home, real processes. */
     static DesktopHost system() {
-        return new Real(System.getenv(), CatHome.user(), Files::isRegularFile, DesktopHost::spawnDetached,
+        return new Real(System.getenv(), CatHome.user(), Files::exists, DesktopHost::spawnDetached,
                 DesktopHost::runToEnd, Shortcuts::repoRoot, WindowIcon::start);
     }
 
@@ -64,6 +65,7 @@ public interface DesktopHost {
 
         private final Map<String, String> env;
         private final Path home;
+        /** Whether a file or folder exists: the browser's program, the installed app's folder. */
         private final Predicate<Path> exists;
         private final Spawner spawner;
         private final Shortcuts.Runner runner;
@@ -90,14 +92,21 @@ public interface DesktopHost {
             if (browser.isEmpty()) {
                 return "no Edge or Chrome for CAT's window; " + openInBrowser(url);
             }
-            List<String> argv = AppWindow.command(browser.get(), url, AppWindow.profileDir(home));
+            Path profile = AppWindow.profileDir(home);
+            String appId = AppWindow.appId(url);
+            boolean installed = exists.test(AppWindow.installedMarker(profile, appId));
+            List<String> argv = installed ? AppWindow.appCommand(browser.get(), appId, profile)
+                    : AppWindow.command(browser.get(), url, profile);
             try {
                 spawner.spawn(argv);
             } catch (IOException | RuntimeException e) {
                 return "could not open CAT's window with " + browser.get() + " (" + e.getMessage() + "); "
                         + openInBrowser(url);
             }
-            return "opened CAT's window on " + url + " with " + browser.get() + keepIcon();
+            // The installed app's window takes its sharp icon from the manifest and is titled with the app's name,
+            // which the keeper does not match (WindowIcon): it needs no keeper.
+            return "opened CAT's window on " + url + " with " + browser.get()
+                    + (installed ? " (installed app " + appId + ", no title bar)" : keepIcon());
         }
 
         /** Starts {@link WindowIcon} for the window just opened; a failure only leaves the browser's icon. */
