@@ -92,6 +92,8 @@ final class RunStyle {
             .run-log-bar fieldset { border: 0; padding: 4px; margin: 0; display: inline-flex; gap: 3px; flex-wrap: wrap; border-radius: 9px; background: var(--cat-line-2); }
             .run-log-bar fieldset label { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
             .run-log-bar fieldset label:has(input:checked) { background: var(--cat-surface); }
+            .run-log-bar fieldset label input { margin: 0; }
+            .run-log-bar > label { display: inline-flex; align-items: center; gap: 8px; color: var(--cat-label); font-weight: 600; }
             .run-log .lv-WARNING { color: var(--cat-warn-text); }
             .run-log .lv-ERROR, .run-log .lv-CRITICAL { color: var(--cat-bad); }
             .run-log .lv-DEBUG { color: var(--cat-muted); }

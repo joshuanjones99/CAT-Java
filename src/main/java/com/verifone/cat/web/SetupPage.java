@@ -54,7 +54,8 @@ final class SetupPage {
             out.append(" hx-get=\"/fragments/setup\" hx-trigger=\"every 2s\" hx-swap=\"outerHTML\"");
         }
         out.append('>');
-        out.append("<div class=\"sim-actions\"><button type=\"button\" hx-post=\"/setup/check\" ").append(TARGET)
+        out.append("<div class=\"sim-actions\"><button type=\"button\" class=\"run-primary\" hx-post=\"/setup/check\" ")
+                .append(TARGET)
                 .append(snapshot.checking() ? " disabled" : "").append(">Check again</button></div>");
         if (!snapshot.status().isEmpty()) {
             out.append("<p class=\"warn\">").append(esc(snapshot.status())).append("</p>");

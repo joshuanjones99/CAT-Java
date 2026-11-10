@@ -326,6 +326,8 @@ main {
 
   .app.drawer-open .sidebar,
   body.drawer-open .sidebar { transform: none; box-shadow: var(--cat-floating-shadow); }
+  /* The open drawer dims the page behind it; a click there (or Escape) closes it (cat.js). */
+  body.drawer-open::after { content: ""; position: fixed; inset: 0; z-index: 55; background: var(--cat-backdrop); }
 
   .app.rail .label,
   .app.rail .brand .wordmark span { display: inline; }
@@ -373,6 +375,8 @@ p:last-child { margin-bottom: 0; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .mono, .cat-mono { font-family: var(--cat-font-mono); font-size: 13px; overflow-wrap: anywhere; }
 .pre { white-space: pre-wrap; }
+.cat-pre { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--cat-font-mono); font-size: 13px;
+  line-height: 1.65; }
 
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 0; }
 dt { color: var(--cat-muted); }
@@ -380,24 +384,26 @@ dd { margin: 0; }
 
 /* ------------------------------------------------------------------ controls */
 
-:where(button) {
+:where(button, a.button) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 40px;
-  padding: 0 16px;
+  padding: 7px 16px;
   border: 1px solid var(--cat-blue);
   border-radius: var(--cat-radius-control);
   background: var(--cat-surface);
   color: var(--cat-blue);
   font: 600 15px/1.3 var(--cat-font-body);
+  text-align: center;
+  text-decoration: none;
   letter-spacing: 0;
   cursor: pointer;
   transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
 }
 
-:where(button):where(:hover) { background: var(--cat-blue-soft); }
+:where(button, a.button):where(:hover) { background: var(--cat-blue-soft); }
 :where(button):where(:disabled) { opacity: 0.5; cursor: not-allowed; }
 :where(button):where(:disabled):where(:hover) { background: var(--cat-surface); }
 
@@ -426,7 +432,7 @@ button.danger:hover:not(:disabled) { background: var(--cat-bad-soft); }
 
 /* A quiet text action beside the main ones. */
 .ghost, button.ghost { background: transparent; border-color: transparent; }
-button.ghost:hover:not(:disabled) { background: var(--cat-blue-soft); }
+button.ghost:hover:not(:disabled), a.button.ghost:hover { background: var(--cat-blue-soft); }
 /* A text action inside a table row or a sentence keeps the line's height. */
 td button.ghost, p button.ghost, li button.ghost, dd button.ghost {
   min-height: 0; padding: 1px 4px; margin: -1px 0; border-radius: 4px; vertical-align: baseline; display: inline;
@@ -458,6 +464,8 @@ td button.ghost:hover, p button.ghost:hover, li button.ghost:hover, dd button.gh
 
 :where(input, select, textarea):where(:hover:not(:disabled)) { border-color: var(--cat-ink-2); }
 :where(input, select, textarea):where(:focus) { outline: none; border-color: var(--cat-blue); box-shadow: 0 0 0 1px var(--cat-blue); }
+/* A field's focus is its blue border ring; the page-wide outline would draw a second ring around it. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 :where(input, select, textarea):where(:disabled) { opacity: 0.7; cursor: not-allowed; }
 ::placeholder { color: var(--cat-muted); opacity: 1; }
 
@@ -538,6 +546,8 @@ details > summary { cursor: pointer; }
 
 .card > h2:first-child { margin-bottom: 12px; }
 .card.wide { grid-column: 1 / -1; }
+/* Cards stacked straight in the page (not in a grid) keep the section gap between them. */
+main > .card + .card { margin-top: var(--cat-section-gap); }
 
 .placeholder { border-style: dashed; }
 .placeholder-note { color: var(--cat-muted); font-size: 14px; margin: 8px 0 0; }
@@ -640,6 +650,7 @@ details > summary { cursor: pointer; }
 .results-table tbody tr:last-child td, .sim-table tbody tr:last-child td { border-bottom: 0; }
 .results-table tbody tr:hover td, .sim-table tbody tr:hover td { background: var(--cat-hover); }
 .results-table th.num, .results-table td.num { text-align: right; }
+.results-table td.muted, .sim-table td.muted { color: var(--cat-muted); }
 .card .sim-table, .card .results-table { border: 0; border-radius: 0; margin: 0; }
 
 pre.log {
@@ -658,7 +669,8 @@ pre.log {
 /* ------------------------------------------------------------------ Results */
 
 .results-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 16px; }
-.results-controls .tabs { margin: 0; }
+/* The Runs / Statistics tabs take their own row under the title, as the Python's. */
+.results-controls .tabs { margin: 0; order: -1; flex: 1 0 100%; }
 .results-controls input[type="search"] { min-width: 260px; flex: 1 1 260px; max-width: 420px; }
 .spark { margin: 8px 0 20px; max-width: 720px; padding: 16px 20px; background: var(--cat-surface);
   border: 1px solid var(--cat-line); border-radius: var(--cat-radius); }
@@ -667,7 +679,9 @@ pre.log {
 .spark .tick { fill: var(--cat-muted); font-size: 11px; }
 .spark .line { fill: none; stroke: var(--cat-blue); stroke-width: 2; }
 @media (max-width: 640px) {
-  .results-table { display: block; overflow-x: auto; }
+  /* A wide table scrolls inside its card instead of squeezing every column into a word per line. */
+  .results-table, .sim-table { display: block; overflow-x: auto; }
+  .sim-table th, .sim-table td { white-space: nowrap; }
   .results-controls input[type="search"] { max-width: none; }
 }
 
@@ -694,6 +708,16 @@ pre.log {
 .config-scope .seg label:hover { background: var(--cat-surface); }
 .config-scope .seg label:has(input:checked) { background: var(--cat-blue); color: var(--cat-on-blue); }
 .config-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.config-tags label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; color: var(--cat-label); font-weight: 600; }
+.config-scope > .config-check { padding-left: 0; padding-right: 0; }
+.config-scope > .config-check:hover { background: transparent; }
+.config-controls { display: grid; gap: 20px; }
+/* A switch starts where the row's other controls start, centred on the row's label. */
+.config-set .config-check { min-height: 40px; align-items: center; padding: 0; }
+.config-set .config-check:hover { background: transparent; }
+.config-set .config-check input { margin: 0; }
+.config input[type="email"], .config input[type="password"] { min-width: 16rem; }
+.config .setup-input input { flex: 0 1 16rem; }
 .config input[type="text"] { min-width: 16rem; }
 .config-fields { display: grid; gap: 10px; }
 .config-fields.dim { opacity: 0.5; }
@@ -720,6 +744,9 @@ pre.log {
 .run-progress { width: 100%; height: 8px; }
 .run-preflight { white-space: pre-wrap; font-family: var(--cat-font-mono); font-size: 13px; line-height: 1.65; margin: 0;
   padding: 14px 16px; border-radius: var(--cat-radius-control); background: var(--cat-line-2); }
+/* Schedule: the entry form and its buttons on one row, as the Python's; heading, hint and lists take a row each. */
+.run-schedule { display: flex; flex-wrap: wrap; gap: 12px 10px; align-items: center; }
+.run-schedule > :not(form):not(.run-actions) { flex: 1 0 100%; }
 .run-schedule form { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
 .run-schedule form label { display: inline-flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; color: var(--cat-label); font-weight: 600; }
 .run-schedule form input { min-width: 16rem; }
@@ -733,6 +760,8 @@ pre.log {
 /* ------------------------------------------------------------------ Launch Simulators */
 
 .sim-actions { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 16px; }
+.card > .sim-actions:first-child { margin-top: 0; }
+.sim-actions:not(:last-child) { margin-bottom: 12px; }
 .sim-log-pre { max-height: 28rem; overflow: auto; white-space: pre-wrap; font-family: var(--cat-font-mono); font-size: 13px;
   line-height: 1.65; background: var(--cat-surface); color: var(--cat-ink); padding: 14px 16px;
   border: 1px solid var(--cat-line); border-radius: var(--cat-radius-control); }
@@ -741,6 +770,9 @@ pre.log {
 
 .settings-card { display: grid; gap: 12px; }
 .settings-card h2 { margin: 0; }
+.settings-card > button { justify-self: start; }
+/* An empty status line stays in the page for screen readers but takes no room. */
+.settings-card > .appearance-result:empty { min-height: 0; margin-bottom: -12px; }
 /* The legend names the group for screen readers; the card's heading already names it on screen (as the Python). */
 .appearance legend, .run-log-bar legend {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0;
@@ -766,9 +798,13 @@ pre.log {
 /* ------------------------------------------------------------------ Authoring */
 
 .authoring { display: grid; gap: 12px; }
+/* The toolbars and the workspace sit on the page as the Python's, not in boxes inside a card. */
+.card.authoring { padding: 0; border: 0; background: transparent; }
 .authoring .authoring-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; padding: 8px 12px;
   background: var(--cat-surface); border: 1px solid var(--cat-line); border-radius: var(--cat-radius-control); }
-.authoring .authoring-toolbar label { display: flex; gap: 8px; align-items: center; font-size: 15px; color: var(--cat-label); font-weight: 600; }
+.authoring .authoring-toolbar label { display: flex; flex: 1 1 18rem; gap: 8px; align-items: center; font-size: 15px; color: var(--cat-label);
+  font-weight: 600; white-space: nowrap; }
+.authoring .authoring-toolbar label input { flex: 1 1 8rem; min-width: 8rem; }
 .authoring .authoring-toolbar button { padding: 0 12px; }
 .authoring input[type="text"], .authoring input:not([type]), .authoring input[type="search"] { min-width: 14rem; }
 .authoring .placeholder-note { color: var(--cat-muted); font-size: 13px; }
@@ -794,6 +830,8 @@ pre.log {
 .authoring .authoring-tabs .tab:hover { color: var(--cat-ink); background: var(--cat-hover); }
 .authoring .authoring-tabs .tab.on { border-bottom-color: var(--cat-blue); color: var(--cat-blue); }
 .authoring .authoring-text { width: 100%; min-height: 24rem; font-size: 14px; }
+.authoring .authoring-check:empty { display: none; }
+.authoring [role="tabpanel"] > input[type="search"] { width: 100%; }
 .authoring .authoring-check { font-family: var(--cat-font-mono); font-size: 13px; margin-top: 8px; padding: 12px 16px;
   border-radius: var(--cat-radius-control); background: var(--cat-line-2); }
 .authoring .authoring-steps { list-style: none; margin: 8px 0 0; padding: 0; max-height: 26rem; overflow: auto; }
@@ -816,9 +854,10 @@ pre.log {
 .pick { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 6px 16px; align-items: start; }
 .pick-label { color: var(--cat-label); font-weight: 600; padding-top: 9px; }
 .pick-controls { display: flex; flex-wrap: wrap; gap: 8px; }
-.pick-controls select { min-width: 16rem; }
+.pick-controls { min-width: 0; }
+.pick-controls select { min-width: min(16rem, 100%); }
 .pick-hint { grid-column: 2; margin: 0; font-size: 14px; }
-@media (max-width: 640px) { .pick { grid-template-columns: 1fr; } .pick-hint { grid-column: 1; } .pick-label { padding-top: 0; } }
+@media (max-width: 640px) { .pick { grid-template-columns: minmax(0, 1fr); } .pick-hint { grid-column: 1; } .pick-label { padding-top: 0; } }
 .stages { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 .stages li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
 .stage-mark { display: inline-block; width: 1.2em; text-align: center; color: var(--cat-muted); }

@@ -36,8 +36,8 @@ final class RunConfigPage {
                 .append("aria-label=\"Filter plans\" autocomplete=\"off\" value=\"").append(esc(view.filter()))
                 .append("\" hx-get=\"/fragments/config/plans\" hx-trigger=\"input changed delay:300ms\" ")
                 .append("hx-target=\"#plan-list\" hx-swap=\"innerHTML\">")
+                // The Refresh control that loads here says the catalogue's age beside its button.
                 .append("<span hx-get=\"/fragments/config/refresh\" hx-trigger=\"load\" hx-swap=\"outerHTML\"></span>")
-                .append("<span class=\"muted\">").append(esc(view.catalogueAge())).append("</span>")
                 .append("</div>");
         if (!view.catalogueNote().isEmpty()) {
             out.append("<p class=\"warn\">").append(esc(view.catalogueNote())).append("</p>");

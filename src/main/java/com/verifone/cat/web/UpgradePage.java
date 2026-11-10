@@ -59,10 +59,10 @@ final class UpgradePage {
         }
         out.append("<div class=\"sim-actions\">");
         if (upgrades.installing()) {
-            out.append("<button type=\"button\" class=\"danger\" hx-post=\"/upgrade/stop\" hx-target=\"#")
+            out.append("<button type=\"button\" class=\"run-danger\" hx-post=\"/upgrade/stop\" hx-target=\"#")
                     .append(PANEL_ID).append("\" hx-swap=\"outerHTML\">Stop</button>");
         }
-        out.append("<button type=\"button\" hx-post=\"/upgrade/start\" hx-confirm=\"")
+        out.append("<button type=\"button\" class=\"run-primary\" hx-post=\"/upgrade/start\" hx-confirm=\"")
                 .append(esc(upgrades.confirmText(choice))).append("\" hx-target=\"#" + PANEL_ID + "\"")
                 .append(" hx-swap=\"outerHTML\"").append(why.isEmpty() ? "" : " disabled").append(">")
                 .append("Start upgrade</button>");

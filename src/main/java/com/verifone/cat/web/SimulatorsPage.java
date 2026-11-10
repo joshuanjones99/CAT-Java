@@ -106,7 +106,7 @@ final class SimulatorsPage {
                     .append(" hx-target=\"#sim-panel\" hx-swap=\"outerHTML\"")
                     .append(disabled).append(">Stop</button>");
         } else {
-            out.append("<button type=\"button\" hx-post=\"/simulators/start\""
+            out.append("<button type=\"button\" class=\"run-primary\" hx-post=\"/simulators/start\""
                     + " hx-target=\"#sim-panel\" hx-swap=\"outerHTML\"")
                     .append(disabled).append(">Start</button>");
         }

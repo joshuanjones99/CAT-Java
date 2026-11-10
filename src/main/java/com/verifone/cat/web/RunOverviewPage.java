@@ -120,7 +120,7 @@ final class RunOverviewPage {
                     .append("placeholder=\"23:00, +2h\"></label> ")
                     .append("<button type=\"submit\">Schedule run</button></form>");
             out.append("<div class=\"run-actions\">")
-                    .append("<button type=\"button\" hx-post=\"/run/schedule/clear\" ").append(TARGET)
+                    .append("<button type=\"button\" class=\"ghost\" hx-post=\"/run/schedule/clear\" ").append(TARGET)
                     .append(">Clear schedule</button>")
                     .append("<button type=\"button\" hx-post=\"/run/continuous\" ").append(TARGET).append('>')
                     .append(schedule.continuous() ? "Finish continuous" : "Continuous run").append("</button>")

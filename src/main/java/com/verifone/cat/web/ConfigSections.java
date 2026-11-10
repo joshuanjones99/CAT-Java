@@ -88,9 +88,8 @@ final class ConfigSections {
                 input("tpBranch", "text", c.testPlanBranch(), "master", "Test plan branch"));
         out.append("</section>");
 
-        out.append("<section class=\"card config-section\"><h2>Downloads</h2>");
+        // The shared panel is its own card with its own Downloads heading; a wrapper card would nest a second one.
         out.append(DownloadsPanel.fragment(downloads));
-        out.append("</section>");
 
         out.append("<section class=\"card config-section\"><h2>Commander Connect</h2>");
         row(out, "Onboard", "config-cc-onboard", c.help(), toggle("ccOnboard", c.ccOnboard(), "Onboard"));

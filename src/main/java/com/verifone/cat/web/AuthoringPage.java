@@ -71,7 +71,7 @@ final class AuthoringPage {
         out.append("<div class=\"authoring-toolbar\">");
         out.append("<label>Story ticket <input id=\"authoring-ticket\" name=\"ticket\" value=\"")
                 .append(esc(service.ticketField())).append("\" placeholder=\"e.g. PETROCORE-12345\"></label>");
-        out.append(action("Save", "/authoring/ticket", "ghost"));
+        out.append(action("Save", "/authoring/ticket", ""));
         out.append("<label>Spec ticket to ingest <input id=\"authoring-spec\" name=\"spec\" value=\"")
                 .append(esc(service.specField())).append("\" placeholder=\"e.g. PETROCORE-678\"></label>");
         out.append(action("Ingest", "/authoring/ingest", ""));
@@ -83,17 +83,17 @@ final class AuthoringPage {
                 + "placeholder=\"e.g. cash sale with charity\"></label>");
         out.append(action("New case", "/authoring/case/new", ""));
         out.append(action("Rename", "/authoring/case/rename", ""));
-        out.append(action("Move up", "/authoring/case/move?delta=-1", "ghost"));
-        out.append(action("Move down", "/authoring/case/move?delta=1", "ghost"));
+        out.append(action("Move up", "/authoring/case/move?delta=-1", ""));
+        out.append(action("Move down", "/authoring/case/move?delta=1", ""));
         out.append("<button type=\"button\" class=\"danger\" hx-post=\"/authoring/case/remove\""
                 + " hx-confirm=\"Remove this case from the session? Its draft file stays on disk.\""
                 + SWAP + ">Remove</button>");
-        out.append(action("New session", "/authoring/session/new", "ghost"));
+        out.append(action("New session", "/authoring/session/new", ""));
         out.append("</div>");
 
         out.append("<div class=\"authoring-toolbar\">");
         out.append(action("Capture", "/authoring/capture", ""));
-        out.append(action("Approve baselines", "/authoring/approve", "ghost"));
+        out.append(action("Approve baselines", "/authoring/approve", ""));
         out.append(action("Replay", "/authoring/replay", ""));
         out.append(action("Publish (dry run)", "/authoring/publish", ""));
         out.append("</div>");

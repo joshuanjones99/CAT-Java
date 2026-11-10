@@ -26,6 +26,10 @@
   document.addEventListener("click", function (event) {
     var control = event.target.closest ? event.target.closest("[data-action]") : null;
     if (!control) {
+      // The open drawer covers the menu button: a click on the dimmed page behind it closes it.
+      if (body.classList.contains("drawer-open") && !(event.target.closest && event.target.closest(".sidebar"))) {
+        body.classList.remove("drawer-open");
+      }
       return;
     }
     if (control.getAttribute("data-action") === "collapse") {
@@ -34,6 +38,12 @@
       writeRail(collapsed ? "collapsed" : "open");
     } else if (control.getAttribute("data-action") === "drawer") {
       body.classList.toggle("drawer-open");
+    }
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && body.classList.contains("drawer-open")) {
+      body.classList.remove("drawer-open");
     }
   });
 })();
