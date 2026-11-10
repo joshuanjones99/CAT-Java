@@ -25,14 +25,17 @@ import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.verifone.cat.sims.ToolsRoot;
 
 /**
  * Finds, reads and validates a rig file. Port of {@code petrotest/rig/loader.py}.
  *
  * <p>A rig is named ({@code lab}) or given as a path to a {@code .yaml} file. A name is looked
  * up in the rigs directory: {@code $PETROTEST_RIGS_DIR} when set, the variable the Python CAT
- * reads, so both CATs find the same files; otherwise the Python CAT checkout's {@code rigs/}.
- * This repository commits no rig file, so no rig's addresses are copied here.
+ * reads, so both CATs can share one folder; otherwise {@code rigs} under the tools root
+ * ({@code $CAT_TOOLS_ROOT}, else {@code C:\CICD\Tools}), which Setup creates when it is missing.
+ * Nothing here depends on a Python CAT checkout. This repository commits no rig file, so no
+ * rig's addresses are copied here.
  *
  * <p>Every failure is a {@link RigConfigException} (an {@link IllegalArgumentException}), and a
  * schema failure names the file and the field path, as {@code file: field.path: message}. A
@@ -43,7 +46,10 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 public final class RigLoader {
 
     public static final String RIGS_DIR_ENV = "PETROTEST_RIGS_DIR";
-    public static final Path DEFAULT_RIGS_DIR = Path.of("C:\\gitrepos\\CAT\\rigs");
+    /** The folder under the tools root that holds the rig files when {@link #RIGS_DIR_ENV} is not set. */
+    public static final String RIGS_FOLDER = "rigs";
+    /** {@link #RIGS_FOLDER} under the default tools root: {@code C:\CICD\Tools\rigs}. */
+    public static final Path DEFAULT_RIGS_DIR = ToolsRoot.DEFAULT.resolve(RIGS_FOLDER);
 
     /** Quoted in messages so a person can tell what the file is supposed to be. */
     private static final String SCHEMA = "DESIGN.md §8";
@@ -61,11 +67,15 @@ public final class RigLoader {
 
     /**
      * The directory the rig files live in: {@code $PETROTEST_RIGS_DIR} when set and not blank, else
-     * {@link #DEFAULT_RIGS_DIR}. Not checked for existence here; a missing rig says where it looked.
+     * {@link #RIGS_FOLDER} under the tools root ({@code $CAT_TOOLS_ROOT}, else {@link #DEFAULT_RIGS_DIR}).
+     * Not checked for existence here; a missing rig says where it looked.
      */
     public static Path rigsDir(Map<String, String> env) {
         String fromEnv = env.get(RIGS_DIR_ENV);
-        return fromEnv == null || fromEnv.isBlank() ? DEFAULT_RIGS_DIR : Path.of(fromEnv);
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return Path.of(fromEnv);
+        }
+        return ToolsRoot.resolve(env.get(ToolsRoot.ENV), null).resolve(RIGS_FOLDER);
     }
 
     /** Resolves {@code nameOrPath} against {@code rigsDir} and reads it. */

@@ -108,8 +108,9 @@ from Maven Central.
 ## Rig files
 
 None are committed here. `--rig lab` reads `lab.yaml` from `$PETROTEST_RIGS_DIR`, the
-variable the Python CAT reads, and otherwise from `C:\gitrepos\CAT\rigs`, so both CATs
-read the same files. `--rig path\to\file.yaml` reads a file directly. The rig must set
+variable the Python CAT reads (so both CATs can share a folder), and otherwise from `rigs`
+under the tools root (`$CAT_TOOLS_ROOT`, else `C:\CICD\Tools\rigs`). Setup creates that
+folder when it is missing; the rig files themselves are yours to put in it. `--rig path\to\file.yaml` reads a file directly. The rig must set
 `pos_shim: true`.
 
 ## Layout

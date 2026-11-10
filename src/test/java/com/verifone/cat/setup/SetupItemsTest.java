@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -139,13 +140,35 @@ class SetupItemsTest {
     }
 
     @Test
-    void rigsDirFailsNamingPetrotestRigsDirWhenItIsMissing() throws Exception {
+    void rigsDirFailsNamingTheFolderWhenItIsMissing() throws Exception {
         SetupFixture f = fixture();
         assertEquals(Outcome.PASS, SetupItems.rigsDir().detect(f.env).outcome());
 
-        Result result = SetupItems.rigsDir().detect(f.withVars(Map.of("PETROTEST_RIGS_DIR", f.root.resolve("none").toString())));
+        Path none = f.root.resolve("none");
+        Result result = SetupItems.rigsDir().detect(f.withVars(Map.of("PETROTEST_RIGS_DIR", none.toString())));
         assertEquals(Outcome.FAIL, result.outcome());
-        assertTrue(result.detail().contains("PETROTEST_RIGS_DIR"), result.detail());
+        assertTrue(result.detail().contains(none.toString()), result.detail());
+        assertTrue(SetupItems.rigsDir().fixHint().contains("PETROTEST_RIGS_DIR"));
+    }
+
+    @Test
+    void theRigsFolderIsCreatedUnderTheToolsRootWhenNothingNamesAnother() throws Exception {
+        SetupFixture f = fixture();
+        SetupEnv env = f.withVars(java.util.Collections.singletonMap("PETROTEST_RIGS_DIR", null));
+        Path rigs = f.tools.resolve("rigs");
+        SetupItem item = SetupItems.rigsDir();
+        assertFalse(item.manual(), "CAT makes the folder; a person does not");
+        assertEquals(Outcome.FAIL, item.detect(env).outcome());
+
+        Result fixed = item.apply(env);
+
+        assertEquals(Outcome.PASS, fixed.outcome(), fixed.detail());
+        assertTrue(Files.isDirectory(rigs), rigs.toString());
+        Result after = item.detect(env);
+        assertEquals(Outcome.PASS, after.outcome());
+        assertTrue(after.detail().contains("none yet"), after.detail());
+        Files.writeString(rigs.resolve("lab.yaml"), "name: lab\n");
+        assertTrue(item.detect(env).detail().contains("(lab)"), item.detect(env).detail());
     }
 
     // ---- the build and the browser --------------------------------------------------------
