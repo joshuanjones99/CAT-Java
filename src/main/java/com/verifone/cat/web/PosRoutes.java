@@ -1,15 +1,18 @@
 package com.verifone.cat.web;
 
+import com.verifone.cat.tools.RegisterTarget;
+
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 
 /**
- * The POS page's routes: the page, its polled panel, and the Push shim to register button.
+ * The POS page's routes: the page, its polled panel, the Push shim to register button, and the screen's socket.
  *
- * <p>With a register to show ({@code target}), each GET checks it first ({@link PosReach}). Live (and no push still
- * running), the page is the screen, and the panel answers {@code HX-Refresh} so htmx reloads into it. Otherwise both
- * are {@link PosPage#panel}. With no register, the page says why. The POST requires {@code HX-Request}, as every POST
- * on these pages does.
+ * <p>Each request asks {@link PosRegister} which register it is (the rig's, else the Settings page's address), then
+ * checks it ({@link PosReach}). Live (and no push still running), the page is the screen, and the panel answers
+ * {@code HX-Refresh} so htmx reloads into it. Otherwise both are {@link PosPage#panel}. With no register, the page
+ * says why and keeps polling, so an address saved on Settings takes effect here. The POST requires
+ * {@code HX-Request}, as every POST on these pages does, and the address the panel showed.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -20,49 +23,54 @@ final class PosRoutes {
     private PosRoutes() {}
 
     /**
-     * @param cdpUrl the register's DevTools endpoint, or null
-     * @param target the register to check, or null (none: the page shows {@code cdpUrl}'s screen, or {@code why})
-     * @param why    why there is no register, shown when there is neither a target nor a screen
+     * @param fixedScreen a DevTools endpoint shown with no check when there is no register (tests' local Chromium), or
+     *                    null
      */
-    static void register(Javalin app, String cdpUrl, PosPage.Target target, String why, PosReach reach,
-            ToolsService tools) {
+    static void register(Javalin app, PosRegister registers, String fixedScreen, PosReach reach, ToolsService tools) {
         app.get(Section.POS.path(), ctx -> ctx.html(Layout.screen(Section.POS, "POS",
-                page(cdpUrl, target, why, reach, tools))));
-        app.get(PosPage.PANEL_PATH, ctx -> panel(ctx, target, why, reach, tools));
+                page(registers.current(), fixedScreen, reach, tools))));
+        app.get(PosPage.PANEL_PATH, ctx -> panel(ctx, registers.current(), reach, tools));
         app.post(PosPage.PUSH_PATH, ctx -> {
             if (!Requests.fromPage(ctx, WHAT)) {
                 return;
             }
+            PosRegister.Resolved now = registers.current();
+            RegisterTarget target = now.target();
             if (target == null) {
-                ctx.html(PosPage.noRegister(why));
+                ctx.html(PosPage.noRegister(now.why()));
                 return;
             }
-            String register = Requests.query(ctx, "register");
-            if (!target.registerId().equals(register)) {
-                tools.setNotice("This page shows " + target.registerId() + ", not " + register + "; nothing was pushed.");
+            String host = Requests.query(ctx, "host");
+            if (!target.host().equals(host)) {
+                tools.setNotice("This page now shows " + target.describe() + ", not " + host
+                        + "; nothing was pushed.");
             } else {
-                tools.start(ToolsService.Tool.PUSH_SHIM, register);
+                tools.startPush(target);
             }
             ctx.html(PosPage.panel(target, reach.probe(target.host(), target.shimPort()), tools));
         });
+        PosScreenRoutes.register(app, () -> {
+            RegisterTarget target = registers.current().target();
+            return target != null ? target.cdpUrl() : fixedScreen;
+        });
     }
 
-    private static String page(String cdpUrl, PosPage.Target target, String why, PosReach reach,
-            ToolsService tools) {
+    private static String page(PosRegister.Resolved now, String fixedScreen, PosReach reach, ToolsService tools) {
+        RegisterTarget target = now.target();
         if (target == null) {
-            return cdpUrl == null ? PosPage.noRegister(why) : PosPage.body(why, cdpUrl);
+            return fixedScreen == null ? PosPage.noRegister(now.why()) : PosPage.body(now.why(), fixedScreen);
         }
         PosReach.State state = reach.probe(target.host(), target.shimPort());
         if (live(state, tools)) {
-            return PosPage.body(why, cdpUrl);
+            return PosPage.body(target.describe(), target.cdpUrl());
         }
         return PosPage.panel(target, state, tools);
     }
 
-    private static void panel(Context ctx, PosPage.Target target, String why, PosReach reach,
-            ToolsService tools) {
+    private static void panel(Context ctx, PosRegister.Resolved now, PosReach reach, ToolsService tools) {
+        RegisterTarget target = now.target();
         if (target == null) {
-            ctx.html(PosPage.noRegister(why));
+            ctx.html(PosPage.noRegister(now.why()));
             return;
         }
         PosReach.State state = reach.probe(target.host(), target.shimPort());

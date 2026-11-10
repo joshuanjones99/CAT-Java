@@ -225,6 +225,33 @@ class SettingsRoutesTest {
     }
 
     @Test
+    void theRegisterAddressIsCheckedSavedShownAndCleared() throws Exception {
+        assertTrue(get("/settings").body().contains("id=\"register-host\" name=\"register_host\" value=\"\""));
+
+        HttpResponse<String> saved = post("/settings/register", "register_host=+register.invalid+", true);
+
+        assertEquals(200, saved.statusCode());
+        assertTrue(saved.body().contains("Saved. The POS page now checks register.invalid."), saved.body());
+        assertTrue(Files.readString(settingsFile, StandardCharsets.UTF_8)
+                .contains("\"register_host\" : \"register.invalid\""));
+        assertTrue(get("/settings").body().contains("name=\"register_host\" value=\"register.invalid\""));
+
+        HttpResponse<String> bad = post("/settings/register", "register_host=http%3A%2F%2Fregister.invalid%2F", true);
+        assertTrue(bad.body().contains("Not saved: expected a bare hostname or IP address"), bad.body());
+        assertTrue(Files.readString(settingsFile, StandardCharsets.UTF_8).contains("register.invalid\""));
+
+        HttpResponse<String> cleared = post("/settings/register", "register_host=", true);
+        assertTrue(cleared.body().contains("Cleared."), cleared.body());
+        assertTrue(Files.readString(settingsFile, StandardCharsets.UTF_8).contains("\"register_host\" : \"\""));
+    }
+
+    @Test
+    void aRegisterAddressNotFromThePageIsRefused() throws Exception {
+        assertEquals(403, post("/settings/register", "register_host=register.invalid", false).statusCode());
+        assertFalse(Files.exists(settingsFile));
+    }
+
+    @Test
     void anUnknownOpenInOrOneNotFromThePageIsRefused() throws Exception {
         assertEquals(400, post("/settings/open-in", "open_in=tray", true).statusCode());
         assertEquals(403, post("/settings/open-in", "open_in=browser", false).statusCode());

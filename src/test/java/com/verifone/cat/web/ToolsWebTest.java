@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.shell.RigBusy;
+import com.verifone.cat.tools.RegisterTarget;
 import com.verifone.cat.tools.RigTools;
 
 import io.javalin.Javalin;
@@ -86,8 +87,8 @@ class ToolsWebTest {
         }
 
         @Override
-        public boolean pushShim(String rigName, String registerId, Say say) {
-            return run("push-shim " + rigName + " " + registerId, say);
+        public boolean pushShim(RegisterTarget register, Say say) {
+            return run("push-shim " + register.describe(), say);
         }
     }
 

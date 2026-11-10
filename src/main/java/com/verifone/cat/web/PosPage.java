@@ -6,6 +6,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import com.verifone.cat.tools.RegisterTarget;
 import com.verifone.cat.web.ToolsService.Outcome;
 import com.verifone.cat.web.ToolsService.Tool;
 
@@ -21,8 +22,9 @@ import com.verifone.cat.web.ToolsService.Tool;
  *
  * <p>Before the picture, the page checks the register ({@link PosReach}, user 2026-11-10): one that does not answer is
  * "Register not connected"; one that answers with its pos-shim port closed gets a <b>Push shim to register</b> button
- * (a provision, {@link Tool#PUSH_SHIM}). That panel ({@link #panel}) checks again every few seconds, and the page
- * reloads into the picture once the shim answers.
+ * (one register provisioned, {@link Tool#PUSH_SHIM}). That panel ({@link #panel}) checks again every few seconds, and
+ * the page reloads into the picture once the shim answers. The register is the rig's, else the Settings page's
+ * address ({@link PosRegister}): no rig file is needed.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): see {@link com.verifone.cat.pos.inspect.PosScreencast}.
  */
@@ -35,9 +37,6 @@ final class PosPage {
     static final String PANEL_ID = "pos-panel";
     /** The log lines the panel shows under a running or failed push. */
     static final int LOG_TAIL = 15;
-
-    /** The register the page shows: its rig id, its host, and the pos-shim port CAT talks to. */
-    record Target(String registerId, String host, int shimPort) {}
 
     private PosPage() {}
 
@@ -59,25 +58,26 @@ final class PosPage {
     }
 
     /**
-     * No register to check at all (no rig, or one without a usable register): {@code why} says which. Never
-     * "not connected": nothing was probed, and the register may well be up (user, 2026-11-10).
+     * No register to check at all (no rig register and no address on Settings, or one that is not usable): {@code why}
+     * says which. Never "not connected": nothing was probed, and the register may well be up (user, 2026-11-10).
+     * Polls {@link #PANEL_PATH}, so an address saved on Settings in another tab takes effect here too.
      */
     static String noRegister(String why) {
-        return "<div class=\"pos-screen pos-screen-none\"><p class=\"warn\" role=\"status\">Can't check the register: "
-                + "CAT has no rig loaded, so it doesn't know the register's address.</p><p class=\"muted\">"
-                + esc(why) + "</p><p class=\"muted\">Put the rig's <code>&lt;name&gt;.yaml</code> in the rigs folder "
-                + "(or set <code>$PETROTEST_RIGS_DIR</code>), then restart CAT with <code>--rig &lt;name&gt;</code> "
-                + "(and <code>--register &lt;id&gt;</code> on a rig with more than one).</p></div>";
+        return "<div id=\"" + PANEL_ID + "\" class=\"pos-screen pos-screen-none\" hx-get=\"" + PANEL_PATH
+                + "\" hx-trigger=\"every 5s\" hx-swap=\"outerHTML\"><p class=\"warn\" role=\"status\">Can't check "
+                + "the register: CAT doesn't know its address.</p><p class=\"muted\">" + esc(why) + "</p>"
+                + "<p><a href=\"" + Section.SETTINGS.path() + "#register\">Set the register's address on "
+                + "Settings</a></p></div>";
     }
 
     /**
      * The panel shown while the register is not live: not connected, or up with its shim closed (the push button, its
      * last outcome and, while it runs or after it fails, the log). Polls {@link #PANEL_PATH}.
      */
-    static String panel(Target target, PosReach.State state, ToolsService tools) {
+    static String panel(RegisterTarget target, PosReach.State state, ToolsService tools) {
         StringBuilder out = new StringBuilder("<div id=\"" + PANEL_ID + "\" class=\"pos-screen pos-screen-none\""
                 + " hx-get=\"" + PANEL_PATH + "\" hx-trigger=\"every 3s\" hx-swap=\"outerHTML\">");
-        String where = esc(target.registerId()) + " (" + esc(target.host()) + ")";
+        String where = esc(target.describe());
         Tool running = tools.running();
         boolean pushing = running == Tool.PUSH_SHIM;
         if (state == PosReach.State.NOT_CONNECTED && !pushing) {
@@ -95,7 +95,7 @@ final class PosPage {
             out.append("<p class=\"warn\" role=\"status\">").append(where).append(" answers, but its pos-shim (port ")
                     .append(target.shimPort()).append(") is not open.</p>");
         }
-        String why = tools.refusal();
+        String why = tools.pushRefusal();
         if (!why.isEmpty() && !pushing) {
             out.append("<p class=\"warn\">").append(esc(why)).append("</p>");
         }
@@ -103,9 +103,10 @@ final class PosPage {
         if (!notice.isEmpty() && !notice.equals(why)) {
             out.append("<p class=\"warn\">").append(esc(notice)).append("</p>");
         }
-        String path = PUSH_PATH + "?register=" + URLEncoder.encode(target.registerId(), StandardCharsets.UTF_8);
+        // The address rides along, so a push never lands on a register other than the one this panel showed.
+        String path = PUSH_PATH + "?host=" + URLEncoder.encode(target.host(), StandardCharsets.UTF_8);
         out.append("<p><button type=\"button\" class=\"run-primary\" hx-post=\"").append(esc(path))
-                .append("\" hx-confirm=\"").append(esc(tools.confirmText(Tool.PUSH_SHIM, target.registerId())))
+                .append("\" hx-confirm=\"").append(esc(tools.confirmText(Tool.PUSH_SHIM, target.describe())))
                 .append("\" hx-target=\"#").append(PANEL_ID).append("\" hx-swap=\"outerHTML\"")
                 .append(why.isEmpty() ? "" : " disabled").append(">").append(esc(Tool.PUSH_SHIM.title))
                 .append("</button></p>");

@@ -207,15 +207,51 @@ public final class ProvisionRunner {
                         steps.addAll(opts.posShimChecklist());
                     }
                 }
-                List<ChecklistStep> bound = steps.stream().map(s -> s.forTarget(spec, opts.payloadRoot())).toList();
-                report.add(provisionTarget(spec, rigName, reader, transport, opts.probes().apply(spec), opts, bound,
-                        controllerHost));
+                report.add(provisionBound(spec, rigName, reader, transport, opts, steps, controllerHost));
             } finally {
                 transport.close();
             }
         }
         report.elapsedSeconds((System.nanoTime() - started) / 1e9);
         return report;
+    }
+
+    /**
+     * One register on its own, with no rig file: the POS page's Push shim to register (user, 2026-11-10; no Python
+     * equivalent). The register gets both its lists, the browser override (the CDP relay the POS page's screen goes
+     * through) and the pos-shim; the Commander is never reached. {@code label} stands in for the rig's name in the
+     * stamp and the staged payload.
+     */
+    public static ProvisionReport provisionRegister(TargetSpec spec, String label, ProvisionOptions opts) {
+        if (spec.role() != TargetRole.REGISTER) {
+            throw new IllegalArgumentException("provisionRegister provisions a register, not " + spec.describe());
+        }
+        long started = System.nanoTime();
+        Manifest.ContentReader reader = opts.read() != null ? opts.read()
+                : Manifest.payloadReader(opts.payloadRoot());
+        ProvisionReport report = new ProvisionReport(label, opts.force());
+        Transport transport = opts.transports().apply(spec);
+        try {
+            if (opts.stage() && opts.read() == null) {
+                Stage.stagePayload(label, spec, transport, opts.payloadRoot(), opts.timeouts().ssh(),
+                        opts.stageSources());
+            }
+            List<ChecklistStep> steps = new ArrayList<>(opts.registerChecklist());
+            steps.addAll(opts.posShimChecklist());
+            // The register lists never read the controller's address (only the Commander's checklist does).
+            report.add(provisionBound(spec, label, reader, transport, opts, steps, ""));
+        } finally {
+            transport.close();
+        }
+        report.elapsedSeconds((System.nanoTime() - started) / 1e9);
+        return report;
+    }
+
+    /** {@link #provisionTarget} with {@code steps} bound to the target. */
+    private static TargetReport provisionBound(TargetSpec spec, String label, Manifest.ContentReader reader,
+            Transport transport, ProvisionOptions opts, List<ChecklistStep> steps, String controllerHost) {
+        List<ChecklistStep> bound = steps.stream().map(s -> s.forTarget(spec, opts.payloadRoot())).toList();
+        return provisionTarget(spec, label, reader, transport, opts.probes().apply(spec), opts, bound, controllerHost);
     }
 
     /**

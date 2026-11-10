@@ -12,8 +12,10 @@ import java.util.regex.Pattern;
  * <p>Nothing here resolves a name. The check is purely lexical, so loading a rig never touches
  * the network, and {@link java.net.InetAddress} is not used for it because it would look up a
  * name.
+ *
+ * <p>Public for the Settings page's register address, which is checked as a rig file's {@code host} is.
  */
-final class Hosts {
+public final class Hosts {
 
     /** RFC-1123-ish: labels of letters, digits and hyphens, no leading or trailing hyphen. */
     private static final Pattern HOSTNAME = Pattern.compile(
@@ -32,7 +34,7 @@ final class Hosts {
      *
      * @throws IllegalArgumentException with the message the Python loader gives for the same input
      */
-    static String validate(Object value) {
+    public static String validate(Object value) {
         if (!(value instanceof String raw)) {
             throw new IllegalArgumentException("expected a hostname or IP address as a string, got " + value);
         }

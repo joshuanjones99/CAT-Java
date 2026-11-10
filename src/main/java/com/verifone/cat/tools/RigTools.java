@@ -25,8 +25,8 @@ import com.verifone.cat.rig.RigLoader;
  *   <li><b>Reboot C18</b>: one register rebooted ({@link RigReboot}), then {@code provision} to bring its pos-shim back,
  *       as step 4 does after pairing's reboot.</li>
  *   <li><b>Reboot Commander</b>: rebooted, then back on SSH and CGILink ({@link RigReboot}).</li>
- *   <li><b>Push shim to register</b> (the POS page's button, user 2026-11-10): {@code provision}, so a register that
- *       answers but has no pos-shim listening gets one.</li>
+ *   <li><b>Push shim to register</b> (the POS page's button, user 2026-11-10): one register provisioned with no rig
+ *       file ({@link ShimPush}), so a register that answers but has no pos-shim listening gets one.</li>
  * </ul>
  *
  * <p>Every method reports a failure as the last line on {@code say}'s error stream, and returns false.
@@ -47,11 +47,10 @@ public interface RigTools {
     boolean rebootCommander(String rigName, Say say);
 
     /**
-     * The POS page's Push shim to register: {@code provision} on the rig, which pushes the pos-shim payload (with the
-     * browser override and the CDP relay) and starts the shim, so the register's shim port opens. Refused, with
-     * nothing pushed, when the rig has no register {@code registerId}.
+     * The POS page's Push shim to register: that one register provisioned ({@link ShimPush}), the browser override
+     * and the pos-shim, so its shim port opens. Needs no rig file and never reaches the Commander.
      */
-    boolean pushShim(String rigName, String registerId, Say say);
+    boolean pushShim(RegisterTarget register, Say say);
 
     /** The real tools: the rig file from {@code $PETROTEST_RIGS_DIR}, the run's stages, SSH through JSch. */
     static RigTools standard(Map<String, String> environ) {
@@ -131,17 +130,8 @@ public interface RigTools {
         }
 
         @Override
-        public boolean pushShim(String rigName, String registerId, Say say) {
-            Rig rig = load(rigName, say);
-            if (rig == null) {
-                return false;
-            }
-            if (target(rig, TargetRole.REGISTER, registerId) == null) {
-                say.err("rig " + rigName + " has no register " + registerId + "; nothing was pushed");
-                return false;
-            }
-            say.out("provision: the pos-shim, the browser override and the CDP relay, for " + registerId);
-            return stages.provision(rig, say);
+        public boolean pushShim(RegisterTarget register, Say say) {
+            return ShimPush.push(register, environ, ShimPush.REAL, say);
         }
 
         @Override
