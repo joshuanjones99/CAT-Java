@@ -45,7 +45,6 @@ final class SettingsPlaces {
 
     /** {@code $PETROAPPS_ROOT} when set and not blank, else the documented default. */
     static String petroapps(Map<String, String> env) {
-        String value = env.get("PETROAPPS_ROOT");
-        return value == null || value.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : value;
+        return Collect.petroappsRoot(env).toString();
     }
 }

@@ -161,8 +161,7 @@ public final class ConfigForm {
             thread.setDaemon(true);
             return thread;
         }));
-        String petroapps = env.getOrDefault("PETROAPPS_ROOT", "").strip();
-        withPetroapps(Path.of(petroapps.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : petroapps));
+        withPetroapps(Collect.petroappsRoot(env));
         return this;
     }
 

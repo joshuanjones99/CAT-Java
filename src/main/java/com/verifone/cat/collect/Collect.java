@@ -64,6 +64,15 @@ public final class Collect {
     private Collect() {}
 
     /**
+     * The petroapps checkout an environment names: {@code PETROAPPS_ROOT}, else {@link #DEFAULT_PETROAPPS_ROOT}.
+     * A missing or blank variable counts as unset. The one resolver for every command, step and page.
+     */
+    public static Path petroappsRoot(Map<String, String> env) {
+        String root = env == null ? null : env.get("PETROAPPS_ROOT");
+        return Path.of(root == null || root.isBlank() ? DEFAULT_PETROAPPS_ROOT : root.strip());
+    }
+
+    /**
      * {@code $PETROAPPS_ROOT}, else {@link #DEFAULT_PETROAPPS_ROOT}. An empty variable counts as unset.
      */
     public static String defaultPetroappsRoot() {

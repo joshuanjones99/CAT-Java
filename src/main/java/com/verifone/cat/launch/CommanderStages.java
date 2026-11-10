@@ -597,8 +597,7 @@ interface CommanderStages {
         }
 
         private Path petroappsRoot() {
-            String configured = environ.getOrDefault("PETROAPPS_ROOT", "");
-            return Path.of(configured.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : configured);
+            return Collect.petroappsRoot(environ);
         }
 
         private CommanderAccess access(Rig rig) {

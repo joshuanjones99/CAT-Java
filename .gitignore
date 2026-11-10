@@ -8,3 +8,6 @@ target/
 
 # Tests pulled from petroapps at run start (collect); never committed here
 tests/suites/pulled/
+
+# Claude Code agent worktrees and local settings
+.claude/

@@ -62,7 +62,6 @@ public final class PaymentLinksCommand {
         if (given != null && !given.isBlank()) {
             return Path.of(given);
         }
-        String configured = env.getOrDefault("PETROAPPS_ROOT", "");
-        return Path.of(configured.isBlank() ? Collect.DEFAULT_PETROAPPS_ROOT : configured);
+        return Collect.petroappsRoot(env);
     }
 }

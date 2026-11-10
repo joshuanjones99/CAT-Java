@@ -8,6 +8,11 @@ If this document disagrees with the tree, the tree is right.
 **Latest (2026-11-09, TPA-AUTOLAB3):** Cadence from Java on Solutions228 reached **227/264 passed, 5 failed** (run
 `5ce5aa8cd2f2`); the five are product or test-case behaviour on that build, awaiting the rig owner (§6 item 0).
 
+**Refactor (2026-11-09, evening, not on a rig):** the whole tree was simplified off-rig (§6b): a shared `core`
+package, dead code and duplicates out, cheaper page polls, newer Javalin/Jackson/JUnit, tests in parallel forks.
+`build.cmd`: **4,184 tests, 0 failures, 0 errors, 94 skipped** (browser tests). **Nothing in §6b has run on a rig;
+the first rig run after it is its only hardware evidence.**
+
 State as of **2026-10-29, late** (the wave-16 session). `main` builds clean: **4,139 tests, 0 failures,
 0 errors, 0 skipped**. Wave 16 ported the rest of the Python CAT off-rig (§6a): all ten slices are merged and
 their cross-slice hooks wired. **Everything wave 16 added is fake-backed evidence about this repository; none of
@@ -44,6 +49,8 @@ the web Start), Xray, every other plan.
 | Java 17 | `C:\CICD\Tools\Java17\jdk-17.0.5+8` (Temurin 17.0.5, Java v1.2 in Artifactory). `build.cmd`/`run.cmd` use it; the Maven enforcer refuses any other major version. |
 | POS over pos-shim HTTP | No RMI on the controller. pos-shim (built and provisioned by the Python CAT's tools) stays on the register; Java talks HTTP to it. |
 | Web UI | Javalin 6 + htmx 2, server-rendered fragments, localhost only. Layout follows the Python CAT's `docs/web-ui.md`. |
+| Library versions (2026-11-09, the refactor session) | Javalin 6.7.0, Jackson 2.21.8, slf4j 2.0.20, JUnit 5.14.4: the libraries the unit suite can prove off-rig, moved to current patch lines (no new dependency). **Deliberately left pinned:** Playwright 1.49.0 (the tests' Chromium 1148 and the register's CDP), JSch 0.2.20, JNA 5.14.0, jSerialComm 2.11.0: each talks to hardware or the Access Bridge, so an upgrade is a rig session's job (candidates then: JSch 2.28.x, JNA 5.19.x, jSerialComm 2.11.4). Javalin 7 (Jetty 12) was not taken: no operator-visible gain for a localhost console. |
+| Tests in parallel forks (2026-11-09) | Surefire runs test classes in one JVM per two cores (`cat.test.forks`, default `0.5C`); a class still runs alone in its JVM. 5 min 5 s → 2 min 16 s on the development PC. `-Dcat.test.forks=1` is the old single JVM, for chasing a timing-dependent test. |
 | Build | Maven via the wrapper. Dependencies: Javalin, Jackson (JSON + YAML), slf4j-simple, Playwright for Java 1.49.0, JSch (mwiede 0.2.20), jSerialComm 2.11.0, **JNA 5.14.0 + jna-platform 5.14.0 (orchestrator, 2026-10-28: the Java Access Bridge and user32 for the `click:` simulators; Crypt32 for the DPAPI credential files)**, JUnit 5. Thin `target/cat-java.jar` + `target/lib/`. New dependencies are the orchestrator's call. |
 | Rig files | Not committed here. Read from `$PETROTEST_RIGS_DIR`, else `C:\gitrepos\CAT\rigs`. |
 | Own files | CAT-Java writes only under `~/.cat/java/`. It may read the Python CAT's `~/.cat` (plan cache, `last-config.json`) and `.secrets/artifactory.credentials` read-only as fallbacks, never write them. **One exception (2026-10-28):** `psi-init` renames the installer's `~/psi_message.txt` to `.changed` then `.used`, as the Python does, so both ports agree on when the PSI password is spent. |
@@ -216,9 +223,8 @@ socket, `rig/ppk.py`: JSch reads `.ppk` v2 itself).
      would be exact.
    - The web Downloads' foundation pairing lookup for a viper-only build is not done.
    - `jab.main` (an at-rig diagnostic) is not ported.
-   - Vestiges to tidy: `CommanderConfigurationStep.unported(config, tunnelPorted)`; `XrayClient.attachFile`'s third
-     parameter (no multipart call in `AtlassianClient`); coverage-ready and sims' FEP hosts kept per run in weak maps
-     instead of `RunContext` fields; `Main.serveWeb` (the pre-wave-16 web start) kept unused.
+   - The vestiges once listed here (`unported(...)`, `attachFile`'s third parameter, the weak maps, `Main.serveWeb`)
+     were removed on 2026-11-09 (§6b).
 6. **Decisions for the rig owner:**
    - The Setup page's cashier repair defaults `PETROTEST_CASHIER_PASSWORD` to `"123"`, ported from the Python's
      `cat/setup/items/credentials.py` (the lab's standing till password). The Python CAT's CLAUDE.md lists the cashier
@@ -287,9 +293,72 @@ Left as low-severity notes:
 - The web Downloads drops a foundation pick.
 - Web continuous runs restart the simulators each pass. The Python keeps them, using `keep_simulators` and Petro
   sinks.
-- Three config builders coexist and may drift: `LaunchCommand.Options.toConfig`, `LaunchDefaults.fromSaved` and
-  `ConfigForm.launchFields`.
+- Three config builders coexisted. Since 2026-11-09 `LaunchCommand.Options.toConfig` and `LaunchDefaults.fromSaved`
+  share one saved-choices mapping (`LaunchDefaults.savedBase`/`savedDownloads`, pinned by `LaunchDefaultsTest`, their
+  deliberate differences in `LaunchDefaults`' Javadoc); `ConfigForm.launchFields` stays separate (it maps the form's
+  in-memory choices, for the summary card).
 - Some web tests build `ConfigForm.standard()` over the real `~/.cat/java/last-config.json`. They only read it.
+
+## 6b. The 2026-11-09 refactor (fake-backed evidence only)
+
+The owner asked for the codebase to be made as simple and efficient as possible, with no rig available. One
+orchestrator, nine agents in worktrees owning disjoint packages (the wave-16 pattern), each bound to one rule:
+**nothing a device, a file reader or an operator can observe may change**. Main code: 248 files, +1,965 / −3,055.
+Every slice ran the full suite green before merging; the merged tree is green (4,184 tests).
+
+**What changed**
+- `com.verifone.cat.core`: `Json.MAPPER` (one default mapper in place of ~50; never configure it), `Waits`
+  (`pause`/`until`/`poll`, in place of a dozen package-local park helpers: `sims.Park`, `closeday.Waits`,
+  `commander.connect.Bounded` and others are deleted), `Hashes.sha256Hex`, `CatHome` (`~/.cat/java`).
+  `Collect.petroappsRoot(env)` is the one `PETROAPPS_ROOT` resolver (ten call sites; a blank value now counts as
+  unset everywhere, where some sites treated only an empty one so).
+- Dead code out: §6 item 5's vestiges, `UnportedStep`, `runservice.RunLogTail`, `web.Placeholder`,
+  `xray.AttachUpload` (the upload is `AtlassianClient.jiraAttach`), `report.events.Limits`, `pos.receipt.ReceiptText`
+  (a copy of `PosText.normalise`), unused page-object members and constants.
+- Duplicates folded: seven copies of PATS's `_require` → `RunnableAction.require`; the supervisor's probe pass;
+  `FoundationPair`'s candidate scan (same window, filters, sort and messages); the web's HX-Request check
+  (`web.Requests`), option/badge fragments and thread factories (`web.Daemons`); `StepResult.exited`.
+- Cheaper: an idle run-page poll reads and allocates nothing (`RunProgress.refresh`), polled fragments render once,
+  not twice; readers that show no log skip `log.line` events unparsed (`NdjsonReader.forEachExceptLogs`); step 6
+  reads `events.ndjson` once; local builds sort without reopening each overlay; several per-call `Pattern`s and
+  formatters are constants.
+- Long methods named by phase, bodies moved verbatim: `Supervisor.start`, `SecondaryFeps.select`,
+  `UpgradeService.install`, `Collect.collect`, `Publisher.publish`, `CommanderInit`'s import phase.
+- Stack: §2's two new rows.
+
+**Behaviour differences to watch on the first rig run** (each judged safe; none seen by a device)
+- A pause that used one bare `parkNanos` now waits its full duration after a spurious wake-up: the upgrade path's
+  retry pauses (`ClassicUpgrade`, `RootAccess`, `PsiInit`), `PairingPage`'s 500 ms navigation pause, `TunnelStart`.
+- An interrupt (the red Stop, Ctrl+C) ends `Waits.until`/`poll` at once; a few old loops made one more probe first
+  (coverage's mount/SSH/CGILink waits, `provision.Poll`, `pos.driver.PollUntil`). Exception types are unchanged; in
+  the instant an interrupt and a deadline coincide the message may name the other cause.
+- A `CommanderStages` with no tunnel (test doubles only) now fails at the `cloud-tunnel` stage rather than before the
+  install; the production stages always had the tunnel.
+- The Jira attachment upload uses `AtlassianClient`'s `HttpClient` (same URL, headers, body). Never sent live.
+- `/static/cat.css` lost three rules no element used.
+
+**Seen and left** (not safe or not worth it without a rig)
+- `pats` `PacketHandler.awaitCaptured` and `TransactionHandler.newerTransaction` ignore interrupts: a stopped run
+  spins re-reading until the wait's deadline. A real defect; the fix changes timing on a rig-verified path.
+- `devices/forecourt/JavaSerial` and `devices/viperpay/JavaSerialReader`: two readers of the same Java-serialization
+  subset (~300 lines); merging rewrites a wire parser.
+- `validate/packets` (~560 lines) is ported and tested but used by nothing in main: wire it or delete it.
+- `xray.XrayRunState` repeats much of `runservice.RunState` (each mirrors its own Python module).
+- `SimulatorsService.probe()` starts a listing thread per page open; `AuthoringPage.cases` reviews the selected
+  case twice per keystroke answer.
+- `PetroDcrTest.aPromptShownSinceTheLastWaitCountsOnceItHasMovedOn` failed once in one agent's full run under heavy
+  load and passed on every rerun; `devices.forecourt` was not touched by the refactor. Timing-dependent; watch it.
+
+**Stack changes considered and not made** (recommendations)
+- **Java 21** would allow closing per-probe `HttpClient`s (`AgentProbe`, `RigReadiness`, `CgiLink` build one per
+  call because a Java 17 client cannot be closed), virtual threads for the web's background jobs and pattern
+  `switch`. Blocked by the controller's JDK (§2); worth asking for.
+- **JGit** in place of spawning `git`: `PublisherTest` (60 s) and the collect tests would take seconds and step 1's
+  freshness check would be faster on Windows. A new dependency, and the git command lines are part of what was
+  verified. The one library change with a real payoff.
+- **Server-sent events** instead of htmx polling, **an HTML template library** instead of string appends, **picocli**
+  for the commands: each would add a dependency or a second mechanism for no operator-visible gain; the pages are
+  asserted byte for byte against the Python's. Keep Javalin + htmx + one stylesheet (DESIGN.md).
 
 ## 7. Lessons (read before orchestrating again)
 
@@ -327,6 +396,8 @@ Left as low-severity notes:
 - **2026-11-09, on-rig Cadence loop on TPA-AUTOLAB3** (one session, six runs, §4 and §6 item 0): cloud-snapshot's
   `PUSH_LAG` 600 s; CSITE token retries 429/5xx; `launch --no-cc-onboard`; BUYPASS packets read from FEPSIM v2's
   `legacyPackets/<instance>` and reset over its admin API. 106 → 221 → 227 of 264 passed.
+- **2026-11-09, evening: the refactor** (§6b; orchestrated, nine slices, off-rig): `core`, dead code and duplicates
+  out, cheaper polls, Javalin 6.7.0 / Jackson 2.21.8 / JUnit 5.14.4, tests in parallel forks. 4,184 tests green.
 - **2026-11-09** CAT's own window and the no-console shortcut (§2): `desktop/`, Settings → Opening CAT,
   `cat-java setup --skip-shortcuts`. Built on a development PC with a portable Temurin 17.0.5 through
   `CAT_TOOLS_ROOT`; the app window was seen opening there, never on a controller.

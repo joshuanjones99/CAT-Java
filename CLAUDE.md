@@ -20,9 +20,10 @@ cmd /c "cd /d C:\gitrepos\CAT-Java && C:\gitrepos\CAT-Java\build.cmd test"     #
 cmd /c "cd /d C:\gitrepos\CAT-Java && C:\gitrepos\CAT-Java\build.cmd test -Dtest=SomeTest"
 ```
 
-Results are in `target\surefire-reports\TEST-*.xml` (the quiet build prints little). The
-full suite takes several minutes; a few browser tests drive Playwright's Chromium 1148 and
-skip when it is absent.
+Results are in `target\surefire-reports\TEST-*.xml` (the quiet build prints little). Test
+classes run in parallel JVM forks (one per two cores; `-Dcat.test.forks=1` for one JVM), so
+the full suite takes two to three minutes; a few browser tests drive Playwright's Chromium
+1148 and skip when it is absent.
 
 ```bat
 run.cmd --rig lab                       :: web UI on http://127.0.0.1:8090/
@@ -76,6 +77,9 @@ verified live, record what, when and how in HANDOFF §4.
 ```
 src/main/java/com/verifone/cat/
   Main.java        subcommands: [web] (default), preflight, launch, provision, xray
+  core/            shared by every package: Json.MAPPER (the one default mapper; never configure it),
+                   Waits (bounded pause/until/poll), Hashes (SHA-256), CatHome (~/.cat/java paths).
+                   Use these; do not add a package-local copy
   rig/             rig files (strict schema), the one duration grammar, the run lease
   posshim/         register pos-shim HTTP client (read + control)
   pos/             locator catalogue (generated), driver (Playwright CDP), pages, fake POS,

@@ -23,6 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import com.verifone.cat.collect.Collect;
 import com.verifone.cat.commander.snapshot.Restore;
 import com.verifone.cat.commander.snapshot.SnapshotRestore;
 import com.verifone.cat.devices.DeviceError;
@@ -276,9 +277,7 @@ public final class CommanderInit {
 
     /** {@code $PETROAPPS_ROOT/AutomationTests/configurations/base}, resolved at each call. */
     public static Path baseConfigFolder(Map<String, String> environ) {
-        String root = environ == null ? null : environ.get(PETROAPPS_ENV);
-        Path petroapps = root == null || root.isBlank() ? DEFAULT_PETROAPPS_ROOT : Path.of(root.strip());
-        return petroapps.resolve("AutomationTests").resolve("configurations").resolve("base");
+        return Collect.petroappsRoot(environ).resolve("AutomationTests").resolve("configurations").resolve("base");
     }
 
     /** Petro Simulator Suite's own log, as CAT's simulator registry tails it, under the tools root. */

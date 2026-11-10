@@ -369,8 +369,7 @@ public final class InstallResume {
         }
         heading(say, CommanderConfigurationStep.POS_SHIM_BUILD_ROW);
         Path repoRoot = stages.posShimRepoRoot();
-        String root = environ.getOrDefault("PETROAPPS_ROOT", "").strip();
-        Path petroapps = Path.of(root.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : root);
+        Path petroapps = Collect.petroappsRoot(environ);
         CommanderConfigurationStep.PosShimNeed need = CommanderConfigurationStep.posShimNeed(payload, repoRoot,
                 petroapps);
         if (!need.unknown().isEmpty()) {

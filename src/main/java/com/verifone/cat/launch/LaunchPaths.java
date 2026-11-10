@@ -52,13 +52,12 @@ public record LaunchPaths(Path resultsRoot, Path rigsDir, Path leaseDir, Path re
      */
     public static LaunchPaths fromEnv(Map<String, String> env) {
         Path repoRoot = Path.of("").toAbsolutePath();
-        String petroapps = env.getOrDefault("PETROAPPS_ROOT", "").strip();
         return new LaunchPaths(
                 ReportPaths.resultsRoot(env),
                 RigLoader.rigsDir(env),
                 RigLease.resolveLeaseDir(null, env),
                 repoRoot,
-                petroapps.isEmpty() ? Path.of(Collect.DEFAULT_PETROAPPS_ROOT) : Path.of(petroapps),
+                Collect.petroappsRoot(env),
                 PlanCatalogue.offline(repoRoot),
                 SetupEnv.system(),
                 ProvisionPaths.pythonRoot(env));

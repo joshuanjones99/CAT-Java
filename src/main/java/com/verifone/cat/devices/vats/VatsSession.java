@@ -50,10 +50,9 @@ public final class VatsSession implements AutoCloseable {
         /** This controller's: {@code CAT_TOOLS_ROOT}, {@code PETROAPPS_ROOT}, the user's home. */
         public static Environment forThisMachine(Map<String, String> env) {
             Path tools = ToolsRoot.resolve(env.get(ToolsRoot.ENV), null);
-            String petroapps = env.getOrDefault("PETROAPPS_ROOT", "");
             Path home = CatHome.user();
             return new Environment(tools,
-                    Path.of(petroapps.isEmpty() ? Collect.DEFAULT_PETROAPPS_ROOT : petroapps),
+                    Collect.petroappsRoot(env),
                     CatHome.java(home).resolve("vats"),
                     Btt.forThisMachine(home, tools), null);
         }

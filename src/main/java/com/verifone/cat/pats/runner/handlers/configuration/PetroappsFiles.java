@@ -1,6 +1,6 @@
 package com.verifone.cat.pats.runner.handlers.configuration;
 
-import com.verifone.cat.commander.CommanderInit;
+import com.verifone.cat.collect.Collect;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,9 +32,7 @@ public final class PetroappsFiles {
      * The checkout the environment names ({@code PETROAPPS_ROOT}), else the default the Python uses.
      */
     public static PetroappsFiles fromEnvironment(Map<String, String> environ) {
-        String value = environ == null ? null : environ.get(CommanderInit.PETROAPPS_ENV);
-        Path root = value == null || value.isBlank() ? CommanderInit.DEFAULT_PETROAPPS_ROOT : Path.of(value.strip());
-        return new PetroappsFiles(root);
+        return new PetroappsFiles(Collect.petroappsRoot(environ));
     }
 
     /** The checkout's root. */
