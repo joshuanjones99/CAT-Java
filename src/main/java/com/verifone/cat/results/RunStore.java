@@ -7,7 +7,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.verifone.cat.report.ReportPaths;
 
@@ -25,11 +24,6 @@ import com.verifone.cat.report.ReportPaths;
 public final class RunStore {
 
     private RunStore() {}
-
-    /** The results root for {@code env}: {@code CAT_RESULTS_DIR}, else the documented default. */
-    public static Path resultsRoot(Map<String, String> env) {
-        return ReportPaths.resultsRoot(env);
-    }
 
     /** Every direct child of {@code root} holding an events file, in name order. Empty when {@code root} is absent. */
     public static List<Path> iterRunDirs(Path root) {

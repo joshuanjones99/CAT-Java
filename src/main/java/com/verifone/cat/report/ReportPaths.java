@@ -4,10 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,9 +33,6 @@ public final class ReportPaths {
     /** The environment variable that overrides the results root. */
     public static final String RESULTS_DIR_ENV = "CAT_RESULTS_DIR";
 
-    /** The environment variable that names the run; set once per process, shared by every writer. */
-    public static final String RUN_ID_ENV = "PETROTEST_RUN_ID";
-
     /** A run's event stream, {@code <root>/<run-id>/events.ndjson}. */
     public static final String EVENTS_FILE = "events.ndjson";
 
@@ -57,9 +52,6 @@ public final class ReportPaths {
     private static final Pattern CASE_FILE =
             Pattern.compile("(?:PETROCORE-(\\d+)-TestCase|test_petrocore_(\\d+))\\.\\w+$");
 
-    private static final DateTimeFormatter RUN_ID_FORMAT =
-            DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
-
     private ReportPaths() {}
 
     /**
@@ -75,25 +67,6 @@ public final class ReportPaths {
     /** {@code <root>/<run-id>/}. */
     public static Path runFolder(Path root, String runId) {
         return root.resolve(runId);
-    }
-
-    /**
-     * {@code PETROTEST_RUN_ID} from {@code env} if it is set; otherwise a UTC timestamp
-     * (for example {@code 20261024T153000Z}), which is also stored in {@code env} so every
-     * later caller in the process agrees on it.
-     *
-     * <p>Setting it before the first writer runs matters because the run's worker
-     * processes inherit the environment, and two timestamps would split one run into two
-     * folders.
-     */
-    public static String sessionRunId(Map<String, String> env, Instant now) {
-        String existing = env.get(RUN_ID_ENV);
-        if (existing != null) {
-            return existing;
-        }
-        String created = RUN_ID_FORMAT.format(now);
-        env.put(RUN_ID_ENV, created);
-        return created;
     }
 
     /**
@@ -156,11 +129,7 @@ public final class ReportPaths {
     private static String sha1Prefix(String text, int length) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-1").digest(text.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : digest) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.substring(0, length);
+            return HexFormat.of().formatHex(digest).substring(0, length);
         } catch (NoSuchAlgorithmException e) {
             // SHA-1 is required of every Java platform; this cannot happen.
             throw new IllegalStateException(e);

@@ -100,7 +100,7 @@ public final class AtlassianClient {
      */
     public JsonNode getJson(String path, Map<String, String> query) {
         Jira credentials = jira.get();
-        String url = site + "/" + path.replaceFirst("^/+", "") + queryString(query);
+        String url = site + "/" + trimLeadingSlashes(path) + queryString(query);
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(timeout)
                 .header("Accept", "application/json")

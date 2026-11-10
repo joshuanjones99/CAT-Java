@@ -286,7 +286,8 @@ public final class Jacoco {
         }
     }
 
-    private static void deleteQuietly(Path path) {
+    /** Deletes a scratch file; null is nothing to delete, and a failure is not worth failing a step for. */
+    static void deleteQuietly(Path path) {
         if (path == null) {
             return;
         }

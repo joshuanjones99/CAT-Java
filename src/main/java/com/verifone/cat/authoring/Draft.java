@@ -75,6 +75,7 @@ public final class Draft {
     private static final List<String> KEYWORDS = List.of("Given ", "When ", "Then ", "And ", "But ");
     private static final ObjectMapper JSON = Json.MAPPER;
     private static final String RULES = "/com/verifone/cat/authoring/drafting.md";
+    private static final DateTimeFormatter TRANSCRIPT_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private Draft() {}
 
@@ -556,7 +557,7 @@ public final class Draft {
         if (transcriptDir != null) {
             try {
                 Files.createDirectories(transcriptDir);
-                String stamp = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
+                String stamp = TRANSCRIPT_STAMP.format(ZonedDateTime.now(ZoneOffset.UTC));
                 result.transcript = transcriptDir.resolve("draft-" + stamp + ".json");
                 Map<String, Object> record = new LinkedHashMap<>();
                 record.put("model", result.model);

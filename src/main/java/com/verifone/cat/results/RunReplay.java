@@ -5,7 +5,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.verifone.cat.report.NdjsonReader;
@@ -31,9 +30,6 @@ public final class RunReplay {
 
     /** The seven steps, in the order the launcher runs them (the Python {@code STEP_NAMES}). */
     public static final List<String> STEP_NAMES = RunState.STEP_NAMES;
-
-    /** The statuses that count as a verdict; the statistics rate these. */
-    public static final Set<String> VERDICT_STATUSES = RunState.VERDICT_STATUSES;
 
     /** A test's state in its latest event: {@code running} until a verdict arrives. */
     public record TestState(String nodeid, String status, double duration, String excType) {}
@@ -210,10 +206,5 @@ public final class RunReplay {
     /** The recovery rungs and preflight checks, as the report writers fold them. */
     public RunFacts facts() {
         return facts;
-    }
-
-    /** The repo-relative file part of a pytest nodeid, with forward slashes. */
-    static String nodeFile(String nodeid) {
-        return RunState.nodeFile(nodeid);
     }
 }

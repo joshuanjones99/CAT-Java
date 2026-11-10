@@ -166,7 +166,7 @@ public final class CoverageDevice {
             Path discard = dir.resolve("reset-" + target.execName());
             Jacoco.CliResult result = ops.cli().run(tools,
                     Jacoco.dumpArgs(target.spec().host(), Components.TOMCAT_PORT, discard, true), CLI_TIMEOUT);
-            deleteQuietly(discard);
+            Jacoco.deleteQuietly(discard);
             if (result.ok()) {
                 log.accept("OK    " + target.spec().name() + ": Tomcat coverage reset");
             } else {
@@ -490,14 +490,6 @@ public final class CoverageDevice {
             transport.close();
         } catch (RuntimeException e) {
             // Closing a dead session is not a result.
-        }
-    }
-
-    private static void deleteQuietly(Path file) {
-        try {
-            Files.deleteIfExists(file);
-        } catch (IOException e) {
-            // A scratch file left behind is not worth failing a step for.
         }
     }
 }

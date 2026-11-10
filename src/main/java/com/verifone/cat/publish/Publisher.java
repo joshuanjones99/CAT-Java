@@ -246,25 +246,16 @@ public final class Publisher {
             throw new PublishException("push builds on a fresh fetch of origin; drop --no-fetch");
         }
         String catCommit;
-        Map<String, String> tracked = new TreeMap<>();
+        Map<String, String> tracked;
         String fetchError;
-        String parentRef;
-        String parent;
+        Collect.Ref parentCommit;
         Map<String, List<Blob>> index;
         try {
             if (!text(git(catRoot, "status", "--porcelain", "--", suiteRel)).isEmpty()) {
                 throw new PublishException(suiteRel + " has uncommitted changes; publish reads HEAD");
             }
             catCommit = text(git(catRoot, "rev-parse", "HEAD"));
-            byte[] listing = git(catRoot, "ls-tree", "-r", "-z", "HEAD", "--", suiteRel + "/");
-            for (String entry : new String(listing, StandardCharsets.UTF_8).split("\0")) {
-                if (entry.isEmpty()) {
-                    continue;
-                }
-                int tab = entry.indexOf('\t');
-                String[] meta = entry.substring(0, tab).strip().split("\\s+");
-                tracked.put(entry.substring(tab + 1), meta[2]);
-            }
+            tracked = trackedBlobs(catRoot, suiteRel);
             String head;
             try {
                 head = text(git(repo, "symbolic-ref", "--quiet", "HEAD"));
@@ -275,36 +266,13 @@ public final class Publisher {
                 throw new PublishException(branch + " is checked out in " + repo + "; publish moves no working tree");
             }
             fetchError = options.fetch() ? Collect.fetchBranch(repo, base) : "";
-            if (options.push()) {
-                if (!fetchError.isEmpty()) {
-                    throw new PublishException("cannot push: git fetch origin " + base + " failed: " + fetchError);
-                }
-                Collect.Ref ref = Collect.resolveCommit(repo, base);
-                if (!ref.ref().equals("origin/" + base)) {
-                    throw new PublishException("origin has no branch " + base + "; push never creates one");
-                }
-                parentRef = ref.ref();
-                parent = ref.commit();
-            } else {
-                String found;
-                try { // an earlier publish is built on, so one branch carries the whole hand-over
-                    found = text(git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch));
-                } catch (CollectException e) {
-                    found = null;
-                }
-                if (found != null) {
-                    parentRef = branch;
-                    parent = found;
-                } else {
-                    Collect.Ref ref = Collect.resolveCommit(repo, base);
-                    parentRef = ref.ref();
-                    parent = ref.commit();
-                }
-            }
-            index = Collect.readIndex(repo, parent);
+            parentCommit = options.push() ? pushParent(repo, base, fetchError) : branchParent(repo, base, branch);
+            index = Collect.readIndex(repo, parentCommit.commit());
         } catch (CollectException e) {
             throw new PublishException(e.getMessage(), e);
         }
+        String parentRef = parentCommit.ref();
+        String parent = parentCommit.commit();
 
         Publication result = new Publication(branch, parentRef, parent, catCommit, fetchError, options.dryRun());
         Map<String, byte[]> files = new LinkedHashMap<>();
@@ -404,6 +372,43 @@ public final class Publisher {
             }
         }
         return result;
+    }
+
+    /** The suite's files at the CAT checkout's {@code HEAD}: path to blob ID, by path. */
+    private static Map<String, String> trackedBlobs(Path catRoot, String suiteRel) {
+        Map<String, String> tracked = new TreeMap<>();
+        byte[] listing = git(catRoot, "ls-tree", "-r", "-z", "HEAD", "--", suiteRel + "/");
+        for (String entry : new String(listing, StandardCharsets.UTF_8).split("\0")) {
+            if (entry.isEmpty()) {
+                continue;
+            }
+            int tab = entry.indexOf('\t');
+            String[] meta = entry.substring(0, tab).strip().split("\\s+");
+            tracked.put(entry.substring(tab + 1), meta[2]);
+        }
+        return tracked;
+    }
+
+    /** What a push builds on: origin's {@code base} as just fetched, and nothing else. */
+    private static Collect.Ref pushParent(Path repo, String base, String fetchError) {
+        if (!fetchError.isEmpty()) {
+            throw new PublishException("cannot push: git fetch origin " + base + " failed: " + fetchError);
+        }
+        Collect.Ref ref = Collect.resolveCommit(repo, base);
+        if (!ref.ref().equals("origin/" + base)) {
+            throw new PublishException("origin has no branch " + base + "; push never creates one");
+        }
+        return ref;
+    }
+
+    /** What a local publish builds on: {@code branch} when it exists, else {@code base}. */
+    private static Collect.Ref branchParent(Path repo, String base, String branch) {
+        try { // an earlier publish is built on, so one branch carries the whole hand-over
+            String found = text(git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch));
+            return new Collect.Ref(branch, found);
+        } catch (CollectException e) {
+            return Collect.resolveCommit(repo, base);
+        }
     }
 
     /** Pushes {@code commit} onto origin's existing {@code base}, as a fast-forward from {@code parent} only. */

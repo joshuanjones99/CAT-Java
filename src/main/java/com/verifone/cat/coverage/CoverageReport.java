@@ -250,7 +250,7 @@ public final class CoverageReport {
             if (result.ok() && Files.isRegularFile(xml)) {
                 Double pct = new ComponentCoverage(componentName, CoverageSummary.readCounters(xml)).percent("LINE");
                 // Tens of MB per JVM, and only its totals are wanted.
-                deleteQuietly(xml);
+                Jacoco.deleteQuietly(xml);
                 if (pct != null) {
                     for (String name : summary.components.keySet()) {
                         if (name.equals(componentName) || (componentName.equals(Components.POS_TOMCAT)
@@ -363,14 +363,6 @@ public final class CoverageReport {
             Files.createDirectories(dir);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-    }
-
-    private static void deleteQuietly(Path path) {
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException e) {
-            // A leftover XML costs disk, not correctness.
         }
     }
 }
