@@ -36,6 +36,10 @@ final class AuthoringPage {
     /** The inputs every action sends with it, so the server saves the draft and the ticket fields first. */
     static final String INCLUDE = "#authoring-text, #authoring-case, #authoring-ticket, #authoring-spec, #authoring-name";
 
+    /** What every workbench action carries: the inputs it sends, and the whole workbench swapped for the answer. */
+    private static final String SWAP = " hx-include=\"" + INCLUDE + "\" hx-target=\"" + WORKBENCH
+            + "\" hx-swap=\"outerHTML\"";
+
     private static final String[] TAB_LABELS = {"Feature", "Steps", "Spec", "Review"};
 
     private AuthoringPage() {}
@@ -83,7 +87,7 @@ final class AuthoringPage {
         out.append(action("Move down", "/authoring/case/move?delta=1", "ghost"));
         out.append("<button type=\"button\" class=\"danger\" hx-post=\"/authoring/case/remove\""
                 + " hx-confirm=\"Remove this case from the session? Its draft file stays on disk.\""
-                + " hx-include=\"" + INCLUDE + "\" hx-target=\"" + WORKBENCH + "\" hx-swap=\"outerHTML\">Remove</button>");
+                + SWAP + ">Remove</button>");
         out.append(action("New session", "/authoring/session/new", "ghost"));
         out.append("</div>");
 
@@ -174,8 +178,7 @@ final class AuthoringPage {
             out.append(i == cursor ? "<tr class=\"selected\">" : "<tr>");
             out.append("<td class=\"num\">").append(session.number(c)).append("</td>");
             out.append("<td><button type=\"button\" class=\"cat-case-link\" hx-post=\"/authoring/select?index=")
-                    .append(i).append("\" hx-include=\"").append(INCLUDE).append("\" hx-target=\"")
-                    .append(WORKBENCH).append("\" hx-swap=\"outerHTML\">").append(esc(review.title()))
+                    .append(i).append('"').append(SWAP).append('>').append(esc(review.title()))
                     .append("</button></td>");
             out.append("<td>").append(esc(AuthoringReview.source(c.source()))).append("</td>");
             out.append("<td>").append(AuthoringReview.checkCell(review)).append("</td>");
@@ -194,8 +197,7 @@ final class AuthoringPage {
             out.append("<button type=\"button\" role=\"tab\" class=\"tab").append(on ? " on" : "").append('"')
                     .append(" aria-selected=\"").append(on).append('"')
                     .append(" hx-post=\"/authoring/tab?name=").append(name).append('"')
-                    .append(" hx-include=\"").append(INCLUDE).append("\" hx-target=\"").append(WORKBENCH)
-                    .append("\" hx-swap=\"outerHTML\">").append(TAB_LABELS[i]).append("</button>");
+                    .append(SWAP).append('>').append(TAB_LABELS[i]).append("</button>");
         }
         return out.append("</div>").toString();
     }
@@ -244,8 +246,7 @@ final class AuthoringPage {
                     + "  — " + step.group();
             out.append("<li><button type=\"button\" class=\"step\" hx-post=\"/authoring/insert?example=")
                     .append(esc(URLEncoder.encode(step.example(), StandardCharsets.UTF_8)))
-                    .append("\" hx-include=\"").append(INCLUDE).append("\" hx-target=\"").append(WORKBENCH)
-                    .append("\" hx-swap=\"outerHTML\"><span>").append(esc(label)).append("</span>")
+                    .append('"').append(SWAP).append("><span>").append(esc(label)).append("</span>")
                     .append("<span class=\"cat-mono muted\">").append(esc(step.example())).append("</span>")
                     .append("</button></li>");
         }
@@ -260,7 +261,6 @@ final class AuthoringPage {
 
     private static String action(String label, String url, String cls) {
         return "<button type=\"button\"" + (cls.isEmpty() ? "" : " class=\"" + cls + "\"")
-                + " hx-post=\"" + esc(url) + "\" hx-include=\"" + INCLUDE + "\" hx-target=\"" + WORKBENCH
-                + "\" hx-swap=\"outerHTML\">" + esc(label) + "</button>";
+                + " hx-post=\"" + esc(url) + "\"" + SWAP + ">" + esc(label) + "</button>";
     }
 }

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import com.verifone.cat.preflight.Outcome;
 import com.verifone.cat.preflight.Result;
@@ -229,22 +230,19 @@ public final class SetupAudit {
 
     /** The failing results whose items are required. */
     public Map<String, Result> missingRequired() {
-        Map<String, Result> out = new LinkedHashMap<>();
-        failures().forEach((name, result) -> {
-            SetupItem item = item(name);
-            if (item != null && item.required()) {
-                out.put(name, result);
-            }
-        });
-        return out;
+        return failuresOf(SetupItem::required);
     }
 
     /** The failing results whose items are sign-ins the operator types. */
     public Map<String, Result> missingCredentials() {
+        return failuresOf(SetupItem::credential);
+    }
+
+    private Map<String, Result> failuresOf(Predicate<SetupItem> kind) {
         Map<String, Result> out = new LinkedHashMap<>();
         failures().forEach((name, result) -> {
             SetupItem item = item(name);
-            if (item != null && item.credential()) {
+            if (item != null && kind.test(item)) {
                 out.put(name, result);
             }
         });
@@ -262,11 +260,6 @@ public final class SetupAudit {
         return out;
     }
 
-    /** True for a sign-in the operator types (the Atlassian and Verifone logins). */
-    public static boolean isCredential(SetupItem item) {
-        return item.credential();
-    }
-
     /**
      * Detects only the credential items, now: {@code name -> failing result}, empty when every sign-in is in place.
      * Fresh each call, so a sign-in saved a moment ago counts. Local reads only.
@@ -274,7 +267,7 @@ public final class SetupAudit {
     public static Map<String, Result> credentialGaps(List<SetupItem> items, SetupEnv env) {
         Map<String, Result> gaps = new LinkedHashMap<>();
         for (SetupItem item : items) {
-            if (!isCredential(item)) {
+            if (!item.credential()) {
                 continue;
             }
             Result result = item.detect(env);
