@@ -22,42 +22,8 @@ final class SettingsPage {
     private SettingsPage() {}
 
     /** The whole page body. */
-    static String body(Appearance current, OpenIn openIn, String registerHost, List<Place> places) {
-        return appearanceCard(current) + openingCard(openIn) + registerCard(registerHost) + placesCard(places)
-                + startingCard();
-    }
-
-    /**
-     * Register: the address the POS page checks and shows when no rig names a register (user, 2026-11-10). CAT-Java's
-     * own card; the Python has none. Saved with its button, not on every keystroke.
-     */
-    static String registerCard(String host) {
-        return "<section class=\"card settings-card\" id=\"register\">"
-                + "<h2>Register</h2>"
-                + "<form id=\"register-form\" hx-post=\"/settings/register\" hx-target=\"#register-result\""
-                + " hx-swap=\"innerHTML\">"
-                + "<label for=\"register-host\">Register address</label> "
-                + "<input type=\"text\" id=\"register-host\" name=\"register_host\" value=\"" + esc(host) + "\""
-                + " spellcheck=\"false\" autocomplete=\"off\" inputmode=\"url\"> "
-                + "<button type=\"submit\">Save</button>"
-                + "<p id=\"register-result\" class=\"appearance-result\" role=\"status\"></p>"
-                + "</form>"
-                + "<p class=\"placeholder-note\">The register's IP address or name. The POS page checks it and shows "
-                + "its screen, and Push shim to register sends the pos-shim there. A rig started with --rig uses its "
-                + "own register instead. Leave it empty to clear it.</p>"
-                + "</section>";
-    }
-
-    /** The one-line answer to a saved, cleared or refused register address. */
-    static String registerResult(String host, String problem, boolean saved) {
-        if (problem != null) {
-            return "<span class=\"warn\">Not saved: " + esc(problem) + ".</span>";
-        }
-        if (!saved) {
-            return "<span class=\"warn\">Could not write the settings file; the register address is unchanged.</span>";
-        }
-        return host.isEmpty() ? "<span class=\"ok\">Cleared. The POS page has no register until one is set.</span>"
-                : "<span class=\"ok\">Saved. The POS page now checks " + esc(host) + ".</span>";
+    static String body(Appearance current, OpenIn openIn, List<Place> places) {
+        return appearanceCard(current) + openingCard(openIn) + placesCard(places) + startingCard();
     }
 
     /** Starting CAT, and Shut down CAT with its confirmation (the Python's last card). */

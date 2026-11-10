@@ -57,7 +57,7 @@ public final class WebApp {
         /** A DevTools endpoint the POS page shows with no check when it has no register (tests); normally null. */
         String cdpUrl;
         /**
-         * Which register the POS page checks and shows: the rig's, else the Settings page's address
+         * Which registers the POS page checks and shows: the rig's, else the lab's 101 and 102
          * ({@link PosRegister#of}, set by {@code serve}). Null is none, with the title as why.
          */
         PosRegister posRegister;

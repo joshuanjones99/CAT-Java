@@ -9,7 +9,6 @@ import com.verifone.cat.desktop.Shortcuts;
 import com.verifone.cat.prefs.WebSettings;
 import com.verifone.cat.prefs.WebSettings.Appearance;
 import com.verifone.cat.prefs.WebSettings.OpenIn;
-import com.verifone.cat.rig.Hosts;
 import com.verifone.cat.web.SettingsPlaces.Place;
 
 import io.javalin.Javalin;
@@ -48,25 +47,7 @@ final class SettingsRoutes {
             Appearance current = WebSettings.appearance(settingsFile);
             remember(ctx, current);
             ctx.html(Layout.page(Section.SETTINGS, "Settings",
-                    SettingsPage.body(current, WebSettings.openIn(settingsFile), WebSettings.registerHost(settingsFile),
-                            places(env, userHome))));
-        });
-        app.post("/settings/register", ctx -> {
-            if (!fromPage(ctx)) {
-                return;
-            }
-            String raw = Requests.form(ctx, "register_host").strip();
-            String host = raw;
-            String problem = null;
-            if (!raw.isEmpty()) {
-                try {
-                    host = Hosts.validate(raw);
-                } catch (IllegalArgumentException e) {
-                    problem = e.getMessage();
-                }
-            }
-            boolean saved = problem == null && WebSettings.update(settingsFile, WebSettings.REGISTER_HOST_KEY, host);
-            ctx.html(SettingsPage.registerResult(host, problem, saved));
+                    SettingsPage.body(current, WebSettings.openIn(settingsFile), places(env, userHome))));
         });
         app.post("/settings/appearance", ctx -> {
             if (!fromPage(ctx)) {

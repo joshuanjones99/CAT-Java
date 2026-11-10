@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -283,13 +284,11 @@ public final class WebServe {
             public Javalin app(Options options, Shell shell, Runnable exit) {
                 Rig rig = null;
                 Rig.Register register = null;
-                String noRegister = null;
                 try {
                     rig = RigLoader.load(options.rig, RigLoader.rigsDir(System.getenv()));
                     register = rig.register(options.register);
                 } catch (RuntimeException e) {
                     log().warn("rig '{}' will not load: {}", options.rig, e.getMessage());
-                    noRegister = "Rig '" + options.rig + "' did not load: " + e.getMessage();
                 }
                 String registerHost = register == null ? "localhost" : register.host();
                 // No register (no rig, or no pos_shim): the POS page reaches nothing, and says so.
@@ -300,11 +299,16 @@ public final class WebServe {
                         : "CAT-Java: " + rig.name() + " / " + register.id();
                 WebApp.Parts parts = WebApp.parts(shim, title, ResultsLibrary.fromEnvironment(System.getenv()),
                         ConfigForm.standard().online(), RunService.standard(options.rig, System.getenv()), null);
-                // The POS page's register: the rig's, else the Settings page's address (no rig file needed). It is
-                // checked before the screen opens: not connected, or up with no shim (the Push shim button).
-                RegisterTarget fromRig = register == null ? null
-                        : new RegisterTarget(register.id(), register.host(), options.shimPort, register.cdpPort());
-                parts.posRegister = PosRegister.of(fromRig, noRegister, parts.settingsFile, options.shimPort);
+                // The POS page's registers: the rig's (only --register's when named), else the lab's 101 and 102 (no
+                // rig file needed). Each is checked before a screen opens: not connected, or up with no shim (the Push
+                // shim button).
+                List<RegisterTarget> fromRig = new ArrayList<>();
+                if (rig != null && register != null) {
+                    for (Rig.Register r : options.register == null ? rig.registers() : List.of(register)) {
+                        fromRig.add(new RegisterTarget(r.id(), r.host(), options.shimPort, r.cdpPort()));
+                    }
+                }
+                parts.posRegister = PosRegister.of(fromRig);
                 parts.shell = shell;
                 parts.exit = exit;
                 setup = SetupService.standard(shell, options.setup);

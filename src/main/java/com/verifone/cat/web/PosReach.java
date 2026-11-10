@@ -34,7 +34,7 @@ interface PosReach {
     int SSH_PORT = 22;
 
     /** Each connect's budget: a register on the lab LAN answers in milliseconds. */
-    Duration TIMEOUT = Duration.ofMillis(1500);
+    Duration TIMEOUT = Duration.ofMillis(1000);
 
     State probe(String host, int shimPort);
 

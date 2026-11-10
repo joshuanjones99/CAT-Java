@@ -220,12 +220,12 @@ final class ToolsService {
 
     /**
      * Starts the POS page's Push shim to register on {@code register}, or refuses it and says why in
-     * {@link #notice()}. Needs no rig, only the register (from the rig or the Settings page), and the busy flag.
+     * {@link #notice()}. Needs no rig, only the register (the rig's, or a lab register), and the busy flag.
      *
      * @return "" when started, else the refusal
      */
     String startPush(RegisterTarget register) {
-        String why = register == null ? "No register address: set one on the Settings page." : "";
+        String why = register == null ? "No register to push the shim to." : "";
         String title = register == null ? Tool.PUSH_SHIM.title : Tool.PUSH_SHIM.title + " (" + register.id() + ")";
         return launch(Tool.PUSH_SHIM, why, title, register == null ? "" : "on " + register.describe(),
                 say -> tools.pushShim(register, say));

@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * the network, and {@link java.net.InetAddress} is not used for it because it would look up a
  * name.
  *
- * <p>Public for the Settings page's register address, which is checked as a rig file's {@code host} is.
+ * <p>Public for {@code tools.RegisterTarget}, whose host is checked as a rig file's {@code host} is.
  */
 public final class Hosts {
 

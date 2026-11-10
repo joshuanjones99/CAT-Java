@@ -170,18 +170,6 @@ public final class WebSettings {
     }
 
     /**
-     * The key holding the register the POS page checks and shows when no rig names one (user, 2026-11-10). CAT-Java's
-     * own key; the Python has none. The address is the operator's data, so it lives here, never in the code.
-     */
-    public static final String REGISTER_HOST_KEY = "register_host";
-
-    /** The saved register address, stripped; "" when none is saved. Not validated here: the reader checks it. */
-    public static String registerHost(Path file) {
-        Object value = read(file).get(REGISTER_HOST_KEY);
-        return value instanceof String text ? text.strip() : "";
-    }
-
-    /**
      * Sets one key, keeping the rest of the file. Never throws: a read-only home must not break the
      * page, as the Python CAT's {@code save_settings} does.
      *

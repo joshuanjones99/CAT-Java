@@ -1,5 +1,8 @@
 package com.verifone.cat.web;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 import com.verifone.cat.tools.RegisterTarget;
 
 import io.javalin.Javalin;
@@ -8,11 +11,11 @@ import io.javalin.http.Context;
 /**
  * The POS page's routes: the page, its polled panel, the Push shim to register button, and the screen's socket.
  *
- * <p>Each request asks {@link PosRegister} which register it is (the rig's, else the Settings page's address), then
- * checks it ({@link PosReach}). Live (and no push still running), the page is the screen, and the panel answers
- * {@code HX-Refresh} so htmx reloads into it. Otherwise both are {@link PosPage#panel}. With no register, the page
- * says why and keeps polling, so an address saved on Settings takes effect here. The POST requires
- * {@code HX-Request}, as every POST on these pages does, and the address the panel showed.
+ * <p>Each request asks {@link PosRegister} for the registers (the rig's, else the lab's 101 and 102) and checks them
+ * all at once ({@link PosReach}). The first live one (with no push still running) is the screen, and the panel answers
+ * {@code HX-Refresh} so htmx reloads into it. Otherwise both are {@link PosPage#panel}. A push or a screen is only ever
+ * for a register on that list: the POST names the address its row showed, and the socket the address its page showed.
+ * The POST requires {@code HX-Request}, as every POST on these pages does.
  *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port).
  */
@@ -35,57 +38,68 @@ final class PosRoutes {
                 return;
             }
             PosRegister.Resolved now = registers.current();
-            RegisterTarget target = now.target();
-            if (target == null) {
+            if (now.targets().isEmpty()) {
                 ctx.html(PosPage.noRegister(now.why()));
                 return;
             }
             String host = Requests.query(ctx, "host");
-            if (!target.host().equals(host)) {
-                tools.setNotice("This page now shows " + target.describe() + ", not " + host
-                        + "; nothing was pushed.");
+            RegisterTarget target = now.byHost(host);
+            if (target == null) {
+                tools.setNotice(host + " is not one of this page's registers; nothing was pushed.");
             } else {
                 tools.startPush(target);
             }
-            ctx.html(PosPage.panel(target, reach.probe(target.host(), target.shimPort()), tools));
+            ctx.html(PosPage.panel(probeAll(now.targets(), reach), tools));
         });
-        PosScreenRoutes.register(app, () -> {
-            RegisterTarget target = registers.current().target();
-            return target != null ? target.cdpUrl() : fixedScreen;
+        PosScreenRoutes.register(app, host -> {
+            PosRegister.Resolved now = registers.current();
+            if (host == null || host.isEmpty()) {
+                return now.targets().isEmpty() ? fixedScreen : null;
+            }
+            RegisterTarget target = now.byHost(host);
+            return target == null ? null : target.cdpUrl();
         });
+    }
+
+    /** Every register checked at once, in list order: two silent registers cost one timeout, not two. */
+    static List<PosPage.Probe> probeAll(List<RegisterTarget> targets, PosReach reach) {
+        List<CompletableFuture<PosPage.Probe>> checks = targets.stream()
+                .map(t -> CompletableFuture.supplyAsync(() -> new PosPage.Probe(t, reach.probe(t.host(), t.shimPort()))))
+                .toList();
+        return checks.stream().map(CompletableFuture::join).toList();
+    }
+
+    /** The first register whose shim answers, when no push is still running; else null. */
+    private static RegisterTarget live(List<PosPage.Probe> probes, ToolsService tools) {
+        if (tools.running() == ToolsService.Tool.PUSH_SHIM) {
+            return null;
+        }
+        return probes.stream().filter(p -> p.state() == PosReach.State.LIVE).map(PosPage.Probe::target).findFirst()
+                .orElse(null);
     }
 
     private static String page(PosRegister.Resolved now, String fixedScreen, PosReach reach, ToolsService tools) {
-        RegisterTarget target = now.target();
-        if (target == null) {
-            return fixedScreen == null ? PosPage.noRegister(now.why()) : PosPage.body(now.why(), fixedScreen);
+        if (now.targets().isEmpty()) {
+            return fixedScreen == null ? PosPage.noRegister(now.why()) : PosPage.screen(fixedScreen);
         }
-        PosReach.State state = reach.probe(target.host(), target.shimPort());
-        if (live(state, tools)) {
-            return PosPage.body(target.describe(), target.cdpUrl());
-        }
-        return PosPage.panel(target, state, tools);
+        List<PosPage.Probe> probes = probeAll(now.targets(), reach);
+        RegisterTarget live = live(probes, tools);
+        return live != null ? PosPage.screen(live) : PosPage.panel(probes, tools);
     }
 
     private static void panel(Context ctx, PosRegister.Resolved now, PosReach reach, ToolsService tools) {
-        RegisterTarget target = now.target();
-        if (target == null) {
+        if (now.targets().isEmpty()) {
             ctx.html(PosPage.noRegister(now.why()));
             return;
         }
-        PosReach.State state = reach.probe(target.host(), target.shimPort());
-        if (live(state, tools)) {
-            // The shim answers: reload the whole page, which opens the screen.
+        List<PosPage.Probe> probes = probeAll(now.targets(), reach);
+        if (live(probes, tools) != null) {
+            // A shim answers: reload the whole page, which opens its screen.
             ctx.header("HX-Refresh", "true");
             ctx.html("<div id=\"" + PosPage.PANEL_ID + "\" class=\"pos-screen pos-screen-none\">"
                     + "<p role=\"status\">The pos-shim answers: opening the screen…</p></div>");
             return;
         }
-        ctx.html(PosPage.panel(target, state, tools));
-    }
-
-    /** The screen opens once the shim answers and no push of it is still running. */
-    private static boolean live(PosReach.State state, ToolsService tools) {
-        return state == PosReach.State.LIVE && tools.running() != ToolsService.Tool.PUSH_SHIM;
+        ctx.html(PosPage.panel(probes, tools));
     }
 }
