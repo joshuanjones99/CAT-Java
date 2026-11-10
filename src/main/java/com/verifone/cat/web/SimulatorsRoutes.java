@@ -24,7 +24,7 @@ final class SimulatorsRoutes {
             // What a run would start, each time the page opens (the Python's _default_ticks).
             sims.resetTicks();
             sims.probe();
-            ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators", SimulatorsPage.body(sims)));
+            ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators", SimulatorsPage.body()));
         });
         app.get("/fragments/simulators", ctx -> ctx.html(SimulatorsPage.panel(sims)));
         app.get("/fragments/simulators/log", ctx -> {

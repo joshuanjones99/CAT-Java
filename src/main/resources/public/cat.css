@@ -934,6 +934,20 @@ pre.log {
   will-change: transform; animation: cat-spin 1s linear infinite; }
 @keyframes cat-spin { to { transform: rotate(360deg); } }
 
+/* A part of a page that loads after the page (Html.deferred): the spinner and its words where the part will be. */
+.cat-waiting { display: flex; gap: 12px; align-items: center; min-height: 96px; padding: 24px;
+  color: var(--cat-muted); font-size: 15px; }
+.cat-waiting.failed { color: var(--cat-bad); }
+
+/* Waiting on CAT after a click, a change or opening a page (cat.js): a bar along the top of the window. */
+.cat-busy { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1000; overflow: hidden;
+  pointer-events: none; }
+.cat-busy[hidden] { display: none; }
+.cat-busy::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--cat-blue);
+  will-change: transform; animation: cat-busy 1.1s ease-in-out infinite; }
+@keyframes cat-busy { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+body.cat-waiting-on, body.cat-waiting-on a, body.cat-waiting-on button { cursor: progress; }
+
 .setup-marker { margin-left: auto; width: 16px; height: 16px; object-fit: contain; }
 .setup-warning { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; min-height: 40px; padding: 0 16px;
   max-width: 420px; border-radius: var(--cat-radius-control); background: var(--cat-warn-soft); color: var(--cat-warn-text);
@@ -1022,4 +1036,5 @@ pre.log {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .cat-loader { animation-duration: 2.4s !important; animation-iteration-count: infinite !important; }
+  .cat-busy::before { animation-duration: 3s !important; animation-iteration-count: infinite !important; }
 }

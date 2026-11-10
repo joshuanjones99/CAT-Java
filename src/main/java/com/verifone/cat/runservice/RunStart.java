@@ -104,7 +104,8 @@ public final class RunStart {
         if (ctx.rig().isEmpty()) {
             return refused("No rig is named, so a run has nowhere to go. Start CAT-Java with --rig.", false);
         }
-        List<String> missing = form.missingRequirements();
+        // The view's own list (ConfigForm.missingRequirements from the same read), not a second read of the plans.
+        List<String> missing = view.missing();
         if (!missing.isEmpty()) {
             boolean fetch = !form.plans().isEmpty() && missing.size() == 1
                     && missing.get(0).startsWith("a test plan with at least one migrated case");

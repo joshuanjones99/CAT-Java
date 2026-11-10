@@ -258,3 +258,134 @@
     }
   });
 })();
+
+// Waiting on CAT (Layout's cat-busy): something the operator did, a click, a change, typing in a filter or opening
+// another CAT page, that has waited for more than a moment shows the bar along the top of the window and the busy
+// cursor until the answer lands. A poll and a part that loads after its page (Html.deferred, which has its own
+// spinner) do not show it. A part that fails to load says so in place of its spinner.
+(function () {
+  "use strict";
+  var bar = document.getElementById("cat-busy");
+  var body = document.body;
+  if (!bar || !body) {
+    return;
+  }
+  var DELAY_MS = 250;
+  var pending = 0;
+  var timer = null;
+
+  function show() {
+    timer = null;
+    bar.hidden = false;
+    body.classList.add("cat-waiting-on");
+  }
+
+  function begin() {
+    pending++;
+    if (pending === 1 && timer === null) {
+      timer = window.setTimeout(show, DELAY_MS);
+    }
+  }
+
+  function reset() {
+    pending = 0;
+    if (timer !== null) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+    bar.hidden = true;
+    body.classList.remove("cat-waiting-on");
+  }
+
+  function end() {
+    pending = Math.max(0, pending - 1);
+    if (pending === 0) {
+      reset();
+    }
+  }
+
+  // A poll (hx-trigger "every") and a "load" trigger have no triggering event: only the operator's own do.
+  function operatorAsked(detail) {
+    var config = detail && detail.requestConfig;
+    var event = config && config.triggeringEvent;
+    return !!event && event.type !== "load";
+  }
+
+  document.addEventListener("htmx:beforeRequest", function (event) {
+    var xhr = event.detail && event.detail.xhr;
+    if (xhr && operatorAsked(event.detail)) {
+      xhr.catBusy = true;
+      begin();
+    }
+  });
+
+  function finished(event) {
+    var xhr = event.detail && event.detail.xhr;
+    if (xhr && xhr.catBusy) {
+      xhr.catBusy = false;
+      end();
+    }
+  }
+
+  ["htmx:afterRequest", "htmx:sendError", "htmx:sendAbort", "htmx:timeout"].forEach(function (name) {
+    document.addEventListener(name, finished);
+  });
+
+  // A deferred part whose load failed: the words in place of the spinner, never a spinner that turns for ever.
+  function deferredFailed(event) {
+    var elt = event.detail && event.detail.elt;
+    if (!elt || !elt.hasAttribute || !elt.hasAttribute("data-deferred")) {
+      return;
+    }
+    var xhr = event.detail.xhr;
+    var why = xhr && xhr.status ? "CAT answered " + xhr.status : "CAT did not answer";
+    var waiting = elt.querySelector(".cat-waiting");
+    if (waiting) {
+      waiting.classList.add("failed");
+      waiting.textContent = "This part did not load (" + why + "). Reload the page to try again.";
+    }
+    elt.setAttribute("aria-busy", "false");
+  }
+
+  document.addEventListener("htmx:responseError", deferredFailed);
+  document.addEventListener("htmx:sendError", deferredFailed);
+
+  // A page change that turns out to be a download leaves this page up: the bar goes after this long whatever happens.
+  var NAVIGATION_CAP_MS = 20000;
+
+  function navigating() {
+    begin();
+    window.setTimeout(end, NAVIGATION_CAP_MS);
+  }
+
+  // Opening another CAT page: the browser keeps this one up until the next one's answer arrives.
+  document.addEventListener("click", function (event) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey
+        || event.altKey) {
+      return;
+    }
+    var link = event.target.closest ? event.target.closest("a[href]") : null;
+    if (!link || link.hasAttribute("download") || link.hasAttribute("hx-get") || link.hasAttribute("hx-post")
+        || (link.target && link.target !== "_self") || link.origin !== window.location.origin) {
+      return;
+    }
+    if (link.pathname === window.location.pathname && link.search === window.location.search && link.hash) {
+      return; // a jump within this page
+    }
+    navigating();
+  });
+
+  // A plain form post (not htmx's, which prevents the browser's own) is a page change too.
+  document.addEventListener("submit", function (event) {
+    if (!event.defaultPrevented) {
+      navigating();
+    }
+  });
+
+  // Back to a page kept in the browser's cache: nothing is waiting on it.
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      reset();
+    }
+  });
+})();

@@ -49,6 +49,24 @@ final class Html {
                 + " aria-hidden=\"true\" focusable=\"false\">" + paths + "</svg>";
     }
 
+    /**
+     * A part of a page that loads after the page: the element {@code tag} with {@code id} and {@code cssClass}, a
+     * spinner and {@code text} in it, that fetches {@code url} as soon as it is on the page and is replaced by the
+     * answer (which carries the same id). The page itself opens at once; a part that takes CAT a while to read waits
+     * here instead of holding the whole page back. {@code cat.js} says so in place of the spinner if the load fails.
+     */
+    static String deferred(String tag, String id, String cssClass, String url, String text) {
+        return "<" + tag + " id=\"" + esc(id) + "\" class=\"" + esc(cssClass) + "\" hx-get=\"" + esc(url)
+                + "\" hx-trigger=\"load\" hx-swap=\"outerHTML\" aria-busy=\"true\" data-deferred>"
+                + waiting(text) + "</" + tag + ">";
+    }
+
+    /** The spinner and its words, as a part that is still loading shows them. */
+    static String waiting(String text) {
+        return "<div class=\"cat-waiting\" role=\"status\"><span class=\"cat-loader\" aria-hidden=\"true\"></span>"
+                + "<span class=\"cat-waiting-text\">" + esc(text) + "</span></div>";
+    }
+
     static String esc(Object value) {
         if (value == null) {
             return "";

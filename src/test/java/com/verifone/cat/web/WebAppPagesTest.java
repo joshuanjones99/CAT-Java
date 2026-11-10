@@ -174,11 +174,15 @@ class WebAppPagesTest {
 
         assertTrue(overview.contains("href=\"/run/config\""), overview);
         assertTrue(overview.contains("href=\"/run/log\""), overview);
-        // The Overview and the Log are built (RunRoutes); their own placeholders are the parts not yet ported.
+        // The Overview and the Log are built (RunRoutes); their own placeholders are the parts not yet ported. The
+        // Overview's and the Config tab's panels load after their pages.
         assertTrue(overview.contains("Start run"), overview);
-        assertTrue(overview.contains("Schedule run"), overview);
-        assertFalse(overview.contains("Not built yet: Schedule"), overview);
-        assertTrue(config.contains("hx-get=\"/fragments/config/controls\""), config);
+        assertTrue(overview.contains("hx-get=\"/fragments/run\""), overview);
+        String panel = get("/fragments/run").body();
+        assertTrue(panel.contains("Schedule run"), panel);
+        assertFalse(panel.contains("Not built yet: Schedule"), panel);
+        assertTrue(config.contains("hx-get=\"/fragments/config\""), config);
+        assertTrue(get("/fragments/config").body().contains("hx-get=\"/fragments/config/controls\""));
         assertTrue(log.contains("No run yet"), log);
         assertTrue(overview.contains("href=\"/run\" aria-current=\"page\""), overview);
         assertTrue(config.contains("href=\"/run/config\" aria-current=\"page\""), config);

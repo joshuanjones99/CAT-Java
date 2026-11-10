@@ -82,14 +82,21 @@ class SimulatorsWebTest {
         sims = service(Runnable::run, inert("Odd <b>Row</b>", "cat-web-odd-token"));
         serve();
 
-        HttpResponse<String> response = get("/simulators");
+        HttpResponse<String> page = get("/simulators");
+        assertEquals(200, page.statusCode());
+        assertTrue(page.body().contains("Launch Simulators"));
+        // The page opens at once; the rows, whose ports are asked, load into it.
+        assertTrue(page.body().contains("<section id=\"sim-panel\" class=\"card wide\" hx-get=\"/fragments/simulators\" "
+                + "hx-trigger=\"load\" hx-swap=\"outerHTML\" aria-busy=\"true\" data-deferred>"), page.body());
+        assertTrue(page.body().contains(SimulatorsPage.LOADING), page.body());
+        assertFalse(page.body().contains("Odd &lt;b&gt;Row&lt;/b&gt;"), page.body());
 
+        HttpResponse<String> response = get("/fragments/simulators");
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Odd &lt;b&gt;Row&lt;/b&gt;"));
         assertFalse(response.body().contains("<b>Row</b>"), "a row name is escaped, never raw");
         assertTrue(response.body().contains("hx-post=\"/simulators/start\""));
         assertFalse(response.body().contains("/simulators/stop"), "no simulator is up, so there is no Stop");
-        assertTrue(response.body().contains("Launch Simulators"));
     }
 
     @Test

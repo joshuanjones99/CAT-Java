@@ -100,6 +100,16 @@ final class RunOverviewPage {
         return out.append("</div>").toString();
     }
 
+    /**
+     * The controls while the panel loads ({@code /run} before a run): Start run and Preflight in their places but
+     * disabled, so the title row does not move. The panel's answer replaces them ({@link #controls} out of band).
+     */
+    static String controlsWaiting() {
+        return "<div id=\"" + CONTROLS_ID + "\" class=\"page-actions\">"
+                + "<button type=\"button\" class=\"run-primary\" disabled>Start run</button>"
+                + "<button type=\"button\" disabled>Preflight (check only)</button></div>";
+    }
+
     private static void preRun(StringBuilder out, RunStart.Plan plan, RunService.View view,
             RunSchedule.View schedule) {
         notices(out, view);

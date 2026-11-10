@@ -227,7 +227,7 @@ class WebShellTest {
         assertEquals(200, post("/downloads/set?field=mode", "value=new_install", true).statusCode());
         assertEquals(com.verifone.cat.launch.UpgradeMode.NEW_INSTALL,
                 com.verifone.cat.runservice.RunStart.from(form, run.startContext()).config().upgradeMode());
-        String overview = get("/run").body();
+        String overview = get("/fragments/run").body();
         assertTrue(overview.contains("Upgrade:       new_install"), overview);
     }
 

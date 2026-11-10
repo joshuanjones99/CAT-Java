@@ -29,11 +29,18 @@ final class SimulatorsPage {
 
     private SimulatorsPage() {}
 
-    /** The page body: the intro, the panel, and the Log placeholder. */
-    static String body(SimulatorsService sims) {
+    /** What the page says while its panel loads. */
+    static final String LOADING = "Checking which simulators are running…";
+
+    /**
+     * The page body: the intro, the panel, and the Log placeholder. The panel loads after the page: drawing it asks
+     * each simulator's port whether it answers, and a port on a controller that does not answer takes its whole
+     * connect timeout (2.5 s for the lab rig's rows from a development PC, 2026-11-10).
+     */
+    static String body() {
         return "<p class=\"muted\">Start the simulators a run needs and leave them running: every later run "
                 + "adopts them instead of starting its own. Stop closes every simulator, whoever started it.</p>"
-                + panel(sims)
+                + Html.deferred("section", "sim-panel", "card wide", "/fragments/simulators", LOADING)
                 + "<section id=\"sim-log\" class=\"card wide\"><p class=\"muted\">"
                 + "Choose Log on a simulator to follow its output, or "
                 + "<button type=\"button\" class=\"ghost\" hx-get=\"/fragments/simulators/log?name="

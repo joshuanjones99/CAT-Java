@@ -47,6 +47,18 @@ public record ConfigView(
     /** A page section of the picker and its plans. */
     public record Section(String name, List<PlanRow> rows) {}
 
+    /** The picker alone ({@link ConfigForm#pickerView()}): its sections, filtered, and how many plans it offers. */
+    public record Picker(List<Section> sections, int planCount) {
+        public Picker {
+            sections = List.copyOf(sections);
+        }
+    }
+
+    /** This view's picker. */
+    public Picker picker() {
+        return new Picker(sections, planCount);
+    }
+
     /**
      * One case on the Run scope's list.
      *

@@ -20,14 +20,28 @@ import io.javalin.http.HttpStatus;
  * <p>Every action is a POST that needs htmx's {@code HX-Request} header, as {@code POST /keys} and the Config tab's
  * changes do, so a cross-site form post cannot start, pause or stop a run. Each action answers with the whole
  * Overview panel. A polled part that would draw the same answers {@code 204}, so htmx swaps nothing.
+ *
+ * <p>Before a run, {@code /run} answers at once with the page and a waiting panel, which loads {@code /fragments/run}
+ * (the read-back of the Config tab's choices takes CAT a moment); during and after one it draws the panel in place.
  */
 final class RunRoutes {
+
+    /** What the Overview says while its panel loads. */
+    static final String LOADING_OVERVIEW = "Reading the test plans and the choices for this run…";
 
     private RunRoutes() {}
 
     static void register(Javalin app, ConfigForm form, RunService run) {
         app.get("/run", ctx -> {
             RunService.View view = run.view();
+            if (!view.started()) {
+                // Before a run the panel reads back the Config tab's choices, which means reading every plan's case
+                // list and the checkout: the page opens at once and the panel loads into it.
+                ctx.html(Layout.page(Section.RUN, "Run", RunOverviewPage.controlsWaiting(),
+                        RunPage.body(RunPage.Tab.OVERVIEW, Html.deferred("section", RunOverviewPage.PANEL_ID,
+                                "run-panel", "/fragments/run", LOADING_OVERVIEW))));
+                return;
+            }
             RunStart.Plan plan = plan(form, run, view);
             ctx.html(Layout.page(Section.RUN, "Run", RunOverviewPage.controls(view, plan, false),
                     RunPage.body(RunPage.Tab.OVERVIEW, RunOverviewPage.panel(view, plan, run.scheduleView()))));

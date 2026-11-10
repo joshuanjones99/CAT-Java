@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.verifone.cat.atlassian.AtlassianClient;
@@ -122,6 +123,10 @@ public final class ConfigForm {
     private final Set<String> autoFetched = new HashSet<>();
     private boolean runWhenFetched;
     private final Map<String, Map.Entry<List<String>, String>> petroappsMemo = new HashMap<>();
+
+    /** Inside one {@link #reading}: each plan's cases and the catalogue as read for it; null between reads. */
+    private Map<String, Snapshot<PlanCase>> memo;
+    private Snapshot<TestPlan> memoPicker;
 
     public ConfigForm(PlanCatalogue catalogue, Path savedPath, Path repoRoot) {
         this.catalogue = catalogue;
@@ -486,6 +491,7 @@ public final class ConfigForm {
             if (autoFetched.contains(plan)) {
                 continue;
             }
+            // Not through the draw's memo: a fetch that runs at once (a test's executor) must be seen by the draw.
             Snapshot<PlanCase> snapshot = catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY);
             if (snapshot.rows().isEmpty() || snapshot.source() == Snapshot.Source.SEED
                     || snapshot.source() == Snapshot.Source.EMPTY) {
@@ -543,8 +549,68 @@ public final class ConfigForm {
 
     /** Everything the page draws, from one read. */
     public synchronized ConfigView view() {
+        return reading(this::viewNow);
+    }
+
+    /**
+     * {@code body}, with each plan's case list and the catalogue read once however often it asks: one read of the
+     * cache files and one check of the plans' nodes against the checkout ({@code CaseNodes}) per page draw, where
+     * the draw asks for a ticked plan's cases six times and for every offered plan's once. A read inside a read
+     * shares the outer one's.
+     */
+    private <T> T reading(Supplier<T> body) {
+        boolean outer = memo == null;
+        if (outer) {
+            memo = new HashMap<>();
+        }
+        try {
+            return body.get();
+        } finally {
+            if (outer) {
+                memo = null;
+                memoPicker = null;
+            }
+        }
+    }
+
+    /** A plan's cached (or seeded) cases, once per {@link #reading}. */
+    private Snapshot<PlanCase> casesOf(String plan) {
+        if (memo == null) {
+            return catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY);
+        }
+        return memo.computeIfAbsent(plan, key -> catalogue.cases(key, PlanCatalogue.Mode.CACHE_ONLY));
+    }
+
+    /** The cached (or seeded) catalogue, once per {@link #reading}. */
+    private Snapshot<TestPlan> picker() {
+        if (memo == null) {
+            return catalogue.catalogue(PlanCatalogue.Mode.CACHE_ONLY);
+        }
+        if (memoPicker == null) {
+            memoPicker = catalogue.catalogue(PlanCatalogue.Mode.CACHE_ONLY);
+        }
+        return memoPicker;
+    }
+
+    /**
+     * Refresh from Confluence's line: "refreshing…", or the catalogue's age. One read of the catalogue file, so the
+     * control's poll does not draw the whole tab.
+     */
+    public synchronized String catalogueAge() {
+        return refreshing ? "refreshing…" : ageWords(picker(), Instant.now());
+    }
+
+    /** The plan picker's rows, filtered: what the filter box redraws as the operator types. */
+    public synchronized ConfigView.Picker pickerView() {
+        return reading(() -> {
+            Snapshot<TestPlan> picker = picker();
+            return new ConfigView.Picker(sections(picker), picker.rows().size());
+        });
+    }
+
+    private ConfigView viewNow() {
         fetchMissingCases();
-        Snapshot<TestPlan> picker = catalogue.catalogue(PlanCatalogue.Mode.CACHE_ONLY);
+        Snapshot<TestPlan> picker = picker();
         List<ScopeCase> cases = cases();
         ScopeResolver.Result result = resolve(cases);
         boolean partial = scope.mode() != RunScope.Mode.WHOLE;
@@ -626,7 +692,7 @@ public final class ConfigForm {
 
     /** Why a run cannot start from these choices, in the words "Nothing to run yet" uses. */
     public synchronized List<String> missingRequirements() {
-        return missing(cases());
+        return reading(() -> missing(cases()));
     }
 
     /**
@@ -634,10 +700,8 @@ public final class ConfigForm {
      * says why). The web Run tab builds its {@code LaunchConfig} from these ({@link LaunchFields#toConfig}).
      */
     public synchronized Optional<LaunchFields> launchFields() {
-        if (!missing(cases()).isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(fields(runnableNodes(), plans));
+        return reading(() -> missing(cases()).isEmpty() ? Optional.of(fields(runnableNodes(), plans))
+                : Optional.<LaunchFields>empty());
     }
 
     private LaunchFields fields(List<String> suites, List<String> planIds) {
@@ -685,7 +749,7 @@ public final class ConfigForm {
         choices.put(KEY_XRAY, xray);
         choices.put(KEY_COVERAGE, coverage);
         choices.put(KEY_CC_ONBOARD, ccOnboard);
-        if (!catalogue.catalogue(PlanCatalogue.Mode.CACHE_ONLY).rows().isEmpty()) {
+        if (!picker().rows().isEmpty()) {
             choices.put(KEY_PLANS, new ArrayList<>(plans));
         }
         choices.putAll(scope.saved());
@@ -738,7 +802,7 @@ public final class ConfigForm {
     }
 
     private List<TestPlan> offered() {
-        return catalogue.catalogue(PlanCatalogue.Mode.CACHE_ONLY).rows();
+        return picker().rows();
     }
 
     /** The ticked plans' migrated cases in run order, each key once (Python {@code scope_cases}). */
@@ -746,7 +810,7 @@ public final class ConfigForm {
         Set<String> seen = new LinkedHashSet<>();
         List<ScopeCase> out = new ArrayList<>();
         for (String plan : plans) {
-            for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY).rows()) {
+            for (PlanCase row : casesOf(plan).rows()) {
                 if (row.migrated() && seen.add(row.key())) {
                     out.add(new ScopeCase(row.key(), row.node(), row.summary()));
                 }
@@ -759,7 +823,7 @@ public final class ConfigForm {
     private List<String> runnableNodes() {
         Set<String> nodes = new LinkedHashSet<>();
         for (String plan : plans) {
-            for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY).rows()) {
+            for (PlanCase row : casesOf(plan).rows()) {
                 if (row.migrated()) {
                     nodes.add(row.node());
                 }
@@ -775,9 +839,13 @@ public final class ConfigForm {
      * a case list lands, or Refresh. Empty with no checkout configured (tests).
      */
     public synchronized Map.Entry<List<String>, String> petroappsCases() {
+        return reading(this::petroappsCasesNow);
+    }
+
+    private Map.Entry<List<String>, String> petroappsCasesNow() {
         Set<String> keys = new LinkedHashSet<>();
         for (String plan : plans) {
-            for (PlanCase row : catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY).rows()) {
+            for (PlanCase row : casesOf(plan).rows()) {
                 if (!row.migrated()) {
                     keys.add(row.key());
                 }
@@ -839,7 +907,7 @@ public final class ConfigForm {
             Map.Entry<List<String>, String> pulled = petroappsCases();
             List<String> reasons = new ArrayList<>();
             for (String plan : plans) {
-                Snapshot<PlanCase> snapshot = catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY);
+                Snapshot<PlanCase> snapshot = casesOf(plan);
                 reasons.add(snapshot.reason().isEmpty() ? "no migrated cases" : snapshot.reason());
             }
             if (!pulled.getValue().isEmpty()) {
@@ -911,7 +979,7 @@ public final class ConfigForm {
     /** One plan's local case list (cache, then the Python's cache, then the seed); empty when none reads. */
     private List<PlanCase> localCases(String key) {
         try {
-            Snapshot<PlanCase> snapshot = catalogue.cases(key, PlanCatalogue.Mode.CACHE_ONLY);
+            Snapshot<PlanCase> snapshot = casesOf(key);
             return snapshot.source() == Snapshot.Source.EMPTY ? List.of() : snapshot.rows();
         } catch (RuntimeException e) {
             return List.of();
@@ -930,7 +998,7 @@ public final class ConfigForm {
     private List<String> caseLines() {
         List<String> lines = new ArrayList<>();
         for (String plan : plans) {
-            Snapshot<PlanCase> snapshot = catalogue.cases(plan, PlanCatalogue.Mode.CACHE_ONLY);
+            Snapshot<PlanCase> snapshot = casesOf(plan);
             String line = plan + ": " + (snapshot.rows().isEmpty() ? snapshot.reason() : caseSummary(snapshot.rows()));
             if (fetchingCases.contains(plan)) {
                 line += " (fetching the case list from Jira\u2026)";

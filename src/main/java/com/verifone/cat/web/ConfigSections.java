@@ -75,7 +75,7 @@ final class ConfigSections {
                 + "hx-swap=\"outerHTML\"").append(refreshing ? " disabled" : "")
                 .append(" title=\"").append(esc(ConfigHelpWords.get("config-plans"))).append("\">")
                 .append("Refresh from Confluence</button> <span class=\"muted\">")
-                .append(esc(form.view().catalogueAge())).append("</span></span>");
+                .append(esc(form.catalogueAge())).append("</span></span>");
         return out.toString();
     }
 

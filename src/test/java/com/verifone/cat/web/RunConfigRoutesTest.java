@@ -57,10 +57,23 @@ class RunConfigRoutesTest {
     }
 
     @Test
-    void theConfigTabRendersThePlanPickerAndTheNotBuiltSections() throws Exception {
+    void theConfigTabOpensAtOnceAndLoadsItsPanelIntoIt() throws Exception {
         String page = get("/run/config").body();
 
         assertTrue(page.contains("href=\"/run/config\" aria-current=\"page\""), page);
+        // The page is the tab strip and a waiting panel: the plans are read when the panel loads.
+        assertTrue(page.contains("<div id=\"run-config\" class=\"config\" hx-get=\"/fragments/config\" "
+                + "hx-trigger=\"load\" hx-swap=\"outerHTML\" aria-busy=\"true\" data-deferred>"), page);
+        assertTrue(page.contains("class=\"cat-loader\""), page);
+        assertTrue(page.contains(RunConfigRoutes.LOADING), page);
+        assertFalse(page.contains("Filter plans"), page);
+    }
+
+    @Test
+    void theConfigTabRendersThePlanPickerAndTheNotBuiltSections() throws Exception {
+        String page = get("/fragments/config").body();
+
+        assertTrue(page.startsWith("<div id=\"run-config\" class=\"config\">"), page);
         assertTrue(page.contains("Filter plans"), page);
         assertTrue(page.contains("Charity Donations"), page);
         assertTrue(page.contains("Automated"), page);
@@ -71,7 +84,7 @@ class RunConfigRoutesTest {
 
     @Test
     void aPlanNameFromTheCatalogueIsEscaped() throws Exception {
-        String page = get("/run/config").body();
+        String page = get("/fragments/config").body();
 
         assertTrue(page.contains("&lt;b&gt;Old&lt;/b&gt; plan"), page);
         assertFalse(page.contains("<b>Old</b>"), page);
@@ -79,7 +92,7 @@ class RunConfigRoutesTest {
 
     @Test
     void aMissingPlanSaysWhatStopsARun() throws Exception {
-        String page = get("/run/config").body();
+        String page = get("/fragments/config").body();
         assertTrue(page.contains("Nothing to run yet: pick a test plan."), page);
     }
 

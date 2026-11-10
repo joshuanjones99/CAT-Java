@@ -31,6 +31,10 @@ import com.verifone.cat.shell.Shell;
  * workspace token of the theme showing (colours live only in {@code cat.css}); the manifest's light one is only the
  * first paint's.
  *
+ * <p>Waiting: {@code cat-busy} is the bar along the top of the window that {@code cat.js} shows while something the
+ * operator did (a click, a change, opening another page) has waited on CAT for more than a moment; a part of a page
+ * that loads after the page ({@link Html#deferred}) shows its own spinner instead.
+ *
  * <p>The sidebar collapses to an icon rail and remembers that choice; on narrow screens a menu button opens it as a
  * drawer. Both are done by {@code /static/cat.js}, and the page works without it: the links are always there.
  */
@@ -137,6 +141,7 @@ final class Layout {
                 </head>
                 <body class="app%10$s" data-shell="%6$s" data-since="%7$d">
                   <div class="window-drag" aria-hidden="true"></div>
+                  <div id="cat-busy" class="cat-busy" hidden aria-hidden="true"></div>
                   <a class="skip" href="#main">Skip to content</a>
                   <aside class="sidebar">
                     <div class="brand">

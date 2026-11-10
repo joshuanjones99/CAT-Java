@@ -78,25 +78,33 @@ class RunRoutesTest {
     void theOverviewOffersStartAndPreflightBeforeARun() throws Exception {
         String page = get("/run").body();
 
-        assertTrue(page.contains("Start run"), page);
-        assertTrue(page.contains("Preflight (check only)"), page);
-        assertTrue(page.contains("<h2>Run Summary</h2>"), page);
-        assertFalse(page.contains("Pre-Run"), page);
-        // Start run and Preflight sit at the right of the title row, outside the panel, as in the Python CAT.
+        // Start run and Preflight sit at the right of the title row, outside the panel, as in the Python CAT. The
+        // page opens with them disabled while the panel loads.
         String topbar = page.substring(page.indexOf("<header class=\"topbar\">"), page.indexOf("</header>"));
         assertTrue(topbar.contains("id=\"run-controls\""), topbar);
-        assertTrue(topbar.contains("Start run") && topbar.contains("Preflight (check only)"), topbar);
+        assertTrue(topbar.contains("<button type=\"button\" class=\"run-primary\" disabled>Start run</button>"),
+                topbar);
+        assertTrue(topbar.contains("<button type=\"button\" disabled>Preflight (check only)</button>"), topbar);
         assertFalse(topbar.contains("hx-swap-oob"), topbar);
-        String panel = page.substring(page.indexOf("<section id=\"run-panel\""));
-        assertFalse(panel.substring(0, panel.indexOf("</section>")).contains("Start run"), panel);
-        // Every panel answer redraws them out of band.
+        // The panel loads after the page: the read-back of the Config tab's choices is not in the page's answer.
+        assertTrue(page.contains("<section id=\"run-panel\" class=\"run-panel\" hx-get=\"/fragments/run\" "
+                + "hx-trigger=\"load\" hx-swap=\"outerHTML\" aria-busy=\"true\" data-deferred>"), page);
+        assertTrue(page.contains(RunRoutes.LOADING_OVERVIEW), page);
+        assertFalse(page.contains("<h2>Run Summary</h2>"), page);
+
         String fragment = get("/fragments/run").body();
+        assertTrue(fragment.contains("<h2>Run Summary</h2>"), fragment);
+        assertFalse(fragment.contains("Pre-Run"), fragment);
+        String panel = fragment.substring(0, fragment.indexOf("</section>"));
+        assertFalse(panel.contains("Start run"), panel);
+        // Every panel answer, the first load included, draws the live controls out of band.
         assertTrue(fragment.contains("<div id=\"run-controls\" class=\"page-actions\" hx-swap-oob=\"true\">"),
                 fragment);
-        assertTrue(page.contains("Schedule run"), page);
-        assertTrue(page.contains("Continuous run"), page);
-        assertFalse(page.contains("Not built yet: Schedule"), page);
-        assertFalse(get("/fragments/run").body().contains("every 2s"));
+        assertTrue(fragment.contains("Preflight (check only)"), fragment);
+        assertTrue(fragment.contains("Schedule run"), fragment);
+        assertTrue(fragment.contains("Continuous run"), fragment);
+        assertFalse(fragment.contains("Not built yet: Schedule"), fragment);
+        assertFalse(fragment.contains("every 2s"), fragment);
     }
 
     @Test

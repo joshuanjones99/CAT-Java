@@ -43,7 +43,7 @@ final class RunConfigPage {
             out.append("<p class=\"warn\">").append(esc(view.catalogueNote())).append("</p>");
         }
         out.append("<div id=\"plan-list\" class=\"config-scroll\" role=\"group\" aria-label=\"Test plans\">");
-        out.append(planList(view));
+        out.append(planList(view.picker()));
         out.append("</div>");
         out.append("<div class=\"muted pre\">");
         for (String line : view.caseLines()) {
@@ -78,14 +78,14 @@ final class RunConfigPage {
     }
 
     /** The picker's rows, grouped by section; the filter route swaps just this. */
-    static String planList(ConfigView view) {
+    static String planList(ConfigView.Picker picker) {
         StringBuilder out = new StringBuilder();
-        if (view.sections().isEmpty()) {
-            return "<p class=\"muted\">" + (view.planCount() == 0
+        if (picker.sections().isEmpty()) {
+            return "<p class=\"muted\">" + (picker.planCount() == 0
                     ? "No plans in the catalogue yet."
                     : "No plan matches the filter.") + "</p>";
         }
-        for (ConfigView.Section section : view.sections()) {
+        for (ConfigView.Section section : picker.sections()) {
             out.append("<h3 class=\"config-group\">").append(esc(section.name())).append("</h3>");
             for (ConfigView.PlanRow row : section.rows()) {
                 out.append("<label class=\"config-check\"><input type=\"checkbox\"")
