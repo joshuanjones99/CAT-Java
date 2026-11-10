@@ -900,8 +900,14 @@ pre.log {
 .toast .pre { white-space: pre-wrap; flex: 1; }
 .toast button { min-height: 28px; padding: 0 8px; border-color: transparent; background: transparent; color: inherit; }
 
-.cat-loader { display: inline-block; flex: 0 0 auto; width: 16px; height: 16px; border-radius: 50%;
-  border: 2px solid var(--cat-line); border-top-color: var(--cat-blue); animation: cat-spin 0.7s linear infinite; }
+/* A blue arc fading into a soft track, one even turn a second. Its own compositor layer keeps the turn smooth
+   while the page is busy loading. The ring is a conic gradient masked to a 2.5px band. */
+.cat-loader { display: inline-block; flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--cat-blue) 270deg, transparent 271deg),
+    radial-gradient(farthest-side, transparent calc(100% - 2.5px), var(--cat-line) calc(100% - 2px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  will-change: transform; animation: cat-spin 1s linear infinite; }
 @keyframes cat-spin { to { transform: rotate(360deg); } }
 
 .setup-marker { margin-left: auto; width: 16px; height: 16px; object-fit: contain; }
@@ -936,6 +942,11 @@ pre.log {
   .cat-dialog > h2:first-child { font-size: 26px; }
 }
 
+/* Windows with "Animation effects" off (common on lab and remote machines) reports reduced motion. Animations then
+   play once, instantly; an infinite one left at 0.01ms would strobe. The loader is the one essential motion: it
+   still turns, slowly, so the line reads as busy. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .cat-loader { animation-duration: 2.4s !important; animation-iteration-count: infinite !important; }
 }
