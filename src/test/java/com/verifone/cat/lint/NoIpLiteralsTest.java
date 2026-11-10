@@ -86,12 +86,13 @@ class NoIpLiteralsTest {
     }
 
     /**
-     * The one carve-out (user, 2026-11-10): the lab's registers 101 and 102, which the POS page checks with no rig,
-     * named in {@link #LAB_REGISTERS_FILE} and nowhere else. Any other address in that file still fails.
+     * The one carve-out (user, 2026-11-10): the lab's registers 101 and 102 and its Commander (.11), which the POS
+     * page and POS Pairing use with no rig, named in {@link #LAB_REGISTERS_FILE} and nowhere else. Any other address in
+     * that file still fails.
      */
     static final String LAB_REGISTERS_FILE = "src/main/java/com/verifone/cat/tools/LabRegisters.java";
 
-    static final List<String> LAB_REGISTER_ADDRESSES = List.of("192.168.31.101", "192.168.31.102");
+    static final List<String> LAB_REGISTER_ADDRESSES = List.of("192.168.31.101", "192.168.31.102", "192.168.31.11");
 
     static boolean carvedOut(String rel, String finding) {
         return rel.endsWith(LAB_REGISTERS_FILE)
@@ -99,7 +100,7 @@ class NoIpLiteralsTest {
     }
 
     @Test
-    void theLabCarveOutCoversExactlyItsTwoAddressesInItsOneFile() throws IOException {
+    void theLabCarveOutCoversExactlyItsAddressesInItsOneFile() throws IOException {
         Path file = MAIN.resolve("java/com/verifone/cat/tools/LabRegisters.java");
         List<String> inFile = findingsIn(LAB_REGISTERS_FILE, Files.readString(file));
 

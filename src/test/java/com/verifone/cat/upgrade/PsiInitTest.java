@@ -85,6 +85,30 @@ class PsiInitTest {
     // ------------------------------------------------------------ the reset
 
     @Test
+    void aLabPasswordThatAlreadyLogsInSkipsTheResetAndLeavesTheFile() throws Exception {
+        // The lab pairing with no rig (2026-11-10): a stale installer file must not spend six changepasswd tries.
+        Path message = dir.resolve("psi_message.txt");
+        Files.writeString(message, "Password : Xk93Lm2");
+
+        assertTrue(psiInit(cgi((c, p) -> "<ok/>"), NO_REGISTERS).run("commander.invalid", null, List.of(), false,
+                () -> true));
+
+        assertEquals(List.of(), sent);
+        assertTrue(Files.isRegularFile(message), "the installer's file is left as it is");
+        assertTrue(say.outLines().get(0).startsWith("the lab password already logs in"), say.outLines().toString());
+    }
+
+    @Test
+    void aLabPasswordThatDoesNotLogInStillResets() throws Exception {
+        Files.writeString(dir.resolve("psi_message.txt"), "Password : Xk93Lm2");
+
+        assertTrue(psiInit(cgi((c, p) -> "<ok/>"), NO_REGISTERS).run("commander.invalid", null, List.of(), false,
+                () -> false));
+
+        assertEquals(List.of("changepasswd Xk93Lm2 expired-ok", "uchallengequestions lab"), sent);
+    }
+
+    @Test
     void aPasswordChangeIsRecordedEvenWhenTheChallengesFail() throws Exception {
         Path message = dir.resolve("psi_message.txt");
         Files.writeString(message, "Password : Xk93Lm2");

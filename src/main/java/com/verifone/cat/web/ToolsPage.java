@@ -51,7 +51,8 @@ final class ToolsPage {
         }
         boolean blocked = !why.isEmpty();
         out.append("<section class=\"card\"><ul class=\"tool-list\">");
-        out.append(row(tools, Tool.PAIR, "", Tool.PAIR.title, blocked, ""));
+        // With no rig, POS Pairing pairs the lab's registers: only the shared flag disables it then.
+        out.append(row(tools, Tool.PAIR, "", Tool.PAIR.title, !tools.pairRefusal().isEmpty(), ""));
         out.append(onboardRow(tools, blocked));
         out.append(rebootC18Rows(tools, blocked));
         out.append(row(tools, Tool.REBOOT_COMMANDER, "", Tool.REBOOT_COMMANDER.title, blocked, ""));

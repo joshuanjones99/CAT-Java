@@ -40,6 +40,12 @@ public interface RigTools {
 
     boolean pair(String rigName, Say say);
 
+    /**
+     * POS Pairing with no rig: the lab's registers paired with the lab's Commander, then their pos-shim pushed again
+     * ({@link LabPairing}; user, 2026-11-10).
+     */
+    boolean pairLab(Say say);
+
     boolean onboard(String rigName, CommanderConnect settings, Say say);
 
     boolean rebootRegister(String rigName, String registerId, Say say);
@@ -77,6 +83,11 @@ public interface RigTools {
             } catch (RuntimeException e) {
                 return List.of();
             }
+        }
+
+        @Override
+        public boolean pairLab(Say say) {
+            return LabPairing.pair(LabRegisters.ALL, LabPairing.real(environ), say);
         }
 
         @Override

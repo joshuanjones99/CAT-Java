@@ -9,8 +9,8 @@ import com.verifone.cat.posshim.PosShimClient;
  * will always be a register. So, just check for 101 and 102.").
  *
  * <p>LAB CARVE-OUT from the no-IP-literals rule (CLAUDE.md rule 3, {@code NoIpLiteralsTest}): this file, and only
- * this file, may name these two addresses; the gate fails on any other address here or on these anywhere else. A
- * rig, when one loads, still names its own registers and wins over this list.
+ * this file, may name these addresses (the two registers and the lab Commander); the gate fails on any other address
+ * here or on these anywhere else. A rig, when one loads, still names its own and wins over this list.
  */
 public final class LabRegisters {
 
@@ -20,6 +20,13 @@ public final class LabRegisters {
                     RegisterTarget.DEFAULT_CDP_PORT),
             new RegisterTarget("Reg102", "192.168.31.102", PosShimClient.DEFAULT_SHIM_PORT,
                     RegisterTarget.DEFAULT_CDP_PORT));
+
+    /**
+     * The lab's Commander, which POS Pairing pairs the lab registers with when CAT has no rig (user, 2026-11-10). The
+     * Python CAT's committed {@code rigs/lab.yaml}: "Commander is always .11, the first Topaz register is always .101"
+     * on the lab's network (rig owner).
+     */
+    public static final String COMMANDER_HOST = "192.168.31.11";
 
     private LabRegisters() {}
 }

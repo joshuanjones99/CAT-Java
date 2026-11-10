@@ -8,8 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -201,10 +203,26 @@ public final class PsiInit {
      * @return true when it all succeeded; a failure is written to {@code say}'s error stream
      */
     public boolean run(Rig rig, boolean pair) {
-        String host = rig.commander().host();
+        return run(rig.commander().host(), rig, rig.registers(), pair, () -> false);
+    }
+
+    /**
+     * {@link #run(Rig, boolean)} on {@code host} and {@code registers}, with no rig needed ({@code rig} may be null:
+     * it is handed only to {@link Registers}). The lab's POS Pairing with no rig file (user, 2026-11-10) uses this.
+     *
+     * @param labPasswordWorks asked only when the installer's file is there: true means the lab password already logs
+     *                         in, so there is nothing to reset and the file is left as it is (a stale file would
+     *                         otherwise spend six {@code changepasswd} tries with a spent password: the soft-lock
+     *                         of 2026-09-21). The rig path passes "never".
+     */
+    public boolean run(String host, Rig rig, List<Rig.Register> registers, boolean pair,
+            BooleanSupplier labPasswordWorks) {
         Path changed = sibling(".changed");
         try {
-            if (Files.isRegularFile(psiMessageFile)) {
+            if (Files.isRegularFile(psiMessageFile) && labPasswordWorks.getAsBoolean()) {
+                say.out("the lab password already logs in to the Commander: " + psiMessageFile
+                        + " left as it is, password not reset");
+            } else if (Files.isRegularFile(psiMessageFile)) {
                 resetCommanderPassword(host, readPsiPassword(psiMessageFile), LabAnswers.CHALLENGE_ANSWERS_XML,
                         () -> move(psiMessageFile, changed));
                 move(changed, sibling(".used"));
@@ -221,7 +239,7 @@ public final class PsiInit {
                 return true;
             }
             Cgi client = cgi.open(host, null, false);
-            for (Rig.Register register : rig.registers()) {
+            for (Rig.Register register : registers) {
                 pairRegister(rig, register, client);
             }
         } catch (DeviceError | UncheckedIOException | IllegalArgumentException | Bounded.TimedOut e) {

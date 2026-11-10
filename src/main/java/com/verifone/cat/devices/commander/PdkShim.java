@@ -255,6 +255,17 @@ public final class PdkShim implements AutoCloseable {
         return link.authenticate();
     }
 
+    /**
+     * One login ({@code validate}, never retried: it carries no cookie, so {@link CgiLink#post}'s LoginRequired retry
+     * does not apply), so a caller can tell whether this password is the Commander's now without the six tries a
+     * fault loop would spend: six failures soft-locked the lab account on 2026-09-21. Throws as {@code validate}
+     * fails: {@link CommanderPasswordExpired}, {@link CommanderFault}, {@link DeviceUnreachable}. No Python
+     * equivalent; the lab pairing's check (user, 2026-11-10).
+     */
+    public void login() {
+        authenticate();
+    }
+
     // ======================================================================
     // Configuration status and control: no command behind them
     // ======================================================================

@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 import com.verifone.cat.commander.Say;
 import com.verifone.cat.commander.connect.CommanderConnect;
 import com.verifone.cat.shell.RigBusy;
+import com.verifone.cat.tools.LabRegisters;
 import com.verifone.cat.tools.RegisterTarget;
 import com.verifone.cat.tools.RigTools;
 
@@ -109,7 +110,13 @@ final class ToolsService {
         if (!held.isEmpty()) {
             return held;
         }
-        return rigName().isEmpty() ? "No rig: start CAT with --rig to use a tool." : "";
+        return rigName().isEmpty() ? "No rig: POS Pairing pairs the lab's registers 101 and 102 with the lab "
+                + "Commander; the other tools need CAT started with --rig." : "";
+    }
+
+    /** Why POS Pairing cannot start now, or "": with no rig it pairs the lab's registers, so only the flag stops it. */
+    String pairRefusal() {
+        return rigName().isEmpty() ? busy.refusal() : refusal();
     }
 
     /** The rig's register ids, read once per rig; empty when there is no rig or it does not load. */
@@ -165,6 +172,12 @@ final class ToolsService {
     /** The question a tool's button asks first, naming the rig, since every tool changes it. */
     String confirmText(Tool tool, String register) {
         String on = " on rig " + rigName();
+        if (tool == Tool.PAIR && rigName().isEmpty()) {
+            return "Pair the lab's registers (Reg101, Reg102: those that answer) with the lab Commander "
+                    + LabRegisters.COMMANDER_HOST + "? The Commander's password is reset first only if the installer "
+                    + "left one and the lab password does not log in. Each register reboots once paired, then gets "
+                    + "its pos-shim pushed again.";
+        }
         return switch (tool) {
             case PAIR -> "Pair every register" + on + " with its Commander? Provision runs first and after; "
                     + "each register reboots once it is paired.";
@@ -177,8 +190,8 @@ final class ToolsService {
                     + "pos-shim back once it is up.";
             case REBOOT_COMMANDER -> "Reboot the Commander" + on + "? The registers lose it until it is back "
                     + "(up to 35 minutes for SSH and CGILink).";
-            case PUSH_SHIM -> "Push the pos-shim to " + register + "? Over SSH as root: the browser override and the "
-                    + "pos-shim, then the shim started. The Commander is not touched.";
+            case PUSH_SHIM -> "Push the pos-shim to " + register + "? Over SSH as root: the shim built here if it is "
+                    + "not built yet, pushed and started. The Commander is not touched.";
         };
     }
 
@@ -195,6 +208,10 @@ final class ToolsService {
             String why = "Push shim to register starts from the POS page.";
             setNotice(why);
             return why;
+        }
+        if (tool == Tool.PAIR && rigName().isEmpty()) {
+            // No rig: the lab's registers with the lab Commander. Only the shared flag can refuse it.
+            return launch(tool, "", tool.title + " (lab)", "on the lab registers", tools::pairLab);
         }
         String why = refusal();
         String rigName = rigName();
