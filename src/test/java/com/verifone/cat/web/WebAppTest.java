@@ -2,124 +2,234 @@ package com.verifone.cat.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.WebSocket;
+import java.net.http.WebSocketHandshakeException;
 import java.time.Duration;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-import com.verifone.cat.posshim.FakeShim;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Playwright;
+import com.microsoft.playwright.options.BoundingBox;
+import com.verifone.cat.core.Json;
+import com.verifone.cat.pos.driver.PlaywrightHome;
+import com.verifone.cat.pos.inspect.LocalDevTools;
 import com.verifone.cat.posshim.PosShimClient;
 
 import io.javalin.Javalin;
 
-/** Drives the real server over HTTP, in front of {@link FakeShim}. Evidence about this repository only. */
+/**
+ * The POS page and its screen socket, driven over HTTP and a WebSocket. The register is played by a local headless
+ * Chromium ({@link LocalDevTools}), skipped without one. Evidence about this repository only.
+ */
 class WebAppTest {
 
-    private FakeShim shim;
-    private Javalin app;
-    private final HttpClient http = HttpClient.newHttpClient();
+    private static final Duration WAIT = Duration.ofSeconds(10);
 
-    @BeforeEach
-    void setUp() {
-        shim = new FakeShim()
-                .onFixture("GET", "/health", "health.json")
-                .onFixture("GET", "/pos/screen", "screen.json")
-                .onFixture("GET", "/pos/keys", "keys.json")
-                .on("POST", "/pos/keys", 200, """
-                        {"client":"topaz101","requested":["YES"],
-                         "pressed":[{"key":"YES","processed":false,"elapsed_ms":15000}],"all_processed":false}
-                        """);
-        PosShimClient client = new PosShimClient(shim.host(), shim.port(), null, Duration.ofSeconds(2));
-        app = WebApp.start(client, "CAT-Java: test / topaz101", 0);
-    }
+    private final HttpClient http = HttpClient.newHttpClient();
+    private Javalin app;
 
     @AfterEach
     void tearDown() {
-        app.stop();
-        shim.close();
+        if (app != null) {
+            app.stop();
+        }
+    }
+
+    private void start(String cdpUrl) {
+        // The POS page never calls the shim: port 1 on loopback stands in for it.
+        PosShimClient shim = new PosShimClient("localhost", 1, null, Duration.ofSeconds(1));
+        app = WebApp.createWithScreen(shim, "CAT-Java: test / topaz101", cdpUrl).start(WebApp.BIND_HOST, 0);
     }
 
     @Test
-    void pageLoadsHtmxAndTheCards() throws Exception {
+    void thePageIsTheRegistersScreenAndNothingElse() throws Exception {
+        start("http://register.invalid:19220");
+
         String page = get("/pos").body();
 
-        assertTrue(page.contains("/static/htmx.min.js"));
-        assertTrue(page.contains("hx-get=\"/fragments/screen\""));
-        assertEquals(200, get("/static/htmx.min.js").statusCode());
+        assertTrue(page.contains("<canvas id=\"pos-screen\""), page);
+        assertTrue(page.contains("data-socket=\"" + PosScreenRoutes.PATH + "\""), page);
+        assertTrue(page.contains("/static/pos-screen.js"), page);
+        assertTrue(page.contains("http://register.invalid:19220"), page);
+        assertTrue(page.contains("CAT-Java: test / topaz101"), page);
+        assertFalse(page.contains("/fragments/health"), page);
+        assertFalse(page.contains("/fragments/keys"), page);
+        assertEquals(200, get("/static/pos-screen.js").statusCode());
+        assertEquals(404, get("/fragments/screen").statusCode(), "the pos-shim cards are gone");
     }
 
     @Test
-    void screenFragmentShowsTheOverlayAndSoftKeys() throws Exception {
-        String html = get("/fragments/screen").body();
+    void withNoRegisterThePageSaysSoAndOpensNothing() throws Exception {
+        start(null);
 
-        assertTrue(html.contains("NO OPEN CASHIER SESSION. LOGGING OUT."), html);
-        assertTrue(html.contains("Return To Sales"), html);
-        assertTrue(html.contains("204.98"), html);
+        String page = get("/pos").body();
+
+        assertTrue(page.contains("No register to show"), page);
+        assertFalse(page.contains("<canvas"), page);
     }
 
     @Test
-    void healthFragmentShowsTheClients() throws Exception {
-        assertTrue(get("/fragments/health").body().contains("topaz101"));
+    void withNoRegisterTheSocketSaysWhy() throws Exception {
+        start(null);
+        Socket socket = Socket.open(socketUri(), null);
+
+        JsonNode error = socket.next("error");
+        assertTrue(error.path("text").asText().contains("--rig"), error.toString());
+        socket.close();
     }
 
     @Test
-    void keysFragmentOffersOnlyBuildableNames() throws Exception {
-        String html = get("/fragments/keys").body();
+    void anotherSiteCannotOpenTheScreen() {
+        start("http://register.invalid:19220");
 
-        assertTrue(html.contains("VOID_TICKET"), html);
-        assertFalse(html.contains(">APPROVE<"), html);
+        ExecutionException refused = assertThrows(ExecutionException.class,
+                () -> Socket.open(socketUri(), "http://elsewhere.invalid"));
+
+        assertTrue(refused.getCause() instanceof WebSocketHandshakeException, refused.toString());
+        assertEquals(403, ((WebSocketHandshakeException) refused.getCause()).getResponse().statusCode());
     }
 
     @Test
-    void shimErrorRendersAsACardNotAnHttpError() throws Exception {
-        shim.on("GET", "/pos/screen", 503, "{\"error\":\"no-state\",\"detail\":\"POS has pushed nothing.\"}");
+    void theScreenArrivesAndAClickOnItReachesTheRegistersPage() throws Exception {
+        try (LocalDevTools chromium = LocalDevTools.openOrNull()) {
+            Assumptions.assumeTrue(chromium != null,
+                    "Chromium is not installed for Playwright; skipping. Install it with: " + LocalDevTools.INSTALL_COMMAND);
+            start(chromium.cdpUrl());
+            Socket socket = Socket.open(socketUri(), "http://" + WebApp.BIND_HOST + ":" + app.port());
 
-        HttpResponse<String> response = get("/fragments/screen");
+            JsonNode frame = socket.next("frame");
+            assertFalse(frame.path("data").asText().isEmpty());
+            assertTrue(frame.path("w").asDouble() > 0, frame.path("w").toString());
+            assertEquals("screen test", socket.next("attached").path("title").asText());
 
-        assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("DeviceUnreachable"), response.body());
+            BoundingBox button = chromium.page().locator("#press").boundingBox();
+            double x = button.x + button.width / 2;
+            double y = button.y + button.height / 2;
+            socket.send("{\"t\":\"mouse\",\"type\":\"mousePressed\",\"x\":" + x + ",\"y\":" + y
+                    + ",\"button\":\"left\",\"buttons\":1,\"clickCount\":1}");
+            socket.send("{\"t\":\"mouse\",\"type\":\"mouseReleased\",\"x\":" + x + ",\"y\":" + y
+                    + ",\"button\":\"left\",\"buttons\":0,\"clickCount\":1}");
+            socket.send("not json"); // dropped
+            chromium.page().waitForFunction("() => document.querySelector('#press').dataset.n === '1'");
+            socket.close();
+        }
     }
 
+    /**
+     * The page's own script, in a second Chromium (the operator's window, with no DevTools port, so it is never the
+     * one shown): the screen draws on its own, and a click and typing on the canvas land on the register's page.
+     */
     @Test
-    void keyPressFromThePageReachesTheShim() throws Exception {
-        HttpResponse<String> response = postKey("YES", true);
+    void theOperatorsClickAndTypingOnTheCanvasReachTheRegister() throws Exception {
+        try (LocalDevTools chromium = LocalDevTools.openOrNull()) {
+            Assumptions.assumeTrue(chromium != null,
+                    "Chromium is not installed for Playwright; skipping. Install it with: " + LocalDevTools.INSTALL_COMMAND);
+            start(chromium.cdpUrl());
+            try (Playwright playwright = PlaywrightHome.create(); Browser operator = playwright.chromium().launch()) {
+                Page page = operator.newPage();
+                page.navigate("http://" + WebApp.BIND_HOST + ":" + app.port() + "/pos");
+                page.waitForSelector("#pos-screen.live");
+                page.waitForFunction("() => document.querySelector('#pos-screen-status').textContent === 'Live'");
+                assertTrue(page.textContent("#pos-screen-page").contains("screen test"));
 
-        assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("not processed"), response.body());
-        assertEquals("{\"keys\":[\"YES\"]}", shim.seen.get(shim.seen.size() - 1).body());
+                Page register = chromium.page();
+                double[] viewport = {register.viewportSize().width, register.viewportSize().height};
+                BoundingBox canvas = page.locator("#pos-screen").boundingBox();
+                BoundingBox button = register.locator("#press").boundingBox();
+                page.mouse().click(onCanvas(canvas, viewport, button, true), onCanvas(canvas, viewport, button, false));
+                register.waitForFunction("() => document.querySelector('#press').dataset.n === '1'");
+
+                BoundingBox input = register.locator("#typed").boundingBox();
+                page.mouse().click(onCanvas(canvas, viewport, input, true), onCanvas(canvas, viewport, input, false));
+                page.keyboard().type("ab");
+                register.waitForFunction("() => document.querySelector('#typed').value === 'ab'");
+            }
+        }
     }
 
-    @Test
-    void keyPressWithoutTheHtmxHeaderIsRefused() throws Exception {
-        HttpResponse<String> response = postKey("YES", false);
+    /** Where on the operator's canvas the centre of a box on the register's page is drawn. */
+    private static double onCanvas(BoundingBox canvas, double[] viewport, BoundingBox box, boolean x) {
+        return x ? canvas.x + (box.x + box.width / 2) / viewport[0] * canvas.width
+                : canvas.y + (box.y + box.height / 2) / viewport[1] * canvas.height;
+    }
 
-        assertEquals(403, response.statusCode());
-        assertTrue(shim.seen.stream().noneMatch(s -> s.method().equals("POST")));
+    private URI socketUri() {
+        return URI.create("ws://" + WebApp.BIND_HOST + ":" + app.port() + PosScreenRoutes.PATH);
     }
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
-        return http.send(HttpRequest.newBuilder(uri(path)).build(), HttpResponse.BodyHandlers.ofString());
+        return http.send(HttpRequest.newBuilder(URI.create("http://" + WebApp.BIND_HOST + ":" + app.port() + path))
+                .build(), HttpResponse.BodyHandlers.ofString());
     }
 
-    private HttpResponse<String> postKey(String key, boolean fromHtmx) throws IOException, InterruptedException {
-        HttpRequest.Builder request = HttpRequest.newBuilder(uri("/keys"))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString("key=" + key));
-        if (fromHtmx) {
-            request.header("HX-Request", "true");
+    /** The page's side of the screen socket: messages arrive in a queue. */
+    private static final class Socket implements WebSocket.Listener {
+        private final BlockingQueue<JsonNode> messages = new LinkedBlockingQueue<>();
+        private final StringBuilder parts = new StringBuilder();
+        private WebSocket socket;
+
+        static Socket open(URI uri, String origin) throws Exception {
+            Socket listener = new Socket();
+            WebSocket.Builder builder = HttpClient.newHttpClient().newWebSocketBuilder();
+            if (origin != null) {
+                builder.header("Origin", origin);
+            }
+            listener.socket = builder.buildAsync(uri, listener).get(WAIT.toSeconds(), TimeUnit.SECONDS);
+            return listener;
         }
-        return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
-    }
 
-    private URI uri(String path) {
-        return URI.create("http://" + WebApp.BIND_HOST + ":" + app.port() + path);
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            parts.append(data);
+            if (last) {
+                try {
+                    messages.add(Json.MAPPER.readTree(parts.toString()));
+                } catch (IOException e) {
+                    throw new AssertionError("not JSON from the screen socket", e);
+                }
+                parts.setLength(0);
+            }
+            webSocket.request(1);
+            return null;
+        }
+
+        /** The next message of {@code type}, skipping others (frames keep coming). */
+        JsonNode next(String type) throws InterruptedException {
+            long end = System.nanoTime() + WAIT.toNanos();
+            while (System.nanoTime() < end) {
+                JsonNode m = messages.poll(end - System.nanoTime(), TimeUnit.NANOSECONDS);
+                if (m != null && type.equals(m.path("type").asText())) {
+                    return m;
+                }
+            }
+            return fail("no '" + type + "' message within " + WAIT.toSeconds() + " s");
+        }
+
+        void send(String text) throws Exception {
+            socket.sendText(text, true).get(WAIT.toSeconds(), TimeUnit.SECONDS);
+        }
+
+        void close() {
+            socket.abort();
+        }
     }
 }

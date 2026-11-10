@@ -101,7 +101,7 @@ public final class PosDriver implements AutoCloseable {
     static final Duration POLL_INTERVAL = Duration.ofMillis(250);
 
     /** The UI's own frame inside the app-selector page. */
-    static final String POS_UI_FRAME = "/posuiapp/";
+    public static final String POS_UI_FRAME = "/posuiapp/";
 
     /** Clicks the first element with one of the IDs, in document order (the {@code tap} path). */
     static final String CLICK_BY_ID = """
