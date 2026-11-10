@@ -5,7 +5,6 @@ import java.util.Optional;
 import com.verifone.cat.sims.SimEntry;
 
 import io.javalin.Javalin;
-import io.javalin.http.Context;
 import io.javalin.http.HttpStatus;
 
 /**
@@ -28,13 +27,6 @@ final class SimulatorsRoutes {
             ctx.html(Layout.page(Section.SIMULATORS, "Launch Simulators", SimulatorsPage.body(sims)));
         });
         app.get("/fragments/simulators", ctx -> ctx.html(SimulatorsPage.panel(sims)));
-        app.post("/simulators/cancel", ctx -> {
-            if (!fromThisPage(ctx)) {
-                return;
-            }
-            sims.cancel();
-            ctx.html(SimulatorsPage.panel(sims));
-        });
         app.get("/fragments/simulators/log", ctx -> {
             if (SimulatorsService.LAUNCH_LOG.equals(ctx.queryParam("name"))) {
                 ctx.html(SimulatorsPage.log(sims, SimulatorsService.LAUNCH_LOG));
@@ -47,38 +39,12 @@ final class SimulatorsRoutes {
             }
             ctx.html(SimulatorsPage.log(sims, entry.get()));
         });
-        app.post("/simulators/toggle", ctx -> {
-            if (!fromThisPage(ctx)) {
-                return;
-            }
-            sims.toggle(ctx.queryParam("name"));
-            ctx.html(SimulatorsPage.panel(sims));
-        });
-        app.post("/simulators/select", ctx -> {
-            if (!fromThisPage(ctx)) {
-                return;
-            }
-            sims.selectAll("all".equals(ctx.queryParam("mode")));
-            ctx.html(SimulatorsPage.panel(sims));
-        });
-        app.post("/simulators/start", ctx -> {
-            if (!fromThisPage(ctx)) {
-                return;
-            }
-            sims.start();
-            ctx.html(SimulatorsPage.panel(sims));
-        });
-        app.post("/simulators/stop", ctx -> {
-            if (!fromThisPage(ctx)) {
-                return;
-            }
-            sims.stop();
-            ctx.html(SimulatorsPage.panel(sims));
-        });
-    }
-
-    /** True if the request came from htmx on this page. Otherwise it is refused and nothing runs. */
-    private static boolean fromThisPage(Context ctx) {
-        return Requests.fromPage(ctx, "Simulator buttons come");
+        // Every action answers with the panel as it is after it.
+        Requests.Actions actions = Requests.actions(app, "Simulator buttons come", () -> SimulatorsPage.panel(sims));
+        actions.on("/simulators/cancel", ctx -> sims.cancel());
+        actions.on("/simulators/toggle", ctx -> sims.toggle(ctx.queryParam("name")));
+        actions.on("/simulators/select", ctx -> sims.selectAll("all".equals(ctx.queryParam("mode"))));
+        actions.on("/simulators/start", ctx -> sims.start());
+        actions.on("/simulators/stop", ctx -> sims.stop());
     }
 }

@@ -4,7 +4,6 @@ package com.verifone.cat.web;
 import com.verifone.cat.runconfig.ConfigForm;
 
 import io.javalin.Javalin;
-import io.javalin.http.Context;
 
 /**
  * The Config tab's routes: the page, its plan-filter fragment, and the changes that post from it.
@@ -27,32 +26,11 @@ final class RunConfigRoutes {
             form.setFilter(ctx.queryParam("filter"));
             ctx.html(RunConfigPage.planList(form.view()));
         });
-        app.post("/config/plan", ctx -> {
-            if (fromPage(ctx)) {
-                form.togglePlan(Requests.form(ctx, "key"));
-                panel(ctx, form);
-            }
-        });
-        app.post("/config/scope", ctx -> {
-            if (fromPage(ctx)) {
-                form.setScope(ctx.formParam("mode"), ctx.formParam("tags"),
-                        ctx.formParam("prerequisites") != null);
-                panel(ctx, form);
-            }
-        });
-        app.post("/config/case", ctx -> {
-            if (fromPage(ctx)) {
-                form.tickCase(Requests.form(ctx, "key"));
-                panel(ctx, form);
-            }
-        });
-    }
-
-    private static void panel(Context ctx, ConfigForm form) {
-        ctx.html(RunConfigPage.panel(form.view()));
-    }
-
-    private static boolean fromPage(Context ctx) {
-        return Requests.fromPage(ctx, "Config changes come");
+        Requests.Actions actions = Requests.actions(app, "Config changes come",
+                () -> RunConfigPage.panel(form.view()));
+        actions.on("/config/plan", ctx -> form.togglePlan(Requests.form(ctx, "key")));
+        actions.on("/config/scope", ctx -> form.setScope(ctx.formParam("mode"), ctx.formParam("tags"),
+                ctx.formParam("prerequisites") != null));
+        actions.on("/config/case", ctx -> form.tickCase(Requests.form(ctx, "key")));
     }
 }

@@ -97,6 +97,10 @@ final class AuthoringService {
                 null, AuthoringService::daemon);
     }
 
+    private static void daemon(Runnable work) {
+        Daemons.run("cat-authoring-worker", work);
+    }
+
     /**
      * @param generatedRoot where replayed suites are written
      * @param runs          the run service a replay goes through
@@ -115,28 +119,14 @@ final class AuthoringService {
 
     /**
      * The operator's own: {@code $CAT_AUTHORING_DIR}, else {@code ~/.cat/java/authoring}; Jira from the credentials file;
-     * no run service, so Replay and Capture say they need one (see {@link #standard(RunService, ConfigForm)}).
+     * replaying through the Run page's {@code run} service with the Config tab's choices.
      */
-    static AuthoringService standard() {
-        return standard(AuthoringRuns.unwired(AuthoringRuns.resultsRoot(System.getenv())));
-    }
-
-    /** The operator's own, replaying through the Run page's {@code run} service with the Config tab's choices. */
     static AuthoringService standard(RunService run, ConfigForm form) {
-        return standard(AuthoringRuns.over(run, form, AuthoringRuns.resultsRoot(System.getenv())));
-    }
-
-    private static AuthoringService standard(AuthoringRuns runs) {
+        AuthoringRuns runs = AuthoringRuns.over(run, form, AuthoringRuns.resultsRoot(System.getenv()));
         Path fallback = CatHome.java().resolve("authoring");
         return new AuthoringService(Session.authoringRoot(System.getenv(), fallback), ReplayGate.defaultRoot(),
                 () -> AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(), JIRA_TIMEOUT), runs,
                 null, AuthoringService::daemon);
-    }
-
-    private static void daemon(Runnable work) {
-        Thread thread = new Thread(work, "cat-authoring-worker");
-        thread.setDaemon(true);
-        thread.start();
     }
 
     /** Runs {@code view} with the state held still, so one page is drawn from one moment; a finished replay is noticed first. */

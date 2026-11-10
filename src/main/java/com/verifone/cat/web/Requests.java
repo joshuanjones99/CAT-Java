@@ -1,5 +1,9 @@
 package com.verifone.cat.web;
 
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.HttpStatus;
 
@@ -26,6 +30,24 @@ final class Requests {
         }
         ctx.status(HttpStatus.FORBIDDEN).result(what + " from the CAT-Java page only.");
         return false;
+    }
+
+    /** Registers a page's POST actions; see {@link #actions}. */
+    interface Actions {
+        void on(String path, Consumer<Context> action);
+    }
+
+    /**
+     * A page's POST actions that all answer alike: each runs only when the request came from this site's pages
+     * ({@link #fromPage}), and is answered with {@code panel} as it is drawn after the action.
+     */
+    static Actions actions(Javalin app, String what, Supplier<String> panel) {
+        return (path, action) -> app.post(path, ctx -> {
+            if (fromPage(ctx, what)) {
+                action.accept(ctx);
+                ctx.html(panel.get());
+            }
+        });
     }
 
     /** A query parameter, or "" when the request has none. */

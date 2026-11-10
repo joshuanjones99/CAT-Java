@@ -86,16 +86,8 @@ final class SetupService {
                 daemon("cat-web-tools"), requireCredentials);
     }
 
-    static SetupService standard() {
-        return standard(new Shell(), false);
-    }
-
     private static Executor daemon(String name) {
-        return Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, name);
-            thread.setDaemon(true);
-            return thread;
-        });
+        return Executors.newSingleThreadExecutor(Daemons.factory(name));
     }
 
     boolean requireCredentials() {

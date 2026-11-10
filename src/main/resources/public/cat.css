@@ -718,8 +718,6 @@ pre.log {
 .run-metric-label { color: var(--cat-muted); font-size: 13px; }
 .run-metric-value { font: 600 28px/1.2 var(--cat-font-heading); overflow-wrap: anywhere; }
 .run-progress { width: 100%; height: 8px; }
-.run-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 15px; }
-.run-step-name { font-weight: 600; }
 .run-preflight { white-space: pre-wrap; font-family: var(--cat-font-mono); font-size: 13px; line-height: 1.65; margin: 0;
   padding: 14px 16px; border-radius: var(--cat-radius-control); background: var(--cat-line-2); }
 .run-schedule form { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
@@ -729,8 +727,6 @@ pre.log {
 .run-log { max-height: 65vh; overflow: auto; margin: 0; padding: 16px 20px; border: 1px solid var(--cat-line);
   border-radius: var(--cat-radius); background: var(--cat-surface); white-space: pre-wrap; overflow-wrap: anywhere;
   font-family: var(--cat-font-mono); font-size: 13px; line-height: 1.65; }
-.run-placeholder { opacity: 0.8; }
-.run-placeholder h3 { margin: 0; font-size: 16px; }
 .run-board-note { padding: 0 18px 12px; margin: 0; font-size: 13px; }
 @media (max-width: 640px) { .run-counters { gap: 16px 20px; padding: 16px; } .run-metric-value { font-size: 24px; } }
 

@@ -751,10 +751,6 @@ final class DownloadsService {
     }
 
     private static ExecutorService pool(String name) {
-        return Executors.newCachedThreadPool(r -> {
-            Thread thread = new Thread(r, name);
-            thread.setDaemon(true);
-            return thread;
-        });
+        return Executors.newCachedThreadPool(Daemons.factory(name));
     }
 }

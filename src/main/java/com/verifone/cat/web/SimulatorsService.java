@@ -235,11 +235,7 @@ final class SimulatorsService {
      * not load is probed on localhost alone, as the Python's.
      */
     static SimulatorsService standard(String rigName, Shell shell, BooleanSupplier ccOnboard) {
-        Executor pool = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "cat-web-sims");
-            thread.setDaemon(true);
-            return thread;
-        });
+        Executor pool = Executors.newSingleThreadExecutor(Daemons.factory("cat-web-sims"));
         Rig rig = loadRig(rigName);
         Path root = ToolsRoot.resolve(System.getenv(ToolsRoot.ENV), null);
         // The rig's controller address (BUYPASS's -ip=) and its TLS port (Petro's), as the Python's for_rig.
@@ -482,16 +478,14 @@ final class SimulatorsService {
         if (prober == null || busy.get() != Busy.IDLE) {
             return;
         }
-        Thread thread = new Thread(() -> {
+        Daemons.run("cat-web-sims-probe", () -> {
             try {
                 probed.clear();
                 probed.putAll(prober.apply(rows));
             } catch (RuntimeException e) {
                 notify("Could not see which simulators are running: " + e.getMessage(), "warning", 5);
             }
-        }, "cat-web-sims-probe");
-        thread.setDaemon(true);
-        thread.start();
+        });
     }
 
     /** Ticks or unticks one row or connector. Unknown names are ignored. */

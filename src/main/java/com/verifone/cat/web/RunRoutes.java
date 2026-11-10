@@ -1,6 +1,5 @@
 package com.verifone.cat.web;
 
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 import com.verifone.cat.launch.LaunchDefaults;
@@ -61,12 +60,7 @@ final class RunRoutes {
         });
         app.get("/fragments/run/validation", ctx -> ctx.html(validationDetail(run.state(), intParam(ctx, "i"))));
 
-        Actions actions = (path, action) -> app.post(path, ctx -> {
-            if (Requests.fromPage(ctx, "Run actions come")) {
-                action.accept(ctx);
-                ctx.html(overview(form, run));
-            }
-        });
+        Requests.Actions actions = Requests.actions(app, "Run actions come", () -> overview(form, run));
         actions.on("/run/start",
                 ctx -> run.startFromForm(() -> RunStart.from(form, run.startContext()), form.plans()));
         actions.on("/run/preflight", ctx -> run.preflight());
@@ -175,10 +169,5 @@ final class RunRoutes {
         } catch (NumberFormatException e) {
             return null;
         }
-    }
-
-    /** Registers one action: a POST from this page that acts, then answers with the whole Overview panel. */
-    private interface Actions {
-        void on(String path, Consumer<Context> action);
     }
 }
