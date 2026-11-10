@@ -192,12 +192,11 @@ class WebAppPagesTest {
     }
 
     @Test
-    void posPageKeepsItsCardsInsideTheShell() throws Exception {
+    void posPageKeepsItsScreenInsideTheShell() throws Exception {
         String html = get("/pos").body();
 
-        assertTrue(html.contains("hx-get=\"/fragments/health\""), html);
-        assertTrue(html.contains("hx-get=\"/fragments/screen\""), html);
-        assertTrue(html.contains("hx-get=\"/fragments/keys\""), html);
+        // No register here: the page says so, inside the shell (WebAppTest covers the screen itself).
+        assertTrue(html.contains("No register to show"), html);
         assertTrue(html.contains("CAT-Java: test / topaz101"), html);
         assertTrue(html.contains("/static/htmx.min.js"), html);
     }

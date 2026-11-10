@@ -5,10 +5,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import com.verifone.cat.desktop.DesktopHost;
-import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.prefs.WebSettings;
 import com.verifone.cat.results.ResultsLibrary;
@@ -56,6 +54,8 @@ public final class WebApp {
     static final class Parts {
         PosShimClient shim;
         String title = "CAT-Java";
+        /** The register's DevTools endpoint the POS page shows; null when CAT has no register. */
+        String cdpUrl;
         ResultsLibrary results;
         ConfigForm configForm;
         RunService run;
@@ -129,6 +129,13 @@ public final class WebApp {
     static Javalin createWithAuthoring(PosShimClient shim, String title, AuthoringService authoring) {
         Parts parts = standardParts(shim, title, null, null, null, null);
         parts.authoring = authoring;
+        return build(parts);
+    }
+
+    /** As {@link #create(PosShimClient, String)}, with the POS page showing {@code cdpUrl} (tests use a local Chromium). */
+    static Javalin createWithScreen(PosShimClient shim, String title, String cdpUrl) {
+        Parts parts = standardParts(shim, title, null, null, null, null);
+        parts.cdpUrl = cdpUrl;
         return build(parts);
     }
 
@@ -257,27 +264,10 @@ public final class WebApp {
         // The Python CAT's Manual page became Tools; the old address still works.
         app.get("/manual", ctx -> ctx.redirect(Section.TOOLS.path()));
 
-        PosShimClient shim = parts.shim;
         String title = parts.title;
-        app.get("/pos", ctx -> ctx.html(Layout.page(Section.POS, "POS",
-                PosPage.body(title, shim.baseUri().toString()))));
-        app.get("/fragments/health", ctx -> fragment(ctx, () -> PosPage.health(shim.health())));
-        app.get("/fragments/screen", ctx -> fragment(ctx, () -> PosPage.screen(shim.screen())));
-        app.get("/fragments/keys", ctx -> fragment(ctx, () -> PosPage.keys(shim.supportedKeys())));
-        app.post("/keys", ctx -> {
-            // htmx sends HX-Request on every call. A cross-site form post cannot set a
-            // custom header, so requiring it stops another page in the operator's
-            // browser from pressing keys through this server.
-            if (!Requests.fromPage(ctx, "Key presses come")) {
-                return;
-            }
-            String key = ctx.formParam("key");
-            if (key == null || key.isBlank()) {
-                ctx.status(HttpStatus.BAD_REQUEST).result("No key named.");
-                return;
-            }
-            fragment(ctx, () -> PosPage.keyResult(shim.pressKeys(List.of(key))));
-        });
+        String cdpUrl = parts.cdpUrl;
+        app.get("/pos", ctx -> ctx.html(Layout.page(Section.POS, "POS", PosPage.body(title, cdpUrl))));
+        PosScreenRoutes.register(app, cdpUrl);
         return app;
     }
 
@@ -367,15 +357,5 @@ public final class WebApp {
 
     public static Javalin start(PosShimClient shim, String title, int port) {
         return create(shim, title).start(BIND_HOST, port);
-    }
-
-    private static void fragment(Context ctx, Supplier<String> render) {
-        String html;
-        try {
-            html = render.get();
-        } catch (DeviceError e) {
-            html = PosPage.error(e);
-        }
-        ctx.html(html);
     }
 }

@@ -568,12 +568,6 @@ main > .card + .card { margin-top: var(--cat-section-gap); }
   font-size: 15px;
 }
 
-.overlay {
-  border-left: 3px solid var(--cat-blue);
-  padding: 8px 12px;
-  font-family: var(--cat-font-mono);
-}
-
 /* Tabs under the page title (Run, Results' run). */
 .tabs {
   display: flex;
@@ -882,9 +876,17 @@ pre.log {
 
 /* ------------------------------------------------------------------ POS */
 
-.softkeys, .keys { display: flex; flex-wrap: wrap; gap: 8px; }
-.softkey { border: 1px solid var(--cat-line); border-radius: var(--cat-radius-control); padding: 6px 12px; background: var(--cat-surface); }
-.softkey.disabled { color: var(--cat-muted); background: var(--cat-line-2); }
+/* The register's live screen (pos-screen.js): the frame keeps the register's aspect and fits the window. */
+.pos-screen { display: flex; flex-direction: column; gap: 10px; }
+.pos-screen-bar { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; font-size: 14px; }
+.pos-screen-bar .muted { overflow-wrap: anywhere; }
+.pos-screen-frame { display: flex; justify-content: center; align-items: center; min-height: 240px;
+  background: var(--cat-side); border: 1px solid var(--cat-line); border-radius: var(--cat-radius-control);
+  overflow: hidden; }
+#pos-screen { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 220px);
+  touch-action: none; cursor: default; outline: none; }
+#pos-screen:not(.live) { width: 0; height: 0; }
+#pos-screen:focus-visible { box-shadow: 0 0 0 3px var(--cat-ring); }
 
 /* ------------------------------------------------------------------ the shell's floating parts */
 
