@@ -116,17 +116,7 @@ public final class SimSources {
      * {@code SimContext.jar_for}.
      */
     public static Optional<Path> jarFor(SimEntry entry, SimContext ctx) {
-        List<String> argv = ctx.substitutedArgv(entry);
-        int at = argv.indexOf("-jar");
-        if (at < 0 || at == argv.size() - 1) {
-            return Optional.empty();
-        }
-        for (String arg : argv.subList(at + 1, argv.size())) {
-            if (!arg.startsWith("-")) {
-                return Optional.of(ctx.cwdFor(entry).resolve(arg));
-            }
-        }
-        return Optional.empty();
+        return ctx.jarFor(entry);
     }
 
     /** The registry rows with no source here: empty when the two tables agree. */

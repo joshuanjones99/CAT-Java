@@ -32,17 +32,9 @@ public final class SimRunning {
      */
     static Map<String, String> runningRows(List<SimEntry> entries, SimContext ctx, ProcessOps ops,
             BiFunction<List<String>, Integer, String> firstListening) {
-        String cmdlines;
-        String error;
-        try {
-            ProcessOps.Snapshot snapshot = ops.commandLines(Supervisor.processNames(entries, ctx),
-                    Supervisor.PROBE_TIMEOUT);
-            cmdlines = snapshot.text();
-            error = snapshot.error();
-        } catch (IllegalArgumentException e) {
-            cmdlines = "";
-            error = e.getMessage();
-        }
+        ProcessOps.Snapshot snapshot = Supervisor.probePass(ops, entries, ctx);
+        String cmdlines = snapshot.text();
+        String error = snapshot.error();
         Map<String, String> found = new LinkedHashMap<>();
         for (SimEntry entry : entries) {
             String why = "";
@@ -90,17 +82,9 @@ public final class SimRunning {
     /** {@link #probeRunning(List, SimContext, ProcessOps)} with the port check a test passes. */
     static Map<String, Running> probeRunning(List<SimEntry> entries, SimContext ctx, ProcessOps ops,
             BiFunction<List<String>, Integer, String> firstListening) {
-        String cmdlines;
-        String error;
-        try {
-            ProcessOps.Snapshot snapshot = ops.commandLines(Supervisor.processNames(entries, ctx),
-                    Supervisor.PROBE_TIMEOUT);
-            cmdlines = snapshot.text();
-            error = snapshot.error();
-        } catch (IllegalArgumentException e) {
-            cmdlines = "";
-            error = e.getMessage();
-        }
+        ProcessOps.Snapshot snapshot = Supervisor.probePass(ops, entries, ctx);
+        String cmdlines = snapshot.text();
+        String error = snapshot.error();
         Running unknown = new Running(Running.UNKNOWN, "could not list running processes: " + error);
         Map<String, Running> rows = new LinkedHashMap<>();
         for (SimEntry entry : entries) {

@@ -172,9 +172,12 @@ public final class JavaSets {
      */
     public static String ensureJava(JavaSet java, Path toolsRoot, Supplier<ArtifactoryClient> clients,
             Consumer<String> log) {
-        if (holdsSet(java, toolsRoot)) {
-            return "";
-        }
+        return holdsSet(java, toolsRoot) ? "" : stageOrProblem(java, toolsRoot, clients, log);
+    }
+
+    /** {@link #stage} with the login and every failure as the returned problem. */
+    private static String stageOrProblem(JavaSet java, Path toolsRoot, Supplier<ArtifactoryClient> clients,
+            Consumer<String> log) {
         try {
             return stage(java, toolsRoot, clients.get(), log);
         } catch (RuntimeException e) {
@@ -192,14 +195,7 @@ public final class JavaSets {
             Consumer<String> log) {
         List<String> problems = new ArrayList<>();
         for (JavaSet java : missing(toolsRoot)) {
-            String problem;
-            try {
-                problem = stage(java, toolsRoot, clients.get(), log);
-            } catch (RuntimeException e) {
-                problem = "Java 17 " + java.version() + ": " + artifactoryFailure(e);
-            } catch (IOException e) {
-                problem = "Java 17 " + java.version() + ": " + artifactoryFailure(new UncheckedIOException(e));
-            }
+            String problem = stageOrProblem(java, toolsRoot, clients, log);
             if (!problem.isEmpty()) {
                 problems.add(problem);
             }

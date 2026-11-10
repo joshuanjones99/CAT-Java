@@ -267,12 +267,7 @@ public final class OverlayMerge {
     private record Opened(ZipFile zip, List<ZipEntry> entries) {
         static Opened of(Path path) throws IOException {
             ZipFile zip = new ZipFile(path.toFile(), StandardCharsets.UTF_8);
-            return new Opened(zip, Collections.list(castEntries(zip.entries())));
-        }
-
-        @SuppressWarnings("unchecked")
-        private static Enumeration<ZipEntry> castEntries(Enumeration<? extends ZipEntry> entries) {
-            return (Enumeration<ZipEntry>) entries;
+            return new Opened(zip, List.copyOf(Collections.list(zip.entries())));
         }
     }
 
@@ -518,17 +513,7 @@ public final class OverlayMerge {
             throws IOException {
         boolean useTransition = packageType == PackageType.AUTO_UPGRADE;
         log.accept("Package type selected: " + packageType.name());
-        for (Map.Entry<String, Path> input : List.of(Map.entry("Foundation", foundationZip),
-                Map.entry("Viper", viperZip))) {
-            if (!Files.isRegularFile(input.getValue())) {
-                throw new java.io.FileNotFoundException(input.getKey() + " ZIP not found: " + input.getValue());
-            }
-        }
-        for (Path input : List.of(foundationZip, viperZip)) {
-            if (destZip.toAbsolutePath().normalize().equals(input.toAbsolutePath().normalize())) {
-                throw new IllegalArgumentException("output " + destZip + " would overwrite input " + input);
-            }
-        }
+        checkInputs(foundationZip, viperZip, destZip);
 
         Map<String, String> transitions = new LinkedHashMap<>();
         List<String> transitionTgzs = new ArrayList<>();
@@ -560,11 +545,8 @@ public final class OverlayMerge {
                 try (ZipFile v = vzip.zip();
                         OutputStream file = Files.newOutputStream(part);
                         ZipOutputStream out = new ZipOutputStream(file, StandardCharsets.UTF_8)) {
-                    List<String> names = new ArrayList<>();
-                    for (ZipEntry entry : fzip.entries()) {
-                        names.add(entry.getName());
-                    }
-                    RenamePlan plan = planFoundationRenames(names, log);
+                    RenamePlan plan = planFoundationRenames(
+                            fzip.entries().stream().map(ZipEntry::getName).toList(), log);
                     List<ListFile> lists = new ArrayList<>();
                     for (String logical : List.of(FILELIST_NAME, MODULELIST_NAME)) {
                         lists.add(readListFile(logical, fzip, vzip, plan, log));
@@ -594,6 +576,21 @@ public final class OverlayMerge {
         }
         log.accept("Done. Created: " + destZip);
         return destZip;
+    }
+
+    /** Both inputs are files, and the output is neither of them. */
+    private static void checkInputs(Path foundationZip, Path viperZip, Path destZip) throws IOException {
+        for (Map.Entry<String, Path> input : List.of(Map.entry("Foundation", foundationZip),
+                Map.entry("Viper", viperZip))) {
+            if (!Files.isRegularFile(input.getValue())) {
+                throw new java.io.FileNotFoundException(input.getKey() + " ZIP not found: " + input.getValue());
+            }
+        }
+        for (Path input : List.of(foundationZip, viperZip)) {
+            if (destZip.toAbsolutePath().normalize().equals(input.toAbsolutePath().normalize())) {
+                throw new IllegalArgumentException("output " + destZip + " would overwrite input " + input);
+            }
+        }
     }
 
     private static String pyBool(boolean value) {

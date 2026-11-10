@@ -33,7 +33,7 @@ public final class NightlyBuilds {
 
     /** {@code RMS_Nightly_CLW/Petro/<branch>}; refuses a name that would leave that folder. */
     public static String branchPath(String branch) {
-        String name = stripSlashes(branch == null ? "" : branch.strip());
+        String name = branchName(branch);
         if (name.isEmpty() || name.contains("\\") || List.of(name.split("/")).contains("..")) {
             throw new IllegalArgumentException("not a branch name: '" + branch + "'");
         }

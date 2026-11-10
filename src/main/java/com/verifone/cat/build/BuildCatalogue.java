@@ -2,6 +2,7 @@ package com.verifone.cat.build;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +53,12 @@ public final class BuildCatalogue {
     /** One numbered build of a branch, with its folder's creation time (ISO-8601, UTC, or {@code ""}). */
     public record NightlyBuild(String build, String created) {}
 
+    /** Newest first by the folder's date, equal dates by the higher number; never by number alone. */
+    private static final Comparator<NightlyBuild> NEWEST_FIRST = (a, b) -> {
+        int byDate = b.created().compareTo(a.created());
+        return byDate != 0 ? byDate : new BigInteger(b.build()).compareTo(new BigInteger(a.build()));
+    };
+
     private final ArtifactoryClient client;
 
     public BuildCatalogue(ArtifactoryClient client) {
@@ -87,13 +94,7 @@ public final class BuildCatalogue {
                 builds.add(new NightlyBuild(entry.name(), entry.lastModified()));
             }
         }
-        builds.sort((a, b) -> {
-            int byDate = b.created().compareTo(a.created());
-            if (byDate != 0) {
-                return byDate;
-            }
-            return new BigInteger(b.build()).compareTo(new BigInteger(a.build()));
-        });
+        builds.sort(NEWEST_FIRST);
         return builds;
     }
 
@@ -156,17 +157,15 @@ public final class BuildCatalogue {
     public List<BuildWith> buildsWith(String branch, String dist) {
         Map<String, TreeBuild> tree = tree(branch);
         String name = ArtifactoryClient.trimSlashes(branch.strip());
-        List<String> numbers = new ArrayList<>(tree.keySet());
-        numbers.sort((a, b) -> {
-            int byDate = tree.get(b).date().compareTo(tree.get(a).date());
-            return byDate != 0 ? byDate : new BigInteger(b).compareTo(new BigInteger(a));
-        });
+        List<NightlyBuild> builds = new ArrayList<>();
+        tree.forEach((number, row) -> builds.add(new NightlyBuild(number, row.date())));
+        builds.sort(NEWEST_FIRST);
         List<BuildWith> found = new ArrayList<>();
-        for (String build : numbers) {
-            List<DistFolder> folders = BuildContents.classify(name, build, childNames(tree.get(build)))
-                    .foldersFor(dist);
+        for (NightlyBuild build : builds) {
+            List<DistFolder> folders = BuildContents.classify(name, build.build(),
+                    childNames(tree.get(build.build()))).foldersFor(dist);
             if (!folders.isEmpty()) {
-                found.add(new BuildWith(new NightlyBuild(build, tree.get(build).date()), folders));
+                found.add(new BuildWith(build, folders));
             }
         }
         return found;
@@ -233,7 +232,7 @@ public final class BuildCatalogue {
      * @throws BuildException for an empty name, a backslash, or a {@code ..} segment
      */
     public static String branchPath(String branch) {
-        String name = branch == null ? "" : branch.strip().replaceAll("^/+", "").replaceAll("/+$", "");
+        String name = ArtifactoryClient.trimSlashes(branch);
         if (name.isEmpty() || name.contains("\\") || List.of(name.split("/")).contains("..")) {
             throw new BuildException("not a branch name: " + branch);
         }

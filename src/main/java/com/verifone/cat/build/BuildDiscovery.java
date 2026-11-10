@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -106,10 +107,7 @@ public final class BuildDiscovery {
 
     /** Where a dist's files for a build go: {@code <root>\<build_label>\<dist>}. */
     public static Path buildDir(String branch, String build, String dist, Path root) {
-        String label = SOLUTIONS.equals(ArtifactoryClient.trimSlashes(branch))
-                ? SOLUTIONS + buildNumber(build)
-                : buildLabel(branch, build);
-        return root.resolve(label).resolve(dist);
+        return root.resolve(buildLabel(branch, build)).resolve(dist);
     }
 
     /**
@@ -149,7 +147,10 @@ public final class BuildDiscovery {
                 }
             }
         }
-        candidates.sort(newestFirst());
+        // Each overlay's date is read once, not once per comparison: reading it opens the zip.
+        Map<Path, LocalDateTime> built = new HashMap<>();
+        candidates.forEach(distDir -> built.put(distDir, builtAt(distDir)));
+        candidates.sort(newestFirst(built));
         return candidates;
     }
 
@@ -205,8 +206,8 @@ public final class BuildDiscovery {
     }
 
     /** Newest first: build date (an unknown date last), then build number, then folder mtime. */
-    private static Comparator<Path> newestFirst() {
-        Comparator<Path> byDate = Comparator.comparing(BuildDiscovery::builtAt,
+    private static Comparator<Path> newestFirst(Map<Path, LocalDateTime> built) {
+        Comparator<Path> byDate = Comparator.comparing(built::get,
                 Comparator.nullsFirst(Comparator.<LocalDateTime>naturalOrder()));
         Comparator<Path> byNumber = Comparator.comparingInt(BuildDiscovery::buildNumberOf);
         Comparator<Path> byMtime = Comparator.comparingLong(BuildDiscovery::mtime);

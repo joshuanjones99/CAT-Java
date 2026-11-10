@@ -175,7 +175,7 @@ public final class BuildCommand {
 
     /** What a failure says: an Artifactory status as one actionable sentence, anything else its own message. */
     static String reason(RuntimeException e) {
-        if (e instanceof ArtifactoryException && ((ArtifactoryException) e).status() != 404) {
+        if (e instanceof ArtifactoryException failure && failure.status() != 404) {
             return ArtifactoryErrors.describe(e, "");
         }
         return e.getMessage();

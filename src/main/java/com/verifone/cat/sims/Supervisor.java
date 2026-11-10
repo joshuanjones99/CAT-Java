@@ -155,16 +155,9 @@ public final class Supervisor {
                                      Duration timeout, AtomicBoolean abandoned) {
         Events ev = events == null ? Events.NONE : events;
         List<SimEntry> list = List.copyOf(entries);
-        String cmdlines;
-        String probeError;
-        try {
-            ProcessOps.Snapshot snapshot = ops.commandLines(processNames(list, ctx), PROBE_TIMEOUT);
-            cmdlines = snapshot.text();
-            probeError = snapshot.error();
-        } catch (IllegalArgumentException e) {
-            cmdlines = "";
-            probeError = e.getMessage();
-        }
+        ProcessOps.Snapshot snapshot = probePass(ops, list, ctx);
+        String cmdlines = snapshot.text();
+        String probeError = snapshot.error();
         if (!probeError.isEmpty()) {
             ev.status(SimStatus.processListUnavailable(probeError));
         }
@@ -714,6 +707,18 @@ public final class Supervisor {
     }
 
     // ----- helpers ----------------------------------------------------------------------
+
+    /**
+     * One command-line probe pass over the entries' executables. A registry row whose placeholders do not resolve
+     * is a failed snapshot naming it, as a listing that could not be taken is.
+     */
+    static ProcessOps.Snapshot probePass(ProcessOps ops, List<SimEntry> entries, SimContext ctx) {
+        try {
+            return ops.commandLines(processNames(entries, ctx), PROBE_TIMEOUT);
+        } catch (IllegalArgumentException e) {
+            return ProcessOps.Snapshot.failed(e.getMessage());
+        }
+    }
 
     /** The executable names a probe must ask about: both java images for javaw, the exe for exe. */
     static List<String> processNames(List<SimEntry> entries, SimContext ctx) {

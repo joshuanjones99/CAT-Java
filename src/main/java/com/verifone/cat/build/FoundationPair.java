@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 
 /**
  * The foundation build a viper (SOS) build was built with, and why: the Python's {@code nightly.FoundationPair} and
@@ -52,18 +53,46 @@ public record FoundationPair(String branch, String build, String folder, String 
     /** {@code paired by exe name and build time: foundation-buypass in master057.01 23110, built 18 min after the viper}. */
     public String describe() {
         return "paired by exe name and build time: " + folder + " in " + branch + " " + build + ", built "
-                + offset(minutes);
+                + offset(minutes, "the viper");
     }
 
-    private static String offset(int minutes) {
+    private static String offset(int minutes, String other) {
         if (minutes == 0) {
-            return "within a minute of the viper";
+            return "within a minute of " + other;
         }
-        return Math.abs(minutes) + " min " + (minutes < 0 ? "before" : "after") + " the viper";
+        return Math.abs(minutes) + " min " + (minutes < 0 ? "before" : "after") + " " + other;
     }
 
     /** One candidate in the window. */
     private record Candidate(Duration gap, BigInteger number, String build, String folder, Duration offset) {}
+
+    /**
+     * The branch's dated {@code dist} folders that {@code wanted} accepts and that were published within
+     * {@link #PAIR_WINDOW} of {@code built}, nearest first (then by build number, folder and offset). No request.
+     */
+    private static List<Candidate> nearestFirst(Map<String, BuildCatalogue.TreeBuild> tree, String name, String dist,
+            OffsetDateTime built, Predicate<DistFolder> wanted) {
+        List<Candidate> candidates = new ArrayList<>();
+        for (Map.Entry<String, BuildCatalogue.TreeBuild> row : tree.entrySet()) {
+            Map<String, String> kids = row.getValue().children();
+            for (DistFolder folder : BuildContents.classify(name, row.getKey(),
+                    BuildCatalogue.childNames(row.getValue())).foldersFor(dist)) {
+                OffsetDateTime when = utc(kids.get(folder.folder()));
+                if (!wanted.test(folder) || when == null) {
+                    continue;
+                }
+                Duration offset = Duration.between(built, when);
+                if (offset.abs().compareTo(PAIR_WINDOW) <= 0) {
+                    candidates.add(new Candidate(offset.abs(), new BigInteger(row.getKey()), row.getKey(),
+                            folder.folder(), offset));
+                }
+            }
+        }
+        candidates.sort(Comparator.comparing(Candidate::gap).thenComparing(Candidate::number)
+                .thenComparing(Candidate::build).thenComparing(Candidate::folder)
+                .thenComparing(Candidate::offset));
+        return candidates;
+    }
 
     /**
      * The foundation build {@code branch}'s viper build {@code build} was built with, for {@code dist}. Requests: one
@@ -92,22 +121,8 @@ public record FoundationPair(String branch, String build, String folder, String 
             throw new BuildException(where + " has no date on Artifactory to pair it by; " + CHOOSE);
         }
 
-        List<Candidate> candidates = new ArrayList<>();
-        for (Map.Entry<String, BuildCatalogue.TreeBuild> row : tree.entrySet()) {
-            Map<String, String> kids = row.getValue().children();
-            for (DistFolder folder : BuildContents.classify(name, row.getKey(),
-                    BuildCatalogue.childNames(row.getValue())).foldersFor(dist)) {
-                OffsetDateTime when = utc(kids.get(folder.folder()));
-                if (!folder.installable() || BuildContents.PLAIN.equals(folder.flavour()) || when == null) {
-                    continue;
-                }
-                Duration offset = Duration.between(built, when);
-                if (offset.abs().compareTo(PAIR_WINDOW) <= 0) {
-                    candidates.add(new Candidate(offset.abs(), new BigInteger(row.getKey()), row.getKey(),
-                            folder.folder(), offset));
-                }
-            }
-        }
+        List<Candidate> candidates = nearestFirst(tree, name, dist, built,
+                folder -> folder.installable() && !BuildContents.PLAIN.equals(folder.flavour()));
         String hours = (PAIR_WINDOW.toMinutes() % 60 == 0 ? String.valueOf(PAIR_WINDOW.toHours())
                 : String.valueOf(PAIR_WINDOW.toMinutes() / 60.0)) + " h";
         if (candidates.isEmpty()) {
@@ -119,9 +134,6 @@ public record FoundationPair(String branch, String build, String folder, String 
         if (theirs.isEmpty()) {
             throw new BuildException(where + " holds no .exe to pair a foundation by; " + CHOOSE);
         }
-        candidates.sort(Comparator.comparing(Candidate::gap).thenComparing(Candidate::number)
-                .thenComparing(Candidate::build).thenComparing(Candidate::folder)
-                .thenComparing(Candidate::offset));
         List<String> looked = new ArrayList<>();
         for (Candidate candidate : candidates) {
             int minutes = (int) Math.rint(candidate.offset().toMillis() / 60000.0);
@@ -173,22 +185,8 @@ public record FoundationPair(String branch, String build, String folder, String 
         if (built == null) {
             throw new BuildException(where + " has no date on Artifactory to find its viper by; " + force);
         }
-        List<Candidate> candidates = new ArrayList<>();
-        for (Map.Entry<String, BuildCatalogue.TreeBuild> row : tree.entrySet()) {
-            Map<String, String> kids = row.getValue().children();
-            for (DistFolder folder : BuildContents.classify(name, row.getKey(),
-                    BuildCatalogue.childNames(row.getValue())).foldersFor(dist)) {
-                OffsetDateTime when = utc(kids.get(folder.folder()));
-                if (!BuildContents.VIPER.equals(folder.flavour()) || when == null) {
-                    continue;
-                }
-                Duration offset = Duration.between(built, when);
-                if (offset.abs().compareTo(PAIR_WINDOW) <= 0) {
-                    candidates.add(new Candidate(offset.abs(), new BigInteger(row.getKey()), row.getKey(),
-                            folder.folder(), offset));
-                }
-            }
-        }
+        List<Candidate> candidates = nearestFirst(tree, name, dist, built,
+                folder -> BuildContents.VIPER.equals(folder.flavour()));
         if (candidates.isEmpty()) {
             throw new BuildException(where + " has no viper to merge: no viper-" + dist + " folder on " + name
                     + " was published within " + PAIR_WINDOW.toHours() + " h of it (" + built.format(WHEN)
@@ -198,9 +196,6 @@ public record FoundationPair(String branch, String build, String folder, String 
         if (held.isEmpty()) {
             throw new BuildException(where + " holds no .exe to find its viper by; " + force);
         }
-        candidates.sort(Comparator.comparing(Candidate::gap).thenComparing(Candidate::number)
-                .thenComparing(Candidate::build).thenComparing(Candidate::folder)
-                .thenComparing(Candidate::offset));
         List<String> looked = new ArrayList<>();
         for (Candidate candidate : candidates) {
             int minutes = (int) Math.rint(candidate.offset().toMillis() / 60000.0);
@@ -220,10 +215,8 @@ public record FoundationPair(String branch, String build, String folder, String 
 
     /** {@code paired by exe name and build time: viper-buypass in master 215, published 24 min before the foundation}. */
     public String describeViper() {
-        String when = minutes == 0 ? "within a minute of the foundation"
-                : Math.abs(minutes) + " min " + (minutes < 0 ? "before" : "after") + " the foundation";
         return "its viper, paired by exe name and build time: " + folder + " in " + branch + " " + build
-                + ", published " + when;
+                + ", published " + offset(minutes, "the foundation");
     }
 
     /** The {@code .exe} file names directly in {@code folder}, sorted. One request. */
