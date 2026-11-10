@@ -271,15 +271,25 @@ public final class SetupItems {
     }
 
     static SetupItem rigsDir() {
-        return new SetupItem(RIGS_DIR, "Rig files folder", true, false, false,
-                "Set PETROTEST_RIGS_DIR to the folder that holds your rig files (lab.yaml and the rest).",
+        return new SetupItem(RIGS_DIR, "Rig files folder", false, false, false,
+                "CAT creates the rigs folder under the tools root (C:\\CICD\\Tools\\rigs by default); put your rig "
+                        + "files (lab.yaml and the rest) in it, or set PETROTEST_RIGS_DIR to another folder.",
                 env -> {
                     Path dir = RigLoader.rigsDir(env.vars());
-                    return env.isDirectory(dir)
-                            ? Result.passed(RIGS_DIR, "rig files: " + dir)
-                            : Result.failed(RIGS_DIR, "rigs folder not found: " + dir
-                                    + " (set PETROTEST_RIGS_DIR)");
-                });
+                    if (!env.isDirectory(dir)) {
+                        return Result.failed(RIGS_DIR, "rigs folder not found: " + dir);
+                    }
+                    List<String> rigs = RigLoader.availableRigs(dir);
+                    return Result.passed(RIGS_DIR, "rig files: " + dir + (rigs.isEmpty()
+                            ? " (none yet: add <rig>.yaml files here)" : " (" + String.join(", ", rigs) + ")"));
+                }).withRepair(SetupItems::createRigsFolder);
+    }
+
+    /** Creates the rigs folder, so a fresh PC has the place its rig files go. Writes no rig file. */
+    static Result createRigsFolder(SetupEnv env) throws IOException {
+        Path dir = RigLoader.rigsDir(env.vars());
+        env.mkdir(dir);
+        return Result.passed(RIGS_DIR, "rigs folder created: " + dir + " (add <rig>.yaml files here)");
     }
 
     static SetupItem catJavaBuild() {
@@ -638,9 +648,12 @@ public final class SetupItems {
         return Result.passed(JIRA_API_TOKEN, "wrote " + own);
     }
 
-    /** The Verifone card's two inputs, in the Python's words. */
+    /**
+     * The Verifone card's two inputs. Either the username or the email is taken: {@link #saveVerifone} drops an
+     * email's domain ({@link StoredArtifactoryCredentials#normaliseUsername}).
+     */
     static final List<ManualField> VERIFONE_FIELDS = List.of(
-            new ManualField("username", "Verifone username, not your email (Bitbucket and Artifactory)", false),
+            new ManualField("username", "Verifone username, or email (Bitbucket and Artifactory)", false),
             new ManualField("password", "Verifone password", true));
 
     /**
@@ -651,7 +664,7 @@ public final class SetupItems {
      */
     static SetupItem verifoneLogin() {
         return new SetupItem(VERIFONE_LOGIN, "Verifone sign-in (Artifactory, Bitbucket)", true, false, true,
-                "Enter the Verifone username (not your email) and password on this page (Save and sign in): CAT "
+                "Enter the Verifone username (or email) and password on this page (Save and sign in): CAT "
                         + "saves them for Artifactory and for petroapps' Bitbucket origin, removing any password "
                         + "inline in that origin.",
                 env -> {

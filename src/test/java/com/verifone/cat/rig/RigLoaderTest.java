@@ -106,4 +106,12 @@ class RigLoaderTest {
         assertEquals(Path.of("D:\\rigs"), RigLoader.rigsDir(Map.of("PETROTEST_RIGS_DIR", "D:\\rigs")));
         assertEquals(RigLoader.DEFAULT_RIGS_DIR, RigLoader.rigsDir(Map.of()));
     }
+
+    @Test
+    void rigsDirDefaultsToTheToolsRootNotAPythonCheckout() {
+        assertEquals(Path.of("C:/CICD/Tools/rigs"), RigLoader.DEFAULT_RIGS_DIR);
+        assertEquals(Path.of("D:\\tools\\rigs"), RigLoader.rigsDir(Map.of("CAT_TOOLS_ROOT", "D:\\tools")));
+        assertEquals(Path.of("D:\\rigs"),
+                RigLoader.rigsDir(Map.of("CAT_TOOLS_ROOT", "D:\\tools", "PETROTEST_RIGS_DIR", "D:\\rigs")));
+    }
 }

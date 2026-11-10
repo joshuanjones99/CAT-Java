@@ -67,7 +67,7 @@ threads.
    private keys or tokens. The only hardcoded credentials are the Python CAT's documented
    lab carve-outs (Commander CGILink login, PSI answers), each citing that rule.
 8. **Rig files are not committed.** They are read from `$PETROTEST_RIGS_DIR`, else
-   `C:\gitrepos\CAT\rigs`. Tests use documentation addresses or `.invalid` names.
+   `<tools root>\rigs` (`C:\CICD\Tools\rigs`), which Setup creates. Tests use documentation addresses or `.invalid` names.
 9. **No new dependencies** without a deliberate decision recorded in HANDOFF §2.
 10. Edit files with the Edit/Write tools. PowerShell 5.1 `Get-Content -Raw` reads UTF-8
     as ANSI and garbles non-ASCII characters.
