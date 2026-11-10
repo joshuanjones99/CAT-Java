@@ -6,9 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+
+import com.sun.net.httpserver.HttpServer;
 
 import org.junit.jupiter.api.Test;
 
@@ -108,5 +113,34 @@ class PosScreencastTest {
         assertTrue(assertThrows(InspectError.class, () -> PosScreencast.endpoint(null)).getMessage()
                 .contains("--rig"));
         assertThrows(InspectError.class, () -> PosScreencast.endpoint("register.invalid"));
+    }
+
+    @Test
+    void theTargetListIsAskedOverHttp11BecauseAStockRegisterBrowser404sAnUpgrade() throws Exception {
+        // Reg101's stock Chrome 67 (2026-11-10) answered the JDK's default request, which asks to upgrade to HTTP/2,
+        // with 404, and HTTP/1.1 with the list. This server does the same.
+        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/json/list", exchange -> {
+            byte[] body = exchange.getRequestHeaders().containsKey("Upgrade") ? new byte[0]
+                    : "[{\"id\":\"1\",\"type\":\"page\",\"title\":\"Pair\",\"url\":\"http://127.0.0.1:8080/pair.html\"}]"
+                            .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(body.length == 0 ? 404 : 200, body.length == 0 ? -1 : body.length);
+            if (body.length > 0) {
+                exchange.getResponseBody().write(body);
+            }
+            exchange.close();
+        });
+        server.start();
+        try {
+            URI endpoint = URI.create("http://" + InetAddress.getLoopbackAddress().getHostAddress() + ":"
+                    + server.getAddress().getPort());
+
+            List<PosScreencast.Target> targets = PosScreencast.targets(endpoint, Duration.ofSeconds(5));
+
+            assertEquals(1, targets.size());
+            assertEquals("http://127.0.0.1:8080/pair.html", targets.get(0).url());
+        } finally {
+            server.stop(0);
+        }
     }
 }

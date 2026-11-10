@@ -1,5 +1,9 @@
 package com.verifone.cat.tools;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+
+import com.verifone.cat.provision.BrowserOverride;
 import com.verifone.cat.rig.Hosts;
 
 /**
@@ -26,7 +30,23 @@ public record RegisterTarget(String id, String host, int shimPort, int cdpPort) 
 
     /** The register's DevTools endpoint, as the POS driver and the POS page's screen attach to it. */
     public String cdpUrl() {
-        return "http://" + host + ":" + cdpPort;
+        return cdpUrl(cdpPort);
+    }
+
+    /** The register's DevTools endpoint on {@code port}. */
+    public String cdpUrl(int port) {
+        return "http://" + host + ":" + port;
+    }
+
+    /**
+     * The DevTools ports the POS page's screen tries, in order (user, 2026-11-10, Reg101): its own ({@link #cdpPort}),
+     * then the browser override's relay ({@link BrowserOverride#DEFAULT_RELAY_PORT}), then the browser's own DevTools
+     * port ({@link BrowserOverride#DEFAULT_CDP_PORT}), where a register without the override (its stock browser) answers
+     * from the network: seen on Reg101 with the stock Chrome 67 on its pairing screen.
+     */
+    public List<Integer> cdpPorts() {
+        return List.copyOf(new LinkedHashSet<>(List.of(cdpPort, BrowserOverride.DEFAULT_RELAY_PORT,
+                BrowserOverride.DEFAULT_CDP_PORT)));
     }
 
     /** "Reg101 (host)", or the address alone when it is the id. */

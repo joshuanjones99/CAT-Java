@@ -39,6 +39,16 @@ class PosReachTest {
     }
 
     @Test
+    void answersIsAnOpenPortOnly() throws IOException {
+        PosReach reach = PosReach.tcp(closedPort(), TIMEOUT);
+        try (ServerSocket open = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            assertEquals(true, reach.answers(loopback, open.getLocalPort()));
+        }
+        assertEquals(false, reach.answers(loopback, closedPort()));
+        assertEquals(false, reach.answers("register.invalid", closedPort()));
+    }
+
+    @Test
     void aHostThatAnswersNothingIsNotConnected() throws IOException {
         assertEquals(PosReach.State.NOT_CONNECTED,
                 PosReach.tcp(closedPort(), TIMEOUT).probe("register.invalid", closedPort()));

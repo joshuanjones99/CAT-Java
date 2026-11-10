@@ -57,8 +57,21 @@ final class PosRoutes {
                 return now.targets().isEmpty() ? fixedScreen : null;
             }
             RegisterTarget target = now.byHost(host);
-            return target == null ? null : target.cdpUrl();
+            return target == null ? null : screenUrl(target, reach);
         });
+    }
+
+    /**
+     * The first of the register's DevTools ports that answers ({@link RegisterTarget#cdpPorts}: its own, the browser
+     * override's relay, the stock browser's), or its own when none does, so the screen's error names that one.
+     */
+    static String screenUrl(RegisterTarget target, PosReach reach) {
+        for (int port : target.cdpPorts()) {
+            if (reach.answers(target.host(), port)) {
+                return target.cdpUrl(port);
+            }
+        }
+        return target.cdpUrl();
     }
 
     /** Every register checked at once, in list order: two silent registers cost one timeout, not two. */

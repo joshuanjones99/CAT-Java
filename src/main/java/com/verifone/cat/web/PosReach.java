@@ -38,6 +38,14 @@ interface PosReach {
 
     State probe(String host, int shimPort);
 
+    /**
+     * Whether something listens on {@code host:port}: which DevTools port the screen attaches to. A probe that does not
+     * say (a test's fake) assumes yes, so the first port is used.
+     */
+    default boolean answers(String host, int port) {
+        return true;
+    }
+
     /** The real probe, with {@link #TIMEOUT} per connect. */
     static PosReach tcp() {
         return tcp(SSH_PORT, TIMEOUT);
@@ -46,14 +54,22 @@ interface PosReach {
     /** The probe over TCP, trying {@code sshPort} when the shim port does not answer. */
     static PosReach tcp(int sshPort, Duration timeout) {
         int millis = (int) Math.max(1, timeout.toMillis());
-        return (host, shimPort) -> {
-            switch (connect(host, shimPort, millis)) {
-                case OPEN:
-                    return State.LIVE;
-                case REFUSED:
-                    return State.NO_SHIM;
-                default:
-                    return connect(host, sshPort, millis) == Answer.SILENT ? State.NOT_CONNECTED : State.NO_SHIM;
+        return new PosReach() {
+            @Override
+            public State probe(String host, int shimPort) {
+                switch (connect(host, shimPort, millis)) {
+                    case OPEN:
+                        return State.LIVE;
+                    case REFUSED:
+                        return State.NO_SHIM;
+                    default:
+                        return connect(host, sshPort, millis) == Answer.SILENT ? State.NOT_CONNECTED : State.NO_SHIM;
+                }
+            }
+
+            @Override
+            public boolean answers(String host, int port) {
+                return connect(host, port, millis) == Answer.OPEN;
             }
         };
     }

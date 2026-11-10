@@ -225,12 +225,16 @@ public final class PosScreencast implements AutoCloseable {
         return uri;
     }
 
-    /** The browser's targets, from {@code /json/list}. Each socket URL is pointed back at {@code endpoint}. */
+    /**
+     * The browser's targets, from {@code /json/list}. Each socket URL is pointed back at {@code endpoint}. Over HTTP/1.1,
+     * as {@code BrowserOverride}'s probe: the JDK's default asks to upgrade to HTTP/2, and a register's stock browser
+     * (Chrome 67, Reg101 on 2026-11-10) answers that request with 404 while it answers HTTP/1.1 with the list.
+     */
     static List<Target> targets(URI endpoint, Duration timeout) {
         URI list = endpoint.resolve("/json/list");
         HttpResponse<String> reply;
         try {
-            reply = HttpClient.newBuilder().connectTimeout(timeout).build().send(
+            reply = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(timeout).build().send(
                     HttpRequest.newBuilder(list).timeout(timeout).GET().build(), HttpResponse.BodyHandlers.ofString());
         } catch (IOException e) {
             throw new InspectError(endpoint + ": no DevTools endpoint answering (" + CdpSocket.firstLine(e)

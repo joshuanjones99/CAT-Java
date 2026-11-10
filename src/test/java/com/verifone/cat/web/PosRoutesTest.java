@@ -217,6 +217,33 @@ class PosRoutesTest {
     }
 
     @Test
+    void theScreenTakesTheFirstDevToolsPortThatAnswersOwnThenRelayThenStock() {
+        Set<Integer> open = ConcurrentHashMap.newKeySet();
+        PosReach reach = new PosReach() {
+            @Override
+            public State probe(String h, int p) {
+                return State.LIVE;
+            }
+
+            @Override
+            public boolean answers(String h, int port) {
+                return open.contains(port);
+            }
+        };
+
+        assertEquals(List.of(9222, 19220, 9220), ONE.cdpPorts());
+        // Nothing answers: its own port, so the screen's error names it.
+        assertEquals("http://one.invalid:9222", PosRoutes.screenUrl(ONE, reach));
+        // Reg101 on 2026-11-10: no browser override, its stock browser's DevTools on 9220.
+        open.add(9220);
+        assertEquals("http://one.invalid:9220", PosRoutes.screenUrl(ONE, reach));
+        open.add(19220);
+        assertEquals("http://one.invalid:19220", PosRoutes.screenUrl(ONE, reach));
+        open.add(9222);
+        assertEquals("http://one.invalid:9222", PosRoutes.screenUrl(ONE, reach));
+    }
+
+    @Test
     void withNoRegisterThePageSaysItCannotCheckAndProbesNothing() throws Exception {
         serve(PosRegister.none("nothing to check here"));
 
