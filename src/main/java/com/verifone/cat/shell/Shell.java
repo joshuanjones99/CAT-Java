@@ -7,6 +7,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
@@ -38,6 +39,7 @@ public final class Shell {
     private final Map<String, Long> pages = new LinkedHashMap<>();
     private final List<Supplier<String>> holders = new CopyOnWriteArrayList<>();
     private final List<Runnable> shutdownHooks = new CopyOnWriteArrayList<>();
+    private final CompletableFuture<Void> firstPage = new CompletableFuture<>();
     private long lastToast;
     private volatile String setupStatus = "";
     private volatile boolean toolsStaging;
@@ -138,10 +140,20 @@ public final class Shell {
     // ------------------------------------------------------------------ open pages
 
     /** A page polled: it is open. */
-    public synchronized void heartbeat(String page, long nowNanos) {
-        if (page != null && !page.isBlank()) {
+    public void heartbeat(String page, long nowNanos) {
+        if (page == null || page.isBlank()) {
+            return;
+        }
+        synchronized (this) {
             pages.put(page, nowNanos);
         }
+        // Outside the lock: what waits on the first page (the shortcut's splash) runs on this thread.
+        firstPage.complete(null);
+    }
+
+    /** Completes on the first page's poll; a copy, so a caller completing it changes nothing here. */
+    public CompletableFuture<Void> firstPage() {
+        return firstPage.copy();
     }
 
     /** A page said it is closing (its {@code pagehide}). */

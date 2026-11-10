@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
@@ -110,6 +111,25 @@ class ShellTest {
         assertEquals(0, shell.openPages(seconds(10) + Shell.PAGE_ALIVE.toNanos()), "a page that stopped polling");
         shell.heartbeat("", 0);
         assertEquals(0, shell.openPages(1));
+    }
+
+    @Test
+    void theFirstPageIsSaidOnceAndOnlyARealPollSaysIt() {
+        Shell shell = new Shell();
+        CompletableFuture<Void> first = shell.firstPage();
+        shell.heartbeat("", 0);
+        shell.heartbeat(null, 0);
+        assertFalse(first.isDone(), "a poll with no page name is not a page");
+
+        first.complete(null);
+        assertFalse(shell.firstPage().isDone(), "a caller completing its copy changes nothing");
+
+        List<String> seen = new java.util.ArrayList<>();
+        shell.firstPage().thenRun(() -> seen.add("first"));
+        shell.heartbeat("a", 0);
+        shell.heartbeat("b", 0);
+        assertEquals(List.of("first"), seen, "run on the poll's own thread, once");
+        assertTrue(shell.firstPage().isDone(), "and later askers see it done");
     }
 
     @Test

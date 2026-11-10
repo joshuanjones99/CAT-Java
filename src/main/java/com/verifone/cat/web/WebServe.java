@@ -16,12 +16,14 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.verifone.cat.core.CatHome;
 import com.verifone.cat.desktop.DesktopHost;
+import com.verifone.cat.desktop.Splash;
 import com.verifone.cat.pos.driver.DriverError;
 import com.verifone.cat.pos.driver.RegisterEndpoint;
 import com.verifone.cat.posshim.PosShimClient;
@@ -55,6 +57,9 @@ import io.javalin.Javalin;
  *   <li>{@code --no-browser} opens no browser and never closes by itself.</li>
  *   <li>"The browser" is CAT's own app window by default ({@link com.verifone.cat.desktop.AppWindow}), or a tab in
  *       the default browser when Settings' Open CAT in says so.</li>
+ *   <li>{@code --splash} (the shortcut's): its splash is showing, so CAT says when to close it ({@link Splash}): on
+ *       the first page's poll, {@link Splash#GIVE_UP} after opening the browser with none, at once with
+ *       {@code --no-browser}, and after handing over to a CAT already running.</li>
  * </ul>
  *
  * <p>Blocks until the server stops (Shut down CAT, or the auto-close) and returns the exit code.
@@ -82,11 +87,12 @@ public final class WebServe {
 
     static final String USAGE = """
             usage: cat-java [web] [--rig <name|file.yaml>] [--register <id>] [--port <n>] [--shim-port <n>]
-                              [--no-browser] [--stay] [--no-setup]
+                              [--no-browser] [--stay] [--no-setup] [--splash]
               --rig         the rig (default lab); the UI serves even when it does not load
               --no-browser  open no browser, and never close by itself
               --stay        never close by itself
               --no-setup    no setup check on start and no sign-in gate (tests and diagnosis)
+              --splash      run.cmd shows CAT's splash; CAT closes it once its page opens (the shortcut's)
             """;
 
     /** The parsed command line. */
@@ -98,6 +104,7 @@ public final class WebServe {
         boolean browser = true;
         boolean stay;
         boolean setup = true;
+        boolean splash;
 
         static Options parse(List<String> argv) {
             Options o = new Options();
@@ -112,6 +119,7 @@ public final class WebServe {
                     case "--no-browser" -> o.browser = false;
                     case "--stay" -> o.stay = true;
                     case "--no-setup" -> o.setup = false;
+                    case Splash.FLAG -> o.splash = true;
                     case "-h", "--help" -> throw new IllegalArgumentException("");
                     default -> throw new IllegalArgumentException("Unknown option " + flag + ".");
                 }
@@ -158,6 +166,9 @@ public final class WebServe {
 
         /** Points the log at {@code ~/.cat/java/cat-java-web.log}; before anything logs. */
         void logToFile();
+
+        /** Tells the shortcut's splash to close ({@link Splash#close}). */
+        void closeSplash();
     }
 
     private WebServe() {}
@@ -188,6 +199,9 @@ public final class WebServe {
             if (options.browser) {
                 host.openBrowser(url);
             }
+            if (options.splash) {
+                host.closeSplash();
+            }
             return 0;
         }
         boolean watch = options.browser && !options.stay;
@@ -211,6 +225,12 @@ public final class WebServe {
         app.events(events -> events.serverStopped(stopped::countDown));
         app.start(WebApp.BIND_HOST, options.port);
         out.println("CAT-Java on " + url + " (rig " + options.rig + ")");
+        if (options.splash && options.browser) {
+            shell.firstPage().completeOnTimeout(null, Splash.GIVE_UP.toMillis(), TimeUnit.MILLISECONDS)
+                    .thenRun(host::closeSplash);
+        } else if (options.splash) {
+            host.closeSplash();
+        }
         host.started(options, shell);
         AutoClose closer = null;
         if (watch) {
@@ -310,6 +330,11 @@ public final class WebServe {
                 } catch (IOException e) {
                     // No log file: the lines go to the console, as before.
                 }
+            }
+
+            @Override
+            public void closeSplash() {
+                log().info("{}", Splash.close(Splash.readyFile()));
             }
         };
     }

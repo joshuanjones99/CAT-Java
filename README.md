@@ -58,7 +58,8 @@ On a fresh machine nothing needs installing by hand: when that JDK is missing, `
 Monarch's), else it asks once and saves it, encrypted for this Windows account, to
 `~\.cat\java\artifactory.credentials`. It asks in the console, or, when CAT starts from the
 `CAT-Java` shortcut (whose console is hidden), in a sign-in window; a failure there is shown
-in a message box. The Maven wrapper then downloads Maven and every
+in a message box. The shortcut shows CAT's logo (`splash.ps1`) from the click until CAT's page
+opens. The Maven wrapper then downloads Maven and every
 library (Maven Central), and after a build `fetch-sims` stages Java 17 v1.1 and the simulators.
 
 ## Build, test and run

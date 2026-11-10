@@ -263,8 +263,20 @@ function Read-LoginFromDialog([string]$problem) {
     }
 }
 
-# A message box in front of everything; never throws.
+# The shortcut's splash closes before a failure is shown (splash.ps1 watches this file; desktop.Splash).
+function Close-Splash {
+    try {
+        $ready = Join-Path $env:USERPROFILE '.cat\java\splash.ready'
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ready) | Out-Null
+        [IO.File]::WriteAllText($ready, [DateTime]::UtcNow.ToString('o'))
+    } catch {
+        Write-Host "Could not close the splash: $($_.Exception.Message)"
+    }
+}
+
+# A message box in front of everything, the splash closed first; never throws.
 function Show-Notice([string]$text) {
+    Close-Splash
     try {
         Add-Type -AssemblyName System.Windows.Forms
         $owner = New-Object Windows.Forms.Form

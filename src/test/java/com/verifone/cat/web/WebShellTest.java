@@ -30,6 +30,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.desktop.Splash;
 import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.preflight.Result;
 import com.verifone.cat.results.ResultsLibrary;
@@ -303,6 +304,8 @@ class WebShellTest {
         final List<String> opened = new ArrayList<>();
         final List<String> calls = new ArrayList<>();
         Javalin built;
+        /** A page polls before the server stops. */
+        boolean pagePolls;
 
         @Override
         public boolean portInUse(int port) {
@@ -330,6 +333,9 @@ class WebShellTest {
         @Override
         public void started(WebServe.Options options, Shell shell) {
             calls.add("started");
+            if (pagePolls) {
+                shell.heartbeat("page-1", System.nanoTime());
+            }
             built.stop();
         }
 
@@ -337,6 +343,62 @@ class WebShellTest {
         public void logToFile() {
             calls.add("log");
         }
+
+        @Override
+        public void closeSplash() {
+            calls.add("close splash");
+        }
+    }
+
+    private static int freePort() {
+        try (java.net.ServerSocket socket = new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Test
+    void theShortcutsSplashClosesOnTheFirstPagesPoll() {
+        FakeHost host = new FakeHost();
+        host.pagePolls = true;
+        PrintStream out = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8);
+
+        assertEquals(0, WebServe.serve(WebServe.Options.parse(List.of("--port", String.valueOf(freePort()), "--stay",
+                "--no-setup", "--splash")), host, out));
+        assertEquals(List.of("app lab setup=false", "started", "close splash"), host.calls);
+    }
+
+    @Test
+    void withoutThePageOrTheFlagTheSplashIsLeftToItsOwnWatch() {
+        FakeHost host = new FakeHost();
+        PrintStream out = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8);
+
+        assertEquals(0, WebServe.serve(WebServe.Options.parse(List.of("--port", String.valueOf(freePort()), "--stay",
+                "--no-setup", "--splash")), host, out));
+        assertFalse(host.calls.contains("close splash"), "no page yet: the give-up timer is " + Splash.GIVE_UP);
+
+        FakeHost plain = new FakeHost();
+        plain.pagePolls = true;
+        assertEquals(0, WebServe.serve(WebServe.Options.parse(List.of("--port", String.valueOf(freePort()), "--stay",
+                "--no-setup")), plain, out));
+        assertFalse(plain.calls.contains("close splash"), "no --splash, no splash file");
+    }
+
+    @Test
+    void withNoBrowserOrACatAlreadyRunningTheSplashClosesAtOnce() {
+        PrintStream out = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8);
+        FakeHost noBrowser = new FakeHost();
+        assertEquals(0, WebServe.serve(WebServe.Options.parse(List.of("--port", String.valueOf(freePort()),
+                "--no-browser", "--no-setup", "--splash")), noBrowser, out));
+        assertEquals(List.of("app lab setup=false", "close splash", "started"), noBrowser.calls);
+
+        FakeHost running = new FakeHost();
+        running.inUse = true;
+        running.cat = true;
+        assertEquals(0, WebServe.serve(WebServe.Options.parse(List.of("--port", "8123", "--splash")), running, out));
+        assertEquals(List.of("http://127.0.0.1:8123/"), running.opened);
+        assertEquals(List.of("close splash"), running.calls, "after handing over to the running CAT");
     }
 
     @Test

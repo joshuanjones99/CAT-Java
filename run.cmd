@@ -17,6 +17,11 @@ if "%CAT_TOOLS_ROOT%"=="" (set "TOOLS=C:\CICD\Tools") else (set "TOOLS=%CAT_TOOL
 set "JAVA=%TOOLS%\Java17\jdk-17.0.5+8\bin\java.exe"
 rem A rig run attaches to the register's own browser over CDP; never download browsers.
 set "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1"
+rem --splash (the CAT-Java.lnk shortcut's): CAT's logo at once, on this console, before the build check;
+rem it closes when CAT's page opens or this script ends (splash.ps1, desktop.Splash).
+set "SPLASH="
+for %%a in (%*) do if /i "%%~a"=="--splash" set "SPLASH=1"
+if defined SPLASH start "" /b powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0splash.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap.ps1" -NeedsBuild
 if errorlevel 10 goto :build
 if errorlevel 1 goto :failed

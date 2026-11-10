@@ -14,7 +14,8 @@ import java.util.List;
 /**
  * The CAT-Java shortcut on this user's Desktop and in their Start menu: the Python CAT's {@code setup.ps1} step 7b.
  *
- * <p>The target is {@code conhost.exe --headless "cmd.exe" /c "<repo>\run.cmd" web}: conhost's headless mode gives
+ * <p>The target is {@code conhost.exe --headless "cmd.exe" /c "<repo>\run.cmd" web --splash}, {@code --splash} showing
+ * CAT's logo from the click until its page opens ({@link Splash}): conhost's headless mode gives
  * CAT, and every console program it starts (git, ssh, PowerShell, the staged Python), a console nobody sees, where
  * {@code javaw} would leave each child to open a window of its own. The window style is minimised, the working folder
  * the repository and the icon CAT's own {@code cat.ico}, copied to {@code ~/.cat/java/cat.ico} so the shortcut does not
@@ -100,7 +101,8 @@ public final class Shortcuts {
                 "$shell = New-Object -ComObject WScript.Shell",
                 "$target = Join-Path $env:SystemRoot 'System32\\conhost.exe'",
                 "$cmd = Join-Path $env:SystemRoot 'System32\\cmd.exe'",
-                "$arguments = '--headless \"' + $cmd + '\" /c \"' + " + quote(runCmd) + " + '\" web'",
+                "$arguments = '--headless \"' + $cmd + '\" /c \"' + " + quote(runCmd) + " + '\" web "
+                        + Splash.FLAG + "'",
                 "foreach ($place in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {",
                 "  if (-not $place) { continue }",
                 "  try {",

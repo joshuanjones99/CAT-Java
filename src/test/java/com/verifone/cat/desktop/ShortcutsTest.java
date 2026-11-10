@@ -42,7 +42,7 @@ class ShortcutsTest {
         assertTrue(script.contains("Join-Path $env:SystemRoot 'System32\\conhost.exe'"), script);
         assertTrue(script.contains("Join-Path $env:SystemRoot 'System32\\cmd.exe'"), script);
         assertTrue(script.contains("$arguments = '--headless \"' + $cmd + '\" /c \"' + "
-                + "'C:\\gitrepos\\CAT-Java\\run.cmd' + '\" web'"), script);
+                + "'C:\\gitrepos\\CAT-Java\\run.cmd' + '\" web --splash'"), script);
         assertTrue(script.contains("[Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs')"),
                 script);
         assertTrue(script.contains("(Join-Path $place 'CAT-Java.lnk')"), script);
