@@ -12,7 +12,7 @@ import com.verifone.cat.web.ToolsService.Tool;
 /**
  * Tools: the operator's one-off actions on the rig, outside a run. The Python CAT's Manual page (empty by design,
  * {@code cat/web/pages/manual.py}) became this page; its first tools are CAT-Java's own (user, 2026-11-10): POS
- * Pairing, Onboard to Commander Connect, Reboot C18 and Reboot Commander.
+ * Pairing, Onboard to Commander Connect, Reboot C18, Reboot Commander, and Reboot Commander + C18 (both at once).
  *
  * <p>A vertical list of buttons, one per tool (one per register for Reboot C18), with no descriptions: the engineers
  * who use it know what each does (user, 2026-11-10). A row shows only its last outcome and what is wrong with the
@@ -56,6 +56,7 @@ final class ToolsPage {
         out.append(onboardRow(tools, blocked));
         out.append(rebootC18Rows(tools, blocked));
         out.append(row(tools, Tool.REBOOT_COMMANDER, "", Tool.REBOOT_COMMANDER.title, blocked, ""));
+        out.append(row(tools, Tool.REBOOT_ALL, "", Tool.REBOOT_ALL.title, blocked, ""));
         out.append("</ul></section>");
         out.append(logCard(tools));
         return out.append("</div>").toString();
@@ -115,7 +116,8 @@ final class ToolsPage {
     private static String button(ToolsService tools, Tool tool, String register, String label, boolean disabled) {
         String path = tool.path() + (register.isEmpty() ? ""
                 : "?register=" + URLEncoder.encode(register, StandardCharsets.UTF_8));
-        String tone = tool == Tool.REBOOT_C18 || tool == Tool.REBOOT_COMMANDER ? "run-danger" : "run-primary";
+        String tone = tool == Tool.REBOOT_C18 || tool == Tool.REBOOT_COMMANDER || tool == Tool.REBOOT_ALL
+                ? "run-danger" : "run-primary";
         return "<button type=\"button\" class=\"" + tone + "\" hx-post=\"" + esc(path) + "\" hx-confirm=\""
                 + esc(tools.confirmText(tool, register)) + "\" hx-target=\"#" + PANEL_ID + "\" hx-swap=\"outerHTML\""
                 + (disabled ? " disabled" : "") + ">" + esc(label) + "</button>";

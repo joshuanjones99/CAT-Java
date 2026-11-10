@@ -92,6 +92,11 @@ class ToolsWebTest {
         }
 
         @Override
+        public boolean rebootCommanderAndRegisters(String rigName, Say say) {
+            return run("reboot-commander-c18 " + rigName, say);
+        }
+
+        @Override
         public boolean pushShim(RegisterTarget register, Say say) {
             return run("push-shim " + register.describe(), say);
         }
@@ -144,11 +149,12 @@ class ToolsWebTest {
     }
 
     @Test
-    void thePanelShowsTheFourToolsInOrder() {
+    void thePanelShowsTheToolsInOrder() {
         String html = ToolsPage.panel(service("lab", Map.of()));
 
         int last = -1;
-        for (String title : List.of("POS Pairing", "Onboard to Commander Connect", "Reboot C18", "Reboot Commander")) {
+        for (String title : List.of("POS Pairing", "Onboard to Commander Connect", "Reboot C18", "Reboot Commander",
+                "Reboot Commander + C18")) {
             int at = html.indexOf(">" + title + "</button>");
             assertTrue(at > last, title + " is missing or out of order: " + html);
             last = at;
@@ -170,6 +176,8 @@ class ToolsWebTest {
 
         assertTrue(html.contains(">Reboot C18 (Reg101)</button>"), html);
         assertTrue(html.contains(">Reboot C18 (Reg102)</button>"), html);
+        assertTrue(html.contains("hx-post=\"/tools/reboot-commander-c18\""), "one button reboots them all: " + html);
+        assertTrue(html.contains("hx-confirm=\"Reboot the Commander and Reg101, Reg102 on rig lab together?"), html);
     }
 
     @Test
@@ -180,8 +188,10 @@ class ToolsWebTest {
 
         assertTrue(html.contains("No rig: POS Pairing pairs the lab&#39;s registers 101 and 102")
                 || html.contains("No rig: POS Pairing pairs the lab"), html);
-        // Onboard, Reboot C18 and Reboot Commander stay disabled; POS Pairing does not.
-        assertEquals(3, html.split(" disabled>", -1).length - 1, html);
+        // Onboard and the three reboots stay disabled; POS Pairing does not.
+        assertEquals(4, html.split(" disabled>", -1).length - 1, html);
+        assertTrue(html.contains(" disabled>Reboot Commander + C18</button>"), html);
+        assertTrue(tools.start(ToolsService.Tool.REBOOT_ALL, "").startsWith("No rig"));
         assertFalse(html.contains(" disabled>POS Pairing</button>"), html);
         assertTrue(html.contains("Pair the lab&#39;s registers (Reg101, Reg102: those that answer)")
                 || html.contains("Pair the lab"), html);
@@ -233,15 +243,19 @@ class ToolsWebTest {
         assertEquals(RigBusy.ONBOARDING, fake.during.get());
         post("/tools/reboot-c18?register=Reg101", true);
         assertEquals(RigBusy.REBOOT, fake.during.get());
-        String panel = post("/tools/reboot-commander", true).body();
+        post("/tools/reboot-commander", true);
+        assertEquals(RigBusy.REBOOT, fake.during.get());
+        fake.during.set("");
+        String panel = post("/tools/reboot-commander-c18", true).body();
         assertEquals(RigBusy.REBOOT, fake.during.get());
 
-        assertEquals(List.of("pair lab", "onboard lab QAT secret", "reboot-c18 lab Reg101", "reboot-commander lab"),
-                fake.calls);
+        assertEquals(List.of("pair lab", "onboard lab QAT secret", "reboot-c18 lab Reg101", "reboot-commander lab",
+                "reboot-commander-c18 lab"), fake.calls);
+        assertTrue(panel.contains("Reboot Commander + C18 done."), panel);
         assertEquals("", busy.current(), "the flag is given back");
         assertTrue(panel.contains("Reboot Commander done."), panel);
         assertTrue(panel.contains("POS Pairing done."), panel);
-        assertTrue(panel.contains("working on reboot-commander lab"), "the log shows the tool's lines: " + panel);
+        assertTrue(panel.contains("working on reboot-commander-c18 lab"), "the log shows the tool's lines: " + panel);
     }
 
     @Test

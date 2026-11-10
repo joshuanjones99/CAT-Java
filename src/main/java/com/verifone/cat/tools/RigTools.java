@@ -25,6 +25,9 @@ import com.verifone.cat.rig.RigLoader;
  *   <li><b>Reboot C18</b>: one register rebooted ({@link RigReboot}), then {@code provision} to bring its pos-shim back,
  *       as step 4 does after pairing's reboot.</li>
  *   <li><b>Reboot Commander</b>: rebooted, then back on SSH and CGILink ({@link RigReboot}).</li>
+ *   <li><b>Reboot Commander + C18</b> (user, 2026-11-10: "something people will do commonly"): the Commander and
+ *       every register rebooted together ({@link RigReboot#rebootTogether}), all of them waited for, then
+ *       {@code provision} once for the registers' pos-shim.</li>
  *   <li><b>Push shim to register</b> (the POS page's button, user 2026-11-10): one register provisioned with no rig
  *       file ({@link ShimPush}), so a register that answers but has no pos-shim listening gets one.</li>
  * </ul>
@@ -51,6 +54,9 @@ public interface RigTools {
     boolean rebootRegister(String rigName, String registerId, Say say);
 
     boolean rebootCommander(String rigName, Say say);
+
+    /** The Commander and every register rebooted at once, all waited for, then the registers provisioned. */
+    boolean rebootCommanderAndRegisters(String rigName, Say say);
 
     /**
      * The POS page's Push shim to register: that one register provisioned ({@link ShimPush}), the browser override
@@ -152,6 +158,23 @@ public interface RigTools {
                 return false;
             }
             return RigReboot.reboot(target(rig, TargetRole.COMMANDER, null), reboots, say);
+        }
+
+        @Override
+        public boolean rebootCommanderAndRegisters(String rigName, Say say) {
+            Rig rig = load(rigName, say);
+            if (rig == null) {
+                return false;
+            }
+            // The Commander first, then the registers, as the rig lists them: each gets its reboot before any wait.
+            List<TargetSpec> boxes = TargetSpec.fromRig(rig, environ);
+            if (!RigReboot.rebootTogether(boxes, reboots, say)) {
+                // Said on out, so the outcome keeps the reboot's own reason (the last error line).
+                say.out("provision was not run: not everything came back");
+                return false;
+            }
+            say.out("provision: the pos-shim back on every register");
+            return stages.provision(rig, say);
         }
 
         /** The rig's box with {@code role} (and, for a register, {@code id}), or null. */

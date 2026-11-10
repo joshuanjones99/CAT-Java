@@ -37,6 +37,8 @@ final class ToolsService {
         ONBOARD("onboard", "Onboard to Commander Connect", RigBusy.ONBOARDING),
         REBOOT_C18("reboot-c18", "Reboot C18", RigBusy.REBOOT),
         REBOOT_COMMANDER("reboot-commander", "Reboot Commander", RigBusy.REBOOT),
+        /** The Commander and every register at once (user, 2026-11-10: "something people will do commonly"). */
+        REBOOT_ALL("reboot-commander-c18", "Reboot Commander + C18", RigBusy.REBOOT),
         /** The POS page's button, not listed on the Tools page. */
         PUSH_SHIM("push-shim", "Push shim to register", RigBusy.SHIM_PUSH);
 
@@ -203,6 +205,9 @@ final class ToolsService {
                     + "pos-shim back once it is up.";
             case REBOOT_COMMANDER -> "Reboot the Commander" + on + "? The registers lose it until it is back "
                     + "(up to 35 minutes for SSH and CGILink).";
+            case REBOOT_ALL -> "Reboot the Commander and " + String.join(", ", registers()) + on + " together? "
+                    + "Nothing is rebooted unless every one answers; anything on the registers' screens is lost, and "
+                    + "provision brings their pos-shim back once all are up (up to 35 minutes for the Commander).";
             case PUSH_SHIM -> "Push the pos-shim to " + register + "? Over SSH as root: the shim built here if it is "
                     + "not built yet, pushed and started. The Commander is not touched.";
         };
@@ -244,6 +249,7 @@ final class ToolsService {
             case ONBOARD -> tools.onboard(rigName, cc, say);
             case REBOOT_C18 -> tools.rebootRegister(rigName, target, say);
             case REBOOT_COMMANDER -> tools.rebootCommander(rigName, say);
+            case REBOOT_ALL -> tools.rebootCommanderAndRegisters(rigName, say);
             case PUSH_SHIM -> false;
         });
     }

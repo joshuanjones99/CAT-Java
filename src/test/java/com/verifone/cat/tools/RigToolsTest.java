@@ -48,6 +48,7 @@ class RigToolsTest {
         Say.Recorded say = new Say.Recorded();
 
         assertFalse(tools().rebootCommander("missing-rig", say));
+        assertFalse(tools().rebootCommanderAndRegisters("missing-rig", say));
         assertFalse(tools().pair("missing-rig", say));
 
         assertTrue(say.errLines().stream().allMatch(l -> l.startsWith("cannot load rig missing-rig")),

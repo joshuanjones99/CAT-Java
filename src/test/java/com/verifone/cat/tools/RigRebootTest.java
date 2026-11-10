@@ -98,6 +98,108 @@ class RigRebootTest {
         assertTrue(last(say.errLines()).contains("CGILink did not answer"), say.errLines().toString());
     }
 
+    // ------------------------------------------------------------ Reboot Commander + C18
+
+    private final InMemoryTransport commanderBox = new InMemoryTransport("commander.invalid");
+    private final List<String> order = new ArrayList<>();
+
+    /** One transport per box, each recording into {@link #order} as it runs a command. */
+    private RigReboot.Seams together(boolean registerBack) {
+        return new RigReboot.Seams(spec -> {
+            InMemoryTransport t = spec.role() == TargetRole.COMMANDER ? commanderBox : box;
+            return new RecordingTransport(t, spec.name(), order);
+        }, (spec, at) -> {
+            order.add("wait " + spec.name());
+            sshWaits.add(spec.name());
+            return spec.role() == TargetRole.COMMANDER || registerBack;
+        }, host -> {
+            cgilinkWaits.add(host);
+            return true;
+        });
+    }
+
+    @Test
+    void theCommanderAndTheRegisterAreBothRebootedBeforeAnyWait() {
+        assertTrue(RigReboot.rebootTogether(List.of(COMMANDER, REGISTER), together(true), say));
+
+        assertEquals(List.of("commander: cat /proc/uptime", "Reg101: cat /proc/uptime", "commander: reboot",
+                "Reg101: reboot", "wait commander", "wait Reg101"), order);
+        assertEquals(List.of("commander.invalid"), cgilinkWaits);
+        assertTrue(say.errLines().isEmpty(), say.errLines().toString());
+    }
+
+    @Test
+    void ifOneBoxDoesNotAnswerNeitherIsRebooted() {
+        box.command("cat /proc/uptime", new CommandResult(255, "", "denied"));
+
+        assertFalse(RigReboot.rebootTogether(List.of(COMMANDER, REGISTER), together(true), say));
+
+        assertEquals(List.of("cat /proc/uptime"), commanderBox.ran(), "the Commander answered but was not rebooted");
+        assertEquals(List.of("cat /proc/uptime"), box.ran());
+        assertEquals(List.of(), sshWaits);
+        assertTrue(commanderBox.closed(), "the answered session is closed");
+        assertTrue(last(say.errLines()).contains("nothing was rebooted, not even the boxes that answered"),
+                say.errLines().toString());
+    }
+
+    @Test
+    void aRegisterThatDoesNotComeBackFailsTheWholeButEveryBoxIsWaitedFor() {
+        assertFalse(RigReboot.rebootTogether(List.of(REGISTER, COMMANDER), together(false), say));
+
+        assertEquals(List.of("Reg101", "commander"), sshWaits, "the Commander is still waited for");
+        assertTrue(say.errLines().stream().anyMatch(l -> l.contains("Reg101 (reg101.invalid) did not come back")),
+                say.errLines().toString());
+    }
+
+    /** A transport that names each command it runs with its box, into one shared list. */
+    private static final class RecordingTransport implements com.verifone.cat.provision.transport.Transport {
+        private final InMemoryTransport inner;
+        private final String name;
+        private final List<String> order;
+
+        RecordingTransport(InMemoryTransport inner, String name, List<String> order) {
+            this.inner = inner;
+            this.name = name;
+            this.order = order;
+        }
+
+        @Override
+        public CommandResult run(String command, java.time.Duration timeout) {
+            order.add(name + ": " + command);
+            return inner.run(command, timeout);
+        }
+
+        @Override
+        public void close() {
+            inner.close();
+        }
+
+        @Override
+        public String host() {
+            return inner.host();
+        }
+
+        @Override
+        public void put(String remotePath, byte[] content, int mode, java.time.Duration timeout) {
+            inner.put(remotePath, content, mode, timeout);
+        }
+
+        @Override
+        public java.util.Optional<byte[]> get(String remotePath, java.time.Duration timeout) {
+            return inner.get(remotePath, timeout);
+        }
+
+        @Override
+        public void mkdir(String remotePath, java.time.Duration timeout) {
+            inner.mkdir(remotePath, timeout);
+        }
+
+        @Override
+        public boolean exists(String remotePath, java.time.Duration timeout) {
+            return inner.exists(remotePath, timeout);
+        }
+    }
+
     private static String last(List<String> lines) {
         return lines.isEmpty() ? "" : lines.get(lines.size() - 1);
     }
