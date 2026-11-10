@@ -164,12 +164,12 @@ code, kbd, samp, pre { font-family: var(--cat-font-mono); }
 
 .app {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: 250px minmax(0, 1fr);
   min-height: 100vh;
   transition: grid-template-columns 0.12s ease;
 }
 
-.app.rail { grid-template-columns: 72px minmax(0, 1fr); }
+.app.rail { grid-template-columns: 70px minmax(0, 1fr); }
 
 .sidebar {
   position: sticky;
@@ -184,27 +184,21 @@ code, kbd, samp, pre { font-family: var(--cat-font-mono); }
   padding: 16px 12px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0 2px 0 6px;
-}
+/* The Python's sidebar heading: the wide Commander-dots CAT logo centred across the top, the monogram in the
+   icon rail, and the collapse button straddling the sidebar's edge at the logo's height. */
+.brand { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
 .wordmark {
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 10px;
-  color: #fff;
-  text-decoration: none;
-  font: 600 26px/1 var(--cat-font-heading);
-  letter-spacing: 0.04em;
-  border-radius: 6px;
+  width: 100%;
+  min-height: 48px;
+  border-radius: 4px;
 }
 
-.brand-icon { display: block; width: 36px; height: 36px; border-radius: 7px; margin: 0; }
+.logo-wide { display: block; width: calc(100% - 16px); height: auto; }
+.brand-icon { display: none; width: 40px; height: 40px; border-radius: 5px; margin: 0; }
 
 .sidebar nav { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-top: 16px; }
 .sidebar nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -241,7 +235,7 @@ code, kbd, samp, pre { font-family: var(--cat-font-mono); }
 .glyph svg { display: block; width: 21px; height: 21px; }
 .nav-image { display: block; width: 21px; height: 21px; object-fit: contain; }
 
-.nav-bottom { margin-top: 16px !important; padding-top: 16px !important; border-top: 1px solid var(--cat-side-line); }
+.nav-bottom { margin-top: 16px !important; padding-top: 5px !important; border-top: 1px solid var(--cat-side-line); }
 
 .icon-btn {
   width: 28px;
@@ -250,7 +244,7 @@ code, kbd, samp, pre { font-family: var(--cat-font-mono); }
   padding: 0;
   display: inline-grid;
   place-items: center;
-  border: 1px solid var(--cat-side-line);
+  border: 1px solid var(--cat-page);
   border-radius: 4px;
   background: color-mix(in srgb, #101820 90%, #fff 10%);
   color: #fff;
@@ -262,11 +256,20 @@ code, kbd, samp, pre { font-family: var(--cat-font-mono); }
 
 .icon-btn:hover { background: color-mix(in srgb, #101820 80%, #fff 20%); color: #fff; }
 
+.collapse {
+  position: fixed;
+  top: 26px;
+  left: 250px;
+  transform: translateX(-50%);
+  z-index: 61;
+  transition: left 0.12s, background-color 0.15s ease;
+}
+
 .app.rail .sidebar { padding: 16px 8px; }
 .app.rail .label,
-.app.rail .brand .wordmark span { display: none; }
-.app.rail .brand { flex-direction: column; justify-content: center; gap: 10px; padding: 0; }
-.app.rail .collapse { transform: rotate(180deg); }
+.app.rail .logo-wide { display: none; }
+.app.rail .brand-icon { display: block; }
+.app.rail .collapse { left: 70px; transform: translateX(-50%) rotate(180deg); }
 .app.rail .sidebar nav a { justify-content: center; gap: 0; padding: 13px 0; }
 .app.rail .glyph { flex-basis: 32px; width: 32px; height: 32px; }
 .app.rail .setup-marker { position: absolute; right: 5px; top: 4px; }
@@ -317,7 +320,7 @@ main {
     position: fixed;
     left: 0;
     top: 0;
-    width: 224px;
+    width: 250px;
     padding: 16px 12px;
     z-index: 60;
     transform: translateX(-100%);
@@ -329,9 +332,9 @@ main {
   /* The open drawer dims the page behind it; a click there (or Escape) closes it (cat.js). */
   body.drawer-open::after { content: ""; position: fixed; inset: 0; z-index: 55; background: var(--cat-backdrop); }
 
-  .app.rail .label,
-  .app.rail .brand .wordmark span { display: inline; }
-  .app.rail .brand { flex-direction: row; justify-content: space-between; padding: 0 2px 0 6px; }
+  .app.rail .label { display: inline; }
+  .app.rail .logo-wide { display: block; }
+  .app.rail .brand-icon { display: none; }
   .app.rail .sidebar nav a { justify-content: flex-start; gap: 14px; padding: 9px 14px; }
 
   .topbar .menu {

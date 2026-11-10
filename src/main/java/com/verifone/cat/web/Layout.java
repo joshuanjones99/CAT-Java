@@ -19,9 +19,9 @@ import com.verifone.cat.shell.Shell;
  *
  * <p>Brand assets: the sidebar and favicon use the Python CAT's own CAT monogram ({@code icons/cat-192.png},
  * {@code cat.ico}, the favicons) and its monochrome navigation glyphs, which {@code static/brand-assets.md} records
- * as original, user-approved CAT assets, not Verifone logos. The Python's wide {@code cat-commander-logo.png} is not
- * copied: it embeds a supplied "commander dots" artwork whose origin this port does not know, so the expanded
- * sidebar shows the monogram and the word CAT instead.
+ * as original, user-approved CAT assets, not Verifone logos. The expanded sidebar shows the Python's wide
+ * {@code cat-commander-logo.png} (the user's supplied "commander dots" with the CAT lettermark; copied at the rig
+ * owner's request, 2026-11-09) and the icon rail shows the monogram, as the Python's {@code layout.py}.
  *
  * <p>The sidebar collapses to an icon rail and remembers that choice; on narrow screens a menu button opens it as a
  * drawer. Both are done by {@code /static/cat.js}, and the page works without it: the links are always there.
@@ -109,8 +109,10 @@ final class Layout {
                   <a class="skip" href="#main">Skip to content</a>
                   <aside class="sidebar">
                     <div class="brand">
-                      <a class="wordmark" href="/run" aria-label="CAT home"><img src="/static/icons/cat-192.png"
-                         class="brand-icon" alt="" aria-hidden="true" width="36" height="36"><span>CAT</span></a>
+                      <a class="wordmark" href="/run" aria-label="CAT home"><img
+                         src="/static/icons/cat-commander-logo.png" class="logo-wide" alt="CAT" width="1344"
+                         height="274"><img src="/static/icons/cat-192.png" class="brand-icon" alt="" aria-hidden="true"
+                         width="40" height="40"></a>
                       <button type="button" class="icon-btn collapse" data-action="collapse"
                               aria-expanded="true" aria-controls="nav" aria-label="Collapse navigation">&#8249;</button>
                     </div>

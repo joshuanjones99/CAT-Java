@@ -35,6 +35,11 @@ themselves (HANDOFF §5).
 | `--cat-line` / `--cat-line-2` | `#d6dfe2` / `#eaf0f2` | borders / table heads, tracks |
 | `--cat-side` | `#101e26` | sidebar (dark in both appearances) |
 
+Sidebar: 250px wide, 70px as the icon rail (the Python drawer's `width=250 mini-width=70` in
+`layout.py`; its DESIGN.md's 224/72 is out of date). The expanded sidebar shows the wide Commander-dots CAT
+logo (`icons/cat-commander-logo.png`) centred at the top; the rail shows the monogram. The collapse button is a
+28px square straddling the sidebar's edge.
+
 Radii: tags 5px, controls 7px, cards 12px, dialogs 16px. Spacing: 8 / 16 / 20 / 24 / 32px;
 page gutter 32px (24px under 1100px, 16px on phones), page top 28px.
 
