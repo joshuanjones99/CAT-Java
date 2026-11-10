@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -21,6 +20,7 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 
 /**
  * Where snapshots live, what a snapshot folder holds, and which one a Commander build may restore. A port of
@@ -39,9 +39,6 @@ public final class Snapshots {
     /** Beside PATS's {@code C:\CICD\Builds} and {@code C:\CICD\Tools}. A path, not an address. */
     public static final Path DEFAULT_SNAPSHOTS_ROOT = Path.of("C:\\CICD\\Snapshots");
 
-    /** Set (to anything but "", "0", "false", "no") to skip the restore in step 4, for triage. */
-    public static final String NO_SNAPSHOT_ENV = "CAT_NO_SNAPSHOT";
-
     /** Each snapshot folder's index. */
     public static final String MANIFEST = "manifest.json";
 
@@ -54,7 +51,7 @@ public final class Snapshots {
     /** suiteinfo.dat's key for the build's own time. */
     public static final String BUILD_TIME = "Timestamp";
 
-    static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = Json.MAPPER;
 
     private static final DefaultPrettyPrinter PRETTY = new DefaultPrettyPrinter()
             .withObjectIndenter(new DefaultIndenter("  ", "\n"));
@@ -80,13 +77,6 @@ public final class Snapshots {
             throw new IllegalArgumentException("no base level to name the snapshot folder after");
         }
         return root.resolve(Areas.pyQuote(level));
-    }
-
-    /** Whether {@code $CAT_NO_SNAPSHOT} asks for the restore to be skipped. */
-    public static boolean snapshotDisabled(Map<String, String> environ) {
-        String value = environ == null ? "" : environ.getOrDefault(NO_SNAPSHOT_ENV, "");
-        String v = value.strip().toLowerCase(Locale.ROOT);
-        return !(v.isEmpty() || v.equals("0") || v.equals("false") || v.equals("no"));
     }
 
     /**
@@ -327,10 +317,5 @@ public final class Snapshots {
         } catch (IOException e) {
             throw new IllegalArgumentException("not a JSON document: " + e.getMessage(), e);
         }
-    }
-
-    /** {@code $CAT_SNAPSHOTS_ROOT} from the process environment, else {@link #DEFAULT_SNAPSHOTS_ROOT}. */
-    public static Path snapshotsRoot() {
-        return snapshotsRoot(System.getenv());
     }
 }

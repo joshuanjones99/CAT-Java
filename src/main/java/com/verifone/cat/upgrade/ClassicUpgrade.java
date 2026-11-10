@@ -5,13 +5,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.w3c.dom.Element;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.commander.CgiReplies;
 import com.verifone.cat.devices.commander.PdkShim;
@@ -117,7 +117,7 @@ public final class ClassicUpgrade {
             // CICDScript.bat's :InitiateUpgrade waits here before the Commander's CGI surface will answer at all.
             log.accept("overlay pushed; waiting " + settings.overlaySettle().toSeconds()
                     + " s for the Commander's CGI surface");
-            Bounded.pause(settings.overlaySettle());
+            Waits.pause(settings.overlaySettle());
             Supplier<String> readOtp = () -> box.run("cat /var/logins/tat", ssh).stdout().strip();
             try {
                 results.add(runCgiUpgradeDance(cgi.apply(commander.host()), readOtp, settings.pollTimeout(),
@@ -168,9 +168,8 @@ public final class ClassicUpgrade {
             String token = CgiReplies.upgradeToken(summary);
             client.closeDay(readOtp);
             client.beginUpgrade(token, readOtp);
-            Bounded.pollUntil(() -> CgiReplies.isUpgradeComplete(client.upgradeSummary(readOtp))
-                    ? Optional.of(Boolean.TRUE) : Optional.empty(), pollTimeout, pollInterval,
-                    "Commander AU upgrade completion (vupgradesummary)");
+            Bounded.pollUntilTrue(() -> CgiReplies.isUpgradeComplete(client.upgradeSummary(readOtp)),
+                    pollTimeout, pollInterval, "Commander AU upgrade completion (vupgradesummary)");
         } catch (DeviceError | Bounded.TimedOut e) {
             return StepResult.failed(STEP_DANCE, String.valueOf(e.getMessage()));
         }

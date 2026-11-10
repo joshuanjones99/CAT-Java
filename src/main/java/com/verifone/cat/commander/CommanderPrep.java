@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.StepResult;
 import com.verifone.cat.provision.StepStatus;
@@ -57,7 +58,7 @@ public final class CommanderPrep {
     private static final Pattern STOP = Pattern.compile("(\"stop\"\\s*:\\s*\")([^\"]*)(\")");
 
     private static final ObjectMapper JSON =
-            new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+            Json.MAPPER.copy().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     private CommanderPrep() {}
 

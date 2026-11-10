@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import com.verifone.cat.cloudtunnel.CloudTunnel;
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.provision.transport.CommandResult;
 import com.verifone.cat.provision.transport.Transport;
@@ -141,9 +142,9 @@ public final class ConnectService {
     void restartCoresvcs(Transport transport, BooleanSupplier ready, String what) {
         transport.run(CORESVCS_RESTART, sshTimeout);
         // Give the old VM time to go down first, or the first poll reaches it still running.
-        Bounded.pause(timing.coresvcsSettle());
+        Waits.pause(timing.coresvcsSettle());
         BooleanSupplier check = ready == null ? this::cloudStatusAnswers : ready;
-        if (!Bounded.poll(check, timing.coresvcsTimeout(), timing.coresvcsPoll())) {
+        if (!Waits.poll(check, timing.coresvcsTimeout(), timing.coresvcsPoll())) {
             throw new DeviceError("timed out waiting for " + what);
         }
     }
@@ -174,7 +175,7 @@ public final class ConnectService {
                 client.cloudConnect(settings.email(), settings.password());
                 say.accept("onboarding started as " + settings.email() + "; waiting for the registration");
                 state.started = System.nanoTime();
-                boolean settled = Bounded.poll(() -> settled(client, state), timing.onboardTimeout(),
+                boolean settled = Waits.poll(() -> settled(client, state), timing.onboardTimeout(),
                         timing.onboardPoll());
                 if (!settled) {
                     throw new DeviceError("onboarding did not complete (" + state.detail + ")");
@@ -222,7 +223,7 @@ public final class ConnectService {
             Transport open = transports.get();
             transport = open;
             List<String> missing = new ArrayList<>();
-            boolean relayed = Bounded.poll(() -> {
+            boolean relayed = Waits.poll(() -> {
                 missing.clear();
                 missing.addAll(CloudTunnel.unrelayedHosts(open, sshTimeout));
                 return missing.isEmpty();
@@ -237,7 +238,7 @@ public final class ConnectService {
             // The Python's (DeviceError, DeviceUnavailable, OSError): a transport that cannot be reached either way.
             say.accept("could not check the relay (" + exc.getMessage() + "); waiting "
                     + timing.onboardRetryWait().toSeconds() + " s");
-            Bounded.pause(timing.onboardRetryWait());
+            Waits.pause(timing.onboardRetryWait());
         } finally {
             if (transport != null) {
                 transport.close();
@@ -266,7 +267,7 @@ public final class ConnectService {
             seen[0] = connectivity();
             return ONLINE.equals(seen[0]);
         };
-        if (Bounded.poll(online, timing.bridgeSettle(), timing.onlinePoll())) {
+        if (Waits.poll(online, timing.bridgeSettle(), timing.onlinePoll())) {
             say.accept("cloud connectivity Online");
             return;
         }
@@ -279,7 +280,7 @@ public final class ConnectService {
         } finally {
             transport.close();
         }
-        if (!Bounded.poll(online, timing.onlineTimeout(), timing.onlinePoll())) {
+        if (!Waits.poll(online, timing.onlineTimeout(), timing.onlinePoll())) {
             throw new DeviceError("registered, but cloud connectivity still " + orUnknown(seen[0]) + " "
                     + timing.onlineTimeout().toSeconds() + " s after an MQTT broker and a coresvcs restart - the"
                     + " broker's syslog lines (MBR, hivemq-cmdr-cloud-bridge) say why");

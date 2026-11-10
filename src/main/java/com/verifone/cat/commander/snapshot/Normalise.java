@@ -1,14 +1,13 @@
 package com.verifone.cat.commander.snapshot;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+
+import com.verifone.cat.core.Hashes;
 
 /**
  * The canonical form two views of one area are compared in, and the lines a difference is reported as. A port of
@@ -204,16 +203,7 @@ public final class Normalise {
 
     /** SHA-256 of an area's comparison key, hex. */
     public static String digest(String area, String xml) {
-        return sha256Hex(normalise(area, xml).getBytes(StandardCharsets.UTF_8));
-    }
-
-    /** SHA-256 of {@code bytes}, lower-case hex. */
-    public static String sha256Hex(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is required by every JRE", e);
-        }
+        return Hashes.sha256Hex(normalise(area, xml).getBytes(StandardCharsets.UTF_8));
     }
 
     /**

@@ -12,6 +12,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.forecourt.ForecourtTimeouts;
 import com.verifone.cat.devices.forecourt.PetroPumps;
 import com.verifone.cat.pos.Locator;
@@ -230,12 +231,7 @@ public final class PosRegisterPass implements RegisterPass {
     }
 
     private static String title(RegisterScreen screen) {
-        for (PosDriver.ElementState state : screen.elementStates(Locators.OVERLAY_MSG_VIEW_TITLE)) {
-            if (state.visible()) {
-                return state.text();
-            }
-        }
-        return "";
+        return firstVisible(screen, Locators.OVERLAY_MSG_VIEW_TITLE);
     }
 
     private static boolean shows(RegisterScreen screen, Locator locator, String text) {
@@ -491,7 +487,6 @@ public final class PosRegisterPass implements RegisterPass {
 
     /** Checks at once, then every {@link Timing#poll}, until {@code check} holds or {@code timeout} passes. */
     private boolean poll(BooleanSupplier check, Duration timeout) {
-        return Waits.until(() -> check.getAsBoolean() ? Optional.of(Boolean.TRUE) : Optional.<Boolean>empty(),
-                timeout, timing.poll()).isPresent();
+        return Waits.poll(check, timeout, timing.poll());
     }
 }

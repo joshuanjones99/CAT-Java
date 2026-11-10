@@ -1,9 +1,9 @@
 package com.verifone.cat.commander;
 
 import java.time.Duration;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 
 /**
@@ -19,13 +19,8 @@ public interface Pauser {
 
     /** Parks until the deadline; an interrupt becomes a {@link DeviceError}. */
     Pauser REAL = duration -> {
-        long deadline = System.nanoTime() + duration.toNanos();
-        for (long left = duration.toNanos(); left > 0; left = deadline - System.nanoTime()) {
-            LockSupport.parkNanos(left);
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-                throw new DeviceError("interrupted during a wait in the Commander bring-up");
-            }
+        if (!Waits.pause(duration)) {
+            throw new DeviceError("interrupted during a wait in the Commander bring-up");
         }
     };
 

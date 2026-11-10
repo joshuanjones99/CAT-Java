@@ -3,6 +3,7 @@ package com.verifone.cat.upgrade;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -52,8 +53,8 @@ final class Bounded {
         }
     }
 
-    /** A bounded pause between attempts of a retry loop: a park, not {@code Thread.sleep}. */
-    static void pause(Duration pause) {
-        LockSupport.parkNanos(pause.toNanos());
+    /** {@link #pollUntil} for a yes/no probe: returns once it holds, or throws {@link TimedOut}. */
+    static void pollUntilTrue(BooleanSupplier probe, Duration timeout, Duration interval, String what) {
+        pollUntil(() -> probe.getAsBoolean() ? Optional.of(Boolean.TRUE) : Optional.empty(), timeout, interval, what);
     }
 }
