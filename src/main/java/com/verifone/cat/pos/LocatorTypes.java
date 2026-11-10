@@ -20,12 +20,6 @@ import java.util.regex.Pattern;
  */
 public final class LocatorTypes {
 
-    /** The placeholder the corpus extraction leaves for a numeric segment ({@code _[0-9]+} to {@code _{n}}). */
-    public static final String INDEX_PLACEHOLDER = "{n}";
-
-    /** The default {@code since} of a build variant: the first build on which the default spelling applies. */
-    public static final String DEFAULT_SINCE = "057.00";
-
     /** {@code \{(\w+)\}}, the slot syntax. Unicode classes, as Python's str patterns are. */
     static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\w+)\\}", Pattern.UNICODE_CHARACTER_CLASS);
 

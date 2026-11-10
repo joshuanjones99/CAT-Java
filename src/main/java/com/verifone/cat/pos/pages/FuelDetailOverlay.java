@@ -35,14 +35,6 @@ final class FuelDetailOverlay extends BasePage {
         return element(Locators.FUEL_POINT_DETAIL_OVERLAY_VIEW_MAIN_PANEL_FUNCTION_BUTTON_LABEL_N, index);
     }
 
-    BaseElement transactionStatus() {
-        return element(Locators.FUEL_POINT_DETAIL_OVERLAY_VIEW_MAIN_PANEL_TRANSACTION_PANEL_TRANS_STATUS_PANEL_TRANS_LBL);
-    }
-
-    BaseElement pumpStatus() {
-        return element(Locators.FUEL_POINT_DETAIL_OVERLAY_VIEW_MAIN_PANEL_PUMP_STATUS_PANEL_LABEL);
-    }
-
     /**
      * Press the visible function button whose label reads {@code label} (case and spacing
      * ignored). Returns false when none does. One look per slot, no wait for the label itself.
@@ -63,11 +55,6 @@ final class FuelDetailOverlay extends BasePage {
 
     void close() {
         element(Locators.FUEL_POINT_DETAIL_OVERLAY_VIEW_CLOSE_BUTTON).tap(null);
-    }
-
-    /** The overlay is up: its first prepay button is visible. */
-    void expectOpen(Duration timeout) {
-        prepay(1).expectVisible(timeout);
     }
 
     private static String normalise(String text) {

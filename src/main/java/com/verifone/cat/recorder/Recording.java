@@ -12,7 +12,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.validate.PyRepr;
 
 /**
@@ -39,7 +39,6 @@ import com.verifone.cat.validate.PyRepr;
  */
 public final class Recording {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<LinkedHashMap<String, Object>> OBJECT = new TypeReference<>() {};
 
     private final Path path;
@@ -160,13 +159,13 @@ public final class Recording {
     private static Map<String, Object> parse(Path path, int number, String raw) {
         Object value;
         try {
-            value = JSON.readValue(raw, Object.class);
+            value = Json.MAPPER.readValue(raw, Object.class);
         } catch (JsonProcessingException e) {
             throw new RecordingException(path + ":" + number + ": not JSON (" + e.getOriginalMessage() + ")", e);
         }
         if (!(value instanceof Map<?, ?>) || !((Map<?, ?>) value).containsKey("type")) {
             throw new RecordingException(path + ":" + number + ": a line must be an object with a 'type'");
         }
-        return JSON.convertValue(value, OBJECT);
+        return Json.MAPPER.convertValue(value, OBJECT);
     }
 }

@@ -1,6 +1,5 @@
 package com.verifone.cat.pos.pages;
 
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-import com.verifone.cat.pos.Locator;
 import com.verifone.cat.pos.Locators;
 import com.verifone.cat.pos.driver.DriverError;
 import com.verifone.cat.pos.driver.DriverTimeout;
@@ -123,7 +121,6 @@ public class Pos {
     private final ExpressPanel expressPanel;
     private final FuelPage fuelPanel;
     private final FuelDetailOverlay fuelDetail;
-    private final FuelGradeTab gradeTab;
     private final ItemPanel itemPanel;
     private final Overlay overlay;
     private final ReviewOverlay reviewOverlay;
@@ -165,7 +162,6 @@ public class Pos {
         this.expressPanel = new ExpressPanel(driver);
         this.fuelPanel = new FuelPage(driver);
         this.fuelDetail = fuelPanel.detail();
-        this.gradeTab = fuelPanel.gradeTab();
         this.itemPanel = new ItemPanel(driver);
         this.overlay = new Overlay(driver);
         this.reviewOverlay = new ReviewOverlay(driver);
@@ -193,14 +189,6 @@ public class Pos {
 
     public FuelPage fuelPanel() {
         return fuelPanel;
-    }
-
-    FuelDetailOverlay fuelDetail() {
-        return fuelDetail;
-    }
-
-    FuelGradeTab gradeTab() {
-        return gradeTab;
     }
 
     public ItemPanel itemPanel() {
@@ -373,7 +361,7 @@ public class Pos {
         BaseElement title = signOnScreen.openDrawerTitle();
         title.expectVisible(timeout);
         title.expectText(OPEN_DRAWER_TITLE_TEXT, false, timeout);
-        new Keypad(driver, KeypadNamespace.CALCULATOR).enter(TILL_OPENING_FLOAT, timeout);
+        calculatorKeypad.enter(TILL_OPENING_FLOAT, timeout);
     }
 
     private String loginPrompt(Duration timeout) {
@@ -427,20 +415,6 @@ public class Pos {
     }
 
     // -- EPS and table load -----------------------------------------------
-
-    /** The status strip's lines right now, first line first. It rotates, so one read is a sample. */
-    public List<String> systemMessages() {
-        List<String> messages = new ArrayList<>();
-        for (Locator label : List.of(Locators.SYSTEM_MESSAGES_PANEL_VIEW_LABEL1,
-                Locators.SYSTEM_MESSAGES_PANEL_VIEW_LABEL2)) {
-            for (String text : driver.visibleTexts(label)) {
-                if (!text.isEmpty()) {
-                    messages.add(text);
-                }
-            }
-        }
-        return messages;
-    }
 
     /** PATS's BuypassTblLoader.tblLoad: presses the table load and returns, menus left open. */
     public void downloadTables() {
@@ -700,8 +674,7 @@ public class Pos {
     }
 
     private boolean detailOpen() {
-        return driver.elementStates(Locators.FUEL_POINT_DETAIL_OVERLAY_VIEW_CLOSE_BUTTON).stream()
-                .anyMatch(PosDriver.ElementState::visible);
+        return driver.anyVisible(Locators.FUEL_POINT_DETAIL_OVERLAY_VIEW_CLOSE_BUTTON);
     }
 
     private boolean openDetail(int pump) {
@@ -719,9 +692,7 @@ public class Pos {
 
     /** OK any message a press raised. Its text, "" when none was up. */
     private String answerMessage() {
-        boolean okShown = driver.elementStates(Locators.OVERLAY_MSG_VIEW_OK_BTN).stream()
-                .anyMatch(PosDriver.ElementState::visible);
-        if (!okShown) {
+        if (!driver.anyVisible(Locators.OVERLAY_MSG_VIEW_OK_BTN)) {
             return "";
         }
         List<String> line1 = new ArrayList<>();
@@ -822,11 +793,6 @@ public class Pos {
     /** The transaction {@link #newestTlog} last waited for and read; null when it read the newest blind. */
     public String newestRead() {
         return newestRead;
-    }
-
-    /** Recovery ladder rung 0, before anything else runs. */
-    public Map<String, Path> captureEvidence(String label) {
-        return driver.capture(label);
     }
 
     /**

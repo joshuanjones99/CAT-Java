@@ -6,6 +6,8 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.pos.driver.PosText;
+
 /**
  * Text parsing for printed receipts: the serial path, and hardware-free fixtures. Ported from the
  * Python {@code parse_receipt_text} and {@code transaction_number}.
@@ -50,7 +52,7 @@ public final class ReceiptParser {
         String[] rawLines = text.replace("\r\n", "\n").split("\n", -1);
         for (int index = 0; index < rawLines.length; index++) {
             String raw = rawLines[index];
-            String line = ReceiptText.normalise(raw);
+            String line = PosText.normalise(raw);
             if (line.isEmpty()) {
                 continue;
             }
@@ -59,12 +61,12 @@ public final class ReceiptParser {
                 lines.add(ReceiptLine.ofRaw(index, line));
                 continue;
             }
-            String body = ReceiptText.normalise(amount.group("body"));
-            String amountText = ReceiptText.normalise(amount.group("amount"));
+            String body = PosText.normalise(amount.group("body"));
+            String amountText = PosText.normalise(amount.group("amount"));
             String quantity = "";
             Matcher qty = QTY.matcher(stripTrailing(amount.group("body")));
             if (qty.lookingAt()) {
-                body = ReceiptText.normalise(qty.group("description"));
+                body = PosText.normalise(qty.group("description"));
                 quantity = qty.group("quantity");
             }
             lines.add(new ReceiptLine(index, body, amountText, quantity, ""));

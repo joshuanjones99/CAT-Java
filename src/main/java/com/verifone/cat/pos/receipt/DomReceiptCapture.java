@@ -9,6 +9,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.verifone.cat.pos.driver.PosText;
+
 /**
  * Reads the on-screen receipt through the {@code ReceiptView_*} item-line families. Ported from
  * the Python {@code petrotest.pos.receipt.DomReceiptCapture} (DESIGN.md 5.3).
@@ -97,7 +99,7 @@ public final class DomReceiptCapture implements ReceiptSource {
             if (!match.find()) {
                 continue;
             }
-            out.put(Integer.parseInt(match.group(1)), ReceiptText.normalise(
+            out.put(Integer.parseInt(match.group(1)), PosText.normalise(
                     element.text() == null ? "" : element.text()));
         }
         return new TreeMap<>(out);

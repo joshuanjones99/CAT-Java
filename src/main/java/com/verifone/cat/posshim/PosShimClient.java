@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.verifone.cat.core.Json;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceProtocolError;
 import com.verifone.cat.devices.DeviceUnavailable;
@@ -52,7 +53,7 @@ public final class PosShimClient {
     /** 503 codes that mean the shim is up and the POS is not talking to it. */
     private static final Set<String> RIG_FAULT_CODES = Set.of("no-clients", "no-state", "client-not-drivable");
 
-    private static final ObjectMapper JSON = new ObjectMapper()
+    private static final ObjectMapper JSON = Json.MAPPER.copy()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
