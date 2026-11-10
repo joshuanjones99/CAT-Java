@@ -29,6 +29,7 @@ import com.verifone.cat.authoring.Session;
 import com.verifone.cat.authoring.SessionException;
 import com.verifone.cat.core.CatHome;
 import com.verifone.cat.launch.LaunchConfig;
+import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
 
@@ -122,7 +123,7 @@ final class AuthoringService {
      * replaying through the Run page's {@code run} service with the Config tab's choices.
      */
     static AuthoringService standard(RunService run, ConfigForm form) {
-        AuthoringRuns runs = AuthoringRuns.over(run, form, AuthoringRuns.resultsRoot(System.getenv()));
+        AuthoringRuns runs = AuthoringRuns.over(run, form, ReportPaths.resultsRoot(System.getenv()));
         Path fallback = CatHome.java().resolve("authoring");
         return new AuthoringService(Session.authoringRoot(System.getenv(), fallback), ReplayGate.defaultRoot(),
                 () -> AtlassianClient.forCredentialsFile(AtlassianCredentials.defaultPath(), JIRA_TIMEOUT), runs,

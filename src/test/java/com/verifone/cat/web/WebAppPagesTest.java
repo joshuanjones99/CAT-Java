@@ -35,8 +35,6 @@ import io.javalin.Javalin;
  */
 class WebAppPagesTest {
 
-    private static final String DASH = "—";
-
     @TempDir
     Path tmp;
 
@@ -218,13 +216,10 @@ class WebAppPagesTest {
     @Test
     void headingsAndSubtitlesAreEscaped() {
         String layout = Layout.page(Section.RUN, "<script>alert(1)</script>", "");
-        String placeholder = Placeholder.html("<b>x</b>", "a<b>c</b>");
         String pos = PosPage.body("<img src=x onerror=1>", "http://\"><svg>");
 
         assertFalse(layout.contains("<script>alert"), layout);
         assertTrue(layout.contains("&lt;script&gt;alert(1)&lt;/script&gt;"), layout);
-        assertFalse(placeholder.contains("<b>x</b>"), placeholder);
-        assertFalse(placeholder.contains("<b>c</b>"), placeholder);
         assertFalse(pos.contains("<img"), pos);
         assertFalse(pos.contains("<svg"), pos);
     }
@@ -235,13 +230,6 @@ class WebAppPagesTest {
         for (Section s : Section.values()) {
             assertTrue(s.path().startsWith("/"), s.path());
         }
-    }
-
-    private void assertPlaceholder(String path, String module) throws Exception {
-        String html = get(path).body();
-
-        assertTrue(html.contains("Not built yet"), path + ": " + html);
-        assertTrue(html.contains("Ported from " + module + " " + DASH + " not built yet"), path + ": " + html);
     }
 
     private static int count(String text, String needle) {

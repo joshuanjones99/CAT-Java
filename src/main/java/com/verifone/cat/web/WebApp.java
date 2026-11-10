@@ -76,15 +76,10 @@ public final class WebApp {
     }
 
     /**
-     * As {@link #create(PosShimClient, String)}, for the rig the operator named with {@code --rig}: a rig
-     * name, or a path to a rig file, exactly as it was typed. The Run tab's Start launches on it and its
-     * preflight checks it. Empty means no rig, and Start is refused.
+     * As {@link #create(PosShimClient, String)}, for the rig the operator named with {@code --rig} (a rig name, or a
+     * path to a rig file, exactly as it was typed; the Run tab's Start launches on it and its preflight checks it;
+     * empty means no rig, and Start is refused), with the Config tab's form injected (tests use a temp file).
      */
-    public static Javalin create(PosShimClient shim, String title, String rig) {
-        return create(shim, title, rig, ConfigForm.standard());
-    }
-
-    /** As {@link #create(PosShimClient, String, String)}, with the Config tab's form injected (tests use a temp file). */
     public static Javalin create(PosShimClient shim, String title, String rig, ConfigForm configForm) {
         return create(shim, title, null, configForm, RunService.standard(rig, System.getenv()), null);
     }
@@ -366,11 +361,6 @@ public final class WebApp {
 
     public static Javalin start(PosShimClient shim, String title, int port) {
         return create(shim, title).start(BIND_HOST, port);
-    }
-
-    /** As {@link #start(PosShimClient, String, int)}, for the rig named with {@code --rig}. See {@link #create(PosShimClient, String, String)}. */
-    public static Javalin start(PosShimClient shim, String title, String rig, int port) {
-        return create(shim, title, rig).start(BIND_HOST, port);
     }
 
     private static void fragment(Context ctx, Supplier<String> render) {

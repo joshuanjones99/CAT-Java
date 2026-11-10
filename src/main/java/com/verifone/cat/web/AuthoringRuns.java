@@ -5,7 +5,6 @@ import java.nio.file.Path;
 import com.verifone.cat.authoring.SessionException;
 import com.verifone.cat.launch.LaunchConfig;
 import com.verifone.cat.launch.UpgradeMode;
-import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.runconfig.ConfigForm;
 import com.verifone.cat.runservice.RunService;
 import com.verifone.cat.runservice.RunStart;
@@ -124,10 +123,5 @@ interface AuthoringRuns {
                 return resultsRoot;
             }
         };
-    }
-
-    /** The results root for {@code env}: {@code CAT_RESULTS_DIR}, else the documented default. */
-    static Path resultsRoot(java.util.Map<String, String> env) {
-        return ReportPaths.resultsRoot(env);
     }
 }

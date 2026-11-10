@@ -113,8 +113,17 @@ public final class RunStart {
         if (form.plans().isEmpty()) {
             return refused("Nothing to run yet: tick a test plan on the Config tab.", false);
         }
-        Rig rig = loadRig(ctx);
-        String rigProblem = rig == null && ctx.rigsDir() != null ? rigProblem(ctx) : "";
+        // One read of the rig file: the rig, or why it will not load (no rigs folder reads none, and is no problem).
+        Rig rig = null;
+        String rigProblem = "";
+        if (ctx.rigsDir() != null) {
+            try {
+                rig = RigLoader.load(ctx.rig(), ctx.rigsDir());
+            } catch (RuntimeException e) {
+                rigProblem = "rig '" + ctx.rig() + "' will not load: " + e.getClass().getSimpleName() + ": "
+                        + e.getMessage();
+            }
+        }
         List<PlanRequirements> rows = ctx.catalogue() == null ? List.of()
                 : ctx.catalogue().requirements(PlanCatalogue.Mode.CACHE_ONLY).rows();
         LaunchDefaults.Picked picked = LaunchDefaults.pick(form.plans(), rows, rig);
@@ -158,15 +167,6 @@ public final class RunStart {
             return RigLoader.load(ctx.rig(), ctx.rigsDir());
         } catch (RuntimeException e) {
             return null;
-        }
-    }
-
-    private static String rigProblem(Context ctx) {
-        try {
-            RigLoader.load(ctx.rig(), ctx.rigsDir());
-            return "";
-        } catch (RuntimeException e) {
-            return "rig '" + ctx.rig() + "' will not load: " + e.getClass().getSimpleName() + ": " + e.getMessage();
         }
     }
 
