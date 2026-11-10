@@ -1,5 +1,6 @@
 package com.verifone.cat.launch;
 
+import com.verifone.cat.core.CatHome;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -37,7 +38,7 @@ public final class VatsSystemChecks {
             return List.of();
         }
         Path tools = ToolsRoot.resolve(environ.get(ToolsRoot.ENV), null);
-        Btt btt = Btt.forThisMachine(Path.of(System.getProperty("user.home")), tools);
+        Btt btt = Btt.forThisMachine(CatHome.user(), tools);
         return new VatsReadiness(tools.resolve(VatsSdk.CONNECTOR_DIR), btt).checks(rig, TIMEOUT);
     }
 }

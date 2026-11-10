@@ -49,13 +49,7 @@ import com.verifone.cat.provision.ProvisionRunner;
 import com.verifone.cat.provision.Stage;
 import com.verifone.cat.provision.transport.JschTransport;
 import com.verifone.cat.rig.Rig;
-import com.verifone.cat.sims.Events;
-import com.verifone.cat.sims.Registry;
 import com.verifone.cat.sims.SimContext;
-import com.verifone.cat.sims.SimEntry;
-import com.verifone.cat.sims.SimProcess;
-import com.verifone.cat.sims.SimStatus;
-import com.verifone.cat.sims.Supervisor;
 import com.verifone.cat.sims.ToolsRoot;
 
 /**
@@ -159,14 +153,6 @@ interface CommanderStages {
      */
     default boolean cloudTunnel(String rigName, Rig rig, Say say) {
         throw new StageUnavailable(CLOUD_TUNNEL_MODULE, CLOUD_TUNNEL_MISSING);
-    }
-
-    /**
-     * Whether {@link #cloudTunnel} is there to run. Asked before step 4 installs anything, so a run onboarding to
-     * Commander Connect stops before a PSI install wipes the devices, not after. True for {@link Real}.
-     */
-    default boolean cloudTunnelPorted() {
-        return false;
     }
 
     /** {@code petrotest commander-connect}: onboards the Commander. */
@@ -315,9 +301,6 @@ interface CommanderStages {
     /** The production stages. */
     final class Real implements CommanderStages {
 
-        /** The Python's {@code SIM_START_TIMEOUT}, for a restart. */
-        static final Duration SIM_START_TIMEOUT = Duration.ofSeconds(60);
-
         private final Map<String, String> environ;
 
         Real(Map<String, String> environ) {
@@ -462,11 +445,6 @@ interface CommanderStages {
             }
         }
 
-        @Override
-        public boolean cloudTunnelPorted() {
-            return true;
-        }
-
         /** {@link TunnelStart}: adopt a running {@code cloud-tunnel} for the rig, or start one and wait for "up". */
         @Override
         public boolean cloudTunnel(String rigName, Rig rig, Say say) {
@@ -600,11 +578,7 @@ interface CommanderStages {
 
         @Override
         public Path pinpadLog(Rig rig) {
-            Optional<SimEntry> entry = Registry.byName(StartSimulatorsStep.PETRO_SIMULATOR);
-            if (entry.isEmpty() || entry.get().log() == null || entry.get().log().isBlank()) {
-                return null;
-            }
-            return sims(rig).cwdFor(entry.get()).resolve(entry.get().log());
+            return StartSimulatorsStep.petroLog(sims(rig));
         }
 
         /**
@@ -614,23 +588,7 @@ interface CommanderStages {
          */
         @Override
         public String restartSimulator(RunContext ctx, String simulator, StepEmitter step) {
-            List<SimProcess> owned = ctx.simulators().stream()
-                    .filter(p -> p.entry().name().equals(simulator) && p.spawned()).toList();
-            if (owned.isEmpty()) {
-                return notStartedByCat(simulator);
-            }
-            step.log("restarting " + simulator, "INFO");
-            Supervisor supervisor = ctx.supervisor();
-            supervisor.stop(owned, Supervisor.STOP_WAIT);
-            SimProcess fresh = supervisor.start(owned.get(0).entry(), StartSimulatorsStep.runSims(ctx), Events.NONE,
-                    "", "", SIM_START_TIMEOUT);
-            ctx.replaceSimulators(owned, fresh);
-            if (fresh.status().state() != SimStatus.State.READY) {
-                return simulator + " did not come back: " + fresh.status().state().label() + " — "
-                        + fresh.status().detail();
-            }
-            step.log(simulator + ": ready again", "INFO");
-            return "";
+            return StartSimulatorsStep.restart(ctx, step, simulator);
         }
 
         private SimContext sims(Rig rig) {

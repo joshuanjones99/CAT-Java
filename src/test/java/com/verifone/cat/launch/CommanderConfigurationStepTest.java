@@ -105,11 +105,6 @@ class CommanderConfigurationStepTest {
         }
 
         @Override
-        public boolean cloudTunnelPorted() {
-            return tunnelPorted;
-        }
-
-        @Override
         public boolean cloudTunnel(String rigName, Rig rig, Say say) {
             if (!tunnelPorted) {
                 return CommanderStages.super.cloudTunnel(rigName, rig, say);
@@ -590,14 +585,13 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void onboardingAskedForStopsUnavailableAtTheTunnelBeforeAnythingRuns() throws IOException {
+    void stagesWithoutATunnelStopAnOnboardingRunUnavailableAtTheTunnelBeforeTheInits() throws IOException {
         Stages stages = new Stages();
         stages.tunnelPorted = false;
         Outcome out = run(onboarding(new CommanderConnect("QAT", "lab@example.com", "1234567", "pw")), stages);
 
         assertFalse(out.keepGoing());
-        assertEquals(List.of(), stages.ran);
-        assertFalse(out.ctx().commanderReached(), "nothing touched the Commander");
+        assertEquals(List.of("provision", "commander-prep"), stages.ran);
         assertEquals(StepResult.FAILED, out.step().state());
         assertTrue(out.step().detail().startsWith("unavailable in CAT-Java: needs the cloud tunnel's start"),
                 out.step().detail());
@@ -897,32 +891,9 @@ class CommanderConfigurationStepTest {
     }
 
     @Test
-    void aNewInstallAskingForWhatCatJavaCannotDoStopsBeforeTheDownloadAndTheInstall() throws IOException {
-        // The onboarding's cloud tunnel would end the step after the PSI install wiped both devices. (Coverage was a
-        // second case until the coverage slice wired it, wave 16.)
-        Stages tunnel = new Stages();
-        tunnel.root = dir.resolve("builds");
-        tunnel.tunnelPorted = false;
-        Outcome onboarded = run(rigRun().upgradeMode(UpgradeMode.NEW_INSTALL)
-                .commanderBranch("Solutions").commanderBuild("134").commanderConnect(true).build(), tunnel);
-        assertFalse(onboarded.keepGoing());
-        assertEquals(List.of(), tunnel.ran);
-        assertEquals(SubstepOutcome.FAILED, onboarded.rows().get("cloud-tunnel"));
-        assertTrue(onboarded.ctx().commanderLoginReady(), "no install started");
-    }
-
-    @Test
-    void theProductionTunnelIsPortedAndAnUnportedOneIsCheckedUpFront() {
-        assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
-        LaunchConfig onboarding = rigRun().commanderConnect(true).coverage(true)
-                .build();
-        // [coverage slice, wave 16] coverage is wired, so only the tunnel is a gap.
-        assertEquals(List.of("cloud-tunnel"), CommanderConfigurationStep.unported(onboarding, false)
-                .stream().map(CommanderConfigurationStep.Gap::row).toList());
-        assertEquals(List.of(), CommanderConfigurationStep.unported(onboarding, true).stream()
-                .map(CommanderConfigurationStep.Gap::row).toList());
-        assertEquals(List.of(), CommanderConfigurationStep.unported(new LaunchConfig.Builder("").fakePos(true)
-                .commanderConnect(true).coverage(true).build(), false));
+    void theProductionStagesStartTheTunnelThemselves() {
+        assertTrue(java.util.Arrays.stream(CommanderStages.real(Map.of()).getClass().getDeclaredMethods())
+                .anyMatch(m -> m.getName().equals("cloudTunnel")));
     }
 
     @Test
@@ -1115,7 +1086,6 @@ class CommanderConfigurationStepTest {
         // pinpad-clear is ported (wave 16, devices.vats.PinpadClear): the real stages implement it themselves.
         assertTrue(java.util.Arrays.stream(CommanderStages.real(Map.of()).getClass().getDeclaredMethods())
                 .anyMatch(m -> m.getName().equals("pinpadClear")));
-        assertTrue(CommanderStages.real(Map.of()).cloudTunnelPorted());
     }
 
     // -- wave 16: provision_register, the execution mode, the pos-shim build ------------------------------------------

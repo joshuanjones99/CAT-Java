@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,13 +15,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.WeakHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.fep.FepsimLegacy;
 import com.verifone.cat.fep.SecondaryFep;
 import com.verifone.cat.pats.PatsCaseLoader;
@@ -76,8 +73,7 @@ import com.verifone.cat.sims.base.JavaSets;
  *
  * <p>Deviations: the run's cases are collected in step 5 here, so the production step does not know whether they
  * drive pumps and goes on with a WARNING ({@link PetroPorts}); a FEPSIM example missing from the suite fails the step
- * naming it (the Python raises out of {@code _supersede}); the run's FEP state is kept here, keyed by the run
- * ({@link #hosts}), until {@link RunContext} carries it.
+ * naming it (the Python raises out of {@code _supersede}).
  *
  * <p>The BTT card server for a {@code pinpad: vats} rig belongs to the VATS port: {@link CardServer} is its hook,
  * run first as the Python's {@code _start_card_server} is; until it is bound such a rig run is unavailable here.
@@ -128,8 +124,6 @@ final class StartSimulatorsStep implements LaunchStep {
             marks = Map.copyOf(marks);
         }
     }
-
-    private static final Map<RunContext, Hosts> HOSTS = Collections.synchronizedMap(new WeakHashMap<>());
 
     /** Whether the run's cases drive a pump, or empty when that is not known yet. */
     private final Function<RunContext, Optional<Boolean>> drivesPumps;
@@ -254,7 +248,7 @@ final class StartSimulatorsStep implements LaunchStep {
         JavaSets.JavaSet java = JavaSets.javaForRun(ctx.simsBase());
         SimContext sims = SimContext.forRig(toolsRoot == null ? ToolsRoot.resolve(null) : toolsRoot, rig)
                 .withJavaDir(java.target());
-        HOSTS.put(ctx, new Hosts(sims, List.of(), List.of(), Map.of()));
+        ctx.fepHosts(new Hosts(sims, List.of(), List.of(), Map.of()));
 
         Optional<List<SimEntry>> kept = supersede(ctx, step, entries, sims);
         if (kept.isEmpty()) {
@@ -554,7 +548,7 @@ final class StartSimulatorsStep implements LaunchStep {
             if (down.isEmpty() || System.nanoTime() - deadline >= 0) {
                 return down;
             }
-            pause(listenerPoll);
+            Waits.pause(listenerPoll);
         }
     }
 
@@ -596,26 +590,33 @@ final class StartSimulatorsStep implements LaunchStep {
      * "" when it is ready again, else why not (the step's detail is set to it). An adopted one is never stopped (D9).
      */
     static String restartSimulator(RunContext ctx, StepEmitter step, SimEntry entry) {
-        List<SimProcess> owned = ctx.simulators().stream()
-                .filter(p -> p.entry().name().equals(entry.name()) && p.spawned()).toList();
-        if (owned.isEmpty()) {
-            String why = entry.name() + " was not started by CAT (adopted, or not running); restart it by hand and "
-                    + "re-run — CAT stops only what it started (D9)";
+        String why = restart(ctx, step, entry.name());
+        if (!why.isEmpty()) {
             step.setDetail(why);
-            return why;
         }
-        step.log("restarting " + entry.name(), "INFO");
+        return why;
+    }
+
+    /**
+     * {@link #restartSimulator} by name, the step's detail left alone: in the simulators' context step 3 used
+     * ({@link #runSims}: its Java set and TLS port), the fresh process recorded on the run in place of the old one.
+     */
+    static String restart(RunContext ctx, StepEmitter step, String simulator) {
+        List<SimProcess> owned = ctx.simulators().stream()
+                .filter(p -> p.entry().name().equals(simulator) && p.spawned()).toList();
+        if (owned.isEmpty()) {
+            return CommanderStages.notStartedByCat(simulator);
+        }
+        step.log("restarting " + simulator, "INFO");
         Supervisor supervisor = ctx.supervisor();
         supervisor.stop(owned, Supervisor.STOP_WAIT);
         SimProcess fresh = supervisor.start(owned.get(0).entry(), runSims(ctx), Events.NONE, "", "", START_TIMEOUT);
         ctx.replaceSimulators(owned, fresh);
         if (fresh.status().state() != SimStatus.State.READY) {
-            String why = entry.name() + " did not come back: " + fresh.status().state().label() + " — "
+            return simulator + " did not come back: " + fresh.status().state().label() + " — "
                     + fresh.status().detail();
-            step.setDetail(why);
-            return why;
         }
-        step.log(entry.name() + ": ready again", "INFO");
+        step.log(simulator + ": ready again", "INFO");
         return "";
     }
 
@@ -623,7 +624,7 @@ final class StartSimulatorsStep implements LaunchStep {
 
     /** This run's FEP host decisions; none before step 3 ran. */
     static Hosts hosts(RunContext ctx) {
-        Hosts hosts = HOSTS.get(ctx);
+        Hosts hosts = ctx.fepHosts();
         if (hosts != null) {
             return hosts;
         }
@@ -633,8 +634,8 @@ final class StartSimulatorsStep implements LaunchStep {
     }
 
     private static void update(RunContext ctx, java.util.function.UnaryOperator<Hosts> change) {
-        synchronized (HOSTS) {
-            HOSTS.put(ctx, change.apply(hosts(ctx)));
+        synchronized (ctx) {
+            ctx.fepHosts(change.apply(hosts(ctx)));
         }
     }
 
@@ -712,17 +713,6 @@ final class StartSimulatorsStep implements LaunchStep {
 
     // ----- helpers ---------------------------------------------------------------------------------------------
 
-    /** The default card server hook: a {@code pinpad: vats} rig run is unavailable until the VATS port binds one. */
-    static boolean cardServerNotPorted(RunContext ctx, StepEmitter step) {
-        Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
-        if (!ctx.config().fakePos() && rig != null && rig.pinpad() == Rig.Pinpad.VATS) {
-            return step.unavailable("src/cat/launch/steps/simulators.py",
-                    "the BTT card server for a pinpad: vats rig (petrotest.devices.vats.btt), which starts "
-                            + "before the selection is read");
-        }
-        return true;
-    }
-
     /** The Python's {@code java_for_rig} line, from the base step 1 read. */
     static String javaWhy(JavaSets.JavaSet java, String base) {
         boolean known = base != null && JavaSets.baseMajor(base).isPresent();
@@ -737,15 +727,6 @@ final class StartSimulatorsStep implements LaunchStep {
             return true;
         } catch (IOException | IllegalArgumentException e) {
             return false;
-        }
-    }
-
-    /** A bounded pause (no {@code Thread.sleep} in main code). */
-    private static void pause(Duration duration) {
-        try {
-            new CountDownLatch(1).await(duration.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
     }
 

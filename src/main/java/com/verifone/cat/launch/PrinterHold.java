@@ -1,5 +1,6 @@
 package com.verifone.cat.launch;
 
+import com.verifone.cat.core.Waits;
 import com.verifone.cat.devices.DeviceError;
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.devices.printer.TopazPrinter;
@@ -205,7 +206,7 @@ final class PrinterHold {
 
         private void loop() {
             while (!stopped) {
-                java.util.concurrent.locks.LockSupport.parkNanos(POLL.toNanos());
+                Waits.pause(POLL);
                 relay();
             }
         }

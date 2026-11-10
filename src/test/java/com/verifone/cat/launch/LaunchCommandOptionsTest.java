@@ -230,7 +230,7 @@ class LaunchCommandOptionsTest {
                 new String[] {"--rig", "bench", "--plan", "PETROCORE-5"}), paths, LastConfig.none(), Map.of(),
                 sink(new ByteArrayOutputStream()));
         // run_plan hands the defaults over; run start (cat.launch.requirements.apply_requirements) applies the row.
-        assertEquals(LaunchCommand.defaultSimulators(), fromRow.simulators());
+        assertEquals(LaunchDefaults.defaultSimulators(), fromRow.simulators());
         Path folder = dir.resolve("apply");
         RunContext ctx = new RunContext(fromRow, paths, "ffffffffffff", folder,
                 RunEvents.open(folder, java.time.Clock.systemUTC()), new PauseGate(), java.time.Clock.systemUTC());
@@ -254,7 +254,7 @@ class LaunchCommandOptionsTest {
         LaunchConfig rig = LaunchCommand.resolve(LaunchCommand.Options.parse(
                 new String[] {"--rig", "bench", "--plan", "PETROCORE-5"}), paths, LastConfig.none(), Map.of(),
                 sink(new ByteArrayOutputStream()));
-        assertEquals(LaunchCommand.defaultSimulators(), rig.simulators());
+        assertEquals(LaunchDefaults.defaultSimulators(), rig.simulators());
         assertFalse(rig.simulators().isEmpty());
 
         LaunchConfig fake = LaunchCommand.resolve(LaunchCommand.Options.parse(
@@ -296,7 +296,7 @@ class LaunchCommandOptionsTest {
                 """);
 
         assertEquals(List.of("topaz102", "scale"),
-                LaunchCommand.defaultConnections(RigLoader.loadFile(file).rig()));
-        assertEquals(List.of(), LaunchCommand.defaultConnections(null));
+                LaunchDefaults.defaultConnections(RigLoader.loadFile(file).rig()));
+        assertEquals(List.of(), LaunchDefaults.defaultConnections(null));
     }
 }

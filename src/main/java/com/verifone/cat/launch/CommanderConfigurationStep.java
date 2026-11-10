@@ -33,12 +33,6 @@ import com.verifone.cat.rig.Rig;
  *
  * <p>The order, and what each part is here:
  * <ol>
- *   <li>Before anything is installed, on a rig run: what the run asks for that CAT-Java does not have
- *       ({@link #unported}: the cloud tunnel of a run onboarding to Commander Connect) fails the step as
- *       unavailable, one failed row each. JaCoCo coverage is wired ({@link CoverageLaunch#prepare}, before
- *       {@code provision}). Deviation: the Python reaches these after the
- *       install; CAT-Java cannot do them, so it stops before a PSI install wipes both devices for a run that would
- *       end there anyway. System Checks fails the same run first.</li>
  *   <li>The Commander build download and install ({@link InstallCommanderBuild}, the Python's
  *       {@code install_commander_build}): the chosen build downloaded, the PSI install, and {@code psi-init
  *       --no-pairing}. AU and VHQ are unavailable.</li>
@@ -122,7 +116,7 @@ final class CommanderConfigurationStep implements LaunchStep {
     static final String INSTALLED_BUILD_ROW = "Installed build";
 
     /** The simulator {@code payment-links}' drift fix leaves deaf: the Python's {@code PAYMENT_HOST}. */
-    static final String PAYMENT_HOST = "BUYPASS Host";
+    static final String PAYMENT_HOST = StartSimulatorsStep.PAYMENT_HOST;
 
     /** The skipped row when the run does not onboard, with the Python's reason for doing nothing. */
     static final String NO_ONBOARDING = "not asked for: the run does not onboard to Commander Connect";
@@ -149,46 +143,9 @@ final class CommanderConfigurationStep implements LaunchStep {
         return STAGE_LABELS.getOrDefault(command, command);
     }
 
-    /**
-     * Something a rig run asks for that CAT-Java does not have: its row, and what {@link StepEmitter#unavailable} says.
-     */
-    record Gap(String row, String pythonModule, String missing) {
-
-        /** The row's detail and the step's failure: the {@link StageUnavailable} wording. */
-        String detail() {
-            return "unavailable in CAT-Java: needs " + missing + " (Python: " + pythonModule + ")";
-        }
-    }
-
-    /**
-     * What a rig run of {@code config} asks for that CAT-Java does not have, in step 4's order: JaCoCo coverage, then
-     * the cloud tunnel of a run onboarding to Commander Connect (unless {@code tunnelPorted}). Empty under
-     * {@code --fake-pos}, which touches no device. Step 1 and step 4 both check it, before anything is installed.
-     */
-    static List<Gap> unported(LaunchConfig config, boolean tunnelPorted) {
-        if (config.fakePos()) {
-            return List.of();
-        }
-        List<Gap> gaps = new java.util.ArrayList<>();
-        // [coverage slice, wave 16] JaCoCo coverage is wired (launch.CoverageLaunch), so it is no longer a gap.
-        if (config.commanderConnect() && !tunnelPorted) {
-            gaps.add(new Gap("cloud-tunnel", CommanderStages.CLOUD_TUNNEL_MODULE, CommanderStages.CLOUD_TUNNEL_MISSING));
-        }
-        return List.copyOf(gaps);
-    }
-
     @Override
     public boolean run(RunContext ctx, StepEmitter step) {
         LaunchConfig config = ctx.config();
-        // 0. Before anything destructive: a run that would end unavailable after the PSI install ends here instead.
-        List<Gap> gaps = unported(config, stages.cloudTunnelPorted());
-        if (!gaps.isEmpty()) {
-            for (Gap gap : gaps) {
-                step.substep(gap.row(), SubstepOutcome.FAILED, gap.detail(), 0.0);
-            }
-            Gap first = gaps.get(0);
-            return step.unavailable(first.pythonModule(), first.missing());
-        }
         ctx.commanderReached(true);
         Rig rig = ctx.rig() == null ? null : ctx.rig().rig();
 
@@ -387,7 +344,7 @@ final class CommanderConfigurationStep implements LaunchStep {
             ready.err(e.getClass().getSimpleName() + ": " + e.getMessage());
             isReady = false;
         }
-        double elapsed = (System.nanoTime() - started) / 1_000_000_000.0;
+        double elapsed = elapsed(started);
         if (isReady) {
             step.substep(label, SubstepOutcome.PASSED, "", elapsed);
         } else {

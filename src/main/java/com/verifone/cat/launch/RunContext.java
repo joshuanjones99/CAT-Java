@@ -67,6 +67,9 @@ public final class RunContext {
     private volatile AutoCloseable heldPrinter;
     private volatile Long epsLogMark;
     private volatile CommanderOptions commanderOptions;
+    private volatile StartSimulatorsStep.Hosts fepHosts;
+    private volatile CoverageLaunch.Ops coverageOps;
+    private volatile boolean coverageReady;
 
     /**
      * What step 4 reads from the run's {@link LaunchConfig} for its later stages: the Config tab's Secondary FEPs (the
@@ -457,6 +460,36 @@ public final class RunContext {
 
     void epsLogMark(Long value) {
         epsLogMark = value;
+    }
+
+    /**
+     * What step 3 decided about the FEP hosts, or null before it ran; read through {@link StartSimulatorsStep#hosts},
+     * which answers for a run step 3 has not reached.
+     */
+    StartSimulatorsStep.Hosts fepHosts() {
+        return fepHosts;
+    }
+
+    void fepHosts(StartSimulatorsStep.Hosts hosts) {
+        fepHosts = hosts;
+    }
+
+    /** What JaCoCo coverage reaches the world through this run, or null until asked ({@link CoverageLaunch}). */
+    CoverageLaunch.Ops coverageOps() {
+        return coverageOps;
+    }
+
+    void coverageOps(CoverageLaunch.Ops ops) {
+        coverageOps = ops;
+    }
+
+    /** Whether step 4's coverage {@code prepare} left every device ready (the Python's {@code coverage_ready}). */
+    boolean coverageReady() {
+        return coverageReady;
+    }
+
+    void coverageReady(boolean ready) {
+        coverageReady = ready;
     }
 
     /** What step 4 reads from the config ({@link CommanderOptions#of}), unless a caller set its own. */

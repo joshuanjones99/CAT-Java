@@ -1,12 +1,8 @@
 package com.verifone.cat;
 
-import java.time.Duration;
-import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
 
@@ -15,12 +11,8 @@ import com.verifone.cat.cloudtunnel.CloudTunnelCommand;
 import com.verifone.cat.commander.connect.CommanderConnectCommand;
 import com.verifone.cat.commander.snapshot.CommanderSnapshotCommand;
 import com.verifone.cat.launch.LaunchCommand;
-import com.verifone.cat.posshim.PosShimClient;
 import com.verifone.cat.preflight.PreflightCommand;
 import com.verifone.cat.provision.ProvisionCommand;
-import com.verifone.cat.rig.Rig;
-import com.verifone.cat.rig.RigLoader;
-import com.verifone.cat.web.WebApp;
 import com.verifone.cat.upgrade.PsiInitCommand;
 import com.verifone.cat.commander.emv.EmvKeysCommand;
 import com.verifone.cat.xray.XraySidecar;
@@ -33,20 +25,16 @@ import com.verifone.cat.xray.XraySidecar;
  * {@code xray-attach}) runs that command instead
  * and exits with its code.
  *
- * <p>Reads the rig, points a {@link PosShimClient} at the register's shim, and serves
- * the web UI on localhost. The web UI is told the rig's name, as typed, so its Start run launches on it.
+ * <p>The web UI's own flags, and what it does on start, are {@link com.verifone.cat.web.WebServe}'s.
  */
 public final class Main {
-
-    static final int DEFAULT_PORT = 8090;
-    static final Duration SHIM_TIMEOUT = Duration.ofSeconds(5);
 
     /** One command word: the class that runs it, and how. */
     record Command(Class<?> type, ToIntFunction<String[]> run) {
     }
 
     /**
-     * Every command word, in the usage's order. Each Python {@code petrotest <command>} that is ported is a
+     * Every command word. Each Python {@code petrotest <command>} that is ported is a
      * {@code <Thing>Command.run(String[])} here. Step 4's commands (wave 16): {@code commander-prep},
      * {@code commander-init}, {@code payment-links}, {@code register-app}, {@code payment-ready},
      * {@code commander-trust}, {@code secondary-fep}, {@code csite-reset}, {@code cloud-snapshot},
@@ -99,45 +87,6 @@ public final class Main {
         return Collections.unmodifiableMap(table);
     }
 
-    private static final String USAGE = """
-            usage: cat-java [web] --rig <name|file.yaml> [--register <id>] [--port <n>] [--shim-port <n>]
-                   cat-java preflight --rig <name|file.yaml> [--register <id>] [--shim-port <n>] [--repair]
-                   cat-java launch --rig <name|file.yaml> [--plan <key>...]... [--upgrade <mode>] [--exec dev|BDD]
-                                   [--no-xray] [--no-coverage] [--cc-onboard] [--fep <name>]... (launch --help)
-                   cat-java provision --rig <name> [--force] [--no-stage] [--payload-root <dir>]
-                   cat-java xray --run <run-id> [--results-root <dir>] [--once] [--dry-run]
-                   cat-java close-day --rig <name|file.yaml> ...
-                   cat-java commander-snapshot ACTION ...
-                   cat-java commander-connect --rig <name> --lab <lab> --email <e> --service-id <id> ...
-                   cat-java cloud-tunnel --rig <name> [--stop] [--force] [--no-gateway]
-
-              web                 the default: the web UI (the word is optional)
-              preflight           check the rig (and with --repair, repair it); exits 0 when testable
-              launch              one run, headless, through the seven steps (run_plan's flags); exits 0 only
-                                  when every step completed
-              provision           push, verify and stamp the pos-shim payload on every target; exits 0 when provisioned
-              xray                the Xray reporting sidecar for a run; exits 0 whatever Xray did
-              close-day           close the Commander's day (petrotest close-day)
-              commander-snapshot  capture, restore or check a Commander config snapshot (petrotest commander-snapshot)
-              commander-connect   onboard the Commander to Commander Connect (petrotest commander-connect)
-              cloud-tunnel        the Commander's cloud tunnel (petrotest cloud-tunnel)
-              commander-prep, commander-init, payment-links, register-app, payment-ready, commander-trust,
-              secondary-fep, csite-reset, cloud-snapshot
-                                  step 4's stages one at a time, flags as petrotest's (each takes --help)
-              build-pos-shim      compile bridge/pos-shim into payload/pos (tools/build_pos_shim.py)
-              install-resume      carry an interrupted PSI install on from its root-access push to pairing
-              fetch-sims          stage the Java 17 sets and every simulator not yet staged (cat-term fetch-sims)
-              record              watch the POS page and write each tap to a recording (petrotest record)
-              generate            a recording as an authored .feature case (petrotest generate)
-              steps               list the step library, or check .feature cases against it (petrotest steps)
-              authoring           an Authoring session from the command line (python -m cat.authoring)
-              publish             commit a suite to a local petroapps branch (petrotest publish)
-              --rig        a rig in $PETROTEST_RIGS_DIR (default C:\\gitrepos\\CAT\\rigs), or a rig file
-              --register   which register's shim to use; default the rig's first
-              --port       the web UI's port on 127.0.0.1; default 8090
-              --shim-port  pos-shim's port on the register; default 8801
-            """;
-
     private Main() {}
 
     /**
@@ -153,88 +102,5 @@ public final class Main {
         // The Python's `catt web` serve(): flags, browser, auto-close, web log, setup on start (wave 16, WebServe).
         System.exit(com.verifone.cat.web.WebServe.run(
                 argv.length > 0 && "web".equals(argv[0]) ? Arrays.copyOfRange(argv, 1, argv.length) : argv));
-    }
-
-    /** The pre-wave-16 start (a pos_shim rig's register only); kept for reference, no longer called. */
-    @SuppressWarnings("unused")
-
-    private static void serveWeb(String[] argv) {
-        Options options;
-        try {
-            options = Options.parse(List.of(argv));
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            System.err.print(USAGE);
-            System.exit(2);
-            return;
-        }
-
-        Rig rig;
-        Rig.Register register;
-        try {
-            rig = RigLoader.load(options.rig, RigLoader.rigsDir(System.getenv()));
-            register = rig.register(options.register);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            System.exit(2);
-            return;
-        }
-        if (!rig.posShim()) {
-            System.err.println("Rig '" + rig.name() + "' does not set pos_shim: true, so its register has no shim "
-                    + "to read. Provision the shim with the Python CAT (petrotest provision) first.");
-            System.exit(2);
-            return;
-        }
-
-        PosShimClient shim = new PosShimClient(register.host(), options.shimPort, null, SHIM_TIMEOUT);
-        String title = "CAT-Java: " + rig.name() + " / " + register.id();
-        WebApp.start(shim, title, options.rig, options.port);
-        System.out.println(title + " on http://" + WebApp.BIND_HOST + ":" + options.port + "/ (shim " + shim.baseUri() + ")");
-    }
-
-    static final class Options {
-        String rig;
-        String register;
-        int port = DEFAULT_PORT;
-        int shimPort = PosShimClient.DEFAULT_SHIM_PORT;
-
-        static Options parse(List<String> argv) {
-            Options o = new Options();
-            Deque<String> args = new ArrayDeque<>(argv);
-            while (!args.isEmpty()) {
-                String flag = args.pop();
-                switch (flag) {
-                    case "--rig" -> o.rig = value(flag, args);
-                    case "--register" -> o.register = value(flag, args);
-                    case "--port" -> o.port = port(flag, value(flag, args));
-                    case "--shim-port" -> o.shimPort = port(flag, value(flag, args));
-                    case "-h", "--help" -> throw new IllegalArgumentException("");
-                    default -> throw new IllegalArgumentException("Unknown option " + flag + ".");
-                }
-            }
-            if (o.rig == null) {
-                throw new IllegalArgumentException("--rig is required.");
-            }
-            return o;
-        }
-
-        private static String value(String flag, Deque<String> args) {
-            if (args.isEmpty()) {
-                throw new IllegalArgumentException(flag + " needs a value.");
-            }
-            return args.pop();
-        }
-
-        private static int port(String flag, String value) {
-            try {
-                int port = Integer.parseInt(value);
-                if (port < 1 || port > 65535) {
-                    throw new NumberFormatException();
-                }
-                return port;
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException(flag + " must be a port number, not '" + value + "'.");
-            }
-        }
     }
 }

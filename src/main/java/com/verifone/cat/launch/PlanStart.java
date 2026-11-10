@@ -193,7 +193,7 @@ final class PlanStart {
     static List<String> distinctNodes(List<PlanCase> cases) {
         Set<String> nodes = new LinkedHashSet<>();
         for (PlanCase c : cases) {
-            if (c.node() != null && !c.node().isEmpty()) {
+            if (c.migrated()) {
                 nodes.add(c.node());
             }
         }
@@ -211,7 +211,7 @@ final class PlanStart {
             return false;
         }
         for (PlanCase c : planCases) {
-            if (c.node() == null || c.node().isEmpty()) {
+            if (!c.migrated()) {
                 return false;
             }
         }
@@ -243,7 +243,7 @@ final class PlanStart {
                 return "a partial run needs its plan's cases, and the plan did not resolve";
             }
             for (PlanCase c : ctx.planCases()) {
-                if (c.node() != null && !c.node().isEmpty()) {
+                if (c.migrated()) {
                     pairs.add(new CaseRef(c.key(), c.node()));
                 }
             }

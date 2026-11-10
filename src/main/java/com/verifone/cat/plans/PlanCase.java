@@ -13,4 +13,9 @@ public record PlanCase(String key, String summary, String node) {
         key = Text.orEmpty(key);
         summary = Text.orEmpty(summary);
     }
+
+    /** Whether a migrated test runs this case: {@code node} names one. */
+    public boolean migrated() {
+        return node != null && !node.isEmpty();
+    }
 }
