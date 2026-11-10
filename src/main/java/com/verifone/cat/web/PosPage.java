@@ -2,6 +2,13 @@ package com.verifone.cat.web;
 
 import static com.verifone.cat.web.Html.esc;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+import com.verifone.cat.web.ToolsService.Outcome;
+import com.verifone.cat.web.ToolsService.Tool;
+
 /**
  * The POS page: the register's screen, live, and clickable, as {@code edge://inspect}'s screencast shows a page.
  * Not in the Python CAT's web-ui.md; kept as a page of the shell, but unlike the others it is one big picture
@@ -12,9 +19,25 @@ import static com.verifone.cat.web.Html.esc;
  * clicks, drags, wheel and keys back. A status line shows over the picture only while it is not live (connecting,
  * or the connection dropped); it reconnects by itself.
  *
+ * <p>Before the picture, the page checks the register ({@link PosReach}, user 2026-11-10): one that does not answer is
+ * "Register not connected"; one that answers with its pos-shim port closed gets a <b>Push shim to register</b> button
+ * (a provision, {@link Tool#PUSH_SHIM}). That panel ({@link #panel}) checks again every few seconds, and the page
+ * reloads into the picture once the shim answers.
+ *
  * <p>UNVERIFIED AGAINST HARDWARE (Java port): see {@link com.verifone.cat.pos.inspect.PosScreencast}.
  */
 final class PosPage {
+
+    /** The panel's address, which it polls while the register is not live. */
+    static final String PANEL_PATH = "/fragments/pos";
+    /** The Push shim to register button's address. */
+    static final String PUSH_PATH = "/pos/push-shim";
+    static final String PANEL_ID = "pos-panel";
+    /** The log lines the panel shows under a running or failed push. */
+    static final int LOG_TAIL = 15;
+
+    /** The register the page shows: its rig id, its host, and the pos-shim port CAT talks to. */
+    record Target(String registerId, String host, int shimPort) {}
 
     private PosPage() {}
 
@@ -24,9 +47,7 @@ final class PosPage {
      */
     static String body(String subtitle, String cdpUrl) {
         if (cdpUrl == null || cdpUrl.isBlank()) {
-            return "<div class=\"pos-screen pos-screen-none\"><p class=\"warn\">No register to show: start CAT with "
-                    + "<code>--rig &lt;name&gt;</code> (and <code>--register &lt;id&gt;</code> on a rig with more than "
-                    + "one).</p><p class=\"muted\">" + esc(subtitle) + "</p></div>";
+            return noRegister(subtitle);
         }
         return "<div class=\"pos-screen\">"
                 + "<canvas id=\"pos-screen\" tabindex=\"0\" data-socket=\"" + PosScreenRoutes.PATH + "\""
@@ -35,5 +56,71 @@ final class PosPage {
                 + "<p id=\"pos-screen-status\" role=\"status\">Connecting to the register…</p>"
                 + "</div>"
                 + "<script src=\"/static/pos-screen.js\" defer></script>";
+    }
+
+    /** No register to check at all (no rig, or one without a usable register): {@code why} says which. */
+    static String noRegister(String why) {
+        return "<div class=\"pos-screen pos-screen-none\"><p class=\"warn\" role=\"status\">Register not connected: "
+                + "CAT has no register to reach.</p><p class=\"muted\">" + esc(why) + "</p>"
+                + "<p class=\"muted\">Start CAT with <code>--rig &lt;name&gt;</code> (and <code>--register &lt;id&gt;"
+                + "</code> on a rig with more than one).</p></div>";
+    }
+
+    /**
+     * The panel shown while the register is not live: not connected, or up with its shim closed (the push button, its
+     * last outcome and, while it runs or after it fails, the log). Polls {@link #PANEL_PATH}.
+     */
+    static String panel(Target target, PosReach.State state, ToolsService tools) {
+        StringBuilder out = new StringBuilder("<div id=\"" + PANEL_ID + "\" class=\"pos-screen pos-screen-none\""
+                + " hx-get=\"" + PANEL_PATH + "\" hx-trigger=\"every 3s\" hx-swap=\"outerHTML\">");
+        String where = esc(target.registerId()) + " (" + esc(target.host()) + ")";
+        Tool running = tools.running();
+        boolean pushing = running == Tool.PUSH_SHIM;
+        if (state == PosReach.State.NOT_CONNECTED && !pushing) {
+            out.append("<p class=\"warn\" role=\"status\">Register not connected: ").append(where)
+                    .append(" does not answer.</p><p class=\"muted\">Checking again every few seconds.</p>");
+            return out.append("</div>").toString();
+        }
+        if (state == PosReach.State.LIVE) {
+            out.append("<p role=\"status\">The pos-shim on ").append(where)
+                    .append(" answers; the screen opens once the push finishes.</p>");
+        } else if (state == PosReach.State.NOT_CONNECTED) {
+            out.append("<p class=\"warn\" role=\"status\">Register not connected: ").append(where)
+                    .append(" does not answer (it may be restarting during the push).</p>");
+        } else {
+            out.append("<p class=\"warn\" role=\"status\">").append(where).append(" answers, but its pos-shim (port ")
+                    .append(target.shimPort()).append(") is not open.</p>");
+        }
+        String why = tools.refusal();
+        if (!why.isEmpty() && !pushing) {
+            out.append("<p class=\"warn\">").append(esc(why)).append("</p>");
+        }
+        String notice = tools.notice();
+        if (!notice.isEmpty() && !notice.equals(why)) {
+            out.append("<p class=\"warn\">").append(esc(notice)).append("</p>");
+        }
+        String path = PUSH_PATH + "?register=" + URLEncoder.encode(target.registerId(), StandardCharsets.UTF_8);
+        out.append("<p><button type=\"button\" class=\"run-primary\" hx-post=\"").append(esc(path))
+                .append("\" hx-confirm=\"").append(esc(tools.confirmText(Tool.PUSH_SHIM, target.registerId())))
+                .append("\" hx-target=\"#").append(PANEL_ID).append("\" hx-swap=\"outerHTML\"")
+                .append(why.isEmpty() ? "" : " disabled").append(">").append(esc(Tool.PUSH_SHIM.title))
+                .append("</button></p>");
+        Outcome outcome = tools.outcome(Tool.PUSH_SHIM);
+        if (!outcome.state().isEmpty()) {
+            String badge = switch (outcome.state()) {
+                case "running" -> Html.badge("run", "Running");
+                case "done" -> Html.badge("ok", "Done");
+                default -> Html.badge("error", "Failed");
+            };
+            out.append("<p role=\"status\">").append(badge).append(" ").append(esc(outcome.message())).append("</p>");
+            if (!"done".equals(outcome.state())) {
+                List<String> lines = tools.lines();
+                List<String> tail = lines.subList(Math.max(0, lines.size() - LOG_TAIL), lines.size());
+                if (!tail.isEmpty()) {
+                    out.append("<pre class=\"cat-pre\">").append(esc(String.join("\n", tail))).append("</pre>");
+                }
+            }
+        }
+        return out.append("</div>").toString();
     }
 }

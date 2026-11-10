@@ -33,7 +33,9 @@ final class ToolsService {
         PAIR("pair", "POS Pairing", RigBusy.PAIRING),
         ONBOARD("onboard", "Onboard to Commander Connect", RigBusy.ONBOARDING),
         REBOOT_C18("reboot-c18", "Reboot C18", RigBusy.REBOOT),
-        REBOOT_COMMANDER("reboot-commander", "Reboot Commander", RigBusy.REBOOT);
+        REBOOT_COMMANDER("reboot-commander", "Reboot Commander", RigBusy.REBOOT),
+        /** The POS page's button, not listed on the Tools page. */
+        PUSH_SHIM("push-shim", "Push shim to register", RigBusy.SHIM_PUSH);
 
         final String slug;
         final String title;
@@ -173,6 +175,8 @@ final class ToolsService {
                     + "pos-shim back once it is up.";
             case REBOOT_COMMANDER -> "Reboot the Commander" + on + "? The registers lose it until it is back "
                     + "(up to 35 minutes for SSH and CGILink).";
+            case PUSH_SHIM -> "Push the pos-shim to " + register + on + "? Provision pushes the pos-shim, the browser "
+                    + "override and the CDP relay to the rig's registers and starts the shim.";
         };
     }
 
@@ -188,8 +192,10 @@ final class ToolsService {
         String why = refusal();
         String rigName = rigName();
         String target = register == null ? "" : register.strip();
-        if (why.isEmpty() && tool == Tool.REBOOT_C18 && !registers().contains(target)) {
-            why = target.isEmpty() ? "No register named to reboot."
+        boolean perRegister = tool == Tool.REBOOT_C18 || tool == Tool.PUSH_SHIM;
+        if (why.isEmpty() && perRegister && !registers().contains(target)) {
+            why = target.isEmpty() ? (tool == Tool.REBOOT_C18 ? "No register named to reboot."
+                    : "No register named to push the shim to.")
                     : "Rig " + rigName + " has no register " + target + ".";
         }
         CommanderConnect cc = connectSettings();
@@ -203,7 +209,7 @@ final class ToolsService {
             setNotice(why);
             return why;
         }
-        String title = tool == Tool.REBOOT_C18 ? tool.title + " (" + target + ")" : tool.title;
+        String title = perRegister ? tool.title + " (" + target + ")" : tool.title;
         synchronized (lock) {
             running = tool;
             notice = "";
@@ -236,6 +242,7 @@ final class ToolsService {
                 case ONBOARD -> tools.onboard(rigName, cc, say);
                 case REBOOT_C18 -> tools.rebootRegister(rigName, register, say);
                 case REBOOT_COMMANDER -> tools.rebootCommander(rigName, say);
+                case PUSH_SHIM -> tools.pushShim(rigName, register, say);
             };
         } catch (RuntimeException e) {
             error = e.getClass().getSimpleName() + ": " + DownloadsService.message(e);

@@ -84,6 +84,11 @@ class ToolsWebTest {
         public boolean rebootCommander(String rigName, Say say) {
             return run("reboot-commander " + rigName, say);
         }
+
+        @Override
+        public boolean pushShim(String rigName, String registerId, Say say) {
+            return run("push-shim " + rigName + " " + registerId, say);
+        }
     }
 
     private final HttpClient http = HttpClient.newHttpClient();

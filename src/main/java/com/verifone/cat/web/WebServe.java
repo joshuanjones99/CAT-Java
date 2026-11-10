@@ -284,11 +284,13 @@ public final class WebServe {
             public Javalin app(Options options, Shell shell, Runnable exit) {
                 Rig rig = null;
                 Rig.Register register = null;
+                String noRegister = null;
                 try {
                     rig = RigLoader.load(options.rig, RigLoader.rigsDir(System.getenv()));
                     register = rig.register(options.register);
                 } catch (RuntimeException e) {
                     log().warn("rig '{}' will not load: {}", options.rig, e.getMessage());
+                    noRegister = "Rig '" + options.rig + "' did not load: " + e.getMessage();
                 }
                 String registerHost = register == null ? "localhost" : register.host();
                 // No register (no rig, or no pos_shim): the POS page reaches nothing, and says so.
@@ -301,6 +303,11 @@ public final class WebServe {
                         ConfigForm.standard().online(), RunService.standard(options.rig, System.getenv()), null);
                 // The POS page's screen: the register's DevTools endpoint, as the run's POS driver attaches to it.
                 parts.cdpUrl = cdpUrl(register);
+                // Checked before the screen opens: not connected, or up with no shim (the Push shim button).
+                if (register != null) {
+                    parts.posTarget = new PosPage.Target(register.id(), register.host(), options.shimPort);
+                }
+                parts.posWhy = noRegister;
                 parts.shell = shell;
                 parts.exit = exit;
                 setup = SetupService.standard(shell, options.setup);

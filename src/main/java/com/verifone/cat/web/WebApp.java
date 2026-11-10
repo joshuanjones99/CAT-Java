@@ -56,6 +56,12 @@ public final class WebApp {
         String title = "CAT-Java";
         /** The register's DevTools endpoint the POS page shows; null when CAT has no register. */
         String cdpUrl;
+        /** The register the POS page checks before showing it ({@link PosReach}); null when CAT has none. */
+        PosPage.Target posTarget;
+        /** Why CAT has no register (the rig's load error), shown on the POS page; null shows the title. */
+        String posWhy;
+        /** How the POS page checks {@link #posTarget}: TCP by default; tests pass a fake. */
+        PosReach posReach;
         ResultsLibrary results;
         ConfigForm configForm;
         RunService run;
@@ -266,7 +272,8 @@ public final class WebApp {
 
         String title = parts.title;
         String cdpUrl = parts.cdpUrl;
-        app.get("/pos", ctx -> ctx.html(Layout.screen(Section.POS, "POS", PosPage.body(title, cdpUrl))));
+        PosRoutes.register(app, cdpUrl, parts.posTarget, parts.posWhy != null ? parts.posWhy : title,
+                parts.posReach != null ? parts.posReach : PosReach.tcp(), tools);
         PosScreenRoutes.register(app, cdpUrl);
         return app;
     }
