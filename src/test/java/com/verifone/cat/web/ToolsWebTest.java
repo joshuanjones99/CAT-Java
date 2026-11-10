@@ -198,6 +198,22 @@ class ToolsWebTest {
     }
 
     @Test
+    void aNamedRigThatDoesNotLoadPairsTheLabRegistersToo() {
+        // run.cmd always names "lab"; on a PC with no lab.yaml it does not load (user, 2026-11-10: "cannot load rig
+        // lab: No rig file at C:\CICD\Tools\rigs\lab.yaml").
+        fake.registers = List.of();
+        ToolsService tools = service("lab", Map.of());
+
+        String html = ToolsPage.panel(tools);
+
+        assertTrue(html.contains("Rig lab does not load: POS Pairing pairs the lab"), html);
+        assertFalse(html.contains(" disabled>POS Pairing</button>"), html);
+        assertTrue(tools.start(ToolsService.Tool.REBOOT_COMMANDER, "").startsWith("Rig lab does not load"));
+        assertEquals("", tools.start(ToolsService.Tool.PAIR, ""));
+        assertEquals(List.of("pair-lab"), fake.calls);
+    }
+
+    @Test
     void withNoRigPosPairingStillWaitsForTheSharedFlag() {
         ToolsService tools = service("", Map.of());
         busy.begin(RigBusy.INSTALL);

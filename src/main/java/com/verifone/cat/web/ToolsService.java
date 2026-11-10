@@ -110,13 +110,26 @@ final class ToolsService {
         if (!held.isEmpty()) {
             return held;
         }
-        return rigName().isEmpty() ? "No rig: POS Pairing pairs the lab's registers 101 and 102 with the lab "
-                + "Commander; the other tools need CAT started with --rig." : "";
+        if (!labMode()) {
+            return "";
+        }
+        String which = rigName().isEmpty() ? "No rig" : "Rig " + rigName() + " does not load";
+        return which + ": POS Pairing pairs the lab's registers 101 and 102 with the lab Commander; the other tools "
+                + "need a rig file.";
     }
 
     /** Why POS Pairing cannot start now, or "": with no rig it pairs the lab's registers, so only the flag stops it. */
     String pairRefusal() {
-        return rigName().isEmpty() ? busy.refusal() : refusal();
+        return labMode() ? busy.refusal() : refusal();
+    }
+
+    /**
+     * Whether CAT has no rig to use: none named, or the one named does not load (no file). {@code run.cmd} always
+     * names {@code lab}, so "does not load" is the usual case on a PC with no rig file (user, 2026-11-10). A rig that
+     * loads always has a register, so no readable register means it did not load.
+     */
+    boolean labMode() {
+        return rigName().isEmpty() || registers().isEmpty();
     }
 
     /** The rig's register ids, read once per rig; empty when there is no rig or it does not load. */
@@ -172,7 +185,7 @@ final class ToolsService {
     /** The question a tool's button asks first, naming the rig, since every tool changes it. */
     String confirmText(Tool tool, String register) {
         String on = " on rig " + rigName();
-        if (tool == Tool.PAIR && rigName().isEmpty()) {
+        if (tool == Tool.PAIR && labMode()) {
             return "Pair the lab's registers (Reg101, Reg102: those that answer) with the lab Commander "
                     + LabRegisters.COMMANDER_HOST + "? The Commander's password is reset first only if the installer "
                     + "left one and the lab password does not log in. Each register reboots once paired, then gets "
@@ -209,7 +222,7 @@ final class ToolsService {
             setNotice(why);
             return why;
         }
-        if (tool == Tool.PAIR && rigName().isEmpty()) {
+        if (tool == Tool.PAIR && labMode()) {
             // No rig: the lab's registers with the lab Commander. Only the shared flag can refuse it.
             return launch(tool, "", tool.title + " (lab)", "on the lab registers", tools::pairLab);
         }

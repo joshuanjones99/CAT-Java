@@ -71,9 +71,8 @@ final class ToolsPage {
     private static String rebootC18Rows(ToolsService tools, boolean blocked) {
         List<String> registers = tools.registers();
         if (registers.isEmpty()) {
-            // No rig is already said above the list; a rig with no readable register is said here.
-            String warning = tools.rigName().isEmpty() ? ""
-                    : "Rig " + esc(tools.rigName()) + " names no register CAT can read.";
+            // No rig, or one that does not load, is already said above the list.
+            String warning = "";
             return row(tools, Tool.REBOOT_C18, "", Tool.REBOOT_C18.title, true, warning);
         }
         StringBuilder rows = new StringBuilder();
