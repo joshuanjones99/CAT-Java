@@ -16,9 +16,15 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -164,6 +170,25 @@ final class SimulatorsService {
     record Launch(List<SimEntry> rows, SimContext ctx) {}
 
     private final Supervisor supervisor;
+
+    /** How a row's ready port is asked: the supervisor's probe ({@link #withPortProbe} for tests). */
+    private volatile BiFunction<SimEntry, SimContext, Supervisor.Probe> portProbe;
+
+    /**
+     * Where one panel draw asks its ports, all at once ({@link #board}): daemon threads, at most {@link #PORT_CHECKS},
+     * gone when idle. More rows than threads queue for a free one.
+     */
+    private final ThreadPoolExecutor portChecks = portChecks();
+
+    /** The most ports one panel draw asks at once. */
+    static final int PORT_CHECKS = 16;
+
+    private static ThreadPoolExecutor portChecks() {
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(PORT_CHECKS, PORT_CHECKS, 30, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(), Daemons.factory("cat-web-sims-port"));
+        pool.allowCoreThreadTimeOut(true);
+        return pool;
+    }
     private final SimContext ctx;
     private final List<SimEntry> rows;
     private final Executor executor;
@@ -218,6 +243,7 @@ final class SimulatorsService {
         this.rows = List.copyOf(rows);
         this.executor = Objects.requireNonNull(executor, "executor");
         this.launcher = (chosen, log) -> new Launch(chosen, ctx);
+        this.portProbe = this.supervisor::probe;
         for (SimEntry row : this.rows) {
             ticked.add(row.name());
         }
@@ -513,9 +539,57 @@ final class SimulatorsService {
      * which looks at the simulators, not the connectors), otherwise Start.
      */
     boolean allTickedUp() {
-        List<RowView> views = rows.stream().filter(row -> ticked.contains(row.name()))
-                .map(this::view).toList();
-        return !views.isEmpty() && views.stream().allMatch(RowView::up);
+        return board().allTickedUp();
+    }
+
+    /**
+     * Every row and connector as one panel draw shows them, by name: each port asked once, and all of them at once.
+     * A port on a controller that does not answer takes {@code Supervisor}'s whole connect timeout, so asked one
+     * after another (and the ticked rows twice, for Start or Stop) the lab rig's rows took 2.5 s from a development
+     * PC (2026-11-10); asked together they take about one timeout.
+     */
+    Board board() {
+        Set<String> tickedNow = Set.copyOf(ticked);
+        Map<String, Future<RowView>> rowViews = new LinkedHashMap<>();
+        for (SimEntry entry : rows) {
+            rowViews.put(entry.name(), portChecks.submit(() -> view(entry)));
+        }
+        Map<String, Future<RowView>> connectorViews = new LinkedHashMap<>();
+        for (String name : connectors()) {
+            connectorViews.put(name, portChecks.submit(() -> connectorView(name)));
+        }
+        Map<String, RowView> drawnRows = collect(rowViews);
+        List<RowView> tickedRows = rows.stream().filter(row -> tickedNow.contains(row.name()))
+                .map(row -> drawnRows.get(row.name())).toList();
+        boolean allUp = !tickedRows.isEmpty() && tickedRows.stream().allMatch(RowView::up);
+        return new Board(drawnRows, collect(connectorViews), allUp);
+    }
+
+    /**
+     * One draw of the panel's rows ({@link #board}).
+     *
+     * @param rows each simulator row's view, by name, in launch order
+     * @param connectors each connector row's view, by name, in launch order
+     * @param allTickedUp every ticked simulator row is up, and one is ticked: the panel offers Stop, not Start
+     */
+    record Board(Map<String, RowView> rows, Map<String, RowView> connectors, boolean allTickedUp) {}
+
+    private static Map<String, RowView> collect(Map<String, Future<RowView>> futures) {
+        Map<String, RowView> out = new LinkedHashMap<>();
+        for (Map.Entry<String, Future<RowView>> entry : futures.entrySet()) {
+            try {
+                out.put(entry.getKey(), entry.getValue().get());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("interrupted while asking the simulators' ports", e);
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof RuntimeException failure) {
+                    throw failure;
+                }
+                throw new IllegalStateException(e.getCause());
+            }
+        }
+        return out;
     }
 
     /** The row as the page shows it right now. */
@@ -828,7 +902,13 @@ final class SimulatorsService {
 
     /** True if the row's ready port is answering, by the supervisor's read-only probe. */
     private boolean listening(SimEntry entry) {
-        return supervisor.probe(entry, ctx).listening();
+        return portProbe.apply(entry, ctx).listening();
+    }
+
+    /** The port probe in place of the supervisor's (tests: a probe that counts, or takes its time). */
+    SimulatorsService withPortProbe(BiFunction<SimEntry, SimContext, Supervisor.Probe> probe) {
+        portProbe = Objects.requireNonNull(probe, "probe");
+        return this;
     }
 
     private static String join(String bind, String detail) {

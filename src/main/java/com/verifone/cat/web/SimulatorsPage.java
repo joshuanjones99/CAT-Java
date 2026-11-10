@@ -55,6 +55,8 @@ final class SimulatorsPage {
         String disabled = idle ? "" : " disabled";
         StringBuilder out = new StringBuilder("<section id=\"sim-panel\" class=\"card wide\" "
                 + "hx-get=\"/fragments/simulators\" hx-trigger=\"every 2s\" hx-swap=\"outerHTML\">");
+        // Every row's port asked once, all at once, before anything is drawn.
+        SimulatorsService.Board board = sims.board();
         String notice = sims.probeNotice();
         if (!notice.isEmpty()) {
             out.append("<p class=\"warn\">").append(esc(notice)).append("</p>");
@@ -63,7 +65,7 @@ final class SimulatorsPage {
                 + "<th>Launch</th><th>Simulator</th><th>Status</th><th>Detail</th><th>Log</th>"
                 + "</tr></thead><tbody>");
         for (SimEntry entry : sims.rows()) {
-            SimulatorsService.RowView view = sims.view(entry);
+            SimulatorsService.RowView view = board.rows().get(entry.name());
             String enc = encode(entry.name());
             out.append("<tr>");
             out.append("<td><input type=\"checkbox\" aria-label=\"Launch ").append(esc(entry.name())).append('"')
@@ -84,7 +86,7 @@ final class SimulatorsPage {
             out.append("</tr>");
         }
         for (String name : sims.connectors()) {
-            SimulatorsService.RowView view = sims.connectorView(name);
+            SimulatorsService.RowView view = board.connectors().get(name);
             out.append("<tr><td><input type=\"checkbox\" aria-label=\"Launch ").append(esc(name)).append('"')
                     .append(sims.isTicked(name) ? " checked" : "").append(disabled)
                     .append(" hx-post=\"/simulators/toggle?name=").append(esc(encode(name))).append('"')
@@ -107,7 +109,7 @@ final class SimulatorsPage {
             out.append("<span class=\"muted\">").append(esc(other.substring(0, 1).toUpperCase() + other.substring(1)))
                     .append(" is in progress: Start and Stop wait for it.</span>");
         }
-        if (sims.allTickedUp()) {
+        if (board.allTickedUp()) {
             out.append("<button type=\"button\" class=\"danger\" hx-post=\"/simulators/stop\""
                     + " hx-confirm=\"").append(esc(STOP_QUESTION)).append('"')
                     .append(" hx-target=\"#sim-panel\" hx-swap=\"outerHTML\"")
