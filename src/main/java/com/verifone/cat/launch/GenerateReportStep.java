@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.verifone.cat.report.ArtifactIndex;
 import com.verifone.cat.xray.XrayReporter;
 import com.verifone.cat.report.JunitXmlWriter;
+import com.verifone.cat.report.NdjsonReader;
 import com.verifone.cat.report.ReportPaths;
 import com.verifone.cat.report.html.HtmlReport;
 
@@ -126,11 +127,20 @@ final class GenerateReportStep implements LaunchStep {
         return true;
     }
 
-    /** The three writers, in order: the index last, so it catalogues the reports above. */
+    /**
+     * The three writers, in order: the index last, so it catalogues the reports above. The events are read once and
+     * folded into both reports ({@code fromEvents} on each would read the file twice).
+     */
     private static Callable<Void> writeAll(Path events, Path folder) {
         return () -> {
-            JunitXmlWriter.fromEvents(events).write(folder);
-            HtmlReport.fromEvents(events).write(folder);
+            JunitXmlWriter junit = new JunitXmlWriter();
+            HtmlReport html = new HtmlReport();
+            NdjsonReader.forEachExceptLogs(events, event -> {
+                junit.processEvent(event);
+                html.processEvent(event);
+            });
+            junit.write(folder);
+            html.write(folder);
             ArtifactIndex.write(folder);
             return null;
         };

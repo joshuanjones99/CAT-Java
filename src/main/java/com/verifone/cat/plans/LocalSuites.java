@@ -86,7 +86,7 @@ public final class LocalSuites {
         }
         String folder = planKey == null ? null : CaseNodes.PLAN_SUITES.get(planKey);
         if (folder != null) {
-            Optional<Path> own = ownFolder(suites().resolve(folder), number.get());
+            Optional<Path> own = CaseNodes.ownFolderFile(suites().resolve(folder), number.get());
             if (own.isPresent()) {
                 return new Resolution(Kind.LOCAL, own.get(), posix(own.get()));
             }
@@ -100,25 +100,6 @@ public final class LocalSuites {
 
     private Path suites() {
         return root.resolve("tests").resolve("suites");
-    }
-
-    /** {@code _in_plan_suite}: the folder's own file of the number, first by name, present and not a placeholder. */
-    private static Optional<Path> ownFolder(Path dir, String number) {
-        if (!Files.isDirectory(dir)) {
-            return Optional.empty();
-        }
-        String feature = "PETROCORE-" + number + "-TestCase.feature";
-        String python = "PETROCORE-" + number + "-TestCase.py";
-        try (Stream<Path> listing = Files.list(dir)) {
-            return listing
-                    .filter(p -> p.getFileName().toString().equals(feature)
-                            || p.getFileName().toString().equals(python))
-                    .sorted()
-                    .filter(p -> Files.isRegularFile(p) && !CaseNodes.isUnmigrated(p))
-                    .findFirst();
-        } catch (IOException e) {
-            return Optional.empty();
-        }
     }
 
     /** Case number to its first test file in {@code _suite_order}, plan-owned folders and pulled left out; one walk. */

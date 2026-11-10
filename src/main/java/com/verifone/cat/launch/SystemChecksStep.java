@@ -73,7 +73,7 @@ final class SystemChecksStep implements LaunchStep {
     private static final String PRINTER = "printer";
 
     /** The Petro Simulator Suite's registry name, which the pump-state port guard is for. */
-    private static final String PETRO_SIMULATOR = "Petro Simulator Suite";
+    private static final String PETRO_SIMULATOR = StartSimulatorsStep.PETRO_SIMULATOR;
 
     private final SystemCheckStages stages;
 

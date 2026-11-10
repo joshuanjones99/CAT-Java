@@ -5,12 +5,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
 import com.verifone.cat.fep.SecondaryFeps;
-import com.verifone.cat.plans.BaseRule;
 import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.plans.PlanCatalogue;
 import com.verifone.cat.plans.PlanRequirements;
@@ -83,7 +81,7 @@ final class RunRequirements {
                         .filter(name -> !name.toLowerCase(Locale.ROOT).equals(Requirements.PRINTER)).toList());
                 changed = true;
             }
-            say(ctx, "plan requirements: " + describe(requirements));
+            say(ctx, "plan requirements: " + requirements.describe());
         }
         if (changed) {
             ctx.config(updated.build());
@@ -106,27 +104,6 @@ final class RunRequirements {
         } catch (RuntimeException e) {
             return List.of(); // step 4's secondary-fep reads the same table and says why
         }
-    }
-
-    /** One line: what the ticked plans need, as the page says it (the Python's {@code describe}). */
-    static String describe(Requirements requirements) {
-        List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, BaseRule> rule : requirements.baseRules().entrySet()) {
-            parts.add(rule.getKey() + " " + rule.getValue());
-        }
-        if (!requirements.commanderConnect().isEmpty()) {
-            parts.add("Commander Connect (" + String.join(", ", requirements.commanderConnect()) + ")");
-        }
-        if (!requirements.simulators().isEmpty()) {
-            parts.add("simulators " + String.join(", ", requirements.simulators()));
-        }
-        if (!requirements.devices().isEmpty()) {
-            parts.add("devices " + String.join(", ", requirements.devices()));
-        }
-        if (!requirements.unlisted().isEmpty()) {
-            parts.add("not on the page: " + String.join(", ", requirements.unlisted()));
-        }
-        return parts.isEmpty() ? "nothing beyond the defaults" : String.join("; ", parts);
     }
 
     private static void say(RunContext ctx, String message) {

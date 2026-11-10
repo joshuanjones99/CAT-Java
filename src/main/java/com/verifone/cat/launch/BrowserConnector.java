@@ -81,9 +81,6 @@ public final class BrowserConnector implements RunServices.Connector, CaseEviden
     /** The ViperPay pinpad's id, as PATS names its one pinpad. */
     static final String VIPERPAY_PINPAD_ID = "1";
 
-    /** DCR 1, the one DCR a rig drives. */
-    static final int DCR_NUMBER = 1;
-
     /**
      * The network clients a rig run uses, built over the rig's hosts and not started. A null field is a surface the rig
      * does not have. {@link BrowserConnector#connect} starts the pinpad, pumps and DCR listeners.
