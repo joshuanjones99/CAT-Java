@@ -149,67 +149,8 @@ public final class Collect {
         List<CaseResult> cases = new ArrayList<>();
         for (String key : caseKeys) {
             Map<String, List<Blob>> folder = folders.getOrDefault(Selection.casefold(key), Map.of());
-            List<String> trees = folder.values().stream().flatMap(List::stream)
-                    .map(b -> b.path().split("/")[1]).distinct().sorted().toList();
-            CaseResult result = new CaseResult(key, trees);
-            for (List<Blob> blobs : folder.values()) {
-                if (blobs.size() > 1) {
-                    // Path is AutomationTests/<tree>/<case>/<name...>: the name is what follows the case folder.
-                    String[] parts = blobs.get(0).path().split("/");
-                    String name = String.join("/", Arrays.copyOfRange(parts, Math.min(3, parts.length), parts.length));
-                    boolean same = blobs.stream().map(Blob::sha).distinct().count() == 1;
-                    result.collisions.add(new CaseResult.Collision(name,
-                            blobs.stream().map(Blob::path).toList(), same));
-                }
-            }
-            for (Rule rule : Rules.RULES) {
-                List<String> hits = Selection.apply(rule, folder, options.dist(), true);
-                if (hits == null) {
-                    if (rule.missing() != null && !rule.missing().isEmpty()) {
-                        result.missing.add(rule.missing().replace("{id}", key));
-                    }
-                    continue;
-                }
-                for (String rel : hits) {
-                    result.copies.add(new CaseResult.Copy(rule.name(), folder.get(rel).get(0).path(), rule.dest()));
-                }
-            }
-            // A2's dist-first rule for each kind of CAT test on its own: a case keeps one or the other.
-            List<String> tests = new ArrayList<>();
-            for (String pattern : List.of("*.py", "*-TestCase.feature")) {
-                Rule test = new Rule("test", pattern, "", Rules.DIST_FIRST, null, "", null, false, false);
-                List<String> hits = Selection.apply(test, folder, options.dist(), false);
-                if (hits != null) {
-                    tests.addAll(hits);
-                }
-            }
-            for (String rel : tests) {
-                List<Blob> blobs = folder.get(rel);
-                String name = Selection.nameOf(blobs.get(0).path());
-                String reason = "";
-                if (REFUSED_NAMES.contains(Selection.casefold(name))) {
-                    reason = name + " is never pulled (one conftest.py, no packages)";
-                } else if (taken.contains(Selection.casefold(name))) {
-                    reason = "a file named " + name + " " + CaseResult.SHADOWED;
-                }
-                CaseResult.Pulled test = pulls.pull(blobs, name, reason);
-                result.pulled.add(test);
-                // A3: a test's baselines are its siblings, named for the case, pulled flat beside it.
-                String caseKey = Selection.caseOf(name);
-                String here = Selection.parentOf(rel);
-                String why = test.dest() != null || target == null
-                        ? "" : "its test was not pulled: " + test.reason();
-                for (String sibling : new TreeSet<>(folder.keySet())) {
-                    if (!Selection.parentOf(sibling).equals(here)) {
-                        continue;
-                    }
-                    List<Blob> siblingBlobs = folder.get(sibling);
-                    String file = Selection.nameOf(siblingBlobs.get(0).path());
-                    if (Selection.isBaseline(file, caseKey)) {
-                        result.baselines.add(pulls.pull(siblingBlobs, file, why));
-                    }
-                }
-            }
+            CaseResult result = inventory(key, folder, options.dist());
+            pullTests(result, folder, options.dist(), taken, pulls, target == null);
             cases.add(result);
         }
         Boolean fetched = options.fetch() ? Boolean.valueOf(fetchError.isEmpty()) : null;
@@ -220,6 +161,76 @@ public final class Collect {
             write(repo, target, pulls.toWrite, collection);
         }
         return collection;
+    }
+
+    /** One case's PATS files: the names both trees hold, then each rule's copies or its "does not exist" line. */
+    private static CaseResult inventory(String key, Map<String, List<Blob>> folder, String dist) {
+        List<String> trees = folder.values().stream().flatMap(List::stream)
+                .map(b -> b.path().split("/")[1]).distinct().sorted().toList();
+        CaseResult result = new CaseResult(key, trees);
+        for (List<Blob> blobs : folder.values()) {
+            if (blobs.size() > 1) {
+                // Path is AutomationTests/<tree>/<case>/<name...>: the name is what follows the case folder.
+                String[] parts = blobs.get(0).path().split("/");
+                String name = String.join("/", Arrays.copyOfRange(parts, Math.min(3, parts.length), parts.length));
+                boolean same = blobs.stream().map(Blob::sha).distinct().count() == 1;
+                result.collisions.add(new CaseResult.Collision(name,
+                        blobs.stream().map(Blob::path).toList(), same));
+            }
+        }
+        for (Rule rule : Rules.RULES) {
+            List<String> hits = Selection.apply(rule, folder, dist, true);
+            if (hits == null) {
+                if (rule.missing() != null && !rule.missing().isEmpty()) {
+                    result.missing.add(rule.missing().replace("{id}", key));
+                }
+                continue;
+            }
+            for (String rel : hits) {
+                result.copies.add(new CaseResult.Copy(rule.name(), folder.get(rel).get(0).path(), rule.dest()));
+            }
+        }
+        return result;
+    }
+
+    /** Pulls one case's CAT tests and, beside each, its baselines, onto {@code result}. */
+    private static void pullTests(CaseResult result, Map<String, List<Blob>> folder, String dist, Set<String> taken,
+            Pulls pulls, boolean dryRun) {
+        // A2's dist-first rule for each kind of CAT test on its own: a case keeps one or the other.
+        List<String> tests = new ArrayList<>();
+        for (String pattern : List.of("*.py", "*-TestCase.feature")) {
+            Rule test = new Rule("test", pattern, "", Rules.DIST_FIRST, null, "", null, false, false);
+            List<String> hits = Selection.apply(test, folder, dist, false);
+            if (hits != null) {
+                tests.addAll(hits);
+            }
+        }
+        for (String rel : tests) {
+            List<Blob> blobs = folder.get(rel);
+            String name = Selection.nameOf(blobs.get(0).path());
+            String reason = "";
+            if (REFUSED_NAMES.contains(Selection.casefold(name))) {
+                reason = name + " is never pulled (one conftest.py, no packages)";
+            } else if (taken.contains(Selection.casefold(name))) {
+                reason = "a file named " + name + " " + CaseResult.SHADOWED;
+            }
+            CaseResult.Pulled test = pulls.pull(blobs, name, reason);
+            result.pulled.add(test);
+            // A3: a test's baselines are its siblings, named for the case, pulled flat beside it.
+            String caseKey = Selection.caseOf(name);
+            String here = Selection.parentOf(rel);
+            String why = test.dest() != null || dryRun ? "" : "its test was not pulled: " + test.reason();
+            for (String sibling : new TreeSet<>(folder.keySet())) {
+                if (!Selection.parentOf(sibling).equals(here)) {
+                    continue;
+                }
+                List<Blob> siblingBlobs = folder.get(sibling);
+                String file = Selection.nameOf(siblingBlobs.get(0).path());
+                if (Selection.isBaseline(file, caseKey)) {
+                    result.baselines.add(pulls.pull(siblingBlobs, file, why));
+                }
+            }
+        }
     }
 
     /** Basenames of every {@code .py} and authored {@code .feature} under {@code tests/} outside {@code out} (A5). */
