@@ -53,9 +53,6 @@ import java.util.function.BiConsumer;
  */
 final class PlanCases {
 
-    /** The dist folder that wins for tests by default ({@link LaunchConfig#dist} is used). */
-    static final String DIST = "buypass";
-
     private PlanCases() {
     }
 

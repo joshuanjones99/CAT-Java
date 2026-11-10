@@ -81,6 +81,25 @@ public record Requirements(List<PlanRequirements> plans, List<String> unlisted) 
         return devices.isEmpty() || devices.stream().anyMatch(name -> name.equalsIgnoreCase(PRINTER));
     }
 
+    /** One line: what the plans need, as the page says it (the Python's {@code describe}). */
+    public String describe() {
+        List<String> parts = new ArrayList<>();
+        baseRules().forEach((key, rule) -> parts.add(key + " " + rule));
+        if (!commanderConnect().isEmpty()) {
+            parts.add("Commander Connect (" + String.join(", ", commanderConnect()) + ")");
+        }
+        if (!simulators().isEmpty()) {
+            parts.add("simulators " + String.join(", ", simulators()));
+        }
+        if (!devices().isEmpty()) {
+            parts.add("devices " + String.join(", ", devices()));
+        }
+        if (!unlisted.isEmpty()) {
+            parts.add("not on the page: " + String.join(", ", unlisted));
+        }
+        return parts.isEmpty() ? "nothing beyond the defaults" : String.join("; ", parts);
+    }
+
     private List<String> distinct(Function<PlanRequirements, List<String>> names) {
         return plans.stream()
                 .flatMap(plan -> names.apply(plan).stream())

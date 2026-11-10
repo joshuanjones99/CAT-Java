@@ -70,8 +70,8 @@ class RunRequirementsTest {
                 List.of(new PlanRequirements("PETROCORE-1", "57≥", true, List.of("BUYPASS Host"), List.of("scale")),
                         new PlanRequirements("PETROCORE-2", "", false, List.of(), List.of())));
         assertEquals("PETROCORE-1 base 57.00 or later; Commander Connect (PETROCORE-1); simulators BUYPASS Host; "
-                + "devices scale; not on the page: PETROCORE-3", RunRequirements.describe(requirements));
-        assertEquals("nothing beyond the defaults", RunRequirements.describe(new Requirements(List.of(), List.of())));
+                + "devices scale; not on the page: PETROCORE-3", requirements.describe());
+        assertEquals("nothing beyond the defaults", new Requirements(List.of(), List.of()).describe());
     }
 
     @Test

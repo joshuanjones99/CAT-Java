@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import com.verifone.cat.devices.DeviceUnavailable;
 import com.verifone.cat.devices.forecourt.PetroPumps;
-import com.verifone.cat.devices.printer.TopazPrinter;
 import com.verifone.cat.pats.PatsCaseLoader;
 import com.verifone.cat.pats.runner.CaseRun;
 import com.verifone.cat.pats.runner.EvidenceSink;
@@ -30,7 +29,6 @@ import com.verifone.cat.pats.runner.RunnableCase;
 import com.verifone.cat.pats.runner.ValidationsFailed;
 import com.verifone.cat.pats.runner.handlers.configuration.PetroappsFiles;
 import com.verifone.cat.pats.runner.handlers.posui.PinpadView;
-import com.verifone.cat.plans.PartialRun;
 import com.verifone.cat.pos.driver.CaseArtifacts;
 import com.verifone.cat.pos.fake.FakePos;
 import com.verifone.cat.pos.fake.FakePosBanner;
@@ -226,7 +224,7 @@ final class TestsRunStep implements LaunchStep {
             }
             if (session.printerLent) {
                 // On a stopped run too: the connector has closed the port.
-                printerRow(ctx, "stopped", "the test session has ended; nothing holds it");
+                PrinterHold.row(ctx, "stopped", "the test session has ended; nothing holds it");
             }
             if (session.heldPumpPort) {
                 // Back from the session for the report and Cleanup's day close, while Petro still runs.
@@ -314,7 +312,7 @@ final class TestsRunStep implements LaunchStep {
         if (services.printer() != null) {
             // What the register prints during the session reaches the Receipt Printer's roll, each receipt tagged with
             // the case running as it printed (the Python's log tap and _log_receipt).
-            String port = printerPort(ctx);
+            String port = PrinterHold.port(ctx);
             session.relay = new PrinterHold.ReceiptRelay(ctx, port == null ? "the printer" : port, services.printer(),
                     () -> { }, () -> session.currentCase);
         }
@@ -401,12 +399,11 @@ final class TestsRunStep implements LaunchStep {
             declared.addAll(FixtureRequirements.fixturesFor(one.kase()));
         }
         Attempt attempt;
-        boolean planEnd = planEnd(entry.file());
+        // Whether the case's file carries @plan_end, on its feature or its scenario (pytest's marker).
+        boolean planEnd = PlanStart.isPlanEnd(entry.file());
         if (planEnd && !fullPlan && one.kase() != null) {
             // validate.plugin's pytest_runtest_setup: before any fixture, so the skip touches nothing on the rig.
-            for (RunnableAction later : one.kase().actions()) {
-                record.addUnreachedStep(later.index() + 1, "", later.describe());
-            }
+            unreached(record, one.kase().actions());
             attempt = Attempt.skipped(PLAN_END_SKIP);
         } else {
             if (evidence != null) {
@@ -460,18 +457,6 @@ final class TestsRunStep implements LaunchStep {
         return cleaned.isEmpty() ? key : key + "-" + cleaned;
     }
 
-    /** Whether the case's file carries {@code @plan_end}, on its feature or its scenario (pytest's marker). */
-    static boolean planEnd(Path file) {
-        if (file == null) {
-            return false;
-        }
-        try {
-            return PartialRun.fileTags(file).stream().anyMatch(tags -> tags.contains("@plan_end"));
-        } catch (RuntimeException e) {
-            return false;
-        }
-    }
-
     /** Walks the ladder for a failed case, emits the walk, and returns the drain reason, or "" when none. */
     private static String recover(RunContext ctx, RecoveryLadder ladder, String nodeid, Attempt attempt) {
         RecoveryOutcome walk;
@@ -511,9 +496,7 @@ final class TestsRunStep implements LaunchStep {
             }
             petro.beginCase(declared);
         } catch (RuntimeException e) {
-            for (RunnableAction later : actions) {
-                record.addUnreachedStep(later.index() + 1, "", later.describe());
-            }
+            unreached(record, actions);
             return Attempt.setupFailed(e);
         }
         CaseRun run = new CaseRun(kase, record, built.registry(), built.fixtures(), declared, state)
@@ -540,9 +523,7 @@ final class TestsRunStep implements LaunchStep {
                 }
                 emitSettled(ctx, nodeid, record, sent);
                 if (stop != null) {
-                    for (RunnableAction later : actions.subList(i + 1, actions.size())) {
-                        record.addUnreachedStep(later.index() + 1, "", later.describe());
-                    }
+                    unreached(record, actions.subList(i + 1, actions.size()));
                     return Attempt.stepFailed(stop);
                 }
             }
@@ -555,6 +536,13 @@ final class TestsRunStep implements LaunchStep {
             return Attempt.stepFailed(e);
         } catch (AssertionError e) {
             return Attempt.stepFailed(new PatsStepError(e.getMessage(), e));
+        }
+    }
+
+    /** Records {@code actions} on the case as steps it never reached. */
+    private static void unreached(CaseRecord record, List<RunnableAction> actions) {
+        for (RunnableAction later : actions) {
+            record.addUnreachedStep(later.index() + 1, "", later.describe());
         }
     }
 
@@ -683,32 +671,16 @@ final class TestsRunStep implements LaunchStep {
 
     // -- the printer's port --------------------------------------------------------------------
 
-    /** The primary register's {@code printer_port}, or null: the one port the session holds for the register. */
-    static String printerPort(RunContext ctx) {
-        if (ctx.rig() == null) {
-            return null;
-        }
-        String port = ctx.rig().rig().primaryRegister().printerPort();
-        return port == null || port.isBlank() ? null : port;
-    }
-
     /**
      * Says the printer's port is now the session's (the Python's {@code lend_to_tests}). False, and no row, when the
      * session holds no printer: under {@code --fake-pos}, or on a rig with no {@code printer_port}.
      */
     private static boolean lendPrinter(RunContext ctx) {
-        if (printerPort(ctx) == null || ctx.config().fakePos()) {
+        if (PrinterHold.port(ctx) == null || ctx.config().fakePos()) {
             return false;
         }
-        printerRow(ctx, "started", "lent to the test session, which opens it at its start");
+        PrinterHold.row(ctx, "started", "lent to the test session, which opens it at its start");
         return true;
-    }
-
-    /** The Receipt Printer's row: one {@code SimulatorState}, as step 3 sends for each simulator. */
-    private static void printerRow(RunContext ctx, String state, String detail) {
-        String port = printerPort(ctx);
-        ctx.emit(new CatEvent.SimulatorState(TopazPrinter.PRINTER_NAME, state, "supervised", "CAT",
-                port == null ? "" : port, detail));
     }
 
     private static Object present(Object value, String surface, String detail) {
@@ -796,10 +768,6 @@ final class TestsRunStep implements LaunchStep {
         /** Whether every action ran and only validations failed (the Python's {@code AssertionError}). */
         boolean validationOnly() {
             return "failed".equals(outcome) && !recoverable && "call".equals(phase);
-        }
-
-        boolean xfailed() {
-            return "xfailed".equals(outcome);
         }
 
         /** A {@code @plan_end} case outside a full plan run: pytest's {@code skip} at setup. */

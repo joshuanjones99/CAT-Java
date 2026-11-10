@@ -48,6 +48,7 @@ public final class CaseNodes {
     private static final Pattern FEATURE_FILE = Pattern.compile("PETROCORE-(.+)-TestCase\\.feature");
     private static final Pattern PY_FILE = Pattern.compile("PETROCORE-(.+)-TestCase\\.py");
     private static final Pattern PLAIN_PY_FILE = Pattern.compile("test_petrocore_(.+)\\.py");
+    private static final List<Pattern> FILE_PATTERNS = List.of(FEATURE_FILE, PY_FILE, PLAIN_PY_FILE);
 
     private final Path root;
 
@@ -104,7 +105,7 @@ public final class CaseNodes {
         List<PlanCase> out = new ArrayList<>(rows.size());
         for (PlanCase row : rows) {
             Optional<String> number = numberOf(row.key());
-            Optional<String> node = number.isEmpty() ? Optional.empty() : ownFolderNode(dir, number.get());
+            Optional<String> node = number.isEmpty() ? Optional.empty() : ownFolderFile(dir, number.get()).map(this::posix);
             out.add(node.isPresent() ? new PlanCase(row.key(), row.summary(), node.get()) : row);
         }
         return out;
@@ -146,7 +147,11 @@ public final class CaseNodes {
         return Objects.equals(node, row.node()) ? row : new PlanCase(row.key(), row.summary(), node);
     }
 
-    private Optional<String> ownFolderNode(Path dir, String number) {
+    /**
+     * {@code _in_plan_suite}: {@code dir}'s own file of the case number, first by name, present and not a placeholder.
+     * Shared with {@link LocalSuites}.
+     */
+    static Optional<Path> ownFolderFile(Path dir, String number) {
         if (!Files.isDirectory(dir)) {
             return Optional.empty();
         }
@@ -158,8 +163,7 @@ public final class CaseNodes {
                             || p.getFileName().toString().equals(python))
                     .sorted()
                     .filter(CaseNodes::isRunnable)
-                    .findFirst()
-                    .map(this::posix);
+                    .findFirst();
         } catch (IOException e) {
             return Optional.empty();
         }
@@ -214,7 +218,7 @@ public final class CaseNodes {
 
     /** The case number a test file is for, in any of the three spellings the suites use. */
     static Optional<String> numberOfFile(String name) {
-        for (Pattern pattern : List.of(FEATURE_FILE, PY_FILE, PLAIN_PY_FILE)) {
+        for (Pattern pattern : FILE_PATTERNS) {
             Matcher match = pattern.matcher(name);
             if (match.matches()) {
                 return Optional.of(match.group(1));

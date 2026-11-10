@@ -949,21 +949,7 @@ public final class ConfigForm {
         }
         Requirements requirements = Requirements.forPlans(plans,
                 catalogue.requirements(PlanCatalogue.Mode.CACHE_ONLY).rows());
-        List<String> parts = new ArrayList<>();
-        requirements.baseRules().forEach((key, rule) -> parts.add(key + " " + rule));
-        if (!requirements.commanderConnect().isEmpty()) {
-            parts.add("Commander Connect (" + String.join(", ", requirements.commanderConnect()) + ")");
-        }
-        if (!requirements.simulators().isEmpty()) {
-            parts.add("simulators " + String.join(", ", requirements.simulators()));
-        }
-        if (!requirements.devices().isEmpty()) {
-            parts.add("devices " + String.join(", ", requirements.devices()));
-        }
-        if (!requirements.unlisted().isEmpty()) {
-            parts.add("not on the page: " + String.join(", ", requirements.unlisted()));
-        }
-        return "Needs: " + (parts.isEmpty() ? "nothing beyond the defaults" : String.join("; ", parts));
+        return "Needs: " + requirements.describe();
     }
 
     private List<String> summaryCard(List<String> missing, List<ScopeCase> cases) {
