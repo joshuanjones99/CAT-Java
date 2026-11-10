@@ -168,18 +168,14 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
                         + "Python: petrotest/recovery/plugin.py _no_device_reset");
     }
 
-    @Override
-    public boolean runPreflight() {
-        return preflight();
-    }
-
     /** For a test: preflight's answer without a rig context. */
     LiveRecoveryTarget withPreflight(java.util.function.BooleanSupplier answer) {
         this.preflightOverride = answer;
         return this;
     }
 
-    private boolean preflight() {
+    @Override
+    public boolean runPreflight() {
         if (preflightOverride != null) {
             return preflightOverride.getAsBoolean();
         }
@@ -219,7 +215,7 @@ public final class LiveRecoveryTarget implements RecoveryTarget {
                 LOG.warn("recovery REPROVISION: {}; preflight reads it anyway", e.getMessage());
             }
         }
-        return preflight();
+        return runPreflight();
     }
 
     @Override

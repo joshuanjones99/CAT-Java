@@ -1,6 +1,5 @@
 package com.verifone.cat.provision;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -149,7 +148,7 @@ public final class ShimStamp {
         }
         digest.update(("petrotest-pos-shim build stamp v" + STAMP_VERSION + "\n").getBytes(StandardCharsets.UTF_8));
         for (Input input : inputs(repoRoot, petroapps)) {
-            byte[] data = lfOnly(read(input.path()));
+            byte[] data = Stage.withLineFeeds(read(input.path()));
             digest.update((input.name() + "\0" + data.length + "\0").getBytes(StandardCharsets.UTF_8));
             digest.update(data);
         }
@@ -222,17 +221,5 @@ public final class ShimStamp {
         } catch (IOException e) {
             throw new UncheckedIOException("cannot read " + path + ": " + e.getMessage(), e);
         }
-    }
-
-    /** CRLF read as LF; a lone CR is kept, as Python's {@code replace(b"\r\n", b"\n")} keeps it. */
-    static byte[] lfOnly(byte[] data) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream(data.length);
-        for (int i = 0; i < data.length; i++) {
-            if (data[i] == '\r' && i + 1 < data.length && data[i + 1] == '\n') {
-                continue;
-            }
-            out.write(data[i]);
-        }
-        return out.toByteArray();
     }
 }

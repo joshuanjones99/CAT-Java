@@ -164,6 +164,7 @@ public final class Stage {
         return withLineFeeds(Files.readAllBytes(browserOverrideDir.resolve(name)));
     }
 
+    /** CRLF read as LF; a lone CR is kept, as Python's {@code replace(b"\r\n", b"\n")} keeps it. */
     static byte[] withLineFeeds(byte[] text) {
         byte[] out = new byte[text.length];
         int n = 0;

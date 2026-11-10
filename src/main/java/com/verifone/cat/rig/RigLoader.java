@@ -167,23 +167,20 @@ public final class RigLoader {
     private static String describeFailure(Path file, JsonProcessingException e) {
         String where = pathOf(e);
         String message;
+        Matcher missing = e instanceof MismatchedInputException && e.getOriginalMessage() != null
+                ? MISSING_CREATOR.matcher(e.getOriginalMessage()) : null;
         if (e instanceof UnrecognizedPropertyException u) {
             where = appendField(where, u.getPropertyName());
             message = "unknown field — check the spelling against " + SCHEMA
                     + " (unknown keys are rejected, never ignored)";
-        } else if (e instanceof MismatchedInputException m && m.getOriginalMessage() != null
-                && MISSING_CREATOR.matcher(m.getOriginalMessage()).find()) {
-            Matcher named = MISSING_CREATOR.matcher(m.getOriginalMessage());
-            named.find();
-            where = appendField(where, named.group(1));
+        } else if (missing != null && missing.find()) {
+            where = appendField(where, missing.group(1));
             message = "Field required";
-        } else if (e instanceof InvalidFormatException f) {
-            message = f.getOriginalMessage();
+        } else if (e instanceof InvalidFormatException) {
+            message = e.getOriginalMessage();
         } else if (e.getCause() instanceof IllegalArgumentException cause) {
             // A record's compact constructor said what is wrong, in the words the Python validators use.
             message = cause.getMessage();
-        } else if (e instanceof JsonMappingException m && m.getOriginalMessage() != null) {
-            message = m.getOriginalMessage();
         } else {
             message = e.getOriginalMessage();
         }
