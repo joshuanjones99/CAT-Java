@@ -17,9 +17,9 @@ import com.verifone.cat.runservice.RunView;
 /**
  * The Run tab's Overview panel (docs/web-ui.md, "Run → Overview"; the Python CAT's {@code cat/web/pages/run.py}).
  *
- * <p>Before a run: the Pre-Run read-back of the Config tab's choices ({@code form.describe} and "What this run will
- * start"), Start run, Preflight (check only, a background job with Stop) and the schedule (Schedule run, Clear
- * schedule, Continuous run). During and after it: the counters (Run Time ticking each second), the progress bar,
+ * <p>Before a run: the Run Summary read-back of the Config tab's choices ({@code form.describe} and "What this run
+ * will start") and the schedule (Schedule run, Clear schedule, Continuous run); Start run and Preflight (check only, a
+ * background job with Stop) sit at the right of the page's title row ({@link #controls}), as in the Python CAT. During and after it: the counters (Run Time ticking each second), the progress bar,
  * Pause/Continue, Stop, Validations and New run, a failed step's card, then the board (the cases in plan order with
  * a filter and each case's detail, the current step's card that opens the step dialog, the Simulators and Connections
  * rails); after it, Failures with case labels, Not Run and Run Complete (Skipped and Total included).
@@ -33,6 +33,9 @@ final class RunOverviewPage {
 
     /** The id htmx swaps; every Run action targets it. */
     static final String PANEL_ID = "run-panel";
+
+    /** The id of the controls in the page's title row ({@link #controls}). */
+    static final String CONTROLS_ID = "run-controls";
 
     /** How often a running panel refreshes itself. */
     static final String POLL = RunBoardHtml.POLL;
@@ -72,31 +75,43 @@ final class RunOverviewPage {
 
     // ------------------------------------------------------------------ before a run
 
+    /**
+     * The Run page's controls at the right of its title row, as the Python CAT's {@code run.py} draws them above
+     * the tabs: before a run Start run and Preflight (or the running preflight's Stop); empty once a run has started,
+     * whose head has its own. They live in the topbar, outside the panel, so every panel answer carries them again
+     * as an htmx out-of-band swap ({@code oob}); the full page draws them in place.
+     */
+    static String controls(RunService.View view, RunStart.Plan plan, boolean oob) {
+        StringBuilder out = new StringBuilder("<div id=\"").append(CONTROLS_ID).append("\" class=\"page-actions\"")
+                .append(oob ? " hx-swap-oob=\"true\"" : "").append('>');
+        if (!view.started()) {
+            boolean canTry = plan.startable() || plan.needsFetch();
+            out.append("<button type=\"button\" class=\"run-primary\" hx-post=\"/run/start\" ").append(TARGET)
+                    .append(canTry ? "" : " disabled").append(">Start run</button>");
+            if (view.preflighting()) {
+                out.append("<span class=\"muted\">Preflight is running…</span>")
+                        .append("<button type=\"button\" class=\"run-danger\" hx-post=\"/run/stop\" ").append(TARGET)
+                        .append(">Stop</button>");
+            } else {
+                out.append("<button type=\"button\" hx-post=\"/run/preflight\" ").append(TARGET)
+                        .append(" title=\"Checks the rig and changes nothing\">Preflight (check only)</button>");
+            }
+        }
+        return out.append("</div>").toString();
+    }
+
     private static void preRun(StringBuilder out, RunStart.Plan plan, RunService.View view,
             RunSchedule.View schedule) {
         notices(out, view);
         // The Python shows the counters before a run too: Not started, no run id, zeros.
         counters(out, view, view.state());
-        out.append("<div class=\"card run-card\"><h2>Pre-Run</h2>");
+        out.append("<div class=\"card run-card\"><h2>Run Summary</h2>");
         out.append("<ul class=\"run-summary cat-mono\">");
         for (RunStart.Line line : plan.readBack()) {
             out.append("<li").append(line.warning() ? " class=\"warn\"" : "").append('>').append(esc(line.text()))
                     .append("</li>");
         }
         out.append("</ul>");
-        boolean canTry = plan.startable() || plan.needsFetch();
-        out.append("<div class=\"run-actions\">");
-        out.append("<button type=\"button\" class=\"run-primary\" hx-post=\"/run/start\" ").append(TARGET)
-                .append(canTry ? "" : " disabled").append(">Start run</button>");
-        if (view.preflighting()) {
-            out.append("<span class=\"muted\">Preflight is running…</span>")
-                    .append("<button type=\"button\" class=\"run-danger\" hx-post=\"/run/stop\" ").append(TARGET)
-                    .append(">Stop</button>");
-        } else {
-            out.append("<button type=\"button\" hx-post=\"/run/preflight\" ").append(TARGET)
-                    .append(" title=\"Checks the rig and changes nothing\">Preflight (check only)</button>");
-        }
-        out.append("</div>");
         out.append("<p class=\"muted\">Preflight with repair drives the POS, so it waits for the rig owner's "
                 + "go-ahead; use the check only.</p>");
         if (!view.preflight().isEmpty()) {

@@ -1,0 +1,14 @@
+{
+  "id": "/",
+  "name": "CAT-Java",
+  "short_name": "CAT-Java",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay"],
+  "background_color": "#f1f4f5",
+  "theme_color": "#f1f4f5",
+  "icons": [
+    { "src": "/static/icons/cat-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+  ]
+}

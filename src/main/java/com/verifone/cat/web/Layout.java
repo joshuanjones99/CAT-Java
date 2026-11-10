@@ -4,6 +4,7 @@ import static com.verifone.cat.web.Html.esc;
 
 import java.util.Map;
 
+import com.verifone.cat.desktop.WindowIcon;
 import com.verifone.cat.shell.Shell;
 
 /**
@@ -22,6 +23,13 @@ import com.verifone.cat.shell.Shell;
  * as original, user-approved CAT assets, not Verifone logos. The expanded sidebar shows the Python's wide
  * {@code cat-commander-logo.png} (the user's supplied "commander dots" with the CAT lettermark; copied at the rig
  * owner's request, 2026-11-09) and the icon rail shows the monogram, as the Python's {@code layout.py}.
+ *
+ * <p>CAT's window with no title bar ({@code desktop.AppWindow}): every page links the web app manifest, which asks
+ * for the Window Controls Overlay, and starts with the {@code window-drag} strip, the top of the window it drags
+ * from. Outside an installed CAT window the strip is hidden and the page is as before. The theme colour is the
+ * colour the browser paints behind its window buttons: {@code cat.js} adds it as a {@code theme-color} meta from the
+ * workspace token of the theme showing (colours live only in {@code cat.css}); the manifest's light one is only the
+ * first paint's.
  *
  * <p>The sidebar collapses to an icon rail and remembers that choice; on narrow screens a menu button opens it as a
  * drawer. Both are done by {@code /static/cat.js}, and the page works without it: the links are always there.
@@ -76,7 +84,15 @@ final class Layout {
      * @param body    the page's HTML, already escaped by the page that built it
      */
     static String page(Section active, String heading, String body) {
-        return render(active, heading, body, false);
+        return render(active, heading, "", body, false);
+    }
+
+    /**
+     * As {@link #page}, with {@code actions} (already escaped) at the right of the title row, after the setup
+     * warning: the Run page's Start run and Preflight, as the Python CAT's {@code run.py}.
+     */
+    static String page(Section active, String heading, String actions, String body) {
+        return render(active, heading, actions, body, false);
     }
 
     /**
@@ -85,10 +101,10 @@ final class Layout {
      * shows on a narrow window, where the sidebar is a drawer.
      */
     static String screen(Section active, String heading, String body) {
-        return render(active, heading, body, true);
+        return render(active, heading, "", body, true);
     }
 
-    private static String render(Section active, String heading, String body, boolean bare) {
+    private static String render(Section active, String heading, String actions, String body, boolean bare) {
         Shell shell = SHELL.get();
         String setupStatus = shell == null ? "" : shell.setupStatus();
         StringBuilder top = new StringBuilder();
@@ -109,9 +125,10 @@ final class Layout {
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1">
                   <meta name="color-scheme" content="light dark">
-                  <title>%1$s · CAT-Java</title>
+                  <title>%1$s%11$s</title>
                   <link rel="icon" href="/static/icons/cat.ico" sizes="any">
                   <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+                  <link rel="manifest" href="/static/manifest.json">
                   <link rel="preload" href="/static/fonts/SourceSans3-Variable.ttf" as="font" type="font/ttf" crossorigin>
                   <link rel="preload" href="/static/fonts/BarlowSemiCondensed-SemiBold.ttf" as="font" type="font/ttf" crossorigin>
                   <link rel="stylesheet" href="/static/cat.css">
@@ -119,6 +136,7 @@ final class Layout {
                   <script src="/static/cat.js" defer></script>
                 </head>
                 <body class="app%10$s" data-shell="%6$s" data-since="%7$d">
+                  <div class="window-drag" aria-hidden="true"></div>
                   <a class="skip" href="#main">Skip to content</a>
                   <aside class="sidebar">
                     <div class="brand">
@@ -152,8 +170,8 @@ final class Layout {
                   <div id="cat-toasts" class="toasts" aria-live="polite"></div>
                 </body>
                 </html>
-                """.formatted(esc(heading), top, bottom, warning, body, shell == null ? "off" : "on", since,
-                loading.isEmpty() ? " hidden" : "", esc(loading), bare ? " bare" : "");
+                """.formatted(esc(heading), top, bottom, warning + actions, body, shell == null ? "off" : "on", since,
+                loading.isEmpty() ? " hidden" : "", esc(loading), bare ? " bare" : "", esc(WindowIcon.TITLE_SUFFIX));
     }
 
     private static void navLink(StringBuilder nav, Section s, boolean current, String setupStatus) {

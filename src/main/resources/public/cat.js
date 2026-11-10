@@ -71,14 +71,95 @@
     }
   }
 
+  // The colour the browser paints behind its window buttons in CAT's window with no title bar: the workspace's, read
+  // from cat.css's token so the buttons sit on the page's own colour in either theme.
+  function syncThemeColor() {
+    var colour = window.getComputedStyle(document.documentElement).getPropertyValue("--cat-page").trim();
+    if (!colour) {
+      return;
+    }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    meta.content = colour;
+  }
+
   applyTheme(readAppearance());
+  syncThemeColor();
+  if (window.matchMedia) {
+    var scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    if (scheme.addEventListener) {
+      scheme.addEventListener("change", syncThemeColor);
+    }
+  }
 
   // The radio applies at once; the form's post saves it and sets the cookie for the next page.
   document.addEventListener("change", function (event) {
     var target = event.target;
     if (target && target.name === "appearance") {
       applyTheme(target.value);
+      syncThemeColor();
     }
+  });
+})();
+
+// Hide the title bar (Settings, Opening CAT; desktop.AppWindow): CAT's window loses its title bar once CAT is
+// installed as an app in CAT's own browser profile. Edge offers that with beforeinstallprompt; this keeps the offer
+// and shows the button, but only in CAT's own window (display-mode standalone), never in a browser tab, where it
+// would install CAT into the operator's own browser profile. The button shows Edge's Install dialog; on Install, Edge
+// reopens the window as the app, and CAT opens it that way from then on.
+(function () {
+  "use strict";
+  var offer = null;
+
+  function inCatsWindow() {
+    return !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  }
+
+  function say(text) {
+    var line = document.getElementById("cat-install-result");
+    if (line) {
+      line.textContent = text;
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    if (!inCatsWindow()) {
+      return;
+    }
+    offer = event;
+    var button = document.getElementById("cat-install-window");
+    if (button) {
+      button.hidden = false;
+    }
+  });
+
+  window.addEventListener("appinstalled", function () {
+    var button = document.getElementById("cat-install-window");
+    if (button) {
+      button.hidden = true;
+    }
+    say("Installed: CAT's window has no title bar from now on.");
+  });
+
+  document.addEventListener("click", function (event) {
+    var control = event.target.closest ? event.target.closest('[data-action="install-window"]') : null;
+    if (!control || !offer) {
+      return;
+    }
+    var shown = offer;
+    offer = null;
+    shown.prompt();
+    shown.userChoice.then(function (choice) {
+      if (choice.outcome !== "accepted") {
+        say("Not installed. Open this page again to be offered it once more.");
+        control.hidden = true;
+      }
+    });
   });
 })();
 

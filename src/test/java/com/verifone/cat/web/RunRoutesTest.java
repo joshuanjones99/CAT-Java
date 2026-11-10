@@ -80,7 +80,19 @@ class RunRoutesTest {
 
         assertTrue(page.contains("Start run"), page);
         assertTrue(page.contains("Preflight (check only)"), page);
-        assertTrue(page.contains("Pre-Run"), page);
+        assertTrue(page.contains("<h2>Run Summary</h2>"), page);
+        assertFalse(page.contains("Pre-Run"), page);
+        // Start run and Preflight sit at the right of the title row, outside the panel, as in the Python CAT.
+        String topbar = page.substring(page.indexOf("<header class=\"topbar\">"), page.indexOf("</header>"));
+        assertTrue(topbar.contains("id=\"run-controls\""), topbar);
+        assertTrue(topbar.contains("Start run") && topbar.contains("Preflight (check only)"), topbar);
+        assertFalse(topbar.contains("hx-swap-oob"), topbar);
+        String panel = page.substring(page.indexOf("<section id=\"run-panel\""));
+        assertFalse(panel.substring(0, panel.indexOf("</section>")).contains("Start run"), panel);
+        // Every panel answer redraws them out of band.
+        String fragment = get("/fragments/run").body();
+        assertTrue(fragment.contains("<div id=\"run-controls\" class=\"page-actions\" hx-swap-oob=\"true\">"),
+                fragment);
         assertTrue(page.contains("Schedule run"), page);
         assertTrue(page.contains("Continuous run"), page);
         assertFalse(page.contains("Not built yet: Schedule"), page);
@@ -140,7 +152,9 @@ class RunRoutesTest {
         engine.release();
         FakeRunEngine.awaitIdle(run);
         assertFalse(get("/fragments/run").body().contains("every 2s"));
-        assertTrue(post("/run/new", true).body().contains("Pre-Run"));
+        String fresh = post("/run/new", true).body();
+        assertTrue(fresh.contains("Run Summary"), fresh);
+        assertTrue(fresh.contains("hx-swap-oob=\"true\"><button type=\"button\" class=\"run-primary\""), fresh);
     }
 
     @Test
