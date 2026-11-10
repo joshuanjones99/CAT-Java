@@ -599,6 +599,9 @@ main > .card + .card { margin-top: var(--cat-section-gap); }
 
 .tabs a:hover { color: var(--cat-ink); background: var(--cat-hover); }
 .tabs a[aria-current="page"] { color: var(--cat-blue); border-bottom-color: var(--cat-blue); }
+/* A tab's icon before its word (the Python's inline-label tabs); also in the run view's tabs. */
+.tabs a, .run-tabs a { gap: 8px; }
+.tab-icon { flex: 0 0 auto; width: 20px; height: 20px; }
 
 /* Status tags: always a word, never colour alone. */
 .badge {
@@ -738,12 +741,16 @@ pre.log {
   background: var(--cat-warn-soft); color: var(--cat-warn-text); font-weight: 600; }
 .run-summary { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 14px; line-height: 1.65; }
 .run-summary li.warn { color: var(--cat-warn-text); }
-.run-counters { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: flex-end; padding: 20px 24px;
+.run-counters { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: flex-start; padding: 20px 24px;
   background: var(--cat-surface); border: 1px solid var(--cat-line); border-radius: var(--cat-radius); }
 .card .run-counters { padding: 0; border: 0; }
 .run-metric { display: grid; gap: 5px; min-width: 0; border: 0; padding: 0; }
 .run-metric-label { color: var(--cat-muted); font-size: 13px; }
 .run-metric-value { font: 600 28px/1.2 var(--cat-font-heading); overflow-wrap: anywhere; }
+/* The plan names take the strip's spare width, pushing the counts right, as the Python's cat-plan-metric. */
+.run-metric.plan { flex: 1 1 230px; }
+.run-metric.plan .run-metric-value { font-size: 23px; }
+.run-metric-value.mono { font: 600 18px/1.55 var(--cat-font-mono); }
 .run-progress { width: 100%; height: 8px; }
 .run-preflight { white-space: pre-wrap; font-family: var(--cat-font-mono); font-size: 13px; line-height: 1.65; margin: 0;
   padding: 14px 16px; border-radius: var(--cat-radius-control); background: var(--cat-line-2); }
@@ -759,6 +766,13 @@ pre.log {
   font-family: var(--cat-font-mono); font-size: 13px; line-height: 1.65; }
 .run-board-note { padding: 0 18px 12px; margin: 0; font-size: 13px; }
 @media (max-width: 640px) { .run-counters { gap: 16px 20px; padding: 16px; } .run-metric-value { font-size: 24px; } }
+/* Phones: the Python's three-column strip, the plan names on their own row first and Status two columns wide. */
+@media (max-width: 599px) {
+  .run-counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .run-metric.plan { grid-column: 1 / -1; order: -1; }
+  .run-metric:first-child { grid-column: span 2; }
+  .run-metric-label { font-size: 12px; }
+}
 
 /* ------------------------------------------------------------------ Launch Simulators */
 

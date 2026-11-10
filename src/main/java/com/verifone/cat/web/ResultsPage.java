@@ -118,7 +118,7 @@ final class ResultsPage {
         return "<a href=\"" + target + "\""
                 + (active ? " class=\"active\" aria-current=\"page\"" : "")
                 + " hx-get=\"" + target + "\" hx-target=\"#results\" hx-swap=\"outerHTML\">"
-                + esc(label) + "</a>";
+                + Html.tabIcon(name) + esc(label) + "</a>";
     }
 
     /** The runs of one segment whose plan, rig, result, date or run id match the filter. */

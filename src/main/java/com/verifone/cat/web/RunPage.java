@@ -31,7 +31,8 @@ final class RunPage {
         for (Tab t : Tab.values()) {
             out.append("<a href=\"").append(esc(t.path)).append('"')
                     .append(t == active ? " aria-current=\"page\"" : "")
-                    .append('>').append(esc(t.label)).append("</a>");
+                    .append('>').append(Html.tabIcon(t.name().toLowerCase(java.util.Locale.ROOT)))
+                    .append(esc(t.label)).append("</a>");
         }
         out.append("</nav>");
         // The board's and the Log's styles and script, and the element the run's dialogs open in.

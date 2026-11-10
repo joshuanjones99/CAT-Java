@@ -136,7 +136,8 @@ final class ResultsRunPage {
         for (String[] each : new String[][] {{"overview", "Overview"}, {"validations", "Validations"},
                 {"log", "Log"}}) {
             out.append("<a href=\"").append(base).append("?tab=").append(each[0]).append('"')
-                    .append(each[0].equals(tab) ? " aria-current=\"page\"" : "").append('>').append(each[1])
+                    .append(each[0].equals(tab) ? " aria-current=\"page\"" : "").append('>')
+                    .append(Html.tabIcon(each[0])).append(each[1])
                     .append("</a>");
         }
         out.append("</nav>");

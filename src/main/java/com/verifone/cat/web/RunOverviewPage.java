@@ -75,6 +75,8 @@ final class RunOverviewPage {
     private static void preRun(StringBuilder out, RunStart.Plan plan, RunService.View view,
             RunSchedule.View schedule) {
         notices(out, view);
+        // The Python shows the counters before a run too: Not started, no run id, zeros.
+        counters(out, view, view.state());
         out.append("<div class=\"card run-card\"><h2>Pre-Run</h2>");
         out.append("<ul class=\"run-summary cat-mono\">");
         for (RunStart.Line line : plan.readBack()) {
@@ -234,7 +236,9 @@ final class RunOverviewPage {
     }
 
     private static void metric(StringBuilder out, String label, String html, String extraClass) {
-        out.append("<div class=\"run-metric\"><div class=\"run-metric-label\">").append(esc(label))
+        // The plan names take the strip's spare width, as the Python's cat-plan-metric.
+        out.append("<div class=\"run-metric").append("Test Plan(s)".equals(label) ? " plan" : "")
+                .append("\"><div class=\"run-metric-label\">").append(esc(label))
                 .append("</div><div class=\"run-metric-value")
                 .append(extraClass.isEmpty() ? "" : " " + extraClass).append("\">")
                 .append(html).append("</div></div>");
