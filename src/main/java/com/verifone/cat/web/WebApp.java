@@ -266,7 +266,7 @@ public final class WebApp {
 
         String title = parts.title;
         String cdpUrl = parts.cdpUrl;
-        app.get("/pos", ctx -> ctx.html(Layout.page(Section.POS, "POS", PosPage.body(title, cdpUrl))));
+        app.get("/pos", ctx -> ctx.html(Layout.screen(Section.POS, "POS", PosPage.body(title, cdpUrl))));
         PosScreenRoutes.register(app, cdpUrl);
         return app;
     }

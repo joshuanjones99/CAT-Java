@@ -76,6 +76,19 @@ final class Layout {
      * @param body    the page's HTML, already escaped by the page that built it
      */
     static String page(Section active, String heading, String body) {
+        return render(active, heading, body, false);
+    }
+
+    /**
+     * As {@link #page}, for a page that is one big picture (the POS screen): the heading names the tab and is read
+     * to screen readers but not shown, and the page body fills the content area edge to edge. The menu button still
+     * shows on a narrow window, where the sidebar is a drawer.
+     */
+    static String screen(Section active, String heading, String body) {
+        return render(active, heading, body, true);
+    }
+
+    private static String render(Section active, String heading, String body, boolean bare) {
         Shell shell = SHELL.get();
         String setupStatus = shell == null ? "" : shell.setupStatus();
         StringBuilder top = new StringBuilder();
@@ -105,7 +118,7 @@ final class Layout {
                   <script src="/static/htmx.min.js"></script>
                   <script src="/static/cat.js" defer></script>
                 </head>
-                <body class="app" data-shell="%6$s" data-since="%7$d">
+                <body class="app%10$s" data-shell="%6$s" data-since="%7$d">
                   <a class="skip" href="#main">Skip to content</a>
                   <aside class="sidebar">
                     <div class="brand">
@@ -140,7 +153,7 @@ final class Layout {
                 </body>
                 </html>
                 """.formatted(esc(heading), top, bottom, warning, body, shell == null ? "off" : "on", since,
-                loading.isEmpty() ? " hidden" : "", esc(loading));
+                loading.isEmpty() ? " hidden" : "", esc(loading), bare ? " bare" : "");
     }
 
     private static void navLink(StringBuilder nav, Section s, boolean current, String setupStatus) {

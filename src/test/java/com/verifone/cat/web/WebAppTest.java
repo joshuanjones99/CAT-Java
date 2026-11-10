@@ -69,8 +69,10 @@ class WebAppTest {
         assertTrue(page.contains("<canvas id=\"pos-screen\""), page);
         assertTrue(page.contains("data-socket=\"" + PosScreenRoutes.PATH + "\""), page);
         assertTrue(page.contains("/static/pos-screen.js"), page);
-        assertTrue(page.contains("http://register.invalid:19220"), page);
-        assertTrue(page.contains("CAT-Java: test / topaz101"), page);
+        // One big picture: the bare layout, with no description and no card around it.
+        assertTrue(page.contains("<body class=\"app bare\""), page);
+        assertFalse(page.contains("CAT-Java: test / topaz101"), page);
+        assertFalse(page.contains("class=\"card"), page);
         assertFalse(page.contains("/fragments/health"), page);
         assertFalse(page.contains("/fragments/keys"), page);
         assertEquals(200, get("/static/pos-screen.js").statusCode());
@@ -149,11 +151,13 @@ class WebAppTest {
                 page.navigate("http://" + WebApp.BIND_HOST + ":" + app.port() + "/pos");
                 page.waitForSelector("#pos-screen.live");
                 page.waitForFunction("() => document.querySelector('#pos-screen-status').textContent === 'Live'");
-                assertTrue(page.textContent("#pos-screen-page").contains("screen test"));
+                assertFalse(page.isVisible("#pos-screen-status"), "the status hides once the screen is live");
+                assertFalse(page.isVisible("h1"), "no heading over the picture");
+                assertTrue(page.getAttribute("#pos-screen", "title").contains("screen test"));
 
                 Page register = chromium.page();
                 double[] viewport = {register.viewportSize().width, register.viewportSize().height};
-                BoundingBox canvas = page.locator("#pos-screen").boundingBox();
+                BoundingBox canvas = picture(page);
                 BoundingBox button = register.locator("#press").boundingBox();
                 page.mouse().click(onCanvas(canvas, viewport, button, true), onCanvas(canvas, viewport, button, false));
                 register.waitForFunction("() => document.querySelector('#press').dataset.n === '1'");
@@ -164,6 +168,31 @@ class WebAppTest {
                 register.waitForFunction("() => document.querySelector('#typed').value === 'ab'");
             }
         }
+    }
+
+    /**
+     * The box the picture is drawn in: the canvas fills the page and the picture is contained in it, so the picture
+     * is the canvas's box narrowed to the frame's aspect and centred. Also checks the picture is big: it fills the
+     * content area in one direction.
+     */
+    private static BoundingBox picture(Page page) {
+        BoundingBox box = page.locator("#pos-screen").boundingBox();
+        Object size = page.evaluate("() => [document.querySelector('#pos-screen').width,"
+                + " document.querySelector('#pos-screen').height]");
+        java.util.List<?> wh = (java.util.List<?>) size;
+        double w = ((Number) wh.get(0)).doubleValue();
+        double h = ((Number) wh.get(1)).doubleValue();
+        double scale = Math.min(box.width / w, box.height / h);
+        BoundingBox picture = new BoundingBox();
+        picture.width = w * scale;
+        picture.height = h * scale;
+        picture.x = box.x + (box.width - picture.width) / 2;
+        picture.y = box.y + (box.height - picture.height) / 2;
+        BoundingBox main = page.locator("main").boundingBox();
+        assertTrue(picture.width > main.width * 0.9 || picture.height > main.height * 0.9,
+                "the picture fills the area one way: " + picture.width + "x" + picture.height + " in "
+                        + main.width + "x" + main.height);
+        return picture;
     }
 
     /** Where on the operator's canvas the centre of a box on the register's page is drawn. */

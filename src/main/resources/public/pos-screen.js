@@ -6,7 +6,6 @@
   var canvas = document.getElementById('pos-screen');
   if (!canvas) return;
   var status = document.getElementById('pos-screen-status');
-  var pageLine = document.getElementById('pos-screen-page');
   var g = canvas.getContext('2d');
   var RETRY_MS = 3000;
   var KEEP_ALIVE_MS = 10000;
@@ -57,8 +56,8 @@
       latest = m;
       if (!decoding) drawNext();
     } else if (m.type === 'attached') {
-      say('Live', 'ok');
-      pageLine.textContent = [m.title, m.url].filter(Boolean).join(' — ');
+      say('Live', 'ok'); // hidden: the picture speaks for itself
+      canvas.title = [m.title, m.url].filter(Boolean).join(' — ');
     } else if (m.type === 'error' || m.type === 'closed') {
       told = true;
       say(m.text + ' Trying again in ' + (RETRY_MS / 1000) + ' s…', 'warn');
@@ -91,11 +90,21 @@
     if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   }
 
+  // The canvas fills the page and the picture is contained in it (object-fit), so a point is mapped through the
+  // picture's own box: inside is true when it falls on the picture rather than the margin beside it.
   function at(e) {
     var r = canvas.getBoundingClientRect();
+    var scale = Math.min(r.width / canvas.width, r.height / canvas.height) || 1;
+    var w = canvas.width * scale;
+    var h = canvas.height * scale;
+    var left = r.left + (r.width - w) / 2;
+    var top = r.top + (r.height - h) / 2;
+    var fx = (e.clientX - left) / w;
+    var fy = (e.clientY - top) / h;
     return {
-      x: r.width ? (e.clientX - r.left) / r.width * view.w : 0,
-      y: r.height ? (e.clientY - r.top) / r.height * view.h : 0,
+      x: Math.min(Math.max(fx, 0), 1) * view.w,
+      y: Math.min(Math.max(fy, 0), 1) * view.h,
+      inside: fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1,
     };
   }
 
@@ -111,9 +120,13 @@
            clickCount: clickCount, modifiers: modifiers(e) });
   }
 
+  var pressing = false; // a press that began on the picture: only its moves and release are sent
+
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
     canvas.focus();
+    if (!view.w || !at(e).inside) return;
+    pressing = true;
     canvas.setPointerCapture(e.pointerId);
     var near = Math.abs(e.clientX - lastPress.x) < 5 && Math.abs(e.clientY - lastPress.y) < 5;
     var count = near && e.timeStamp - lastPress.at < 500 ? lastPress.count + 1 : 1;
@@ -123,12 +136,14 @@
 
   canvas.addEventListener('pointerup', function (e) {
     e.preventDefault();
+    if (!pressing) return;
+    pressing = false;
     mouse('mouseReleased', e, BUTTON_NAMES[e.button] || 'left', lastPress.count);
   });
 
-  // Moves go only while a button is down (a drag, a swipe), one per animation frame.
+  // Moves go only while a press is held (a drag, a swipe), one per animation frame.
   canvas.addEventListener('pointermove', function (e) {
-    if (!e.buttons) return;
+    if (!pressing || !e.buttons) return;
     var first = pendingMove === null;
     pendingMove = e;
     if (first) {
@@ -144,9 +159,9 @@
 
   canvas.addEventListener('wheel', function (e) {
     e.preventDefault();
-    if (!view.w) return;
-    var scale = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
     var p = at(e);
+    if (!view.w || !p.inside) return;
+    var scale = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
     send({ t: 'wheel', x: p.x, y: p.y, deltaX: e.deltaX * scale, deltaY: e.deltaY * scale, modifiers: modifiers(e) });
   }, { passive: false });
 
