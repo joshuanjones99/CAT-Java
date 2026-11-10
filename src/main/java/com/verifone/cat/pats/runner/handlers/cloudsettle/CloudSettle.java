@@ -39,6 +39,8 @@ public final class CloudSettle {
     private static final Pattern RECEIVED =
             Pattern.compile("Received config update for the dataset - (\\S+) from cloud");
     private static final Pattern APPLIED = Pattern.compile("Successfully applied the (\\S+) config update");
+    /** The log is split afresh on every poll, so its line-end pattern is compiled once. */
+    private static final Pattern LINE_END = Pattern.compile("\r\n|\n|\r");
 
     /** The datasets a log text shows received, and those not yet applied after it. */
     public record Pending(Set<String> received, Set<String> waiting) {
@@ -70,7 +72,7 @@ public final class CloudSettle {
     public static Pending pending(String text) {
         Set<String> received = new TreeSet<>();
         Set<String> waiting = new TreeSet<>();
-        for (String line : text.split("\r\n|\n|\r", -1)) {
+        for (String line : LINE_END.split(text, -1)) {
             Matcher found = RECEIVED.matcher(line);
             if (found.find()) {
                 received.add(found.group(1));

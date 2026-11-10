@@ -1,13 +1,13 @@
 package com.verifone.cat.pats.feature;
 
 import com.verifone.cat.pats.Elements;
+import com.verifone.cat.pats.ScenarioParser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.verifone.cat.core.Json;
 import com.verifone.cat.validate.PyRepr;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,14 +23,6 @@ import java.util.regex.Pattern;
  * {@code _prompts_text} and {@code _prompts_field}. UNVERIFIED AGAINST HARDWARE.
  */
 final class PromptRows {
-
-    /** The columns of one row, in the order the JSON writes them (Python's {@code PROMPT_COLUMNS}). */
-    static final List<String> COLUMNS = List.of(
-            "promptWebElement",
-            "promptText",
-            "promptElementLocatorType",
-            "touchActionLocatorType",
-            "touchActionWebElements");
 
     private static final Pattern PROMPT_SEPARATOR = Pattern.compile(Pattern.quote(" + "));
 
@@ -109,55 +101,12 @@ final class PromptRows {
     }
 
     /**
-     * The rows as the {@code PROMPTS} JSON array: each row's columns in {@link #COLUMNS} order and trimmed, the touch
-     * list with no spaces after its commas and no empty entries.
+     * The rows as the {@code PROMPTS} JSON array: each row's columns in {@link ScenarioParser#PROMPT_COLUMNS} order
+     * and trimmed, the touch list with no spaces after its commas and no empty entries. The one writer a
+     * {@code .scenario} and a {@code .feature} share.
      */
     static String json(List<Map<String, String>> rows) {
-        List<String> objects = new ArrayList<>();
-        for (Map<String, String> row : rows) {
-            List<String> members = new ArrayList<>();
-            for (String column : COLUMNS) {
-                String value = row.get(column);
-                if (value == null) {
-                    throw new IllegalArgumentException("VALIDATE_DYNAMIC_PROMPTS: a row with no " + column);
-                }
-                value = value.strip();
-                if (column.equals("touchActionWebElements")) {
-                    value = Arrays.stream(value.split(","))
-                            .map(String::strip)
-                            .filter(part -> !part.isEmpty())
-                            .reduce((a, b) -> a + "," + b)
-                            .orElse("");
-                }
-                members.add(jsonString(column) + ":" + jsonString(value));
-            }
-            objects.add("{" + String.join(",", members) + "}");
-        }
-        return "[" + String.join(",", objects) + "]";
-    }
-
-    /** A JSON string as Python's {@code json.dumps} writes it: ASCII only, control characters escaped. */
-    static String jsonString(String text) {
-        StringBuilder out = new StringBuilder("\"");
-        for (char c : text.toCharArray()) {
-            switch (c) {
-                case '"' -> out.append("\\\"");
-                case '\\' -> out.append("\\\\");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                case '\b' -> out.append("\\b");
-                case '\f' -> out.append("\\f");
-                default -> {
-                    if (c < 0x20 || c > 0x7e) {
-                        out.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        out.append(c);
-                    }
-                }
-            }
-        }
-        return out.append('"').toString();
+        return ScenarioParser.dynamicPromptsField(rows);
     }
 
     private static String required(JsonNode row, String key) {

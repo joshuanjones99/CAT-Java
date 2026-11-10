@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -291,7 +292,12 @@ final class ValidationSupport {
                 if (kinds.contains(kind) && j - i > 1) {
                     List<Element> run = new ArrayList<>(children.subList(i, j));
                     Element after = j < children.size() ? children.get(j) : null;
-                    Comparator<Element> order = Comparator.comparing(key)
+                    // Each key once, not once per comparison: an entry's key is a clone serialised.
+                    Map<Element, String> keys = new IdentityHashMap<>();
+                    for (Element member : run) {
+                        keys.put(member, key.apply(member));
+                    }
+                    Comparator<Element> order = Comparator.<Element, String>comparing(keys::get)
                             .thenComparing(ValidationSupport::serialise);
                     run.sort(order);
                     for (Element member : children.subList(i, j)) {
